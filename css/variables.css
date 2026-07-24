@@ -1,0 +1,34 @@
+/* ============================
+   FARO v4
+   variables.css — Design tokens (marca Lucciano's)
+=============================*/
+
+:root{
+    --bg:#faf7f0;
+    --card:#ffffff;
+    --gold:#c2a065;
+    --gold-deep:#96793e;
+    --black:#111111;
+    --line:#e8e8e5;
+    --text:#262626;
+    --muted:#777777;
+    --success:#1e7e34;
+    --danger:#b3261e;
+    --warning:#7a5b00;
+    --radius:18px;
+    --radius-sm:12px;
+    --shadow:0 10px 30px rgba(0,0,0,.06);
+    --gold-soft:#f5ecd8;
+    --transition:.18s ease;
+    --shadow-hover:0 16px 40px rgba(0,0,0,.10);
+
+    /* Acento "de módulo" — por defecto es el dorado de marca de siempre.
+       Cada curso con video propio (ver .tema-* en components.css) pisa
+       estas 4 variables dentro de su página de detalle, así todas las
+       tarjetas/badges/callouts de esa página adoptan la paleta real del
+       local sin tener que duplicar reglas por módulo. */
+    --tema-accent:var(--gold);
+    --tema-accent-soft:var(--gold-soft);
+    --tema-accent-deep:var(--gold-deep);
+    --tema-oscuro:var(--black);
+}

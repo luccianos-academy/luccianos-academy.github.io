@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "faro-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8183", "--directory", "/private/tmp/claude-501/-Users-gabrielbusquets/cbd3f923-3d43-4d9b-a911-48fd6db7fca9/scratchpad/faro-v4-preview"],
+      "port": 8183
+    }
+  ]
+}

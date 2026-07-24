@@ -1,0 +1,2715 @@
+/* ============================
+   FARO v4
+   components.css — Componentes
+=============================*/
+
+/* MENU SIDEBAR */
+
+.menu{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:none;
+    background:transparent;
+    color:#ddd;
+    text-align:left;
+    padding:12px 14px;
+    border-radius:var(--radius-sm);
+    font-size:15px;
+    margin-bottom:6px;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.menu .icon{
+    flex-shrink:0;
+    opacity:.85;
+}
+
+.menu:hover{
+    background:#222;
+    color:#fff;
+}
+
+.menu.active{
+    background:#222;
+    color:#fff;
+}
+
+/* Item del sidebar con novedad (ver hayNoticiaReciente en sidebar.js)
+   — un brillo dorado sutil que llama la atención sin ser un cartel
+   parpadeante. Respeta prefers-reduced-motion (queda el borde dorado
+   fijo, sin la animación). */
+.menu-brillo{
+    box-shadow:0 0 0 1px rgba(201,162,90,.35);
+    animation:menu-brillo-pulso 2.4s ease-in-out infinite;
+}
+
+@keyframes menu-brillo-pulso{
+    0%, 100%{ box-shadow:0 0 0 1px rgba(201,162,90,.35); }
+    50%{ box-shadow:0 0 12px 1px rgba(201,162,90,.55); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .menu-brillo{ animation:none; }
+}
+
+.badge-new{
+    margin-left:auto;
+    background:var(--gold);
+    color:#1a1a1a;
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.5px;
+    padding:2px 7px;
+    border-radius:20px;
+    flex-shrink:0;
+}
+
+/* CARDS GENERICAS */
+
+.card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+    box-shadow:var(--shadow);
+    transition:var(--transition);
+}
+
+.cards{
+    margin-top:25px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+    gap:18px;
+}
+
+/* "Ver más" de una noticia (ver pages/noticias.js) — solo aparece si
+   la noticia trae "detalle" cargado, así que no hace falta un botón
+   propio, el <summary> nativo ya da el toggle sin JS. */
+.noticia-detalle{
+    margin-top:10px;
+}
+
+.noticia-detalle summary{
+    cursor:pointer;
+    font-size:13px;
+    font-weight:700;
+    color:var(--tema-accent-deep, var(--gold));
+    list-style:none;
+}
+
+.noticia-detalle summary::-webkit-details-marker{
+    display:none;
+}
+
+.noticia-detalle summary::after{
+    content:'▾';
+    margin-left:6px;
+    display:inline-block;
+    transition:transform .15s ease;
+}
+
+.noticia-detalle[open] summary::after{
+    transform:rotate(180deg);
+}
+
+.cards .card h3{
+    font-size:13px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    font-weight:600;
+}
+
+.cards .card span{
+    display:block;
+    margin-top:14px;
+    font-size:34px;
+    color:var(--gold);
+    font-weight:800;
+}
+
+.grid-2-1{
+    display:grid;
+    grid-template-columns:2fr 1fr;
+    gap:20px;
+}
+
+/* KPI / STAT */
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:16px;
+    margin-top:22px;
+}
+
+.stat{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:18px;
+    text-align:center;
+    transition:var(--transition);
+}
+
+.stat:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+}
+
+.stat b{
+    font-size:30px;
+    color:var(--gold);
+    display:block;
+}
+
+.stat span{
+    font-size:13px;
+    color:var(--muted);
+}
+
+/* BOTONES */
+
+.btn{
+    border:none;
+    padding:12px 20px;
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    font-size:14px;
+    font-weight:700;
+    transition:var(--transition);
+    display:inline-block;
+}
+
+.btn-primary{
+    background:var(--gold);
+    color:#fff;
+}
+
+.btn:disabled{
+    opacity:.45;
+    cursor:not-allowed;
+}
+
+.btn-primary:hover{
+    background:#a07d2f;
+}
+
+.btn-secondary{
+    background:#e2e8f0;
+    color:var(--text);
+}
+
+.btn-secondary:hover{
+    background:#cbd5e1;
+}
+
+/* COURSE CARD + PROGRESS BAR */
+
+.course{
+    display:block;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    transition:var(--transition);
+}
+
+.course:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+}
+
+.course-media{
+    height:120px;
+    overflow:hidden;
+}
+
+.course-media img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+
+.course-media-generico{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg, var(--black) 0%, #2b2416 100%);
+    color:var(--gold);
+}
+
+.course-body{
+    padding:16px 18px 18px;
+}
+
+.course h3{
+    margin-bottom:6px;
+    font-size:16px;
+}
+
+.course .small{
+    font-size:13px;
+    color:var(--muted);
+}
+
+.bar{
+    height:8px;
+    background:#ececec;
+    border-radius:8px;
+    margin:12px 0;
+    overflow:hidden;
+}
+
+.bar i,
+.bar span{
+    display:block;
+    height:100%;
+    background:var(--gold);
+    border-radius:8px;
+}
+
+/* LISTA TIPO "ITEM" */
+
+.list .item{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 0;
+    border-bottom:1px solid var(--line);
+}
+
+.list .item:last-child{
+    border-bottom:none;
+}
+
+/* SECCIONES */
+
+.section{
+    margin-top:30px;
+}
+
+.section h2{
+    margin-bottom:16px;
+    font-size:20px;
+}
+
+/* PLACEHOLDER MODULOS EN CONSTRUCCION */
+
+.placeholder{
+    margin-top:25px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:60px 40px;
+    text-align:center;
+    box-shadow:var(--shadow);
+    color:var(--muted);
+}
+
+.placeholder strong{
+    display:block;
+    font-size:20px;
+    color:var(--text);
+    margin-bottom:10px;
+}
+
+/* MASCOTA DE CARGA — ver components/mascotaCarga.js */
+
+.mascota-carga{
+    margin-top:90px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+    color:var(--muted);
+    font-size:15px;
+}
+
+.mascota-carga video{
+    width:180px;
+    height:180px;
+    border-radius:50%;
+    object-fit:cover;
+    box-shadow:0 16px 40px rgba(194,160,101,.35);
+}
+
+/* MODAL */
+
+.modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(17,17,17,.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:1000;
+}
+
+.modal{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:35px;
+    width:100%;
+    max-width:480px;
+    max-height:85vh;
+    overflow-y:auto;
+    box-shadow:0 20px 60px rgba(0,0,0,.25);
+}
+
+.modal-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.modal-header h2{
+    font-size:22px;
+}
+
+.modal-close{
+    border:none;
+    background:transparent;
+    font-size:20px;
+    cursor:pointer;
+    color:var(--muted);
+}
+
+.modal-body label{
+    display:block;
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:6px;
+    margin-top:14px;
+}
+
+.modal-body label:first-child{
+    margin-top:0;
+}
+
+.modal-body input,
+.modal-body select,
+.modal-body textarea{
+    width:100%;
+    padding:11px 14px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    font-size:14px;
+    font-family:inherit;
+}
+
+.modal-body textarea{
+    resize:vertical;
+    min-height:60px;
+}
+
+.modal-footer{
+    margin-top:25px;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+}
+
+/* TABLE */
+
+.table-wrapper{
+    margin-top:25px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    overflow-x:auto;
+}
+
+table.data-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+table.data-table th{
+    text-align:left;
+    padding:18px 14px;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted);
+    background:#faf9f7;
+    border-bottom:1px solid var(--line);
+}
+
+table.data-table td{
+    padding:18px 14px;
+    font-size:15px;
+    border-bottom:1px solid #f1f1ef;
+}
+
+table.data-table tr:last-child td{
+    border-bottom:none;
+}
+
+table.data-table tbody tr:hover{
+    background:#faf9f7;
+}
+
+.fila-acciones{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    max-width:230px;
+}
+
+/* Menú "⋮" de acciones por fila (ver menuAcciones en
+   pages/colaboradores.js) — reemplaza la fila de 4-5 botones sueltos
+   por un solo botón que despliega las opciones agrupadas. */
+.menu-acciones-wrap{
+    position:relative;
+    display:inline-block;
+}
+
+.menu-acciones-toggle{
+    width:36px;
+    padding:8px 0;
+    font-weight:700;
+    letter-spacing:2px;
+    line-height:1;
+}
+
+/* position:fixed (no absolute) a propósito — .table-wrapper tiene
+   overflow:hidden (para las esquinas redondeadas de la tabla) y eso
+   recortaba el menú cada vez que se abría en una fila cerca del borde
+   inferior. fixed no queda atrapado por el overflow de ningún
+   ancestro; top/left se calculan en JS al abrirlo (ver bindColaboradores
+   en pages/colaboradores.js), tomando la posición real del botón "⋮". */
+.menu-acciones-dropdown{
+    position:fixed;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    min-width:190px;
+    z-index:200;
+    padding:6px;
+    display:flex;
+    flex-direction:column;
+}
+
+/* [hidden] tiene especificidad más baja que la clase de arriba, así
+   que sin esto "display:flex" le gana al atributo y el menú queda
+   visible siempre — este selector más específico restaura el
+   comportamiento nativo de hidden. */
+.menu-acciones-dropdown[hidden]{
+    display:none;
+}
+
+.menu-acciones-item{
+    display:block;
+    width:100%;
+    text-align:left;
+    padding:9px 12px;
+    border:none;
+    background:none;
+    border-radius:8px;
+    font-size:13px;
+    font-family:inherit;
+    color:var(--text);
+    cursor:pointer;
+}
+
+.menu-acciones-item:hover{
+    background:#faf9f7;
+}
+
+.menu-acciones-item-danger{
+    color:#c0392b;
+}
+
+.menu-acciones-categoria{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    color:var(--muted);
+    padding:8px 12px 2px;
+}
+
+.menu-acciones-separador{
+    height:1px;
+    background:var(--line);
+    margin:6px 4px;
+}
+
+.celda-truncada{
+    display:inline-block;
+    max-width:130px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    vertical-align:middle;
+}
+
+.table-toolbar{
+    margin-top:25px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+}
+
+.table-toolbar input[type="search"]{
+    background:var(--card);
+    border:1px solid var(--line);
+    padding:12px 18px;
+    border-radius:40px;
+    width:320px;
+    max-width:100%;
+    font-size:14px;
+    font-family:inherit;
+}
+
+.barra-enviar-mail{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin:0 0 14px;
+}
+
+.barra-enviar-mail label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+}
+
+/* BADGES DE ESTADO */
+
+.badge{
+    display:inline-block;
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.badge-success{ background:#e7f4e8; color:var(--success); }
+.badge-warning{ background:#fdf8ea; color:var(--warning); }
+.badge-danger{ background:#fdecea; color:var(--danger); }
+.badge-muted{ background:#eee; color:var(--muted); }
+
+/* PROGRESS RING (colaborador) */
+
+.progress-ring{
+    position:relative;
+    width:120px;
+    height:120px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.progress-ring .valor{
+    background:var(--card);
+    width:92px;
+    height:92px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:22px;
+    font-weight:800;
+    color:var(--gold);
+}
+
+/* ROLE PICKER (login mock) */
+
+.role-picker{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:6px;
+}
+
+.role-picker .btn{
+    text-align:left;
+}
+
+.role-picker-nota{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:16px;
+}
+
+/* AUTOCOMPLETE (selector de sucursal, ~95 locales) */
+
+.autocomplete-wrap{
+    position:relative;
+}
+
+.autocomplete-list{
+    display:none;
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    max-height:220px;
+    overflow-y:auto;
+    z-index:1100;
+    margin-top:2px;
+}
+
+.autocomplete-list.open{
+    display:block;
+}
+
+.autocomplete-item{
+    padding:10px 14px;
+    font-size:14px;
+    cursor:pointer;
+}
+
+.autocomplete-item:hover{
+    background:#faf9f7;
+}
+
+/* Chips de locales elegidos (ver multiSelectSucursales.js) — debajo
+   del buscador, cada uno con su × para sacarlo sin tener que abrir
+   la lista de nuevo. */
+.multi-sucursal-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+}
+
+.multi-sucursal-chip{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--tema-accent-soft, #f3e9d6);
+    color:var(--gold-deep, #8a6a2f);
+    border-radius:20px;
+    padding:5px 8px 5px 12px;
+    font-size:13px;
+    font-weight:600;
+}
+
+.multi-sucursal-chip button{
+    border:none;
+    background:none;
+    color:inherit;
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+    padding:2px;
+}
+
+.table-toolbar select{
+    background:var(--card);
+    border:1px solid var(--line);
+    padding:11px 16px;
+    border-radius:var(--radius-sm);
+    font-size:14px;
+    font-family:inherit;
+    color:var(--text);
+}
+
+/* EMPTY STATE (extra slots sobre .placeholder) */
+
+.placeholder .empty-icon{
+    display:flex;
+    justify-content:center;
+    margin-bottom:14px;
+    color:var(--muted);
+}
+
+.placeholder .empty-action{
+    margin-top:20px;
+}
+
+/* KPI CARD */
+
+.kpi-card{
+    position:relative;
+}
+
+.kpi-card-link{
+    display:block;
+    text-decoration:none;
+    color:inherit;
+    cursor:pointer;
+}
+
+.kpi-card-link:hover{
+    box-shadow:var(--shadow-hover, var(--shadow));
+    transform:translateY(-2px);
+}
+
+.kpi-card .kpi-icon{
+    width:38px;
+    height:38px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--gold-soft, #f5ecd8);
+    color:var(--gold);
+    margin-bottom:10px;
+}
+
+.kpi-card .kpi-icon.tono-success{ background:#e7f4e8; color:var(--success); }
+.kpi-card .kpi-icon.tono-warning{ background:#fdf8ea; color:var(--warning); }
+.kpi-card .kpi-icon.tono-danger{ background:#fdecea; color:var(--danger); }
+
+.kpi-card .kpi-trend{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:12px;
+    font-weight:700;
+    margin-top:10px;
+}
+
+.kpi-card .kpi-trend.up{ color:var(--success); }
+.kpi-card .kpi-trend.down{ color:var(--danger); }
+
+/* ALERT CARD */
+
+.alert-card{
+    display:flex;
+    gap:14px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-left:4px solid var(--muted);
+    border-radius:var(--radius-sm);
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+}
+
+.alert-card.severity-danger{ border-left-color:var(--danger); }
+.alert-card.severity-warning{ border-left-color:var(--warning); }
+.alert-card.severity-muted{ border-left-color:var(--muted); }
+
+.alert-card .alert-icon{
+    flex-shrink:0;
+    color:var(--muted);
+}
+
+.alert-card.severity-danger .alert-icon{ color:var(--danger); }
+.alert-card.severity-warning .alert-icon{ color:var(--warning); }
+
+.alert-card .alert-body p{
+    color:var(--muted);
+    font-size:13px;
+    margin-top:4px;
+}
+
+.alert-card .alert-body .btn{
+    margin-top:10px;
+    padding:8px 14px;
+    font-size:13px;
+}
+
+/* REPORT CARD */
+
+.report-card{
+    cursor:pointer;
+    border:2px solid var(--line);
+}
+
+.report-card:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+}
+
+.report-card svg{
+    color:var(--gold);
+    margin-bottom:10px;
+}
+
+.report-card h3{
+    font-size:16px;
+    margin-bottom:4px;
+}
+
+.report-card.selected{
+    border-color:var(--gold);
+}
+
+/* RANKING CARD */
+
+.ranking-card:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+}
+
+.ranking-list{
+    margin-top:16px;
+}
+
+.ranking-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+}
+
+.ranking-item:last-child{
+    border-bottom:none;
+}
+
+.ranking-position{
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:#eee;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+}
+
+.ranking-position.gold{
+    background:var(--gold);
+    color:#fff;
+}
+
+.ranking-nombre{
+    flex:1;
+    font-size:14px;
+}
+
+.ranking-valor{
+    font-weight:700;
+    color:var(--gold);
+}
+
+/* TIMELINE */
+
+.timeline{
+    margin-top:16px;
+}
+
+.timeline-item{
+    display:flex;
+    gap:14px;
+    padding-bottom:20px;
+    position:relative;
+}
+
+.timeline-item .timeline-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:var(--gold);
+    margin-top:5px;
+    flex-shrink:0;
+    position:relative;
+}
+
+.timeline-item:not(:last-child) .timeline-dot::after{
+    content:"";
+    position:absolute;
+    top:14px;
+    left:4px;
+    width:2px;
+    height:calc(100% + 6px);
+    background:var(--line);
+}
+
+/* QUICK ACTION */
+
+.quick-actions{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:14px;
+    margin-top:22px;
+}
+
+.quick-action{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+    text-align:center;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:18px 12px;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    transition:var(--transition);
+}
+
+.quick-action:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+    border-color:var(--gold);
+}
+
+.quick-action svg{
+    color:var(--gold);
+}
+
+/* ACTIVITY FEED */
+
+.activity-feed{
+    margin-top:16px;
+}
+
+.activity-item{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+    font-size:14px;
+}
+
+.activity-item:last-child{
+    border-bottom:none;
+}
+
+.activity-time{
+    color:var(--muted);
+    font-size:12px;
+    white-space:nowrap;
+}
+
+/* TREND CHART (evolución mensual, sin librería) */
+
+.trend-chart{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    height:140px;
+    margin-top:20px;
+    padding-top:10px;
+}
+
+.trend-bar{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-end;
+    height:100%;
+    gap:8px;
+}
+
+.trend-bar .bar-fill{
+    width:100%;
+    max-width:36px;
+    background:var(--gold);
+    border-radius:6px 6px 0 0;
+    min-height:4px;
+}
+
+.trend-bar .bar-label{
+    font-size:11px;
+    color:var(--muted);
+}
+
+/* HOME COLABORADOR — hero tipo "lobby" (ver inicioColaborador.js).
+   Sin video (el video de esta escala es del login, no de una pantalla
+   que se abre muchas veces por turno) — quieto, con jerarquía fuerte:
+   saludo grande + un único CTA "Retomar", y debajo el camino real
+   (X de N módulos), no etapas inventadas. */
+
+.hero-lobby{
+    position:relative;
+    border-radius:24px;
+    padding:44px 42px 36px;
+    background:
+        radial-gradient(ellipse 760px 380px at 8% -10%, rgba(194,160,101,.22), transparent 60%),
+        radial-gradient(ellipse 560px 380px at 96% 0%, rgba(224,122,104,.14), transparent 55%),
+        linear-gradient(180deg,#fffdf8 0%, #f8efdf 100%);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+}
+
+.hero-lobby-eyebrow{
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:2.5px;
+    text-transform:uppercase;
+    color:var(--gold-deep);
+    margin-bottom:12px;
+}
+
+.hero-lobby h1{
+    margin:0 0 8px;
+    font-size:32px;
+    letter-spacing:-.3px;
+}
+
+.hero-lobby-sub{
+    margin:0 0 26px;
+    font-size:14.5px;
+    color:var(--muted);
+}
+
+.hero-lobby-cta{
+    display:inline-flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:22px;
+    background:var(--black);
+    color:#fff;
+    padding:15px 24px;
+    border-radius:14px;
+    font-size:15px;
+    font-weight:700;
+    box-shadow:0 12px 26px rgba(17,17,17,.2);
+}
+
+.hero-lobby-cta small{
+    display:block;
+    font-weight:500;
+    font-size:11.5px;
+    color:rgba(255,255,255,.65);
+    margin-top:2px;
+}
+
+.hero-lobby-cta-arrow{ font-size:18px; }
+
+.hero-lobby-camino{
+    margin-top:30px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+}
+
+.hero-lobby-camino span{
+    font-size:12.5px;
+    color:var(--muted);
+}
+
+.camino-pips{
+    display:flex;
+    gap:5px;
+}
+
+.camino-pip{
+    width:22px;
+    height:5px;
+    border-radius:3px;
+    background:var(--line);
+}
+
+.camino-pip.on{
+    background:linear-gradient(90deg,var(--gold),var(--gold-deep));
+}
+
+/* TARJETA PROTAGONISTA — reemplaza a la vieja "continue-card": ahora
+   con una foto real del módulo (misma fuente que CourseCard) ocupando
+   buena parte de la tarjeta, como portada. */
+
+.protagonista{
+    display:grid;
+    grid-template-columns:1fr 1.2fr;
+    align-items:stretch;
+    background:var(--card);
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:var(--shadow-hover);
+}
+
+.protagonista-img{
+    min-height:220px;
+    background-size:cover;
+    background-position:center;
+}
+
+.protagonista-img-generico{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(135deg,var(--black) 0%, #2b2416 100%);
+    color:var(--gold);
+}
+
+.protagonista-body{
+    padding:30px 32px;
+}
+
+.protagonista-tag{
+    font-size:11.5px;
+    font-weight:700;
+    letter-spacing:1.5px;
+    color:var(--gold-deep);
+    margin-bottom:8px;
+}
+
+.protagonista-body h3{
+    margin:0 0 4px;
+    font-size:22px;
+}
+
+.protagonista-body .btn-continue{
+    display:block;
+    width:fit-content;
+    margin-top:20px;
+}
+
+/* LOGRO DEL DÍA — un único badge grande en vez de la fila completa
+   (esa sigue existiendo más abajo, en "Todos tus logros"). */
+
+.logro-spotlight{
+    display:flex;
+    align-items:center;
+    gap:20px;
+    background:linear-gradient(135deg,#171310 0%, #2b2416 100%);
+    border-radius:var(--radius);
+    padding:26px 30px;
+    color:#fff;
+    box-shadow:var(--shadow);
+}
+
+.logro-medalla{
+    width:56px;
+    height:56px;
+    border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, #f3dfa8, var(--gold-deep) 75%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    box-shadow:0 8px 18px rgba(194,160,101,.4);
+}
+
+.logro-spotlight-eyebrow{
+    display:block;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--gold);
+    margin-bottom:4px;
+}
+
+.logro-spotlight h3{
+    margin:0 0 3px;
+    font-size:18px;
+}
+
+.logro-spotlight p{
+    margin:0;
+    font-size:13px;
+    color:rgba(255,255,255,.65);
+}
+
+/* FRASE INSTITUCIONAL — cierre del home, misma letra que el wordmark
+   del login (LuccianoScript) para que sea siempre la misma en toda
+   la app, no una distinta por pantalla. */
+
+.frase-institucional{
+    text-align:center;
+    padding:40px 20px 6px;
+}
+
+.frase-institucional-script{
+    display:block;
+    font-family:'LuccianoScript', cursive;
+    font-size:30px;
+    color:var(--gold-deep);
+    margin-bottom:4px;
+}
+
+.frase-institucional small{
+    display:block;
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+/* Barra de progreso fina (tarjetas de stat, protagonista, academia) */
+
+.stat-progress-bar{
+    height:6px;
+    background:#ececec;
+    border-radius:6px;
+    margin-top:12px;
+    overflow:hidden;
+}
+
+.stat-progress-bar.wide{
+    height:8px;
+    margin:14px 0 8px;
+}
+
+.stat-progress-bar i{
+    display:block;
+    height:100%;
+    background:var(--gold);
+    border-radius:6px;
+}
+
+/* Progreso del curso — se pega arriba al scrollear (sticky) para que
+   se pueda seguir viendo mientras se van marcando lecciones, en vez
+   de perderlo de vista apenas se avanza un par de lecciones. Fondo
+   propio (no transparente) porque si no, el contenido de abajo se
+   transparenta a través al quedar fijo. */
+.curso-progreso-sticky{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:14px 18px;
+    box-shadow:var(--shadow);
+}
+
+.tema-heladeria .curso-progreso-sticky{
+    background:rgba(10,18,32,.85);
+    backdrop-filter:blur(10px);
+    border-color:rgba(255,255,255,.1);
+}
+
+.tema-heladeria .curso-progreso-sticky p.text-muted,
+.tema-cafeteria .curso-progreso-sticky p.text-muted,
+.tema-chocolateria .curso-progreso-sticky p.text-muted{
+    color:rgba(255,255,255,.72);
+}
+
+.tema-heladeria .stat-progress-bar,
+.tema-cafeteria .stat-progress-bar,
+.tema-chocolateria .stat-progress-bar{
+    background:rgba(255,255,255,.15);
+}
+
+.tema-icepops .curso-progreso-sticky{
+    background:rgba(255,250,243,.88);
+    backdrop-filter:blur(10px);
+}
+
+.tema-cafeteria .curso-progreso-sticky,
+.tema-chocolateria .curso-progreso-sticky{
+    background:rgba(21,15,11,.85);
+    backdrop-filter:blur(10px);
+    border-color:rgba(255,255,255,.1);
+}
+
+.tema-heladeria .stat-progress-bar i,
+.tema-icepops .stat-progress-bar i,
+.tema-cafeteria .stat-progress-bar i,
+.tema-chocolateria .stat-progress-bar i{
+    background:var(--tema-accent);
+}
+
+.stat-progress-card span{
+    font-size:28px;
+}
+
+.btn-continue{
+    font-size:16px;
+    padding:16px 30px;
+    flex-shrink:0;
+}
+
+/* CHECKLIST — próximos desafíos */
+
+.checklist{
+    margin-top:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.checklist-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:12px 16px;
+    font-size:14px;
+    color:var(--muted);
+}
+
+.checklist-item svg{
+    flex-shrink:0;
+    color:var(--muted);
+}
+
+.checklist-item.done{
+    color:var(--text);
+}
+
+.checklist-item.done svg{
+    color:var(--success);
+}
+
+/* RANKING PERSONAL — vs. uno mismo, no contra otros */
+
+.rank-compare{
+    margin-top:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-around;
+    text-align:center;
+    padding:26px 20px;
+}
+
+.rank-compare-item{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.rank-compare-item strong{
+    font-size:32px;
+    color:var(--gold);
+}
+
+.rank-vs{
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+}
+
+/* MIS LOGROS — insignias */
+
+.badge-row{
+    margin-top:16px;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+    gap:14px;
+}
+
+.badge-chip{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:18px 12px;
+    text-align:center;
+    transition:var(--transition);
+}
+
+.badge-chip-icon{
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    background:var(--gold-soft,#f5ecd8);
+    color:var(--gold);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:0 auto 10px;
+}
+
+.badge-chip span{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+}
+
+.badge-chip.locked{
+    opacity:.55;
+}
+
+.badge-chip.locked .badge-chip-icon{
+    background:#eee;
+    color:var(--muted);
+}
+
+.badge-chip.locked span{
+    color:var(--muted);
+}
+
+/* HOME DEL COLABORADOR — fondo suave tipo "laboratorio" */
+
+/* Es lo primero que se ve después de la revelación del login — no
+   puede sentirse plano en comparación. No hay un video propio para
+   todo el home (es un dashboard con varias secciones, no un solo
+   módulo con su toma), así que en vez de forzar un video que no
+   existe, es un degradé suave en la paleta de marca (dorado + crema)
+   — misma técnica de sangrado hasta el borde del panel que .tema-X
+   en las páginas de curso, pero translúcido y liviano en vez de
+   fotográfico. */
+.colaborador-home{
+    margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
+    padding:24px var(--content-pad) var(--content-pad);
+    background:
+        radial-gradient(ellipse 900px 480px at 10% 0%, rgba(194,160,101,.16), transparent 60%),
+        radial-gradient(ellipse 750px 460px at 92% 8%, rgba(224,122,104,.10), transparent 55%),
+        linear-gradient(180deg, #fffdf8 0%, #faf5ea 100%);
+}
+
+/* NOTICIAS — versión compacta para el home */
+
+.noticias-compact{
+    margin-top:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    overflow:hidden;
+}
+
+.noticia-mini{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:13px 20px;
+    border-bottom:1px solid var(--line);
+    font-size:13.5px;
+}
+
+.noticia-mini:last-child{
+    border-bottom:none;
+}
+
+/* DETALLE DE CURSO — lista de lecciones */
+
+.leccion-list{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+}
+
+.leccion-item{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-top:3px solid var(--tema-accent);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+    transition:box-shadow var(--transition);
+}
+
+.leccion-item:not(.bloqueada):hover{
+    box-shadow:var(--shadow-hover);
+}
+
+.leccion-item.bloqueada{
+    opacity:.6;
+    box-shadow:none;
+}
+
+.leccion-item-header{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.leccion-item-header h3{
+    font-size:16px;
+}
+
+.leccion-duracion{
+    margin-left:auto;
+    font-size:12px;
+    color:var(--muted);
+    flex-shrink:0;
+}
+
+.leccion-imagen{
+    max-width:100%;
+    border-radius:var(--radius-sm);
+    margin-top:12px;
+    display:block;
+}
+
+/* Portada fija con botón de play — ver POSTER_POR_LECCION/bindCursos.
+   El video no arranca solo: se ve la foto hasta que lo tocan. Los
+   clips son verticales (9:16, celular en mano) — si se estiran a
+   width:100% de una columna de escritorio quedan gigantes (hasta
+   1500px de alto). Se limita por altura y se centra, en vez de por
+   ancho, para que se vea como un video vertical y no como un cartel. */
+.leccion-video-wrap{
+    position:relative;
+    display:flex;
+    justify-content:center;
+}
+
+.leccion-video-wrap .leccion-imagen{
+    width:auto;
+    max-width:100%;
+    height:auto;
+    max-height:560px;
+    background:#111;
+}
+
+.leccion-video-play{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:56px;
+    height:56px;
+    border-radius:50%;
+    border:none;
+    background:rgba(17,17,17,.55);
+    backdrop-filter:blur(2px);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:background .18s ease, transform .18s ease;
+}
+
+.leccion-video-play svg{
+    margin-left:3px;
+}
+
+.leccion-video-play:hover{
+    background:rgba(17,17,17,.75);
+    transform:translate(-50%,-50%) scale(1.06);
+}
+
+.leccion-video-wrap.reproduciendo .leccion-video-play{
+    display:none;
+}
+
+/* Carrusel de capturas navegable a mano (sin autoplay) — ver
+   IMAGENES_POR_LECCION/renderCarrusel en cursos.js. */
+.leccion-carrusel{
+    position:relative;
+    margin-top:12px;
+}
+
+/* Carrusel de VIDEO (varios clips reales por lección) — ver
+   VIDEOS_MULTIPLES_POR_LECCION/renderVideoCarrusel en cursos.js.
+   Reusa .leccion-carrusel-btn/-prev/-next/-contador/-caption (mismo
+   lenguaje visual que el carrusel de imágenes) — position:relative acá
+   es lo único nuevo, para anclar esos botones sobre todo el alto del
+   video en vez de sobre .leccion-video-wrap solo. */
+.leccion-video-carrusel{
+    position:relative;
+    margin-top:12px;
+}
+
+.leccion-video-carrusel .leccion-imagen{
+    margin-top:0;
+}
+
+.leccion-carrusel-viewport{
+    position:relative;
+    width:100%;
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:#111;
+}
+
+.leccion-carrusel-img{
+    display:none;
+    width:100%;
+    height:auto;
+}
+
+.leccion-carrusel-img.activa{
+    display:block;
+}
+
+.leccion-carrusel-btn{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:none;
+    background:rgba(17,17,17,.55);
+    backdrop-filter:blur(2px);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:background .18s ease, opacity .18s ease;
+}
+
+.leccion-carrusel-btn:hover:not(:disabled){
+    background:rgba(17,17,17,.75);
+}
+
+.leccion-carrusel-btn:disabled{
+    opacity:0;
+    cursor:default;
+}
+
+.leccion-carrusel-prev{ left:10px; }
+.leccion-carrusel-next{ right:10px; }
+
+.leccion-carrusel-contador{
+    position:absolute;
+    bottom:10px;
+    right:10px;
+    padding:3px 10px;
+    border-radius:999px;
+    background:rgba(17,17,17,.55);
+    color:#fff;
+    font-size:12px;
+    font-variant-numeric:tabular-nums;
+}
+
+.leccion-carrusel-img{ cursor:zoom-in; }
+
+/* Epígrafe debajo del carrusel — mismo lenguaje visual que el
+   contador "posición · categoría" de la galería de productos
+   (ver galeriaProductos.js), nombra a qué sección de la lección
+   corresponde la captura activa. */
+.leccion-carrusel-caption{
+    margin-top:8px;
+    text-align:center;
+    font-size:13px;
+    font-weight:600;
+    color:var(--muted);
+}
+
+.carrusel-lightbox-caption{
+    position:absolute;
+    bottom:20px;
+    left:50%;
+    transform:translateX(-50%);
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    text-align:center;
+    text-shadow:0 1px 4px rgba(0,0,0,.6);
+}
+
+.leccion-carrusel-expandir{
+    position:absolute;
+    top:10px;
+    right:10px;
+    width:32px;
+    height:32px;
+    border-radius:8px;
+    border:none;
+    background:rgba(17,17,17,.55);
+    backdrop-filter:blur(2px);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:background .18s ease;
+}
+
+.leccion-carrusel-expandir:hover{
+    background:rgba(17,17,17,.75);
+}
+
+/* Vista a pantalla completa — mismo carrusel, imagen sin recortar
+   a lo ancho de la tarjeta (ver renderCarrusel/abrirLightbox). */
+.carrusel-lightbox{
+    position:fixed;
+    inset:0;
+    z-index:200;
+    background:rgba(10,10,10,.92);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:min(6vw, 60px);
+}
+
+.carrusel-lightbox[hidden]{ display:none; }
+
+.carrusel-lightbox-img{
+    max-width:100%;
+    max-height:100%;
+    object-fit:contain;
+    border-radius:8px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+}
+
+.carrusel-lightbox-cerrar{
+    position:absolute;
+    top:20px;
+    right:20px;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    border:none;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+}
+
+.carrusel-lightbox-cerrar:hover{
+    background:rgba(255,255,255,.22);
+}
+
+.carrusel-lightbox .leccion-carrusel-btn{
+    width:52px;
+    height:52px;
+    background:rgba(255,255,255,.12);
+}
+
+.carrusel-lightbox .leccion-carrusel-btn:hover:not(:disabled){
+    background:rgba(255,255,255,.22);
+}
+
+.carrusel-lightbox .leccion-carrusel-prev{ left:20px; }
+.carrusel-lightbox .leccion-carrusel-next{ right:20px; }
+.carrusel-lightbox .leccion-carrusel-contador{
+    bottom:50px;
+    right:50%;
+    transform:translateX(50%);
+}
+
+.leccion-procedimiento-lista{
+    list-style:none;
+    margin-top:10px;
+    padding:0;
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));
+    gap:8px;
+}
+
+.leccion-procedimiento-lista li{
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:10px 12px;
+    font-size:13px;
+    line-height:1.45;
+    color:var(--text);
+}
+
+.leccion-procedimiento-lista strong{
+    display:block;
+    margin-bottom:2px;
+    color:var(--black);
+}
+
+/* Pasos numerados (procesos secuenciales) — círculo negro con número
+   dorado, mismo lenguaje visual que la maqueta aprobada. */
+.leccion-pasos{
+    list-style:none;
+    counter-reset:paso;
+    margin-top:12px;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.leccion-pasos li{
+    counter-increment:paso;
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+}
+
+.leccion-paso-num{
+    flex-shrink:0;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    background:var(--tema-oscuro);
+    color:var(--tema-accent);
+    font-size:12px;
+    font-weight:800;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-top:1px;
+}
+
+.leccion-paso-num::before{
+    content:counter(paso);
+}
+
+.leccion-pasos li > span:last-child{
+    font-size:14px;
+    line-height:1.6;
+    color:var(--text);
+    padding-top:2px;
+}
+
+.leccion-procedimiento-lista .text-muted{
+    font-size:12px;
+}
+
+.leccion-callout{
+    background:var(--tema-accent-soft);
+    border-left:3px solid var(--tema-accent);
+    border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+    padding:12px 14px;
+    margin-top:12px;
+}
+
+.leccion-callout strong{
+    display:block;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--tema-accent-deep);
+    margin-bottom:4px;
+}
+
+.leccion-callout p{
+    font-size:14px;
+    color:var(--text);
+}
+
+.leccion-callout-errores{
+    background:#fdecea;
+    border-left-color:var(--danger);
+}
+
+.leccion-callout-errores strong{
+    color:var(--danger);
+}
+
+.leccion-callout-tip{
+    background:#e7f4e8;
+    border-left-color:var(--success);
+}
+
+.leccion-callout-tip strong{
+    color:var(--success);
+}
+
+.leccion-acciones{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:10px;
+}
+
+/* Galería de productos (components/galeriaProductos.js) */
+
+.galeria-productos{
+    margin-bottom:8px;
+}
+
+.galeria-pills{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+}
+
+.pill-categoria{
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--text);
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.pill-categoria:hover{
+    border-color:var(--tema-accent);
+}
+
+.pill-categoria.activa{
+    background:var(--tema-accent);
+    border-color:var(--tema-accent);
+    color:#fff;
+}
+
+.galeria-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(130px, 1fr));
+    gap:14px;
+}
+
+.producto-card{
+    cursor:pointer;
+    text-align:center;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    box-shadow:var(--shadow);
+    padding:10px;
+    transition:box-shadow var(--transition), transform var(--transition);
+}
+
+.producto-card:hover{
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-hover);
+}
+
+.producto-foto{
+    position:relative;
+    width:100%;
+    aspect-ratio:1;
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:#fff;
+    border-bottom:3px solid var(--tema-accent);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin-bottom:8px;
+}
+
+.badge-kosher{
+    position:absolute;
+    top:6px;
+    right:6px;
+    padding:2px 7px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    z-index:1;
+}
+
+.badge-kosher-parve{
+    background:#e8f5e9;
+    color:#2e7d32;
+    border:1px solid #a5d6a7;
+}
+
+.badge-kosher-dairy{
+    background:#eef2ff;
+    color:#3949ab;
+    border:1px solid #c5cae9;
+}
+
+.producto-foto img,
+.producto-foto video{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    padding:8px;
+    box-sizing:border-box;
+}
+
+.producto-sin-foto{
+    font-size:22px;
+    font-weight:800;
+    color:var(--gold);
+}
+
+.producto-nombre{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+    line-height:1.3;
+}
+
+.producto-modal-foto-wrap{
+    position:relative;
+    max-width:280px;
+    margin:0 auto;
+}
+
+.producto-modal-foto{
+    width:100%;
+    aspect-ratio:1;
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.producto-modal-foto img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    padding:12px;
+    box-sizing:border-box;
+}
+
+.producto-modal-nav{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--text);
+    font-size:20px;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+    transition:var(--transition);
+    z-index:2;
+}
+
+.producto-modal-nav:hover{
+    border-color:var(--gold);
+    color:var(--gold);
+}
+
+.producto-modal-nav-prev{ left:-8px; }
+.producto-modal-nav-next{ right:-8px; }
+
+/* Video embebido (pages/historia.js) */
+
+.video-embed{
+    position:relative;
+    width:100%;
+    padding-top:56.25%;
+    border-radius:var(--radius);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+}
+
+.video-embed iframe{
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    border:0;
+}
+
+.leccion-numero{
+    width:28px;
+    height:28px;
+    border-radius:50%;
+    background:var(--tema-accent-soft);
+    color:var(--tema-accent-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    flex-shrink:0;
+}
+
+.leccion-item.vista .leccion-numero{
+    background:var(--success);
+    color:#fff;
+}
+
+/* Examen (pages/examen.js) */
+
+.examen-pregunta{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+    margin-bottom:14px;
+}
+
+.examen-pregunta-titulo{
+    font-weight:600;
+    margin-bottom:12px;
+}
+
+.examen-opciones{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.examen-opcion{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.examen-opcion:hover{
+    border-color:var(--gold);
+    background:var(--gold-soft);
+}
+
+.examen-opcion input{
+    accent-color:var(--gold);
+}
+
+.oculto{
+    display:none !important;
+}
+
+.examen-reglas{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    box-shadow:var(--shadow);
+    margin-top:20px;
+}
+
+.examen-reglas h3{
+    font-size:16px;
+    margin-bottom:12px;
+}
+
+.examen-reglas ul{
+    margin:0 0 18px;
+    padding-left:20px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.examen-reglas li{
+    font-size:13px;
+    color:var(--text);
+    line-height:1.5;
+}
+
+.examen-barra-superior{
+    position:sticky;
+    top:0;
+    z-index:5;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:var(--bg);
+    padding:12px 0;
+    margin-bottom:10px;
+    border-bottom:1px solid var(--line);
+}
+
+.examen-timer{
+    font-variant-numeric:tabular-nums;
+    font-weight:700;
+    font-size:18px;
+    background:var(--black);
+    color:#fff;
+    padding:6px 14px;
+    border-radius:var(--radius-sm);
+}
+
+.examen-timer-urgente{
+    background:var(--danger);
+    animation:examen-timer-pulso 1s infinite;
+}
+
+@keyframes examen-timer-pulso{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:.6; }
+}
+
+.examen-aviso{
+    background:#fdecea;
+    color:var(--danger);
+    border-radius:var(--radius-sm);
+    padding:12px 16px;
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:16px;
+}
+
+.curso-intro{
+    position:relative;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:160px 160px var(--radius) var(--radius);
+    padding:44px 36px 0;
+    box-shadow:var(--shadow);
+    text-align:center;
+    overflow:hidden;
+}
+
+.curso-intro::before{
+    content:'';
+    position:absolute;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:88%;
+    height:10px;
+    background:linear-gradient(90deg, transparent, var(--tema-accent) 20%, var(--tema-accent) 80%, transparent);
+    border-radius:0 0 30px 30px;
+}
+
+.curso-intro h2{
+    font-size:18px;
+    margin-bottom:8px;
+}
+
+.curso-intro p.text-sm{
+    max-width:480px;
+    margin-left:auto;
+    margin-right:auto;
+}
+
+.curso-intro-meta{
+    display:flex;
+    gap:26px;
+    margin-top:16px;
+    flex-wrap:wrap;
+    justify-content:center;
+    padding-bottom:6px;
+}
+
+.curso-intro-meta span{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:12px;
+    color:var(--muted);
+}
+
+.curso-intro-marquee{
+    border-top:1px solid var(--line);
+    margin-top:22px;
+    overflow:hidden;
+    white-space:nowrap;
+    padding:13px 0 0;
+}
+
+.curso-intro-marquee-track{
+    display:inline-flex;
+    gap:32px;
+    animation:curso-marquee-scroll 28s linear infinite;
+}
+
+.curso-intro-marquee span{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:1.6px;
+    text-transform:uppercase;
+    color:var(--tema-accent-deep);
+}
+
+.curso-intro-marquee span::after{
+    content:'✦';
+    margin-left:32px;
+    color:var(--line);
+}
+
+/* Banner de video, separado de la tarjeta de texto (módulos con
+   material real de local: Heladería, Icepops, Chocolatería) — el
+   video se ve solo, sin texto ni overlay encima, para que se aprecie
+   bien; la info (objetivo, meta, sabores) queda en la tarjeta clara
+   de siempre, justo debajo. Mismo arco y línea de acento que
+   .curso-intro, así se leen como una sola pieza. */
+.curso-video-banner{
+    position:relative;
+    border-radius:160px 160px var(--radius) var(--radius);
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    margin-bottom:14px;
+}
+
+.curso-video-banner::before{
+    content:'';
+    position:absolute;
+    top:0; left:50%;
+    transform:translateX(-50%);
+    width:88%;
+    height:10px;
+    background:linear-gradient(90deg, transparent, var(--tema-accent) 20%, var(--tema-accent) 80%, transparent);
+    border-radius:0 0 30px 30px;
+    z-index:2;
+}
+
+/* Fotos con marco dorado propio ya "quemado" (Cafetería, Pastelería)
+   — el arco de 160px les tapaba las puntas del marco. Radio parejo y
+   chico en vez del arco, y sin la barra de acento de arriba (la foto
+   ya trae su propio borde superior). */
+.curso-video-banner-tarjeta{
+    border-radius:var(--radius);
+}
+
+.curso-video-banner-tarjeta::before{
+    display:none;
+}
+
+.curso-video-banner video,
+.curso-video-banner img{
+    display:block;
+    width:100%;
+    height:480px;
+    /* El archivo ya viene reencuadrado a 16:9 (fondo desenfocado del
+       mismo video rellenando los costados, aplicado con ffmpeg antes
+       de subirlo) — no hay que recortar ni rellenar con CSS, "cover"
+       alcanza para mostrar el cuadro casi completo. */
+    object-fit:cover;
+}
+
+/* Todo el cuerpo del curso (banner, secciones, lista de lecciones,
+   catálogo) usa width:100% puertas adentro — en celular eso es
+   correcto porque el viewport ya es angosto, pero en un monitor de
+   escritorio ancho ".content" no tiene techo y las fotos/videos
+   terminan gigantes. Se ancla una columna de lectura centrada; el
+   fondo de los temas (.tema-heladeria/.tema-icepops) sigue sangrando
+   completo porque el max-width va en los HIJOS, no en el contenedor. */
+.curso-detalle-cuerpo > *{
+    max-width:920px;
+    margin-left:auto;
+    margin-right:auto;
+}
+
+/* Título sobre la mitad izquierda vacía de las fotos "sin texto"
+   (ver TITULO_HERO_POR_CURSO en cursos.js) — así el nombre del módulo
+   se puede editar sin regenerar la imagen. */
+.curso-banner-overlay{
+    position:absolute;
+    left:56px;
+    /* Va en el hueco entre el logo (arriba) y el renglón de
+       ícono+subtítulo que ya trae la foto (ver TITULO_HERO_POR_CURSO
+       en cursos.js) — no al medio del banner. */
+    top:42%;
+    transform:translateY(-50%);
+    z-index:1;
+    pointer-events:none;
+}
+
+.curso-banner-overlay h2{
+    margin:0;
+    color:#fff;
+    font-size:34px;
+    font-weight:800;
+    letter-spacing:.5px;
+    text-shadow:0 2px 20px rgba(0,0,0,.5);
+}
+
+/* Temas de módulo — paleta real sacada del video de cada local, así
+   cada curso con video propio se siente distinto (tarjetas, círculos
+   numerados, callouts) sin tocar el dorado de marca en el resto de
+   la app. Heladería/Agüero: cian eléctrico + violeta profundo sobre
+   espacio nocturno (nebulosa, "Gelato Station", vidrieras). */
+.tema-heladeria{
+    --tema-accent:#2fb8dd;
+    --tema-accent-soft:#e4f6fb;
+    --tema-accent-deep:#1a7f9c;
+    --tema-oscuro:#0c1b2e;
+
+    /* Sangra hasta los bordes del panel de contenido (no solo las
+       tarjetas) — mismo cielo nocturno con nebulosa cian/violeta de
+       la fachada de Agüero, en vez del crema plano del resto de la
+       app. Solo sangra a los costados y abajo (no arriba, para no
+       taparse con el header "Volver a Mis cursos" que queda afuera
+       de este contenedor). */
+    margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
+    padding:24px var(--content-pad) var(--content-pad);
+    background:
+        radial-gradient(ellipse 900px 480px at 15% 0%, rgba(47,184,221,.20), transparent 60%),
+        radial-gradient(ellipse 700px 460px at 92% 8%, rgba(106,79,201,.20), transparent 55%),
+        linear-gradient(180deg, #0a1220 0%, #060a13 100%);
+}
+
+.tema-heladeria .section h2{
+    color:#fff;
+}
+
+.tema-heladeria > p.text-muted{
+    color:rgba(255,255,255,.7);
+}
+
+/* Icepops/Inspiration Lab: guardapolvo blanco, mesada de acero, y como
+   color de producto un rosa salmón (baño del icepop) + amarillo
+   manteca (chocolate templado). A diferencia de Heladería, acá el
+   fondo queda CLARO — mesada de laboratorio de día, no cielo nocturno
+   — para que cada módulo se sienta realmente distinto, no solo con
+   otro color sobre la misma oscuridad. Como el fondo es claro, el
+   texto por defecto (oscuro) ya funciona sin pisarlo a blanco. */
+.tema-icepops{
+    --tema-accent:#e07a68;
+    --tema-accent-soft:#fbe8e3;
+    --tema-accent-deep:#b8503d;
+    --tema-oscuro:#3d241e;
+
+    margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
+    padding:24px var(--content-pad) var(--content-pad);
+    background:
+        radial-gradient(ellipse 800px 460px at 10% 0%, rgba(224,122,104,.16), transparent 60%),
+        radial-gradient(ellipse 700px 460px at 92% 10%, rgba(240,184,61,.22), transparent 55%),
+        linear-gradient(180deg, #fffaf3 0%, #fdf2e4 100%);
+}
+
+/* Cafetería: la propia tarjeta de marca (mármol negro, máquina de
+   espresso, latte art, granos de café, dorado Lucciano's — ver
+   assets/img/cursos/cafeteria-hero.jpg) ya define la paleta. Fondo
+   espresso oscuro con un halo cálido caramelo/crema (la espuma del
+   latte art), distinto del cian nocturno de Heladería aunque los dos
+   sean oscuros — acá el tono es cálido, no frío. */
+.tema-cafeteria{
+    --tema-accent:#c9975a;
+    --tema-accent-soft:#f3e6d3;
+    --tema-accent-deep:#8a5a2b;
+    --tema-oscuro:#1c140f;
+
+    margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
+    padding:24px var(--content-pad) var(--content-pad);
+    background:
+        radial-gradient(ellipse 850px 460px at 12% 0%, rgba(201,151,90,.20), transparent 60%),
+        radial-gradient(ellipse 650px 420px at 92% 12%, rgba(138,90,43,.22), transparent 55%),
+        linear-gradient(180deg, #150f0b 0%, #0d0908 100%);
+}
+
+.tema-cafeteria .section h2{
+    color:#fff;
+}
+
+.tema-cafeteria > p.text-muted{
+    color:rgba(255,255,255,.7);
+}
+
+/* Chocolatería: chocolate materno oscuro (tableta partida, no el
+   caramelo tostado de Cafetería) con un halo cacao-rojizo, más un
+   segundo halo pistacho — la línea Avella/Pistacchio aparece en casi
+   todas las categorías del módulo (conitos, tabletas, avella, squares),
+   así que gana un color propio en vez de sumarse al dorado genérico. */
+.tema-chocolateria{
+    --tema-accent:#a8582e;
+    --tema-accent-soft:#f0dcc9;
+    --tema-accent-deep:#6b3416;
+    --tema-oscuro:#180f09;
+
+    margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
+    padding:24px var(--content-pad) var(--content-pad);
+    background:
+        radial-gradient(ellipse 850px 460px at 10% 0%, rgba(168,88,46,.24), transparent 60%),
+        radial-gradient(ellipse 650px 420px at 92% 10%, rgba(143,170,94,.16), transparent 55%),
+        linear-gradient(180deg, #170f09 0%, #0f0906 100%);
+}
+
+.tema-chocolateria .section h2{
+    color:#fff;
+}
+
+.tema-chocolateria > p.text-muted{
+    color:rgba(255,255,255,.7);
+}
+
+@keyframes curso-marquee-scroll{
+    from{ transform:translateX(0); }
+    to{ transform:translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .curso-intro-marquee-track{ animation:none; }
+}
+
+.examen-cta{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px 22px;
+    box-shadow:var(--shadow);
+}
+
+.examen-cta h3{
+    font-size:16px;
+}
+
+.examen-cta .btn{
+    margin-left:auto;
+}
+
+.examen-cta-icono{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    background:var(--tema-accent-soft);
+    color:var(--tema-accent-deep);
+    flex-shrink:0;
+}
+
+.examen-cta-aprobado{
+    border-color:var(--success);
+    color:var(--success);
+}
+
+.examen-cta-aprobado .examen-cta-icono{
+    background:#e7f4e8;
+    color:var(--success);
+}
+
+.examen-cta-pendiente{
+    border-color:var(--warning);
+}
+
+.examen-cta-pendiente .examen-cta-icono{
+    background:#fdf3d9;
+    color:var(--warning);
+}
+
+.examen-resultado{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:24px;
+    box-shadow:var(--shadow);
+}
+
+.examen-resultado.aprobado{
+    border-color:var(--success);
+}
+
+.examen-resultado.reprobado{
+    border-color:var(--warning);
+}
+
+.examen-resultado h2{
+    font-size:20px;
+}
+
+.examen-resultado .btn{
+    margin-left:auto;
+}
+
+.examen-review{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.examen-review-item{
+    display:flex;
+    gap:12px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:14px 16px;
+}
+
+.examen-review-item.incorrecta{
+    border-color:var(--danger);
+}
+
+.examen-review-icono{
+    flex-shrink:0;
+    color:var(--success);
+}
+
+.examen-review-item.incorrecta .examen-review-icono{
+    color:var(--danger);
+}
+
+/* Banner "Ver como" (ui.js) */
+
+.banner-vista-como{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    background:var(--gold);
+    color:#1a1408;
+    font-size:14px;
+    font-weight:600;
+    padding:10px 16px;
+}
+
+.banner-vista-como .btn{
+    padding:6px 14px;
+    font-size:13px;
+}
+
+/* Banner "beta termina el 31/7" (ui.js) — solo Colaboradores */
+
+.banner-beta{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    background:#fff4d6;
+    color:#5c3d00;
+    font-size:13.5px;
+    font-weight:500;
+    padding:10px 40px 10px 16px;
+    text-align:center;
+    position:relative;
+    line-height:1.4;
+}
+
+.banner-beta strong{
+    font-weight:700;
+}
+
+.banner-beta-cerrar{
+    position:absolute;
+    right:10px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    color:#5c3d00;
+    opacity:.65;
+    cursor:pointer;
+    padding:6px;
+    display:flex;
+}
+
+.banner-beta-cerrar:hover{
+    opacity:1;
+}
+
+@media (max-width:600px){
+    .banner-beta{
+        font-size:12.5px;
+        padding:9px 36px 9px 12px;
+    }
+}
+
+/* Progreso mini (colaboradores.js) — barra + % compacto para tablas
+   de equipo, con Sin datos/atrasado/en curso/al día a simple vista. */
+
+.progreso-mini{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    min-width:70px;
+}
+
+.progreso-mini-barra{
+    flex:1;
+    height:6px;
+    border-radius:3px;
+    background:var(--line);
+    overflow:hidden;
+}
+
+.progreso-mini-barra i{
+    display:block;
+    height:100%;
+    border-radius:3px;
+}
+
+.progreso-mini-danger{ background:var(--danger); }
+.progreso-mini-warning{ background:var(--gold); }
+.progreso-mini-success{ background:var(--success); }
+
+.progreso-mini-valor{
+    font-size:13px;
+    font-weight:600;
+    min-width:32px;
+}
+
+.progreso-mini-texto-danger{ color:var(--danger); }
+.progreso-mini-texto-warning{ color:var(--warning); }
+.progreso-mini-texto-success{ color:var(--success); }

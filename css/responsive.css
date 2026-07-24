@@ -1,0 +1,198 @@
+/* ============================
+   FARO v4
+   responsive.css
+=============================*/
+
+@media (max-width:900px){
+
+    .layout{
+        grid-template-columns:1fr;
+    }
+
+    .mascota-carga video{
+        width:110px;
+        height:110px;
+    }
+
+    /* Sin espacio para el hero de marca al lado del formulario — se
+       prioriza el login, la foto se saca en vez de achicarla mal. */
+    .login-split{
+        grid-template-columns:1fr;
+    }
+
+    .login-hero-panel{
+        display:none;
+    }
+
+    /* El sidebar pasa a ser un drawer fijo, oculto fuera de la
+       pantalla (translateX) hasta que se le agrega .abierto — así
+       en celular no hay que scrollear todo el menú antes de llegar
+       al contenido. */
+    .sidebar{
+        position:fixed;
+        top:0;
+        left:0;
+        height:100vh;
+        width:270px;
+        max-width:82vw;
+        padding:24px;
+        transform:translateX(-100%);
+        transition:transform .25s ease;
+        z-index:1000;
+    }
+
+    .sidebar.abierto{
+        transform:translateX(0);
+    }
+
+    .nav-menu{
+        flex-direction:column;
+    }
+
+    .sidebar-install-banner{
+        display:block;
+    }
+
+    /* El botón hamburguesa es fixed y se dibuja encima de cualquier
+       banner fijo al tope (vista-como, beta) — se le suma padding
+       para que el texto no quede tapado detrás del círculo. */
+    .banner-vista-como,
+    .banner-beta{
+        padding-top:64px;
+    }
+
+    .hamburger-btn{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        position:fixed;
+        top:14px;
+        left:14px;
+        width:42px;
+        height:42px;
+        border-radius:50%;
+        background:var(--black);
+        color:var(--gold);
+        border:none;
+        z-index:900;
+        box-shadow:var(--shadow);
+    }
+
+    .sidebar-cerrar{
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        position:absolute;
+        top:20px;
+        right:20px;
+        width:32px;
+        height:32px;
+        background:none;
+        border:none;
+        color:#fff;
+    }
+
+    .sidebar-backdrop.visible{
+        display:block;
+        position:fixed;
+        inset:0;
+        background:rgba(0,0,0,.5);
+        z-index:900;
+    }
+
+    .content{
+        --content-pad:20px;
+        padding:20px;
+        padding-top:76px;
+    }
+
+    .grid-2-1{
+        grid-template-columns:1fr;
+    }
+
+    .protagonista{
+        grid-template-columns:1fr;
+    }
+
+    .protagonista-img{
+        min-height:160px;
+    }
+
+    .hero-lobby-cta{
+        width:100%;
+    }
+
+    .stats{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .table-toolbar input[type="search"],
+    .table-toolbar select{
+        width:100%;
+    }
+}
+
+@media (max-width:600px){
+
+    /* El banner de curso usa height:480px fijo (components.css) pensado
+       para el ancho de un panel de escritorio — en una pantalla angosta
+       eso lo vuelve casi cuadrado y recorta por los costados una foto
+       compuesta a 16:9 (le pasa a Cafetería/Pastelería/Atención al
+       Cliente, que traen texto quemado en la imagen y no un overlay en
+       HTML). aspect-ratio mantiene la proporción real en cualquier ancho. */
+    .curso-video-banner video,
+    .curso-video-banner img{
+        height:auto;
+        aspect-ratio:16/9;
+    }
+
+    /* En celular el viewport ya es angosto — el video vertical de
+       lección se ve bien a ancho completo, sin el límite de altura
+       pensado para pantallas de escritorio (ver components.css). */
+    .leccion-video-wrap .leccion-imagen{
+        width:100%;
+        max-height:none;
+    }
+
+    .stats{
+        grid-template-columns:1fr;
+    }
+
+    .modal{
+        max-width:92%;
+    }
+
+    table.data-table th,
+    table.data-table td{
+        padding:14px 16px;
+        font-size:13px;
+    }
+
+    .quick-actions{
+        grid-template-columns:1fr 1fr;
+    }
+
+    .trend-chart{
+        gap:6px;
+    }
+
+    .hero-colaborador-right{
+        width:100%;
+        justify-content:flex-start;
+    }
+
+    .continue-card{
+        flex-direction:column;
+        align-items:stretch;
+        text-align:center;
+    }
+
+    .btn-continue{
+        text-align:center;
+    }
+
+    .badge-row,
+    .academia-grid{
+        grid-template-columns:1fr 1fr;
+    }
+}

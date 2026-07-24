@@ -1,0 +1,718 @@
+/* ============================
+   FARO v4
+   layout.css — Layout general
+=============================*/
+
+.layout{
+    display:grid;
+    grid-template-columns:260px 1fr;
+    min-height:100vh;
+}
+
+/* FULLSCREEN (Login, 404) */
+
+.fullscreen{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    padding:20px;
+}
+
+/* El login usa la portada a pantalla completa, sin el padding que
+   sí necesita el 404 (otro consumidor de .fullscreen). */
+.fullscreen:has(.login-portada){
+    padding:0;
+}
+
+.login-portada{
+    position:relative;
+    width:100%;
+    height:100vh;
+    background:var(--black);
+    overflow:hidden;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+}
+
+/* Portada "Bienvenido/a" (ver Login() en login.js) — el primer toque
+   del usuario en todo el sitio, así el video+audio reales que
+   arrancan después ya tienen el gesto que el navegador exige para
+   permitir sonido. Mismo primer frame del video del Torreón como
+   fondo (sin saltar a otra escena todavía) con un scrim oscuro — a
+   propósito SIN el wordmark "Lucciano's Academy" (esa revelación es
+   la sorpresa de la secuencia de más abajo, no de acá). */
+.login-gate{
+    position:relative;
+    width:100%;
+    height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:
+        linear-gradient(180deg, rgba(8,8,8,.55) 0%, rgba(8,8,8,.72) 100%),
+        url("../assets/img/login/login-gate-bg.jpg") center / cover no-repeat;
+}
+
+.login-gate-btn{
+    animation:pulso-sonido-login 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce){
+    .login-gate-btn{ animation:none; }
+}
+
+/* El video arranca muteado (ver login.js) — este botón deja el audio
+   real del Torreón a un toque de distancia, sin arriesgar que el
+   autoplay se bloquee de entrada por pedir sonido sin gesto previo.
+   Se oculta solo durante la revelación (ya no hay audio que activar). */
+.login-btn-sonido{
+    position:absolute;
+    top:24px;
+    right:24px;
+    z-index:3;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.35);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    backdrop-filter:blur(4px);
+    transition:opacity .4s ease, background .18s ease;
+}
+
+.login-btn-sonido:hover{
+    background:rgba(0,0,0,.55);
+}
+
+.login-btn-sonido.oculto-transicion{
+    opacity:0;
+    pointer-events:none;
+}
+
+/* El navegador suele bloquear el autoplay CON sonido en una visita
+   fría (política estándar, no algo que se pueda forzar por código) —
+   la toma arranca muda y cae en este botón para activarlo. Sin nada
+   que llame la atención, mucha gente no lo nota a tiempo y se pierde
+   el audio (ver alternarSonido en login.js, que además reinicia toda
+   la toma al activarlo, para que igual se escuche completa). */
+.login-btn-sonido.necesita-atencion{
+    animation:pulso-sonido-login 1.6s ease-in-out infinite;
+}
+
+@keyframes pulso-sonido-login{
+    0%, 100%{ box-shadow:0 0 0 0 rgba(255,255,255,.45); }
+    50%{ box-shadow:0 0 0 8px rgba(255,255,255,0); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .login-btn-sonido.necesita-atencion{ animation:none; }
+}
+
+.login-portada-video{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+}
+
+/* El video no tiene loop (ver login.js) — al terminar queda congelado
+   solo en su último frame (el acceso al Torreón, frame 335). Tras una
+   pausa breve, login.js agrega .pulso (un único respiro de brillo,
+   como si las luces del local se avivaran) y .visible en .login-reveal
+   (revelación de la marca en capas, encima de esa misma toma — no hay
+   salto a otra escena/local). */
+@keyframes login-pulso-brillo{
+    0%, 100%{ filter:brightness(1); }
+    50%{ filter:brightness(1.22); }
+}
+
+.login-portada-video.pulso{
+    animation:login-pulso-brillo 1.1s ease-out .3s 1;
+}
+
+/* Paso extra tras el login (ver mostrarBienvenidaPersonajes en
+   login.js) — video vertical (9:16) sobre fondo oscuro, no un
+   recorte forzado a pantalla completa como el del Torreón. */
+.bienvenida-overlay{
+    position:fixed;
+    inset:0;
+    z-index:1200;
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+/* Envuelve el video para que su caja se achique al tamaño real
+   renderizado (según el aspect ratio de pantalla, con letterbox a
+   los costados o arriba/abajo) — así .bienvenida-texto se puede
+   centrar con left/top:% relativos a esta caja en vez de a la
+   pantalla completa, sin medir nada por JS. */
+.bienvenida-video-wrap{
+    position:relative;
+    height:100%;
+    max-width:100%;
+    display:flex;
+}
+
+.bienvenida-video{
+    height:100%;
+    max-width:100%;
+    object-fit:contain;
+    display:block;
+}
+
+.bienvenida-sonido{
+    position:absolute;
+    top:24px;
+    right:24px;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.35);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    backdrop-filter:blur(4px);
+}
+
+.bienvenida-saltar{
+    position:absolute;
+    bottom:32px;
+    right:24px;
+    padding:10px 20px;
+    border-radius:40px;
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.35);
+    color:#fff;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    backdrop-filter:blur(4px);
+}
+
+/* Diálogo del Maestro, en HTML en vez de incrustado en el video (ver
+   timeupdate en login.js) — así el texto se puede editar sin volver
+   a exportar el clip. */
+.bienvenida-texto{
+    position:absolute;
+    top:40%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    width:85%;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .4s ease;
+}
+
+.bienvenida-texto.visible{
+    opacity:1;
+}
+
+.bienvenida-texto-burbuja{
+    background:#fff;
+    color:#111;
+    font-weight:700;
+    font-size:15px;
+    line-height:1.3;
+    padding:12px 18px;
+    border-radius:24px;
+    text-align:center;
+}
+
+.login-reveal{
+    position:absolute;
+    inset:0;
+    z-index:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.login-reveal-scrim{
+    position:absolute;
+    inset:0;
+    background:linear-gradient(180deg, rgba(8,8,8,.35) 0%, rgba(8,8,8,.55) 55%, rgba(8,8,8,.78) 100%);
+    opacity:0;
+    transition:opacity .7s ease;
+}
+
+.login-reveal.visible .login-reveal-scrim{
+    opacity:1;
+}
+
+.login-reveal-contenido{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    text-align:center;
+    pointer-events:none;
+}
+
+.login-reveal.visible .login-reveal-contenido{
+    pointer-events:auto;
+}
+
+.login-reveal-linea{
+    width:0;
+    height:2px;
+    background:linear-gradient(90deg, transparent, var(--gold) 15%, var(--gold) 85%, transparent);
+    margin-bottom:22px;
+    transition:width .7s ease .6s;
+}
+
+.login-reveal.visible .login-reveal-linea{
+    width:200px;
+}
+
+.login-reveal-marca{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    opacity:0;
+    transform:translateY(10px);
+    transition:opacity .9s ease 1.3s, transform .9s ease 1.3s;
+}
+
+.login-reveal.visible .login-reveal-marca{
+    opacity:1;
+    transform:translateY(0);
+}
+
+.login-reveal-script{
+    font-family:'LuccianoScript', cursive;
+    font-size:56px;
+    color:var(--gold);
+    line-height:1;
+}
+
+.login-reveal-academy{
+    margin-top:6px;
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:6px;
+    text-transform:uppercase;
+    color:#fff;
+}
+
+.login-reveal-contenido .login-btn-ingresar{
+    margin-top:32px;
+    opacity:0;
+    transform:translateY(8px);
+    transition:opacity .7s ease 2.3s, transform .7s ease 2.3s;
+}
+
+.login-reveal.visible .login-reveal-contenido .login-btn-ingresar{
+    opacity:1;
+    transform:translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce){
+    .login-portada-video.pulso{
+        animation:none;
+    }
+    .login-reveal-scrim,
+    .login-reveal-linea,
+    .login-reveal-marca,
+    .login-reveal-contenido .login-btn-ingresar{
+        transition:none;
+    }
+    .login-reveal.visible .login-reveal-scrim,
+    .login-reveal.visible .login-reveal-marca,
+    .login-reveal.visible .login-reveal-contenido .login-btn-ingresar{
+        opacity:1;
+        transform:none;
+    }
+    .login-reveal.visible .login-reveal-linea{
+        width:200px;
+    }
+}
+
+.login-btn-ingresar{
+    padding:16px 56px;
+    font-size:16px;
+    letter-spacing:.5px;
+}
+
+/* El overlay del login va más transparente y con blur (en vez del
+   rgba(17,17,17,.6) opaco genérico de .modal-overlay) para que el
+   Torreón congelado y el wordmark "Lucciano's Academy" de la portada
+   sigan viéndose detrás — la tarjeta se suma a esa escena en vez de
+   taparla. */
+.modal-overlay.login-overlay{
+    background:rgba(6,6,10,.32);
+    backdrop-filter:blur(3px);
+    -webkit-backdrop-filter:blur(3px);
+}
+
+/* Tarjeta chica y traslucida (glass): como el wordmark ya quedó
+   visible en la portada de atrás, repetir "Lucciano's Academy" acá
+   sería redundante — esta tarjeta se limita al formulario de acceso.
+   Selector combinado (.modal.login-modal) a propósito: components.css
+   se carga después de layout.css y .modal ya fija background/max-width/
+   padding con la misma especificidad — sin el combinado, esas reglas
+   ganaban por orden de cascada y la tarjeta quedaba opaca de nuevo. */
+.modal.login-modal{
+    max-width:320px;
+    padding:30px 26px;
+    text-align:center;
+    background:rgba(255,255,255,.82);
+    backdrop-filter:blur(22px) saturate(160%);
+    -webkit-backdrop-filter:blur(22px) saturate(160%);
+    border:1px solid rgba(255,255,255,.5);
+    box-shadow:0 20px 55px rgba(0,0,0,.4);
+}
+
+.login-modal-titulo{
+    margin-top:2px;
+}
+
+/* Botón de Google reducido a sólo el ícono (ver login.js) — esta
+   píldora lo envuelve junto con el texto propio "Ingresar", para que
+   se lea como un único botón chico y sutil en vez de la píldora ancha
+   con texto en inglés que Google arma por default. */
+.login-google-pill{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    width:fit-content;
+    margin:0 auto;
+    padding:6px 22px 6px 8px;
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.12);
+    background:rgba(255,255,255,.5);
+    transition:background .18s ease, border-color .18s ease;
+}
+
+.login-google-pill:hover{
+    background:rgba(255,255,255,.85);
+    border-color:rgba(0,0,0,.2);
+}
+
+.login-google-texto{
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+    pointer-events:none;
+}
+
+.login-google-slot{
+    display:flex;
+    justify-content:center;
+}
+
+.login-card .logo,
+.login-modal .logo{
+    color:var(--gold);
+    font-size:22px;
+    font-weight:800;
+    margin-bottom:6px;
+}
+
+.login-card .logo img,
+.login-modal .logo img{
+    max-width:220px;
+    max-height:80px;
+    margin:0 auto 6px;
+}
+
+.login-card .login-tagline,
+.login-modal .login-tagline{
+    color:var(--muted);
+    font-size:13px;
+    margin-bottom:28px;
+    font-style:italic;
+}
+
+.login-card .login-subtitulo,
+.login-modal .login-subtitulo{
+    color:var(--muted);
+    font-size:14px;
+    margin-bottom:22px;
+}
+
+.login-card .btn,
+.login-modal .btn{
+    width:100%;
+    text-align:center;
+    margin-bottom:10px;
+}
+
+.login-error{
+    background:#fdecea;
+    color:var(--danger);
+    border-radius:10px;
+    padding:10px 14px;
+    font-size:13px;
+    margin-bottom:14px;
+    text-align:left;
+}
+
+/* SIDEBAR */
+
+.sidebar{
+    background:var(--black);
+    color:#fff;
+    padding:28px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+}
+
+.logo{
+    font-size:28px;
+    font-weight:800;
+    color:var(--gold);
+    margin-bottom:32px;
+    letter-spacing:-0.5px;
+}
+
+.logo img{
+    max-width:170px;
+    max-height:64px;
+    display:block;
+}
+
+.nav-menu{
+    display:flex;
+    flex-direction:column;
+}
+
+/* Menú hamburguesa — solo se activan en celular (responsive.css);
+   en desktop quedan ocultos y el sidebar se ve siempre expandido. */
+
+.hamburger-btn{
+    display:none;
+}
+
+.sidebar-cerrar{
+    display:none;
+}
+
+.sidebar-backdrop{
+    display:none;
+}
+
+/* Banner "instalar app" — solo tiene sentido en celular (ver
+   components/installBanner.js); oculto acá por defecto, se muestra
+   en responsive.css, mismo criterio que .hamburger-btn. */
+.sidebar-install-banner{
+    display:none;
+    position:relative;
+    margin-top:18px;
+    padding:16px 16px 14px;
+    background:rgba(196,155,74,.12);
+    border:1px solid rgba(196,155,74,.35);
+    border-radius:var(--radius-sm);
+}
+
+.sidebar-install-cerrar{
+    position:absolute;
+    top:8px;
+    right:8px;
+    background:none;
+    border:none;
+    color:#888;
+    cursor:pointer;
+    padding:4px;
+    display:flex;
+}
+
+.sidebar-install-icono{
+    display:inline-flex;
+    color:var(--gold);
+    margin-bottom:6px;
+}
+
+.sidebar-install-banner p{
+    font-size:13px;
+    font-weight:700;
+    color:#fff;
+    padding-right:16px;
+}
+
+.sidebar-install-detalle{
+    margin-top:4px;
+    font-size:12px;
+    font-weight:400;
+    color:#aaa;
+}
+
+.sidebar-install-btn{
+    margin-top:10px;
+    padding:9px 16px;
+    font-size:13px;
+    width:100%;
+}
+
+.sidebar-footer{
+    margin-top:auto;
+    padding-top:20px;
+    border-top:1px solid #222;
+}
+
+.sidebar-footer .quien{
+    font-size:13px;
+    color:#999;
+    margin-bottom:4px;
+}
+
+.sidebar-footer .sucursal{
+    font-size:12px;
+    color:#666;
+    margin-bottom:8px;
+}
+
+/* CONTENIDO */
+
+.content{
+    /* Expuesto como variable (no solo valor fijo) para que los fondos
+       de tema por módulo (.tema-* en components.css) puedan sangrar
+       hasta el borde del panel con un margin negativo que se mantenga
+       sincronizado en cualquier breakpoint. */
+    --content-pad:36px;
+    padding:var(--content-pad);
+    /* min-width:0 evita que un descendiente con contenido ancho sin
+       wrap (la cinta de sabores en movimiento) fuerce a toda la
+       columna de contenido a crecer más allá del viewport — es el
+       comportamiento default de los tracks 1fr en CSS Grid. */
+    min-width:0;
+}
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:20px;
+    margin-bottom:28px;
+}
+
+.header-greeting{
+    color:var(--muted);
+    font-size:13px;
+}
+
+.header h1,
+.header h2{
+    margin-top:2px;
+}
+
+.header p.subtitulo{
+    color:var(--muted);
+    margin-top:6px;
+}
+
+/* El Maestro — ícono fijo en cualquier pantalla (ver
+   components/maestro.js), mismo personaje del video de bienvenida en
+   login.js. Esquina inferior derecha, por encima del contenido pero
+   por debajo de un modal abierto. */
+.maestro-flotante{
+    position:fixed;
+    right:22px;
+    bottom:22px;
+    z-index:80;
+    width:56px;
+    height:56px;
+    border-radius:50%;
+    border:2px solid var(--gold);
+    background:var(--black);
+    padding:0;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:var(--shadow-hover, 0 8px 24px rgba(0,0,0,.25));
+    transition:transform .18s ease;
+}
+
+.maestro-flotante:hover{
+    transform:scale(1.06);
+}
+
+.maestro-flotante img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:top center;
+    display:block;
+}
+
+.maestro-popover{
+    position:fixed;
+    right:22px;
+    bottom:88px;
+    z-index:80;
+    width:240px;
+    background:#fff;
+    color:#111;
+    border-radius:16px;
+    padding:14px 30px 14px 16px;
+    box-shadow:var(--shadow-hover, 0 8px 24px rgba(0,0,0,.25));
+    font-size:13px;
+    line-height:1.4;
+    font-weight:600;
+}
+
+.maestro-popover-cerrar{
+    position:absolute;
+    top:8px;
+    right:8px;
+    width:20px;
+    height:20px;
+    border:none;
+    background:none;
+    color:#999;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+/* Burbuja del Maestro insertada dentro de una tarjeta ya armada (ver
+   MaestroBurbuja en components/maestro.js) — logro-spotlight en
+   Inicio, resultado de examen. Cara + texto en línea, sin botón. */
+.maestro-burbuja{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-top:14px;
+    padding-top:14px;
+    border-top:1px dashed var(--line);
+}
+
+.maestro-avatar{
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    object-fit:cover;
+    object-position:top center;
+    border:2px solid var(--gold);
+    flex-shrink:0;
+}
+
+.maestro-burbuja p{
+    font-size:13px;
+    color:var(--text);
+    font-weight:600;
+    margin:0;
+}
