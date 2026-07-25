@@ -28,10 +28,11 @@ import { Alertas } from "./pages/alertas.js";
 import { Supervisores } from "./pages/supervisores.js";
 import { Academia, bindAcademia } from "./pages/academia.js";
 import { Evaluaciones, bindEvaluaciones } from "./pages/evaluaciones.js";
+import { MisEvaluaciones } from "./pages/misEvaluaciones.js";
 import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js";
 import { Reportes, bindReportes } from "./pages/reportes.js";
 import { Historia } from "./pages/historia.js";
-import { Noticias, bindNoticias } from "./pages/noticias.js";
+import { Notificaciones, bindNotificaciones } from "./pages/notificaciones.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
 import { Configuracion } from "./pages/configuracion.js";
 import { Integraciones } from "./pages/integraciones.js";
@@ -56,12 +57,13 @@ const RUTAS = {
     supervisores:  { render: Supervisores },
     academia:      { render: Academia, bind: bindAcademia },
     evaluaciones:  { render: Evaluaciones, bind: bindEvaluaciones },
+    misevaluaciones: { render: MisEvaluaciones },
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },
     reportes:      { render: Reportes, bind: bindReportes },
     configuracion: { render: Configuracion },
     integraciones: { render: Integraciones },
     historia:      { render: Historia },
-    noticias:      { render: Noticias, bind: bindNoticias },
+    noticias:      { render: Notificaciones, bind: bindNotificaciones },
     manuales:      { render: Manuales, bind: bindManuales },
 };
 

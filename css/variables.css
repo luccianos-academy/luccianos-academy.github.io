@@ -3,24 +3,41 @@
    variables.css — Design tokens (marca Lucciano's)
 =============================*/
 
+/* Paleta "premium oscuro" (2026-07-25, a pedido del cliente — reemplaza
+   el theme claro original). Fondo casi negro con calidez (no un negro
+   puro/frío), tarjetas un escalón más claras que el fondo para dar
+   profundidad, dorado de marca sin cambios (ya estaba pensado para
+   funcionar sobre superficies oscuras en los módulos .tema-*). */
 :root{
-    --bg:#faf7f0;
-    --card:#ffffff;
+    --bg:#0e0d0c;
+    --card:#1a1815;
     --gold:#c2a065;
-    --gold-deep:#96793e;
-    --black:#111111;
-    --line:#e8e8e5;
-    --text:#262626;
-    --muted:#777777;
-    --success:#1e7e34;
-    --danger:#b3261e;
-    --warning:#7a5b00;
+    --gold-deep:#d9b876;
+    --black:#050505;
+    --line:#2e2b26;
+    --text:#f3ede2;
+    --muted:#9c948a;
+    --success:#3fae5e;
+    --danger:#e5675c;
+    --warning:#e0b23d;
     --radius:18px;
     --radius-sm:12px;
-    --shadow:0 10px 30px rgba(0,0,0,.06);
-    --gold-soft:#f5ecd8;
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+    --gold-soft:#2b2313;
     --transition:.18s ease;
-    --shadow-hover:0 16px 40px rgba(0,0,0,.10);
+    --shadow-hover:0 16px 40px rgba(0,0,0,.45);
+
+    /* Tokens de superficie/estado (2026-07-25, con el theme oscuro) —
+       antes eran pastel claros hardcodeados (uno por cada badge/chip/
+       hover); centralizados acá para que un solo lugar controle el
+       "tinte" de cada estado sobre fondo oscuro. */
+    --success-soft:rgba(63,174,94,.16);
+    --warning-soft:rgba(224,178,61,.16);
+    --danger-soft:rgba(229,103,92,.16);
+    --muted-soft:rgba(255,255,255,.06);
+    --surface-2:rgba(255,255,255,.035);
+    --track:var(--line);
+    --secondary-bg:#262219;
 
     /* Acento "de módulo" — por defecto es el dorado de marca de siempre.
        Cada curso con video propio (ver .tema-* en components.css) pisa

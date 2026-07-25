@@ -26,7 +26,6 @@ import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getColaboradoresPorSucursal } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
-import { getNoticias } from "../data/noticias.js";
 
 // Por cantidad de cursos completados, no por promedio de progreso —
 // completar un curso es de un solo sentido (nunca "se descompleta"),
@@ -72,11 +71,10 @@ function checklistItem(texto, hecho) {
 export async function InicioColaborador() {
 
     const usuario = getUsuarioActual();
-    const [asignaciones, resultados, cursos, noticias] = await Promise.all([
+    const [asignaciones, resultados, cursos] = await Promise.all([
         getAsignacionesPorColaborador(usuario.id),
         getResultadosPorColaborador(usuario.id),
         getCursos(),
-        getNoticias(),
     ]);
 
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
@@ -313,18 +311,6 @@ export async function InicioColaborador() {
         <div class="frase-institucional">
             <span class="frase-institucional-script">La excelencia se aprende todos los días.</span>
             <small>Lucciano's Academy</small>
-        </div>
-
-        <div class="section">
-            <h2>Noticias</h2>
-            <div class="noticias-compact">
-                ${noticias.map((n) => `
-                    <div class="noticia-mini">
-                        <span>${n.titulo}</span>
-                        <span class="text-xs text-muted">${n.fecha}</span>
-                    </div>
-                `).join("")}
-            </div>
         </div>
 
         ${miLocal}

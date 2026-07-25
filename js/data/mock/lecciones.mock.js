@@ -66,7 +66,14 @@ export const leccionesMock = [
     { id: 81, cursoId: 2, orden: 10, titulo: "Armado de cucurucho", objetivo: "Armar correctamente un cucurucho.", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
     { id: 82, cursoId: 2, orden: 11, titulo: "Armado de vaso", objetivo: "Armar correctamente un vaso de helado.", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
 
-    // Curso 3 — Icepops (10 lecciones: intro + 8 categorías de sabor + rotación de stock)
+    // Curso 3 — Icepops (11 lecciones: menú Kosher + intro + 8 categorías de sabor + rotación de stock)
+    // Misma lección que la id 78 de Heladería (Menú Kosher), duplicada acá
+    // a pedido del cliente: algunos colaboradores arrancan su formación
+    // por Icepops en vez de Heladería, y desde la 2da lección de este
+    // curso ("Sabores: Fruta"/"Sabores: Crema") ya se usan los términos
+    // "Parve"/"Dairy" sin explicarlos — orden:0 para que se vea ANTES de
+    // llegar ahí, sin tener que renumerar el resto de las lecciones.
+    { id: 98, cursoId: 3, orden: 0, titulo: "Menú Kosher", objetivo: "Conocer el menú Kosher y distinguir Parve de Dairy — certificado por rabino.", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "1) Parve: vegano, sin lácteos. 2) Dairy: con lácteos.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
     { id: 10, cursoId: 3, orden: 1, titulo: "Cómo describir un Icepop", objetivo: "Describir correctamente un icepop de adentro hacia afuera", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Se describe primero el relleno y luego el baño. Solo existen 3 tipos de baño: chocolate blanco, con leche y negro — cualquier color es siempre chocolate blanco teñido.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
     { id: 69, cursoId: 3, orden: 2, titulo: "Sabores: Fruta", objetivo: "Conocer las 4 variedades de la categoría Fruta (todas Parve).", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Multifruta (jugo de limones naturales, decorado con mandarina, frutilla y kiwi). Frutilla. Mandarina. Limón (jugo de limones naturales exprimidos en el momento).", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
     { id: 70, cursoId: 3, orden: 3, titulo: "Sabores: Crema", objetivo: "Conocer las 4 variedades de la categoría Crema (todas Dairy).", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Mascarpone (veteado de frutos del bosque de la Patagonia). Menta con Chocolate (menta italiana, veteado con stracciatella). Chocolate Lucciano's con Bombón de Avellanas (crema de chocolate, avellanas crujientes y obleas). Frutilla con Chantilly.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },

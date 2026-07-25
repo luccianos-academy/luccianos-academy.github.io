@@ -126,38 +126,135 @@ function _secret() {
     return s;
 }
 
+/* ------------------------------------------------------------------
+   Verificación de firma RSA (RS256) del ID token de Google — JWKS.
+
+   Google firma cada ID token con RS256 usando una de las claves privadas
+   publicadas en https://www.googleapis.com/oauth2/v3/certs (JWKS). Acá
+   verificamos la firma LOCALMENTE contra la clave pública correspondiente
+   (por 'kid'), sin depender de tokeninfo (que en su momento fallaba de
+   forma no diagnosticable y sumaba una llamada externa por login).
+
+   Matemática: RSA "descifra" la firma con la clave pública →
+   firma^e mod n = EM, el bloque de padding PKCS#1 v1.5:
+       00 01 FF..FF 00  DigestInfo(SHA-256) || SHA-256(header.payload)
+   Reconstruimos ese bloque esperado y lo comparamos entero (no solo el
+   sufijo): valida el padding completo, no solo el hash.
+
+   Apps Script (V8) soporta BigInt nativo, así que la exponenciación modular
+   de 2048 bits corre sin librerías externas.
+------------------------------------------------------------------ */
+
+// Bytes con signo (-128..127, como los devuelve Utilities) → BigInt sin signo.
+function _bytesABigInt(bytes) {
+    let hex = "";
+    for (let i = 0; i < bytes.length; i++) {
+        const b = bytes[i] & 0xFF;
+        hex += (b < 16 ? "0" : "") + b.toString(16);
+    }
+    return hex === "" ? BigInt(0) : BigInt("0x" + hex);
+}
+
+// base64url (n, e del JWKS; firma del JWT) → BigInt.
+function _b64urlABigInt(b64url) {
+    return _bytesABigInt(Utilities.base64DecodeWebSafe(b64url));
+}
+
+// Exponenciación modular: base^exp mod mod (BigInt).
+function _modpow(base, exp, mod) {
+    let r = BigInt(1);
+    base = base % mod;
+    while (exp > BigInt(0)) {
+        if (exp & BigInt(1)) r = (r * base) % mod;
+        exp >>= BigInt(1);
+        base = (base * base) % mod;
+    }
+    return r;
+}
+
+// Claves públicas de Google (JWKS), cacheadas 1h para no bajarlas en cada login.
+function _clavesGoogle() {
+    const cache = CacheService.getScriptCache();
+    const cacheado = cache.get("jwks_google");
+    if (cacheado) return JSON.parse(cacheado);
+    const resp = UrlFetchApp.fetch("https://www.googleapis.com/oauth2/v3/certs", { muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) return null;
+    const jwks = JSON.parse(resp.getContentText());
+    cache.put("jwks_google", JSON.stringify(jwks), 3600);
+    return jwks;
+}
+
 /**
- * ⚠️ TEMPORAL (seguridad, julio 2026) — decodifica el ID token de Google
- * y valida aud/iss/exp, pero NO verifica la firma criptográfica.
- *
- * Por qué: la validación vía tokeninfo (que sí verifica la firma del lado
- * de Google) rechazaba el token y NO se pudo diagnosticar la causa en vivo
- * porque los tres caminos para probar quedaron bloqueados el mismo día:
- * Netlify (créditos agotados, sitio inaccesible), Google Cloud Console
- * (2FA + esta cuenta sin permisos sobre el proyecto del OAuth client).
- * Esta versión restaura el login para los testers manteniendo el resto del
- * blindaje (token de sesión HMAC, permisos server-side por rol, revalidación
- * de acceso en cada request).
- *
- * PENDIENTE (hacer cuando se pueda probar el login end-to-end): reactivar la
- * verificación de firma — volver a tokeninfo (diagnosticando por qué fallaba)
- * o verificar la firma RSA contra las claves públicas de Google (JWKS). Sin
- * firma, un JWT con aud/iss/exp correctos y un email registrado podría
- * forjarse; el riesgo es acotado (herramienta interna, ~20-30 usuarios) pero
- * hay que cerrarlo.
- *
- * Devuelve el email en minúsculas, o null si el token no es válido.
+ * Verifica la firma criptográfica RS256 de un JWT contra las claves
+ * públicas de Google. Devuelve true SOLO si la firma es válida.
+ */
+function _verificarFirmaJWT(idToken) {
+    try {
+        const partes = String(idToken).split(".");
+        if (partes.length !== 3) return false;
+
+        const header = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[0])).getDataAsString());
+        if (header.alg !== "RS256" || !header.kid) return false;
+
+        const jwks = _clavesGoogle();
+        if (!jwks || !jwks.keys) return false;
+        const clave = jwks.keys.filter(function (k) { return k.kid === header.kid; })[0];
+        if (!clave || clave.kty !== "RSA") return false;
+
+        const n = _b64urlABigInt(clave.n);
+        const e = _b64urlABigInt(clave.e);
+        const firma = _b64urlABigInt(partes[2]);
+        if (firma >= n) return false;
+
+        // firma^e mod n = EM. BigInt descarta el 0x00 inicial del bloque.
+        let emHex = _modpow(firma, e, n).toString(16);
+        if (emHex.length % 2) emHex = "0" + emHex;
+
+        // SHA-256 del signing input (header.payload, ASCII).
+        const hash = Utilities.computeDigest(
+            Utilities.DigestAlgorithm.SHA_256, partes[0] + "." + partes[1], Utilities.Charset.US_ASCII);
+        let hashHex = "";
+        for (let i = 0; i < hash.length; i++) {
+            const b = hash[i] & 0xFF;
+            hashHex += (b < 16 ? "0" : "") + b.toString(16);
+        }
+
+        // DigestInfo ASN.1 de SHA-256 + el hash.
+        const tHex = "3031300d060960864801650304020105000420" + hashHex;
+        // EM esperado SIN el 0x00 inicial: 01 FF..FF 00 T. Derivamos el largo
+        // del relleno del propio emHex y comparamos el bloque COMPLETO.
+        const psLen = (emHex.length - 2 - 2 - tHex.length) / 2;
+        if (psLen < 8 || !Number.isInteger(psLen)) return false;
+        let esperado = "01";
+        for (let i = 0; i < psLen; i++) esperado += "ff";
+        esperado += "00" + tHex;
+        return emHex === esperado;
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
+ * Verifica el ID token de Google y devuelve el email en minúsculas, o null.
+ * Chequea, en orden: firma RS256 (contra JWKS de Google) → aud (nuestra app)
+ * → iss (Google) → exp (vigente) → email_verified.
  */
 function _verificarIdTokenGoogle(idToken) {
     if (!idToken) return null;
     try {
         const partes = String(idToken).split(".");
         if (partes.length !== 3) return null;
+
+        // 1) Firma criptográfica: sin esto, un JWT con claims correctos se forja.
+        if (!_verificarFirmaJWT(idToken)) return null;
+
         const info = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[1])).getDataAsString());
-        // Token emitido para NUESTRA app (aud), por Google (iss) y vigente (exp).
+        // 2) Token emitido para NUESTRA app (aud), por Google (iss) y vigente (exp).
         if (info.aud !== GOOGLE_CLIENT_ID) return null;
         if (info.iss !== "https://accounts.google.com" && info.iss !== "accounts.google.com") return null;
         if (Number(info.exp) < Math.floor(Date.now() / 1000)) return null;
+        // 3) Email confirmado por Google (viene como booleano o string "true").
+        if (info.email_verified !== true && info.email_verified !== "true") return null;
         return String(info.email || "").trim().toLowerCase();
     } catch (err) {
         return null;

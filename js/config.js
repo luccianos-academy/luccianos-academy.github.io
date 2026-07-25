@@ -16,7 +16,13 @@
  * Así el MISMO código se comporta distinto según dónde esté servido,
  * sin mantener dos versiones.
  */
-const ES_EXPERIMENTAL = typeof location !== "undefined" && /\.github\.io$/.test(location.hostname);
+const ES_EXPERIMENTAL = typeof location !== "undefined" && (
+    /\.github\.io$/.test(location.hostname) ||
+    // localhost/127.0.0.1 → modo demo también, para poder desarrollar la
+    // UI local sin login real ni tocar datos de producción (Netlify usa
+    // otro dominio, así que esto nunca afecta producción).
+    /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
+);
 
 export const GOOGLE_CLIENT_ID = ES_EXPERIMENTAL ? "" : "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
 
@@ -80,7 +86,6 @@ export const MODULOS = [
     { id: "configuracion",  nombre: "Configuración",        icono: "configuracion" },
     { id: "integraciones",  nombre: "Integraciones",        icono: "integraciones" },
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
-    { id: "noticias",       nombre: "Noticias",             icono: "noticias" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },
     { id: "perfil",         nombre: "Mi perfil",            icono: "perfil" },
 ];

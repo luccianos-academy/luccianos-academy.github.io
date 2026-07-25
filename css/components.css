@@ -85,34 +85,126 @@
     gap:18px;
 }
 
-/* "Ver más" de una noticia (ver pages/noticias.js) — solo aparece si
-   la noticia trae "detalle" cargado, así que no hace falta un botón
-   propio, el <summary> nativo ya da el toggle sin JS. */
-.noticia-detalle{
-    margin-top:10px;
+/* ── Centro de notificaciones (pages/notificaciones.js) ─────────── */
+
+.notif-tabs{
+    display:flex;
+    gap:6px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:4px;
 }
 
-.noticia-detalle summary{
-    cursor:pointer;
+.notif-tab{
+    border:none;
+    background:none;
+    padding:8px 16px;
+    border-radius:999px;
     font-size:13px;
     font-weight:700;
-    color:var(--tema-accent-deep, var(--gold));
-    list-style:none;
+    color:var(--muted);
+    cursor:pointer;
+    transition:var(--transition);
 }
 
-.noticia-detalle summary::-webkit-details-marker{
-    display:none;
+.notif-tab.active{
+    background:var(--black);
+    color:var(--gold);
 }
 
-.noticia-detalle summary::after{
-    content:'▾';
-    margin-left:6px;
-    display:inline-block;
-    transition:transform .15s ease;
+.notif-grupo{
+    margin-bottom:22px;
 }
 
-.noticia-detalle[open] summary::after{
-    transform:rotate(180deg);
+.notif-grupo h4{
+    font-size:12px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    color:var(--muted);
+    margin-bottom:10px;
+}
+
+.notif-lista{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.notif-item{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    width:100%;
+    text-align:left;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:14px 16px;
+    cursor:pointer;
+    transition:var(--transition);
+    font-family:inherit;
+}
+
+.notif-item:hover{
+    box-shadow:var(--shadow-hover);
+    transform:translateY(-1px);
+}
+
+.notif-item.no-leida{
+    background:var(--gold-soft);
+    border-color:var(--gold);
+}
+
+.notif-item-icono{
+    flex-shrink:0;
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.notif-item-body{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+
+.notif-item-titulo{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-weight:700;
+    font-size:14.5px;
+    color:var(--text);
+}
+
+.notif-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:var(--gold-deep);
+    flex-shrink:0;
+}
+
+.notif-item-resumen{
+    font-size:13px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.notif-item-fecha{
+    flex-shrink:0;
+    font-size:12px;
+    color:var(--muted);
+    white-space:nowrap;
 }
 
 .cards .card h3{
@@ -199,12 +291,12 @@
 }
 
 .btn-secondary{
-    background:#e2e8f0;
+    background:var(--secondary-bg);
     color:var(--text);
 }
 
 .btn-secondary:hover{
-    background:#cbd5e1;
+    background:#332c1f;
 }
 
 /* COURSE CARD + PROGRESS BAR */
@@ -259,7 +351,7 @@
 
 .bar{
     height:8px;
-    background:#ececec;
+    background:var(--track);
     border-radius:8px;
     margin:12px 0;
     overflow:hidden;
@@ -401,6 +493,21 @@
     border:1px solid var(--line);
     font-size:14px;
     font-family:inherit;
+    /* Nunca tuvieron bg/color propios — heredaban el blanco nativo del
+       navegador, que coincidía por casualidad con el theme claro
+       original. Con el theme oscuro (2026-07-25) hay que fijarlos. */
+    background:var(--card);
+    color:var(--text);
+}
+
+.modal-body input::placeholder,
+.modal-body textarea::placeholder{
+    color:var(--muted);
+}
+
+.modal-body select option{
+    background:var(--card);
+    color:var(--text);
 }
 
 .modal-body textarea{
@@ -439,14 +546,14 @@ table.data-table th{
     text-transform:uppercase;
     letter-spacing:.5px;
     color:var(--muted);
-    background:#faf9f7;
+    background:var(--surface-2);
     border-bottom:1px solid var(--line);
 }
 
 table.data-table td{
     padding:18px 14px;
     font-size:15px;
-    border-bottom:1px solid #f1f1ef;
+    border-bottom:1px solid var(--line);
 }
 
 table.data-table tr:last-child td{
@@ -454,7 +561,7 @@ table.data-table tr:last-child td{
 }
 
 table.data-table tbody tr:hover{
-    background:#faf9f7;
+    background:var(--surface-2);
 }
 
 .fila-acciones{
@@ -522,7 +629,7 @@ table.data-table tbody tr:hover{
 }
 
 .menu-acciones-item:hover{
-    background:#faf9f7;
+    background:var(--surface-2);
 }
 
 .menu-acciones-item-danger{
@@ -563,6 +670,7 @@ table.data-table tbody tr:hover{
 
 .table-toolbar input[type="search"]{
     background:var(--card);
+    color:var(--text);
     border:1px solid var(--line);
     padding:12px 18px;
     border-radius:40px;
@@ -570,6 +678,10 @@ table.data-table tbody tr:hover{
     max-width:100%;
     font-size:14px;
     font-family:inherit;
+}
+
+.table-toolbar input[type="search"]::placeholder{
+    color:var(--muted);
 }
 
 .barra-enviar-mail{
@@ -598,10 +710,10 @@ table.data-table tbody tr:hover{
     font-weight:600;
 }
 
-.badge-success{ background:#e7f4e8; color:var(--success); }
-.badge-warning{ background:#fdf8ea; color:var(--warning); }
-.badge-danger{ background:#fdecea; color:var(--danger); }
-.badge-muted{ background:#eee; color:var(--muted); }
+.badge-success{ background:var(--success-soft); color:var(--success); }
+.badge-warning{ background:var(--warning-soft); color:var(--warning); }
+.badge-danger{ background:var(--danger-soft); color:var(--danger); }
+.badge-muted{ background:var(--muted-soft); color:var(--muted); }
 
 /* PROGRESS RING (colaborador) */
 
@@ -680,7 +792,7 @@ table.data-table tbody tr:hover{
 }
 
 .autocomplete-item:hover{
-    background:#faf9f7;
+    background:var(--surface-2);
 }
 
 /* Chips de locales elegidos (ver multiSelectSucursales.js) — debajo
@@ -768,9 +880,9 @@ table.data-table tbody tr:hover{
     margin-bottom:10px;
 }
 
-.kpi-card .kpi-icon.tono-success{ background:#e7f4e8; color:var(--success); }
-.kpi-card .kpi-icon.tono-warning{ background:#fdf8ea; color:var(--warning); }
-.kpi-card .kpi-icon.tono-danger{ background:#fdecea; color:var(--danger); }
+.kpi-card .kpi-icon.tono-success{ background:var(--success-soft); color:var(--success); }
+.kpi-card .kpi-icon.tono-warning{ background:var(--warning-soft); color:var(--warning); }
+.kpi-card .kpi-icon.tono-danger{ background:var(--danger-soft); color:var(--danger); }
 
 .kpi-card .kpi-trend{
     display:inline-flex;
@@ -874,7 +986,7 @@ table.data-table tbody tr:hover{
     width:26px;
     height:26px;
     border-radius:50%;
-    background:#eee;
+    background:var(--muted-soft);
     color:var(--muted);
     font-size:12px;
     font-weight:700;
@@ -1037,10 +1149,11 @@ table.data-table tbody tr:hover{
     border-radius:24px;
     padding:44px 42px 36px;
     background:
-        radial-gradient(ellipse 760px 380px at 8% -10%, rgba(194,160,101,.22), transparent 60%),
-        radial-gradient(ellipse 560px 380px at 96% 0%, rgba(224,122,104,.14), transparent 55%),
-        linear-gradient(180deg,#fffdf8 0%, #f8efdf 100%);
+        radial-gradient(ellipse 760px 380px at 8% -10%, rgba(194,160,101,.16), transparent 60%),
+        radial-gradient(ellipse 560px 380px at 96% 0%, rgba(224,122,104,.10), transparent 55%),
+        linear-gradient(180deg,#1e1c17 0%, var(--card) 100%);
     box-shadow:var(--shadow);
+    border:1px solid var(--line);
     overflow:hidden;
 }
 
@@ -1070,20 +1183,20 @@ table.data-table tbody tr:hover{
     align-items:center;
     justify-content:space-between;
     gap:22px;
-    background:var(--black);
-    color:#fff;
+    background:linear-gradient(135deg,var(--gold) 0%, var(--gold-deep) 100%);
+    color:#1a1408;
     padding:15px 24px;
     border-radius:14px;
     font-size:15px;
     font-weight:700;
-    box-shadow:0 12px 26px rgba(17,17,17,.2);
+    box-shadow:0 12px 26px rgba(0,0,0,.35);
 }
 
 .hero-lobby-cta small{
     display:block;
-    font-weight:500;
+    font-weight:600;
     font-size:11.5px;
-    color:rgba(255,255,255,.65);
+    color:rgba(26,20,8,.68);
     margin-top:2px;
 }
 
@@ -1244,7 +1357,7 @@ table.data-table tbody tr:hover{
 
 .stat-progress-bar{
     height:6px;
-    background:#ececec;
+    background:var(--track);
     border-radius:6px;
     margin-top:12px;
     overflow:hidden;
@@ -1429,7 +1542,7 @@ table.data-table tbody tr:hover{
 }
 
 .badge-chip.locked .badge-chip-icon{
-    background:#eee;
+    background:var(--muted-soft);
     color:var(--muted);
 }
 
@@ -1451,9 +1564,9 @@ table.data-table tbody tr:hover{
     margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
     padding:24px var(--content-pad) var(--content-pad);
     background:
-        radial-gradient(ellipse 900px 480px at 10% 0%, rgba(194,160,101,.16), transparent 60%),
-        radial-gradient(ellipse 750px 460px at 92% 8%, rgba(224,122,104,.10), transparent 55%),
-        linear-gradient(180deg, #fffdf8 0%, #faf5ea 100%);
+        radial-gradient(ellipse 900px 480px at 10% 0%, rgba(194,160,101,.14), transparent 60%),
+        radial-gradient(ellipse 750px 460px at 92% 8%, rgba(224,122,104,.08), transparent 55%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg) 100%);
 }
 
 /* NOTICIAS — versión compacta para el home */
@@ -1796,7 +1909,7 @@ table.data-table tbody tr:hover{
 .leccion-procedimiento-lista strong{
     display:block;
     margin-bottom:2px;
-    color:var(--black);
+    color:var(--text);
 }
 
 /* Pasos numerados (procesos secuenciales) — círculo negro con número
@@ -1870,8 +1983,24 @@ table.data-table tbody tr:hover{
     color:var(--text);
 }
 
+/* Dentro de los módulos con tema propio (Heladería/Cafetería/
+   Chocolatería/Icepops), --tema-accent-soft sigue siendo un pastel
+   CLARO a propósito (un chip de color que resalta sobre el fondo
+   oscuro de esas páginas — ver comentarios de cada .tema-*) — con
+   var(--text) (claro en el theme oscuro) el párrafo quedaba casi
+   invisible sobre ese pastel. Solo aplica al callout BASE (sin
+   modificador): -tip/-errores ya pisan el fondo a un tono oscuro
+   propio (--success-soft/--danger-soft) y necesitan texto claro,
+   así que quedan afuera de este selector a propósito. */
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p{
+    color:#262626;
+}
+
 .leccion-callout-errores{
-    background:#fdecea;
+    background:var(--danger-soft);
     border-left-color:var(--danger);
 }
 
@@ -1880,7 +2009,7 @@ table.data-table tbody tr:hover{
 }
 
 .leccion-callout-tip{
-    background:#e7f4e8;
+    background:var(--success-soft);
     border-left-color:var(--success);
 }
 
@@ -1910,7 +2039,7 @@ table.data-table tbody tr:hover{
 
 .pill-categoria{
     border:1px solid var(--line);
-    background:#fff;
+    background:var(--card);
     color:var(--text);
     padding:8px 16px;
     border-radius:999px;
@@ -2047,7 +2176,12 @@ table.data-table tbody tr:hover{
     border-radius:50%;
     border:1px solid var(--line);
     background:#fff;
-    color:var(--text);
+    /* Color fijo (no var(--text)): este botón vive SIEMPRE sobre la
+       "mesa" blanca de la foto de producto (fondo blanco a propósito,
+       ver .producto-modal-foto), nunca sobre el fondo oscuro de la
+       app — con var(--text) (claro en el theme oscuro) el ícono
+       quedaba blanco sobre blanco. */
+    color:#262626;
     font-size:20px;
     line-height:1;
     display:flex;
@@ -2214,7 +2348,7 @@ table.data-table tbody tr:hover{
 }
 
 .examen-aviso{
-    background:#fdecea;
+    background:var(--danger-soft);
     color:var(--danger);
     border-radius:var(--radius-sm);
     padding:12px 16px;
@@ -2423,11 +2557,12 @@ table.data-table tbody tr:hover{
 
 /* Icepops/Inspiration Lab: guardapolvo blanco, mesada de acero, y como
    color de producto un rosa salmón (baño del icepop) + amarillo
-   manteca (chocolate templado). A diferencia de Heladería, acá el
-   fondo queda CLARO — mesada de laboratorio de día, no cielo nocturno
-   — para que cada módulo se sienta realmente distinto, no solo con
-   otro color sobre la misma oscuridad. Como el fondo es claro, el
-   texto por defecto (oscuro) ya funciona sin pisarlo a blanco. */
+   manteca (chocolate templado). Con el resto de la app en modo
+   oscuro (2026-07-25), este módulo pasó a usar el mismo tratamiento
+   "cielo nocturno" que Heladería/Cafetería/Chocolatería en vez de un
+   fondo claro propio — un módulo claro aislado en una app oscura se
+   sentía roto, no "distinto". El color de acento (salmón + manteca)
+   sigue siendo lo que lo distingue de los demás. */
 .tema-icepops{
     --tema-accent:#e07a68;
     --tema-accent-soft:#fbe8e3;
@@ -2437,9 +2572,13 @@ table.data-table tbody tr:hover{
     margin:0 calc(var(--content-pad) * -1) calc(var(--content-pad) * -1);
     padding:24px var(--content-pad) var(--content-pad);
     background:
-        radial-gradient(ellipse 800px 460px at 10% 0%, rgba(224,122,104,.16), transparent 60%),
-        radial-gradient(ellipse 700px 460px at 92% 10%, rgba(240,184,61,.22), transparent 55%),
-        linear-gradient(180deg, #fffaf3 0%, #fdf2e4 100%);
+        radial-gradient(ellipse 800px 460px at 10% 0%, rgba(224,122,104,.20), transparent 60%),
+        radial-gradient(ellipse 700px 460px at 92% 10%, rgba(240,184,61,.16), transparent 55%),
+        linear-gradient(180deg, #241610 0%, #170f0b 100%);
+}
+
+.tema-icepops .section h2{
+    color:#fff;
 }
 
 /* Cafetería: la propia tarjeta de marca (mármol negro, máquina de
@@ -2543,7 +2682,7 @@ table.data-table tbody tr:hover{
 }
 
 .examen-cta-aprobado .examen-cta-icono{
-    background:#e7f4e8;
+    background:var(--success-soft);
     color:var(--success);
 }
 
@@ -2552,7 +2691,7 @@ table.data-table tbody tr:hover{
 }
 
 .examen-cta-pendiente .examen-cta-icono{
-    background:#fdf3d9;
+    background:var(--warning-soft);
     color:var(--warning);
 }
 

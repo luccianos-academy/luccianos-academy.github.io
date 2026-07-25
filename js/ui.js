@@ -4,9 +4,10 @@
 =============================*/
 
 import { Sidebar } from "./components/sidebar.js";
+import { TopBar } from "./components/topbar.js";
+import { BottomNav } from "./components/bottomNav.js";
 import { EmptyState } from "./components/emptyState.js";
 import { Icon } from "./components/icons.js";
-import { MaestroFlotante } from "./components/maestro.js";
 import { estaViendoComo, getUsuarioActual } from "./services/auth.js";
 import { getItem, setItem } from "./services/storage.js";
 
@@ -36,13 +37,13 @@ export function renderLayout(rutaActiva) {
             </div>
         ` : ""}
         ${BannerBeta(usuario)}
-        <button class="hamburger-btn" id="btn-hamburger" aria-label="Abrir menú">${Icon("menu", { size: 22 })}</button>
+        ${TopBar()}
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
         <div class="layout">
             ${Sidebar(rutaActiva)}
             <main class="content" id="content"></main>
         </div>
-        ${MaestroFlotante()}
+        ${BottomNav(rutaActiva)}
     `;
 
     bindBannerBeta();

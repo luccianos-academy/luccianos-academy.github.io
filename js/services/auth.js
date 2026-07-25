@@ -128,12 +128,17 @@ export const MENU_POR_ROL = {
     // pages/configuracion.js), para no tener 15 ítems sueltos en el
     // menú. Siguen siendo rutas reales con el mismo PERMISOS_PAGINA de
     // siempre, solo cambia desde dónde se linkean.
+    // "noticias" tampoco está acá a propósito: desde la Fase 2 del
+    // centro de notificaciones, ese contenido se ve desde la campana
+    // (components/topbar.js → #/noticias), no como ítem de menú — un
+    // solo lugar en vez de dos. La ruta sigue abierta para cualquier
+    // autenticado (no tiene entrada en PERMISOS_PAGINA).
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "noticias", "manuales", "configuracion", "perfil",
+        "academia", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "historia", "cursos", "noticias", "manuales", "perfil"],
-    colaborador: ["inicio", "historia", "cursos", "noticias", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "historia", "cursos", "manuales", "perfil"],
+    colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
 /**

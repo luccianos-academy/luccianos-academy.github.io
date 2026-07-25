@@ -16,7 +16,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#fff;
+    background:var(--bg);
     padding:20px;
 }
 
@@ -40,10 +40,15 @@
 /* Portada "Bienvenido/a" (ver Login() en login.js) — el primer toque
    del usuario en todo el sitio, así el video+audio reales que
    arrancan después ya tienen el gesto que el navegador exige para
-   permitir sonido. Mismo primer frame del video del Torreón como
-   fondo (sin saltar a otra escena todavía) con un scrim oscuro — a
-   propósito SIN el wordmark "Lucciano's Academy" (esa revelación es
-   la sorpresa de la secuencia de más abajo, no de acá). */
+   permitir sonido. Con el theme oscuro (2026-07-25) pasó a mostrar
+   directamente el isologo dorado de marca sobre negro — a diferencia
+   del frame del Torreón que tenía antes, esta imagen YA es oscura y
+   de marca por sí sola, así que no lleva el scrim de oscurecimiento
+   (lo apagaba innecesariamente) y usa "contain" en vez de "cover"
+   (es un isologo centrado, no una foto — recortarlo con cover le
+   comía los bordes del texto en pantallas angostas). El color de
+   fondo es el mismo tono casi-negro de las esquinas del archivo, para
+   que el letterbox de "contain" quede invisible. */
 .login-gate{
     position:relative;
     width:100%;
@@ -51,12 +56,19 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:
-        linear-gradient(180deg, rgba(8,8,8,.55) 0%, rgba(8,8,8,.72) 100%),
-        url("../assets/img/login/login-gate-bg.jpg") center / cover no-repeat;
+    background:#020202 url("../assets/img/login/login-gate-bg.png") center / contain no-repeat;
 }
 
+/* Posicionado a mano (no por el centrado flex del padre): el isologo
+   de fondo ("contain") ocupa una franja centrada verticalmente — si
+   el botón también se centra, cae encima del texto "Lucciano's". Lo
+   bajamos a ~70% de alto, debajo de esa franja, para los anchos de
+   pantalla de celular habituales (~0.45–0.47 ancho/alto). */
 .login-gate-btn{
+    position:absolute;
+    top:70%;
+    left:50%;
+    transform:translate(-50%, -50%);
     animation:pulso-sonido-login 1.8s ease-in-out infinite;
 }
 
@@ -457,7 +469,7 @@
 }
 
 .login-error{
-    background:#fdecea;
+    background:var(--danger-soft);
     color:var(--danger);
     border-radius:10px;
     padding:10px 14px;
@@ -478,6 +490,7 @@
     overflow-y:auto;
     display:flex;
     flex-direction:column;
+    border-right:1px solid var(--line);
 }
 
 .logo{
@@ -486,6 +499,18 @@
     color:var(--gold);
     margin-bottom:32px;
     letter-spacing:-0.5px;
+}
+
+/* La campana (CampanaBoton, ver components/topbar.js) vive acá para
+   que el centro de notificaciones tenga una entrada en el sidebar
+   TAMBIÉN en desktop — la topbar (barra superior) es mobile-only, y
+   sin esto un usuario de escritorio no tendría forma de llegar a
+   #/noticias desde que se sacó del menú (ver services/auth.js). */
+.logo-con-campana{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
 }
 
 .logo img{
@@ -504,6 +529,157 @@
 
 .hamburger-btn{
     display:none;
+}
+
+/* ── Barra superior (topbar.js) ─────────────────────────────────
+   Mobile-first: hamburguesa · logo · campana. En desktop no se
+   muestra (display:none acá) porque el sidebar siempre visible ya
+   trae logo + menú; se activa en responsive.css a ≤900px. Es sticky
+   (en flujo, se pega arriba al scrollear) para no tapar los banners. */
+.topbar{
+    display:none;
+    align-items:center;
+    gap:12px;
+    height:58px;
+    padding:0 14px;
+    background:var(--card);
+    border-bottom:1px solid var(--line);
+    position:sticky;
+    top:0;
+    z-index:850;
+}
+
+.topbar-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    background:var(--black);
+    color:var(--gold);
+    border:none;
+    cursor:pointer;
+    flex-shrink:0;
+    text-decoration:none;
+    transition:background var(--transition);
+}
+
+.topbar-btn:hover{
+    background:var(--black);
+}
+
+.topbar-logo{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:0;
+    text-decoration:none;
+}
+
+.topbar-logo img{
+    height:30px;
+    width:auto;
+    object-fit:contain;
+}
+
+.topbar-logo-texto{
+    font-weight:800;
+    letter-spacing:2px;
+    color:var(--text);
+    font-size:15px;
+}
+
+/* ── Botón de campana (components/topbar.js: CampanaBoton) ───────
+   Compartido entre la topbar (mobile, círculo negro) y el sidebar
+   (desktop + drawer mobile, ícono chico junto al logo) — mismo
+   contador real de no leídas, dos pieles distintas por variant. */
+.campana-btn{
+    position:relative;
+    text-decoration:none;
+}
+
+.campana-btn-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    background:var(--black);
+    color:var(--gold);
+    flex-shrink:0;
+}
+
+.campana-btn-sidebar{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:var(--surface-2);
+    color:var(--gold);
+    flex-shrink:0;
+    transition:background var(--transition);
+}
+
+.campana-btn-sidebar:hover{
+    background:var(--muted-soft);
+}
+
+.campana-num{
+    position:absolute;
+    top:-3px;
+    right:-3px;
+    min-width:19px;
+    height:19px;
+    padding:0 5px;
+    border-radius:10px;
+    background:var(--danger);
+    color:#fff;
+    font-size:11px;
+    font-weight:800;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid var(--card);
+}
+
+/* ── Tabs inferiores (components/bottomNav.js) ────────────────────
+   Mobile-only (activado en responsive.css), Colaborador únicamente
+   (el componente ya devuelve "" para otros roles). Fixed al fondo;
+   .content suma padding-bottom cuando existe, vía :has(), para que
+   el último contenido de cada pantalla no quede tapado detrás. */
+.bottom-nav{
+    display:none;
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:850;
+    background:var(--card);
+    border-top:1px solid var(--line);
+}
+
+.bottom-nav-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:3px;
+    flex:1;
+    padding:9px 4px 10px;
+    color:var(--muted);
+    text-decoration:none;
+    font-size:11px;
+    font-weight:700;
+}
+
+.bottom-nav-item.active{
+    color:var(--gold);
 }
 
 .sidebar-cerrar{

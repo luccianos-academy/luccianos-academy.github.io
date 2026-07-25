@@ -10,44 +10,32 @@
 import { MODULOS, EMPRESA } from "../config.js";
 import { getUsuarioActual, MENU_POR_ROL } from "../services/auth.js";
 import { Icon } from "./icons.js";
-import { getNoticias } from "../data/noticias.js";
 import { obtenerMiUsuario } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
+import { CampanaBoton } from "./topbar.js";
 
-const DIAS_NOTICIA_RECIENTE = 7;
 const DIAS_AVISO_VENCIMIENTO_ACCESO = 7;
 
 // Sidebar() es síncrona (se llama en cada navegación, antes de que
-// la página nueva termine de cargar — ver ui.js/router.js), pero
-// Noticias y el propio usuario viven en la Sheet, o sea que leerlos
-// es async. En vez de frenar TODO el layout esperando esos fetches,
-// se precargan acá una sola vez al importar el módulo y se cachean.
-// Antes, si esos fetches no habían llegado todavía en la PRIMERA
-// pantalla de la sesión (login → inicio), el aviso directamente no
-// se veía hasta que el usuario navegaba a otro lado (recién ahí
-// Sidebar() se volvía a llamar con la cache ya lista) — un bug real
-// reportado por el usuario ("no está visible hasta que presiono
-// cualquier botón"). Ahora, apenas cada fetch resuelve, se parcha el
-// sidebar YA DIBUJADO directamente (sin esperar una navegación).
-let noticiasCache = null;
+// la página nueva termine de cargar — ver ui.js/router.js), pero el
+// propio usuario vive en la Sheet, o sea que leerlo es async. En vez
+// de frenar TODO el layout esperando ese fetch, se cachea acá y se
+// parcha el sidebar YA DIBUJADO en cuanto resuelve (sin esperar a
+// que el usuario navegue para que Sidebar() se vuelva a llamar con
+// la cache ya lista) — un bug real reportado antes ("no está visible
+// hasta que presiono cualquier botón").
 let miUsuarioCache = null;
 let miUsuarioIdPedido = null;
 
-getNoticias().then((n) => {
-    noticiasCache = n;
-    actualizarAvisosEnDOM();
-});
-
-// A diferencia de noticiasCache (siempre útil, se puede precargar en
-// cuanto el módulo se importa), acá todavía no hay sesión la primera
-// vez que este archivo se carga (el bundle se importa desde la propia
-// pantalla de login, antes de cualquier login real) — si se pidiera
-// acá arriba, getUsuarioActual() daría null y esto nunca se
-// dispararía para la sesión que arranca después. Por eso se dispara
-// recién la primera vez que Sidebar() se llama con un Colaborador
-// logueado (ver más abajo). Comparar por id (no una bandera fija)
-// también cubre "Ver como"/logout+login de otro Colaborador en la
-// misma sesión del navegador, sin quedarse con la cache vieja. */
+// Todavía no hay sesión la primera vez que este archivo se carga (el
+// bundle se importa desde la propia pantalla de login, antes de
+// cualquier login real) — si se pidiera acá arriba, getUsuarioActual()
+// daría null y esto nunca se dispararía para la sesión que arranca
+// después. Por eso se dispara recién la primera vez que Sidebar() se
+// llama con un Colaborador logueado (ver más abajo). Comparar por id
+// (no una bandera fija) también cubre "Ver como"/logout+login de otro
+// Colaborador en la misma sesión del navegador, sin quedarse con la
+// cache vieja.
 function asegurarMiUsuarioCache(usuario) {
     if (usuario.rol !== "colaborador") return;
     if (String(miUsuarioIdPedido) === String(usuario.id)) return;
@@ -58,21 +46,9 @@ function asegurarMiUsuarioCache(usuario) {
     });
 }
 
-// "Reciente" mira para adelante Y para atrás: una noticia como el
-// lanzamiento de un producto suele cargarse unos días ANTES de la
-// fecha real de lanzamiento, así que solo mirar fechas pasadas la
-// dejaría afuera hasta el día exacto.
-function hayNoticiaReciente() {
-    if (!noticiasCache) return false;
-    const hoy = new Date();
-    return noticiasCache.some((n) => {
-        const dias = Math.abs((new Date(n.fecha) - hoy) / 86400000);
-        return dias <= DIAS_NOTICIA_RECIENTE;
-    });
-}
-
-/** Aviso no invasivo (mismo lenguaje visual que "NEW" de Noticias, no
- *  un popup/modal) de que el acceso de prueba propio vence pronto —
+/** Aviso no invasivo (mismo lenguaje visual que usaba antes el "NEW"
+ *  de Noticias, ahora en la campana — ver components/topbar.js) de
+ *  que el acceso de prueba propio vence pronto —
  *  ver también el badge por fila en pages/colaboradores.js, que es la
  *  misma idea pero para quien GESTIONA colaboradores, no para uno
  *  mismo. */
@@ -91,9 +67,6 @@ function accesoPropioVencePronto() {
 function actualizarAvisosEnDOM() {
     const nav = document.querySelector(".nav-menu");
     if (!nav) return; // todavía no se montó ningún layout con sidebar
-
-    const linkNoticias = nav.querySelector(`a[href="#/noticias"]`);
-    if (linkNoticias) marcarAviso(linkNoticias, hayNoticiaReciente(), "NEW");
 
     const linkInicio = nav.querySelector(`a[href="#/inicio"]`);
     if (linkInicio) marcarAviso(linkInicio, accesoPropioVencePronto(), "VENCE");
@@ -131,7 +104,6 @@ export function Sidebar(rutaActiva = "inicio") {
     // actualizarAvisosEnDOM() para parchar un sidebar ya dibujado, así
     // ambos caminos (este render y el parche async) siempre coinciden.
     const avisosPorId = {
-        noticias: { activo: hayNoticiaReciente(), texto: "NEW" },
         inicio: { activo: accesoPropioVencePronto(), texto: "VENCE" },
     };
 
@@ -174,8 +146,9 @@ export function Sidebar(rutaActiva = "inicio") {
 
             <button class="sidebar-cerrar" id="btn-cerrar-sidebar" aria-label="Cerrar menú">${Icon("cerrar", { size: 20 })}</button>
 
-            <div class="logo">
-                ${EMPRESA.logoUrl ? `<img src="${EMPRESA.logoUrl}" alt="${EMPRESA.nombre}">` : EMPRESA.logo}
+            <div class="logo logo-con-campana">
+                <span>${EMPRESA.logoUrl ? `<img src="${EMPRESA.logoUrl}" alt="${EMPRESA.nombre}">` : EMPRESA.logo}</span>
+                ${CampanaBoton("sidebar")}
             </div>
 
             <nav class="nav-menu">

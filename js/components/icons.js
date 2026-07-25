@@ -33,6 +33,9 @@ const PATHS = {
 
     noticias: `<path d="M3 9.5v5a1 1 0 0 0 1 1h1.8l3 5h2l-1.3-5H10l9-3.5v-8L10 7h-1.5l-3 2.5H4a1 1 0 0 0-1 1Z"/><path d="M16.5 9a3 3 0 0 1 0 5.5"/>`,
 
+    // Campana de notificaciones (barra superior). Trazo, coherente con el resto.
+    campana: `<path d="M12 3.5a5.2 5.2 0 0 0-5.2 5.2c0 4.3-1.3 6-2.3 7h15a10.8 10.8 0 0 1-2.3-7A5.2 5.2 0 0 0 12 3.5Z"/><path d="M9.6 18.7a2.5 2.5 0 0 0 4.8 0"/>`,
+
     configuracion: `<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.8 6.2l-1.6 1.6M7.8 16.2l-1.6 1.6M17.8 17.8l-1.6-1.6M7.8 7.8 6.2 6.2"/>`,
 
     integraciones: `<path d="M9 15 15 9"/><path d="M10.5 6.5 12 5a3 3 0 0 1 4.2 4.2l-1.5 1.5"/><path d="M13.5 17.5 12 19a3 3 0 0 1-4.2-4.2l1.5-1.5"/>`,

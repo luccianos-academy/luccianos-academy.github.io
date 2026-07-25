@@ -53,29 +53,28 @@
         display:block;
     }
 
-    /* El botón hamburguesa es fixed y se dibuja encima de cualquier
-       banner fijo al tope (vista-como, beta) — se le suma padding
-       para que el texto no quede tapado detrás del círculo. */
-    .banner-vista-como,
-    .banner-beta{
-        padding-top:64px;
+    /* La barra superior (topbar.js) reemplaza al botón hamburguesa
+       suelto: agrupa hamburguesa + logo + campana. Es sticky (en
+       flujo, se pega arriba al scrollear), así ya no tapa los banners
+       ni hace falta padding-top de rescate en ellos ni en el content. */
+    .topbar{
+        display:flex;
     }
 
-    .hamburger-btn{
+    /* Tabs inferiores (bottomNav.js) — mobile-only, mismo breakpoint
+       que la topbar. El componente ya devuelve "" para roles que no
+       son Colaborador, así que este display:flex no le agrega una
+       barra vacía a nadie más. */
+    .bottom-nav{
         display:flex;
-        align-items:center;
-        justify-content:center;
-        position:fixed;
-        top:14px;
-        left:14px;
-        width:42px;
-        height:42px;
-        border-radius:50%;
-        background:var(--black);
-        color:var(--gold);
-        border:none;
-        z-index:900;
-        box-shadow:var(--shadow);
+    }
+
+    /* .bottom-nav es hermano de .layout (no de .content, que está
+       anidado un nivel más adentro) — de ahí el combinador en dos
+       pasos: .layout:has(~ .bottom-nav) detecta el hermano posterior,
+       .content hereda el padding como descendiente. */
+    .layout:has(~ .bottom-nav) .content{
+        padding-bottom:78px;
     }
 
     .sidebar-cerrar{
@@ -103,7 +102,6 @@
     .content{
         --content-pad:20px;
         padding:20px;
-        padding-top:76px;
     }
 
     .grid-2-1{
