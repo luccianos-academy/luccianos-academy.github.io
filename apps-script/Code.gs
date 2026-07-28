@@ -729,7 +729,12 @@ function _obtenerAccessTokenFCM() {
     if (cacheado) return cacheado;
 
     const clientEmail = _propFCM("FCM_CLIENT_EMAIL");
-    const privateKey = _propFCM("FCM_PRIVATE_KEY");
+    // computeRsaSha256Signature exige un PEM con saltos de línea REALES.
+    // Si la propiedad se cargó con "\n" como texto literal (dos
+    // caracteres, como aparece tal cual en el JSON crudo) en vez de
+    // saltos de línea de verdad, esto lo normaliza — funciona para
+    // cualquiera de las dos formas en las que alguien la haya pegado.
+    const privateKey = _propFCM("FCM_PRIVATE_KEY").replace(/\\n/g, "\n");
     const ahora = Math.floor(Date.now() / 1000);
 
     const header = { alg: "RS256", typ: "JWT" };
