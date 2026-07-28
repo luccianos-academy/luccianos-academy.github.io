@@ -46,12 +46,12 @@ try {
     importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
 
     const FIREBASE_CONFIG = {
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: "",
+        apiKey: "AIzaSyB6YJZebu7r_Nuk_daHElYUy5zBP1B-Rpk",
+        authDomain: "lucciano-s-academy-web.firebaseapp.com",
+        projectId: "lucciano-s-academy-web",
+        storageBucket: "lucciano-s-academy-web.firebasestorage.app",
+        messagingSenderId: "1008760177490",
+        appId: "1:1008760177490:web:62f272f1ff8af4cf68708b",
     };
 
     if (FIREBASE_CONFIG.apiKey) {

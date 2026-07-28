@@ -38,23 +38,24 @@ export const USE_MOCK_DATA = !GAS_URL;
 
 /**
  * Firebase Cloud Messaging (push real, "Fase B" de Coordinación
- * Operativa) — PENDIENTE: reemplazar por los valores reales una vez
- * creado el proyecto en console.firebase.google.com (ver instrucciones
- * en el chat). Estos valores NO son secretos (viajan al cliente igual
- * que GOOGLE_CLIENT_ID) — está bien commitearlos al repo público. El
- * secreto real (clave de cuenta de servicio, para ENVIAR pushes) vive
- * solo en Propiedades del script de Apps Script, nunca acá.
+ * Operativa) — proyecto "Lucciano's Academy Web"
+ * (lucciano-s-academy-web) en console.firebase.google.com, cuenta
+ * gabrielbusquets86. Estos valores NO son secretos (viajan al
+ * cliente igual que GOOGLE_CLIENT_ID) — está bien commitearlos al
+ * repo público. El secreto real (clave de cuenta de servicio, para
+ * ENVIAR pushes) vive solo en Propiedades del script de Apps Script,
+ * nunca acá — ver PENDIENTE en apps-script/Code.gs (_propFCM).
  */
 export const FIREBASE_CONFIG = {
-    apiKey: "",
-    authDomain: "",
-    projectId: "",
-    storageBucket: "",
-    messagingSenderId: "",
-    appId: "",
+    apiKey: "AIzaSyB6YJZebu7r_Nuk_daHElYUy5zBP1B-Rpk",
+    authDomain: "lucciano-s-academy-web.firebaseapp.com",
+    projectId: "lucciano-s-academy-web",
+    storageBucket: "lucciano-s-academy-web.firebasestorage.app",
+    messagingSenderId: "1008760177490",
+    appId: "1:1008760177490:web:62f272f1ff8af4cf68708b",
 };
 
-export const FIREBASE_VAPID_KEY = "";
+export const FIREBASE_VAPID_KEY = "BJetjOQPNUxWAkC9HwSbCtp9W15Ya3ebbj8VB41kng-j5OgjivPYFB5W-C3JgIlrjcflN4PejGD6NTsid7ez4ms";
 
 /** true recién cuando se cargaron los valores reales de arriba —
  *  services/push.js usa esto para no intentar nada (ni tirar errores
