@@ -63,6 +63,7 @@ export const HOJAS = {
     PUBLICACIONES: "Publicaciones",
     COMENTARIOS: "Comentarios",
     CANALES: "Canales",
+    RECURSOS: "Recursos",
 };
 
 /**
@@ -90,6 +91,7 @@ export const MODULOS = [
     { id: "integraciones",  nombre: "Integraciones",        icono: "integraciones" },
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
     { id: "coordinacionoperativa", nombre: "Coordinación Operativa", icono: "comentario" },
+    { id: "recursos",       nombre: "Recursos",             icono: "integraciones" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },
     { id: "perfil",         nombre: "Mi perfil",            icono: "perfil" },
 ];

@@ -132,11 +132,16 @@ export const MENU_POR_ROL = {
     // la campana (components/topbar.js → #/news), no como ítem de
     // menú — un solo lugar en vez de dos. La ruta sigue abierta para
     // cualquier autenticado (no tiene entrada en PERMISOS_PAGINA).
+    // "recursos" tampoco tiene entrada en PERMISOS_PAGINA a propósito
+    // (mismo criterio que "news"): el gating real ya lo hace
+    // puedeVerRecurso por fila (data/recursos.js) según visiblePara,
+    // así el día que se cargue un recurso para Colaborador alcanza con
+    // sumarlo a MENU_POR_ROL.colaborador — no hace falta tocar esto.
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "coordinacionoperativa", "manuales", "configuracion", "perfil",
+        "academia", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 

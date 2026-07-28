@@ -34,6 +34,7 @@ import { Reportes, bindReportes } from "./pages/reportes.js";
 import { Historia } from "./pages/historia.js";
 import { News, bindNews } from "./pages/news.js";
 import { CoordinacionOperativa, bindCoordinacionOperativa } from "./pages/coordinacionOperativa.js";
+import { Recursos, bindRecursos } from "./pages/recursos.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
 import { Configuracion } from "./pages/configuracion.js";
 import { Integraciones } from "./pages/integraciones.js";
@@ -66,6 +67,7 @@ const RUTAS = {
     historia:      { render: Historia },
     news:      { render: News, bind: bindNews },
     coordinacionoperativa: { render: CoordinacionOperativa, bind: bindCoordinacionOperativa },
+    recursos:      { render: Recursos, bind: bindRecursos },
     manuales:      { render: Manuales, bind: bindManuales },
 };
 
