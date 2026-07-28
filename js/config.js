@@ -62,6 +62,7 @@ export const HOJAS = {
     MANUALES: "Manuales",
     PUBLICACIONES: "Publicaciones",
     COMENTARIOS: "Comentarios",
+    CANALES: "Canales",
 };
 
 /**

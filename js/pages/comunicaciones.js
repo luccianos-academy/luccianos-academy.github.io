@@ -10,6 +10,11 @@
    — la regla de "solo lectura" de Capacitador es específica de la
    gestión de equipos (Colaboradores), no de esta conversación.
 
+   Los canales (data/canales.js) son una hoja editable, no una lista
+   fija: Admin y Supervisor pueden crear/renombrar canales nuevos
+   desde acá mismo cuando surge un tema nuevo, sin depender de un
+   cambio de código. Eliminar un canal queda solo para Admin.
+
    Dos vistas en un mismo archivo, sin ruta aparte: lista de canales
    (#/comunicaciones) y feed de un canal (#/comunicaciones/:canal) —
    mismo patrón que cursos.js con el id de curso.
@@ -20,13 +25,14 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
 import {
-    CANALES, canalInfo, getPublicaciones, getPublicacionesDeCanal, crearPublicacion,
+    getPublicaciones, getPublicacionesDeCanal, crearPublicacion,
     eliminarPublicacion, toggleLikePublicacion, marcarPublicacionLeida,
     estaLikeada, estaLeidaPublicacion,
 } from "../data/publicaciones.js";
 import {
     getComentariosDePublicacion, crearComentario, toggleLikeComentario, estaLikeadoComentario,
 } from "../data/comentarios.js";
+import { getCanales, canalInfo, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL } from "../data/canales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
@@ -51,10 +57,10 @@ export async function Comunicaciones(params = []) {
 }
 
 async function vistaListaCanales() {
-    const publicaciones = await getPublicaciones();
+    const [canales, publicaciones] = await Promise.all([getCanales(), getPublicaciones()]);
 
-    const filasHtml = CANALES.map((c) => {
-        const delCanal = publicaciones.filter((p) => p.canal === c.id);
+    const filasHtml = canales.map((c) => {
+        const delCanal = publicaciones.filter((p) => String(p.canal) === String(c.id));
         const ultima = delCanal[0];
         return `
             <a class="canal-item" href="#/comunicaciones/${c.id}">
@@ -69,12 +75,18 @@ async function vistaListaCanales() {
 
     return `
         ${Header("Comunicaciones", "Canales para Admin y Supervisores")}
-        <div class="section canal-lista">${filasHtml}</div>
+
+        <div class="table-toolbar">
+            <div></div>
+            <button class="btn btn-secondary" id="btn-gestionar-canales">Gestionar canales</button>
+        </div>
+
+        <div class="section canal-lista">${filasHtml || `<p class="text-sm text-muted">Todavía no hay canales — creá el primero.</p>`}</div>
     `;
 }
 
 async function vistaCanal(canalId) {
-    const info = canalInfo(canalId);
+    const info = await canalInfo(canalId);
     const usuario = getUsuarioActual();
     const publicaciones = await getPublicacionesDeCanal(canalId);
 
@@ -131,6 +143,8 @@ function estaLikeCount(p) {
 
 export function bindComunicaciones(params = []) {
     const usuario = getUsuarioActual();
+
+    document.getElementById("btn-gestionar-canales")?.addEventListener("click", () => abrirModalGestionarCanales());
 
     document.getElementById("btn-nueva-publicacion")?.addEventListener("click", (e) => {
         abrirModalNuevaPublicacion(e.target.dataset.canal);
@@ -285,11 +299,12 @@ async function abrirDetallePublicacion(p) {
 async function abrirModalNuevaPublicacion(canalId) {
     const modalId = "modal-nueva-publicacion";
     const usuario = getUsuarioActual();
+    const canales = await getCanales();
 
     const contenidoHtml = `
         <label for="input-canal-pub">Canal</label>
         <select id="input-canal-pub">
-            ${CANALES.map((c) => `<option value="${c.id}"${c.id === canalId ? " selected" : ""}>${c.nombre}</option>`).join("")}
+            ${canales.map((c) => `<option value="${c.id}"${String(c.id) === String(canalId) ? " selected" : ""}>${c.nombre}</option>`).join("")}
         </select>
 
         <label for="input-titulo-pub">Título</label>
@@ -328,5 +343,99 @@ async function abrirModalNuevaPublicacion(canalId) {
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
         cerrarModal(modalId);
         navigate(`comunicaciones/${canal}`);
+    });
+}
+
+/** Gestión de canales — Admin y Supervisor pueden crear/renombrar;
+ *  eliminar queda solo para Admin (un canal con publicaciones reales
+ *  adentro es más delicado de borrar que crearlo). Todo vive en la
+ *  hoja "Canales" (data/canales.js), no en el código — un canal
+ *  nuevo queda disponible al toque para cualquiera, sin deploy. */
+async function abrirModalGestionarCanales() {
+    const modalId = "modal-gestionar-canales";
+    const usuario = getUsuarioActual();
+
+    async function contenidoActual() {
+        const canales = await getCanales();
+        return `
+            <div class="canal-gestion-lista">
+                ${canales.map((c) => `
+                    <div class="canal-gestion-item">
+                        <span class="canal-item-icono">${Icon(c.icono, { size: 16 })}</span>
+                        <input type="text" class="input-canal-nombre" data-canal-id="${c.id}" value="${c.nombre}">
+                        <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
+                        ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
+                    </div>
+                `).join("")}
+            </div>
+
+            <label for="input-nuevo-canal-nombre" style="margin-top:16px">Nuevo canal</label>
+            <div style="display:flex;gap:8px">
+                <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
+                    ${ICONOS_CANAL.map((i) => `<option value="${i}">${i}</option>`).join("")}
+                </select>
+                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1">
+                <button class="btn btn-primary" id="btn-crear-canal" style="flex:0 0 auto">Crear</button>
+            </div>
+        `;
+    }
+
+    abrirModal(`
+        <div class="modal-overlay" id="${modalId}">
+            <div class="modal">
+                <div class="modal-header">
+                    <h2>Gestionar canales</h2>
+                    <button class="modal-close" data-close="${modalId}">✕</button>
+                </div>
+                <div class="modal-body" id="canales-gestion-body">${await contenidoActual()}</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-close="${modalId}">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    `, modalId);
+
+    async function reRender() {
+        const body = document.getElementById("canales-gestion-body");
+        if (body) body.innerHTML = await contenidoActual();
+        bindAcciones();
+    }
+
+    function bindAcciones() {
+        document.querySelectorAll("[data-guardar-canal]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                const input = document.querySelector(`.input-canal-nombre[data-canal-id="${btn.dataset.guardarCanal}"]`);
+                const nombre = input.value.trim();
+                if (!nombre) return;
+                await actualizarCanal(btn.dataset.guardarCanal, { nombre });
+                registrarEvento(usuario.id, "editar_canal", `Canal renombrado a "${nombre}"`);
+                await reRender();
+            });
+        });
+
+        document.querySelectorAll("[data-eliminar-canal]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                if (!confirm("¿Eliminar este canal? Las publicaciones que tenga adentro dejan de ser accesibles desde la lista de canales.")) return;
+                await eliminarCanal(btn.dataset.eliminarCanal);
+                registrarEvento(usuario.id, "eliminar_canal", `Canal ${btn.dataset.eliminarCanal} eliminado`);
+                await reRender();
+            });
+        });
+
+        document.getElementById("btn-crear-canal")?.addEventListener("click", async () => {
+            const nombre = document.getElementById("input-nuevo-canal-nombre").value.trim();
+            if (!nombre) return;
+            const icono = document.getElementById("input-nuevo-canal-icono").value;
+            await crearCanal({ nombre, icono, creadoPor: usuario.nombre });
+            registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
+            await reRender();
+        });
+    }
+    bindAcciones();
+
+    // Al cerrar este modal, la lista de canales de fondo puede haber
+    // cambiado (uno nuevo, uno renombrado) — se refresca la pantalla.
+    document.getElementById(modalId)?.querySelectorAll("[data-close]").forEach((btn) => {
+        btn.addEventListener("click", () => navigate("comunicaciones"));
     });
 }

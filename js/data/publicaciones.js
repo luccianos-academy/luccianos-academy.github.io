@@ -11,39 +11,20 @@
    "likesDe"/"leidoPor" son listas separadas por comas en la misma
    fila — mismo patrón que ya usa data/noticias.js, sin tabla nueva
    para eso.
+
+   Los canales viven en su propia hoja (data/canales.js) — Admin y
+   Supervisor los crean/editan desde la app, no son una lista fija
+   acá. El canal de una publicación es solo un string (su id).
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { publicacionesMock } from "./mock/publicaciones.mock.js";
 import { HOJAS } from "../config.js";
 
-// Fijos (institucionales) + uno por cada categoría real de curso — así
-// "Operaciones"/"Incidencias"/"Ideas"/"Anuncios" conviven con canales
-// temáticos que ya existen en Academia, sin inventar una taxonomía
-// paralela. Se puede ampliar la lista sin migrar nada (el canal de una
-// publicación es solo un string).
-export const CANALES = [
-    { id: "anuncios", nombre: "Anuncios", icono: "noticias" },
-    { id: "operaciones", nombre: "Operaciones", icono: "configuracion" },
-    { id: "incidencias", nombre: "Incidencias", icono: "warning" },
-    { id: "ideas", nombre: "Ideas", icono: "idea" },
-    { id: "heladeria", nombre: "Heladería", icono: "helado" },
-    { id: "cafeteria", nombre: "Cafetería", icono: "cafe" },
-    { id: "chocolateria", nombre: "Chocolatería", icono: "chocolate" },
-    { id: "pasteleria", nombre: "Pastelería", icono: "pastel" },
-    { id: "icepops", nombre: "Icepops", icono: "icepop" },
-    { id: "atencion-cliente", nombre: "Atención al Cliente", icono: "corazon" },
-    { id: "sistema-caja", nombre: "Sistema y Caja", icono: "caja" },
-];
-
-export function canalInfo(canalId) {
-    return CANALES.find((c) => c.id === canalId) || CANALES[0];
-}
-
 function normalizarPublicacion(f) {
     return {
         id: f.id,
-        canal: String(f.canal || "anuncios").trim(),
+        canal: String(f.canal || "").trim(),
         autorId: f.autorId,
         autorNombre: String(f.autorNombre || "").trim(),
         autorRol: String(f.autorRol || "").trim(),
@@ -83,7 +64,7 @@ export async function getPublicaciones() {
 
 export async function getPublicacionesDeCanal(canalId) {
     const todas = await getPublicaciones();
-    return todas.filter((p) => p.canal === canalId);
+    return todas.filter((p) => String(p.canal) === String(canalId));
 }
 
 export async function crearPublicacion({ canal, autorId, autorNombre, autorRol, titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion }) {
