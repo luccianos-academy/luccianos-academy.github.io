@@ -25,7 +25,7 @@ export const usuariosMock = [
     { id: 4, nombre: "Tomás Ojeda",         email: "tomas.ojeda@luccianos.com.ar",         rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Martinez GBA",          activo: "SI" },
     { id: 5, nombre: "Ever Rodríguez",      email: "ever.rodriguez@luccianos.com.ar",      rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Recoleta CABA",          activo: "SI" },
     { id: 6, nombre: "Lourdes Garcia",      email: "lourdes.garcia@luccianos.com.ar",      rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Devoto CABA",            activo: "SI" },
-    { id: 7, nombre: "Nicolas Lopez",       email: "nicolas.lopez@luccianos.com.ar",       rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Central Mar del Plata",  activo: "SI" },
+    { id: 7, nombre: "Nicolas Lopez",       email: "nicolas.lopez@luccianos.com.ar",       rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Central Mar del Plata",  activo: "SI", capacitador: "SI" },
     { id: 8, nombre: "Ivan Herrera",        email: "ivan.herrera@luccianos.com.ar",        rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Nuevocentro Córdoba",    activo: "SI" },
     { id: 9, nombre: "Barbara Riccitelli",  email: "barbara.riccitelli@luccianos.com.ar",  rol: "supervisor", encargado: "NO", sucursal: "Lucciano's Shopping Abasto CABA",   activo: "SI" },
 

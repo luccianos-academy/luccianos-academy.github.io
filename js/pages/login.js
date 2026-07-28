@@ -369,7 +369,11 @@ async function renderRolePicker() {
     picker.innerHTML = ROLES.map((r) => {
         const disponible = usuarios.some((u) => u.rol === r.id);
         return `<button class="btn btn-secondary" data-rol="${r.id}" ${disponible ? "" : "disabled"}>${r.nombre} — <span style="font-weight:400">${r.descripcion}</span></button>`;
-    }).join("");
+    }).join("")
+        // "Capacitador" no es un rol real (es un Supervisor con
+        // capacitador:true — ver data/usuarios.js), así que no sale de
+        // ROLES: se suma acá como accesorio, mismo criterio de picker.
+        + `<button class="btn btn-secondary" data-rol="capacitador" ${usuarios.some((u) => u.rol === "supervisor" && u.capacitador) ? "" : "disabled"}>Capacitador — <span style="font-weight:400">Solo lectura de toda la red</span></button>`;
 
     picker.querySelectorAll("[data-rol]").forEach((btn) => {
         btn.addEventListener("click", () => entrarComo(btn.dataset.rol, usuarios));
@@ -377,7 +381,9 @@ async function renderRolePicker() {
 }
 
 async function entrarComo(rol, usuarios) {
-    const usuario = usuarios.find((u) => u.rol === rol);
+    const usuario = rol === "capacitador"
+        ? usuarios.find((u) => u.rol === "supervisor" && u.capacitador)
+        : usuarios.find((u) => u.rol === rol);
     if (!usuario) return;
 
     login(usuario);
