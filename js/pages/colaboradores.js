@@ -614,6 +614,7 @@ export async function Colaboradores() {
             <button class="pill-categoria activa" data-filtro-activo="todos">Todos</button>
             <button class="pill-categoria" data-filtro-activo="SI">Activos</button>
             <button class="pill-categoria" data-filtro-activo="NO">Inactivos</button>
+            <button class="pill-categoria" id="btn-filtro-encargados">Encargados</button>
         </div>
 
         ${esAdmin ? `
@@ -686,10 +687,15 @@ export function bindColaboradores() {
 
     const buscador = document.getElementById("buscador-colaboradores");
     let filtroActivo = "todos";
+    let soloEncargados = false;
 
-    // Búsqueda por nombre y el segmentador Activos/Inactivos se
-    // combinan sobre las mismas filas — cada uno decide si esconde
-    // una fila, nunca la muestra si el otro ya la escondió.
+    // Búsqueda por nombre, el segmentador Activos/Inactivos y el
+    // toggle "Encargados" se combinan sobre las mismas filas — cada
+    // uno decide si esconde una fila, nunca la muestra si otro ya la
+    // escondió. "Encargado" se detecta por texto ("(Encargado)" en la
+    // columna Rol, ver rolLabel en filaDeColaborador) en vez de por
+    // posición de columna, porque esa columna se corre según si hay
+    // checkbox de mail o columna de sucursal antes.
     function aplicarFiltros() {
         const texto = (buscador?.value || "").trim().toLowerCase();
         document.querySelectorAll("#tabla-colaboradores tbody tr").forEach((fila) => {
@@ -701,11 +707,18 @@ export function bindColaboradores() {
             const coincideTexto = nombre.includes(texto);
             const esActivo = !!fila.querySelector(".badge-success");
             const coincideEstado = filtroActivo === "todos" || (filtroActivo === "SI") === esActivo;
-            fila.style.display = coincideTexto && coincideEstado ? "" : "none";
+            const coincideEncargado = !soloEncargados || fila.textContent.includes("(Encargado)");
+            fila.style.display = coincideTexto && coincideEstado && coincideEncargado ? "" : "none";
         });
     }
 
     if (buscador) buscador.addEventListener("input", aplicarFiltros);
+
+    document.getElementById("btn-filtro-encargados")?.addEventListener("click", (e) => {
+        soloEncargados = !soloEncargados;
+        e.currentTarget.classList.toggle("activa", soloEncargados);
+        aplicarFiltros();
+    });
 
     // "Elegir mis locales" (solo Capacitador — ve toda la red y
     // necesita poder guardar cuáles le interesan, en vez de scrollear

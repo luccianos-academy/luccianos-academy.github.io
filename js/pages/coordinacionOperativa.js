@@ -26,7 +26,7 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
 import {
-    getPublicaciones, getPublicacionesDeCanal, crearPublicacion,
+    getPublicaciones, getPublicacionesDeCanal, crearPublicacion, actualizarPublicacion,
     eliminarPublicacion, toggleLikePublicacion, marcarPublicacionLeida,
     estaLikeada, estaLeidaPublicacion,
 } from "../data/publicaciones.js";
@@ -263,7 +263,12 @@ async function abrirDetallePublicacion(p) {
                 <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
                     <textarea id="input-nuevo-comentario" rows="2" placeholder="Escribí un comentario..." style="width:100%"></textarea>
                     <span style="display:flex;justify-content:space-between;gap:8px">
-                        ${puedeEliminar ? `<button class="btn btn-secondary" id="btn-eliminar-publicacion">Eliminar publicación</button>` : "<span></span>"}
+                        ${puedeEliminar ? `
+                            <span style="display:flex;gap:8px">
+                                <button class="btn btn-secondary" id="btn-editar-publicacion">Editar</button>
+                                <button class="btn btn-secondary" id="btn-eliminar-publicacion">Eliminar publicación</button>
+                            </span>
+                        ` : "<span></span>"}
                         <span style="display:flex;gap:8px">
                             <button class="btn btn-secondary" data-close="${modalId}">Cerrar</button>
                             <button class="btn btn-primary" id="btn-comentar">Comentar</button>
@@ -273,6 +278,11 @@ async function abrirDetallePublicacion(p) {
             </div>
         </div>
     `, modalId);
+
+    document.getElementById("btn-editar-publicacion")?.addEventListener("click", () => {
+        cerrarModal(modalId);
+        abrirModalEditarPublicacion(p);
+    });
 
     document.getElementById("btn-eliminar-publicacion")?.addEventListener("click", async () => {
         if (!confirm("¿Eliminar esta publicación? Esta acción no se puede deshacer.")) return;
@@ -363,6 +373,58 @@ async function abrirModalNuevaPublicacion(canalId) {
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${canal}`);
+    });
+}
+
+/** Corregir una publicación ya creada (typo, link mal copiado, etc.)
+ *  sin perder sus likes/comentarios/lecturas — antes la única forma
+ *  era borrar y volver a cargarla entera. Mismo permiso que borrar:
+ *  su propio autor, o cualquier Admin. */
+async function abrirModalEditarPublicacion(p) {
+    const modalId = "modal-editar-publicacion";
+    const usuario = getUsuarioActual();
+
+    const contenidoHtml = `
+        <label for="input-titulo-editar-pub">Título</label>
+        <input type="text" id="input-titulo-editar-pub" value="${p.titulo}">
+
+        <label for="input-mensaje-editar-pub">Mensaje</label>
+        <textarea id="input-mensaje-editar-pub" rows="4">${p.mensaje}</textarea>
+
+        <label for="input-adjunto-url-editar-pub">Adjunto — link de Drive u otro (opcional)</label>
+        <input type="text" id="input-adjunto-url-editar-pub" value="${p.adjuntoUrl || ""}" placeholder="https://drive.google.com/...">
+
+        <label for="input-adjunto-editar-pub">Texto del botón del adjunto</label>
+        <input type="text" id="input-adjunto-editar-pub" value="${p.adjuntoLabel || ""}" placeholder="Ej: Manual de Uniforme">
+
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:10px">
+            <input type="checkbox" id="input-destacado-editar-pub" style="width:auto"${p.destacado ? " checked" : ""}>
+            Marcar como destacado
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400">
+            <input type="checkbox" id="input-confirmacion-editar-pub" style="width:auto"${p.requiereConfirmacion ? " checked" : ""}>
+            Requiere confirmación de lectura
+        </label>
+    `;
+
+    abrirModal(Modal({ id: modalId, titulo: "Editar publicación", contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
+        const titulo = document.getElementById("input-titulo-editar-pub").value.trim();
+        const mensaje = document.getElementById("input-mensaje-editar-pub").value.trim();
+        if (!titulo || !mensaje) return;
+
+        const adjuntoUrl = document.getElementById("input-adjunto-url-editar-pub").value.trim();
+        const adjuntoLabel = document.getElementById("input-adjunto-editar-pub").value.trim();
+        // destacado/requiereConfirmacion viajan como "SI"/"NO" en la
+        // Sheet (mismo formato que escribe crearPublicacion) — mandar
+        // el boolean crudo del checkbox rompe normalizarPublicacion,
+        // que compara contra el string "SI".
+        const destacado = document.getElementById("input-destacado-editar-pub").checked ? "SI" : "NO";
+        const requiereConfirmacion = document.getElementById("input-confirmacion-editar-pub").checked ? "SI" : "NO";
+
+        await actualizarPublicacion(p.id, { titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion });
+        registrarEvento(usuario.id, "editar_publicacion", `Publicación "${titulo}" editada`);
+        cerrarModal(modalId);
+        navigate(`coordinacionoperativa/${p.canal}`);
     });
 }
 

@@ -5,8 +5,10 @@
    Reemplaza el Google Sites que armó el equipo de Operaciones a mano
    (un menú de links a Sheets/Drive: Auditorías, Claims, Ponderados de
    Google, Relevamientos, etc.) por una versión editable adentro de la
-   app: Admin agrega/renombra/borra accesos desde acá, sin depender de
-   otra herramienta aparte ni de un cambio de código.
+   app: Admin Y Supervisor agregan/renombran/borran accesos desde acá
+   (mismo criterio que Canales — el Admin no tiene que ser el único
+   que gestiona esto), sin depender de otra herramienta aparte ni de
+   un cambio de código.
 
    "visiblePara" (data/recursos.js) es una lista de roles, no un solo
    valor fijo — hoy todos los recursos cargados son para Supervisión,
@@ -29,6 +31,11 @@ import { navigate } from "../router.js";
 export async function Recursos() {
     const usuario = getUsuarioActual();
     const recursos = await getRecursosVisibles(usuario);
+    // Mismo criterio que Canales (Coordinación Operativa): gestionar
+    // no es exclusivo de Admin — cualquier Supervisor (incluido
+    // Capacitador, que acá NO es de solo lectura, esa regla es
+    // específica de Colaboradores) puede cargar/editar/borrar.
+    const puedeGestionar = usuario.rol === "admin" || usuario.rol === "supervisor";
 
     const itemsHtml = recursos.map((r) => `
         <a class="canal-item" href="${r.url}" target="_blank" rel="noopener">
@@ -43,7 +50,7 @@ export async function Recursos() {
     return `
         ${Header("Recursos", "Accesos rápidos a herramientas operativas")}
 
-        ${usuario.rol === "admin" ? `
+        ${puedeGestionar ? `
             <div class="table-toolbar">
                 <div></div>
                 <button class="btn btn-secondary" id="btn-gestionar-recursos">Gestionar recursos</button>
