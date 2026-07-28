@@ -37,6 +37,16 @@
 
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 
+    <!-- Firebase Cloud Messaging (push real) — build "compat" a
+         propósito: mismo estilo de API que usa sw.js vía importScripts
+         (que no puede usar el SDK modular ES, los service workers
+         clásicos no soportan import/export). Mientras config.js no
+         tenga los valores reales del proyecto (ver FIREBASE_CONFIG),
+         services/push.js no llama nada de esto — cargar el script no
+         alcanza para pedir permiso ni registrar un token. -->
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js"></script>
+
 </head>
 
 <body>

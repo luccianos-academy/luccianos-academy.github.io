@@ -36,6 +36,31 @@ export const GAS_URL = ES_EXPERIMENTAL ? "" : "https://script.google.com/macros/
  */
 export const USE_MOCK_DATA = !GAS_URL;
 
+/**
+ * Firebase Cloud Messaging (push real, "Fase B" de Coordinación
+ * Operativa) — PENDIENTE: reemplazar por los valores reales una vez
+ * creado el proyecto en console.firebase.google.com (ver instrucciones
+ * en el chat). Estos valores NO son secretos (viajan al cliente igual
+ * que GOOGLE_CLIENT_ID) — está bien commitearlos al repo público. El
+ * secreto real (clave de cuenta de servicio, para ENVIAR pushes) vive
+ * solo en Propiedades del script de Apps Script, nunca acá.
+ */
+export const FIREBASE_CONFIG = {
+    apiKey: "",
+    authDomain: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: "",
+};
+
+export const FIREBASE_VAPID_KEY = "";
+
+/** true recién cuando se cargaron los valores reales de arriba —
+ *  services/push.js usa esto para no intentar nada (ni tirar errores
+ *  en consola) mientras el proyecto Firebase no exista todavía. */
+export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey;
+
 export const VERSION = "4.0.0-sprint2";
 
 export const EMPRESA = {
@@ -64,6 +89,7 @@ export const HOJAS = {
     COMENTARIOS: "Comentarios",
     CANALES: "Canales",
     RECURSOS: "Recursos",
+    TOKENS: "Tokens",
 };
 
 /**

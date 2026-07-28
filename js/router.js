@@ -21,7 +21,7 @@ import { InicioColaborador } from "./pages/inicioColaborador.js";
 import { Colaboradores, bindColaboradores } from "./pages/colaboradores.js";
 import { Cursos, bindCursos } from "./pages/cursos.js";
 import { Examen, bindExamen } from "./pages/examen.js";
-import { Perfil } from "./pages/perfil.js";
+import { Perfil, bindPerfil } from "./pages/perfil.js";
 import { NotFound } from "./pages/notFound.js";
 import { Locales, bindLocales } from "./pages/locales.js";
 import { Alertas } from "./pages/alertas.js";
@@ -53,7 +53,7 @@ const RUTAS = {
     colaboradores: { render: Colaboradores, bind: bindColaboradores },
     cursos:        { render: Cursos, bind: bindCursos },
     examen:        { render: Examen, bind: bindExamen },
-    perfil:        { render: Perfil },
+    perfil:        { render: Perfil, bind: bindPerfil },
     locales:       { render: Locales, bind: bindLocales },
     alertas:       { render: Alertas },
     supervisores:  { render: Supervisores },

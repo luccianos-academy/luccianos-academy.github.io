@@ -94,3 +94,10 @@ export function verificarLoginGoogle(idToken) {
 export function enviarMailReal(destinatarios, asunto, cuerpo) {
     return gasRequest("enviarMail", { destinatarios, asunto, cuerpo });
 }
+
+/** Push real (Firebase) a una lista de usuarios — el backend busca
+ *  sus tokens en la hoja "Tokens" y les manda a todos sus
+ *  dispositivos registrados (ver apps-script/Code.gs, enviarPush). */
+export function enviarPushReal(usuarioIds, titulo, cuerpo, url) {
+    return gasRequest("enviarPush", { usuarioIds, titulo, cuerpo, url });
+}

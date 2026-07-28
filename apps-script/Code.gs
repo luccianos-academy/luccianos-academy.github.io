@@ -104,6 +104,7 @@ function _despachar(body, usuarioActual) {
         case "actualizar": return actualizar(body.hoja, body.id, body.cambios, usuarioActual);
         case "eliminar":   return eliminar(body.hoja, body.id, usuarioActual);
         case "enviarMail": return enviarMailDesdeApp(body.destinatarios, body.asunto, body.cuerpo, usuarioActual);
+        case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
         default:           return { ok: false, error: "Acción desconocida: " + body.accion };
     }
 }
@@ -664,4 +665,143 @@ function enviarAvisoBetaColaboradores() {
     });
 
     return "Enviados: " + enviados + " de " + colaboradores.length;
+}
+
+/* ============================================================
+   PUSH REAL — Firebase Cloud Messaging (Fase B de Coordinación
+   Operativa / News)
+
+   SETUP OBLIGATORIO (una sola vez, a mano, DESPUÉS de crear el
+   proyecto Firebase — ver instrucciones fuera de este archivo):
+   Configuración del proyecto → Propiedades del script → agregar:
+     - FCM_PROJECT_ID    (el "ID de proyecto" de Firebase)
+     - FCM_CLIENT_EMAIL  (campo "client_email" del JSON de la cuenta
+                           de servicio, Configuración → Cuentas de
+                           servicio → Generar nueva clave privada)
+     - FCM_PRIVATE_KEY   (campo "private_key" de ESE MISMO JSON,
+                           completo, con los \n incluidos)
+   Sin esto, enviarPush() falla con un error claro (mismo criterio
+   que _secret() para SESSION_SECRET) — no rompe el resto del backend.
+
+   Por qué un JWT propio y no una librería: Apps Script no tiene un
+   cliente OAuth2 de Google para cuentas de servicio incluido, pero
+   Utilities.computeRsaSha256Signature() firma RS256 con una clave PEM
+   directamente — alcanza para armar el JWT "a mano" (header.claims,
+   firmado) y cambiarlo por un access_token en el endpoint estándar de
+   Google. El token se cachea (CacheService) porque vale por 1h y
+   armar+firmar el JWT en cada request sería trabajo de más.
+============================================================ */
+
+function _propFCM(nombre) {
+    const v = PropertiesService.getScriptProperties().getProperty(nombre);
+    if (!v) throw new Error("Falta configurar " + nombre + " en Propiedades del script (ver comentario arriba de _propFCM).");
+    return v;
+}
+
+function _base64url(bytes) {
+    return Utilities.base64EncodeWebSafe(bytes).replace(/=+$/, "");
+}
+
+/** Access token OAuth2 para llamar a la API de FCM, vía el flujo
+ *  "JWT Bearer" de cuentas de servicio de Google. Cacheado 55min
+ *  (el token real vale 60min — margen para no usarlo justo vencido). */
+function _obtenerAccessTokenFCM() {
+    const cache = CacheService.getScriptCache();
+    const cacheado = cache.get("fcm_access_token");
+    if (cacheado) return cacheado;
+
+    const clientEmail = _propFCM("FCM_CLIENT_EMAIL");
+    const privateKey = _propFCM("FCM_PRIVATE_KEY");
+    const ahora = Math.floor(Date.now() / 1000);
+
+    const header = { alg: "RS256", typ: "JWT" };
+    const claims = {
+        iss: clientEmail,
+        scope: "https://www.googleapis.com/auth/firebase.messaging",
+        aud: "https://oauth2.googleapis.com/token",
+        iat: ahora,
+        exp: ahora + 3600,
+    };
+
+    const signingInput = _base64url(Utilities.newBlob(JSON.stringify(header)).getBytes())
+        + "." + _base64url(Utilities.newBlob(JSON.stringify(claims)).getBytes());
+    const firma = Utilities.computeRsaSha256Signature(signingInput, privateKey);
+    const jwt = signingInput + "." + _base64url(firma);
+
+    const resp = UrlFetchApp.fetch("https://oauth2.googleapis.com/token", {
+        method: "post",
+        payload: {
+            grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+            assertion: jwt,
+        },
+        muteHttpExceptions: true,
+    });
+
+    const data = JSON.parse(resp.getContentText());
+    if (!data.access_token) throw new Error("No se pudo obtener access token de FCM: " + resp.getContentText());
+
+    cache.put("fcm_access_token", data.access_token, 55 * 60);
+    return data.access_token;
+}
+
+/** Manda UN push a UN token. Devuelve {ok, invalido} — invalido:true
+ *  cuando FCM dice que ese token ya no sirve (UNREGISTERED/inválido),
+ *  para que el caller lo borre de la hoja "Tokens" y no lo siga
+ *  intentando para siempre. */
+function _enviarUnPush(token, titulo, cuerpo, url, accessToken, projectId) {
+    const resp = UrlFetchApp.fetch("https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send", {
+        method: "post",
+        contentType: "application/json",
+        headers: { Authorization: "Bearer " + accessToken },
+        payload: JSON.stringify({
+            message: {
+                token: token,
+                notification: { title: titulo, body: cuerpo },
+                data: url ? { url: url } : {},
+            },
+        }),
+        muteHttpExceptions: true,
+    });
+
+    if (resp.getResponseCode() === 200) return { ok: true };
+
+    const texto = resp.getContentText();
+    const invalido = /UNREGISTERED|INVALID_ARGUMENT|NOT_FOUND/.test(texto);
+    return { ok: false, invalido: invalido };
+}
+
+/**
+ * Envío masivo a una lista de usuarios (todos sus dispositivos
+ * registrados en "Tokens") — Admin y Supervisor (incluye Capacitador,
+ * mismo criterio que Coordinación Operativa: no es de solo lectura
+ * ahí). Limpia solo los tokens que FCM confirma inválidos; un error
+ * de red/timeout puntual NO borra el token (podría ser transitorio).
+ */
+function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
+    if (!_esGestion(usuarioActual)) {
+        return { ok: false, error: "Solo Admin o Supervisor pueden mandar notificaciones push." };
+    }
+    if (!titulo || !(usuarioIds || []).length) {
+        return { ok: false, error: "Falta título o destinatarios." };
+    }
+
+    const projectId = _propFCM("FCM_PROJECT_ID");
+    const accessToken = _obtenerAccessTokenFCM();
+
+    const ids = usuarioIds.map(String);
+    const tokens = _leerCrudo("Tokens").filter((t) => ids.includes(String(t.usuarioId)));
+
+    let enviados = 0;
+    const fallidos = [];
+    tokens.forEach((t) => {
+        const resultado = _enviarUnPush(t.token, titulo, cuerpo, url, accessToken, projectId);
+        if (resultado.ok) {
+            enviados++;
+        } else {
+            fallidos.push(t.token);
+            if (resultado.invalido) _eliminarCrudo("Tokens", t.id);
+        }
+    });
+
+    return { ok: true, enviados, fallidos: fallidos.length, destinatarios: tokens.length };
 }

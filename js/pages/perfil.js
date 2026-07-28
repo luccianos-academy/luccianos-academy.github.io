@@ -9,8 +9,41 @@
 
 import { Header } from "../components/header.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
+import { navigate } from "../router.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
+
+/** Estado del permiso → qué mostrar. "granted"/"denied" son
+ *  decisiones del navegador que un botón nuestro no puede revertir
+ *  (por diseño, así evitan que un sitio insista) — para "denied" solo
+ *  se explica cómo re-habilitarlo a mano en la config del navegador. */
+function bloquePush() {
+    if (!soportaPush()) return "";
+
+    const estado = estadoPermisoPush();
+    if (estado === "granted") {
+        return `
+            <div class="card" style="max-width:420px;margin-top:16px">
+                <div class="item"><span>Notificaciones push</span><strong class="text-sm" style="color:var(--success)">Activadas ✓</strong></div>
+            </div>
+        `;
+    }
+    if (estado === "denied") {
+        return `
+            <div class="card" style="max-width:420px;margin-top:16px">
+                <div class="item"><span>Notificaciones push</span><strong class="text-sm text-muted">Bloqueadas</strong></div>
+                <p class="text-xs text-muted" style="margin-top:8px">Las bloqueaste antes desde el navegador. Para recibirlas, habilitalas a mano en la configuración del sitio (ícono de candado en la barra de direcciones).</p>
+            </div>
+        `;
+    }
+    return `
+        <div class="card" style="max-width:420px;margin-top:16px">
+            <div class="item"><span>Notificaciones push</span><button class="btn btn-secondary" id="btn-activar-push" style="width:auto">Activar</button></div>
+            <p class="text-xs text-muted" style="margin-top:8px">Recibí avisos en el celular cuando haya algo nuevo en Coordinación Operativa o News, aunque no tengas la app abierta.</p>
+        </div>
+    `;
+}
 
 export async function Perfil() {
 
@@ -27,5 +60,25 @@ export async function Perfil() {
                 ${usuario.sucursal ? `<div class="item"><span>Sucursal</span><strong>${usuario.sucursal}</strong></div>` : ""}
             </div>
         </div>
+
+        ${bloquePush()}
     `;
+}
+
+export function bindPerfil() {
+    document.getElementById("btn-activar-push")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = "Activando...";
+        const usuario = getUsuarioActual();
+        const resultado = await activarPush(usuario);
+        if (resultado.ok) {
+            navigate("perfil");
+            return;
+        }
+        btn.disabled = false;
+        btn.textContent = "Activar";
+        if (resultado.motivo === "denegado") alert("No diste el permiso de notificaciones — podés activarlo más tarde desde la configuración del navegador.");
+        else alert("No se pudo activar. Probá de nuevo en un momento.");
+    });
 }
