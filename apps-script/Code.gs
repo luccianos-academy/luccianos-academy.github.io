@@ -50,6 +50,24 @@ const PERMISOS_ESCRITURA = {
     Asignaciones: { crear: ["admin", "colaborador"],             actualizar: ["admin", "supervisor", "colaborador"], eliminar: ["admin"] },
     Resultados:   { crear: ["admin", "colaborador"],             actualizar: [],                                    eliminar: ["admin"] },
     Auditoria:    { crear: ["admin", "supervisor", "colaborador"], actualizar: [],                                  eliminar: [] },
+    // Coordinación Operativa (antes "Comunicaciones") — Admin y
+    // Supervisor (incluye Capacitador, que no es de solo lectura acá).
+    // Canales: eliminar queda solo-Admin (un canal con publicaciones
+    // reales adentro es más delicado de borrar que crearlo). El resto
+    // de las reglas más finas (ej. "solo el autor o Admin borra SU
+    // publicación") las aplica la UI — acá alcanza con la matriz
+    // gruesa por rol, mismo criterio que Asignaciones/Resultados.
+    Canales:       { crear: ["admin", "supervisor"], actualizar: ["admin", "supervisor"], eliminar: ["admin"] },
+    Publicaciones: { crear: ["admin", "supervisor"], actualizar: ["admin", "supervisor"], eliminar: ["admin", "supervisor"] },
+    Comentarios:   { crear: ["admin", "supervisor"], actualizar: [],                       eliminar: [] },
+    // Recursos: mismo criterio, Supervisor con paridad total (pedido
+    // explícito del usuario — no depender de que Admin gestione todo).
+    Recursos:      { crear: ["admin", "supervisor"], actualizar: ["admin", "supervisor"], eliminar: ["admin", "supervisor"] },
+    // Tokens (push real): cualquier autenticado registra SU PROPIO
+    // token — no hay "actualizar" (se borra y se vuelve a crear) ni
+    // "eliminar" client-facing (la limpieza de tokens inválidos la
+    // hace enviarPush() directo con _eliminarCrudo, sin pasar por acá).
+    Tokens:        { crear: ["admin", "supervisor", "colaborador"], actualizar: [], eliminar: [] },
 };
 
 // Hojas cuya lectura queda restringida (el resto la lee cualquier

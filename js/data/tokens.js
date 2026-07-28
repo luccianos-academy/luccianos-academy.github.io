@@ -55,9 +55,17 @@ export async function getTokensDeUsuarios(usuarioIds) {
 export async function registrarToken(usuarioId, token) {
     const existentes = await getTokens();
     if (existentes.some((t) => t.token === token)) return;
-    return writeSheet(HOJAS.TOKENS, {
+    const resultado = await writeSheet(HOJAS.TOKENS, {
         usuarioId, token, creadoEn: new Date().toISOString(),
     }, tokensMock);
+    // writeSheet no tira sola ante un rechazo del backend (ej. permiso
+    // faltante en PERMISOS_ESCRITURA) — sin este chequeo, activarPush()
+    // reportaba "ok:true" aunque el token nunca se haya guardado de
+    // verdad. Tirar acá deja que el try/catch de activarPush() lo
+    // detecte como falla real.
+    if (resultado && resultado.ok === false) {
+        throw new Error(resultado.error || "No se pudo registrar el token de push.");
+    }
 }
 
 /** El backend llama esto (vía acción propia, no desde el cliente)
