@@ -8,6 +8,14 @@
    un cambio de código. Eliminar queda solo para Admin (un canal con
    publicaciones reales adentro es más delicado de borrar que
    crearlo/renombrarlo).
+
+   "restringidoA" acota quién ve el canal: "" (todos los que entran a
+   Comunicaciones), "supervisor" (solo Supervisor sin capacitador, para
+   temas de supervisión que no le interesan a Capacitación) o
+   "capacitador" (solo Supervisor con capacitador:true). Admin siempre
+   ve todos los canales, para poder moderar cualquiera — mismo criterio
+   que ya usa puedeVerManual/puedeVerNoticia con "capacitador" como
+   caso especial (no es un rol real, ver data/usuarios.js).
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
@@ -22,13 +30,29 @@ export const ICONOS_CANAL = [
     "helado", "cafe", "chocolate", "pastel", "icepop", "caja", "usuarios", "academia",
 ];
 
+export const VISIBILIDAD_CANAL = [
+    { id: "", nombre: "Todos" },
+    { id: "supervisor", nombre: "Solo Supervisores" },
+    { id: "capacitador", nombre: "Solo Capacitadores" },
+];
+
 function normalizarCanal(f) {
     return {
         id: f.id,
         nombre: String(f.nombre || "").trim(),
         icono: ICONOS_CANAL.includes(f.icono) ? f.icono : "comentario",
         creadoPor: String(f.creadoPor || "").trim(),
+        restringidoA: String(f.restringidoA || "").trim(),
     };
+}
+
+export function puedeVerCanal(canal, usuario) {
+    if (usuario.rol === "admin") return true;
+    const restriccion = String(canal.restringidoA || "").trim();
+    if (!restriccion) return true;
+    if (restriccion === "capacitador") return usuario.rol === "supervisor" && !!usuario.capacitador;
+    if (restriccion === "supervisor") return usuario.rol === "supervisor" && !usuario.capacitador;
+    return true;
 }
 
 export async function getCanales() {
@@ -41,13 +65,21 @@ export async function getCanales() {
     }
 }
 
-export async function canalInfo(canalId) {
-    const canales = await getCanales();
-    return canales.find((c) => String(c.id) === String(canalId)) || canales[0] || { id: "", nombre: "Sin canal", icono: "comentario" };
+/** Canales que un usuario puede VER — Admin ve todos (gestión); el
+ *  resto queda filtrado por puedeVerCanal. */
+export async function getCanalesVisibles(usuario) {
+    const todos = await getCanales();
+    if (usuario.rol === "admin") return todos;
+    return todos.filter((c) => puedeVerCanal(c, usuario));
 }
 
-export async function crearCanal({ nombre, icono, creadoPor }) {
-    return writeSheet(HOJAS.CANALES, { nombre, icono: icono || "comentario", creadoPor: creadoPor || "" }, canalesMock);
+export async function canalInfo(canalId) {
+    const canales = await getCanales();
+    return canales.find((c) => String(c.id) === String(canalId)) || canales[0] || { id: "", nombre: "Sin canal", icono: "comentario", restringidoA: "" };
+}
+
+export async function crearCanal({ nombre, icono, creadoPor, restringidoA }) {
+    return writeSheet(HOJAS.CANALES, { nombre, icono: icono || "comentario", creadoPor: creadoPor || "", restringidoA: restringidoA || "" }, canalesMock);
 }
 
 export async function actualizarCanal(id, cambios) {

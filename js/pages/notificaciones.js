@@ -205,7 +205,7 @@ export async function Notificaciones() {
         : `<p class="text-sm text-muted" style="padding:24px 4px">No hay notificaciones acá.</p>`;
 
     return `
-        ${Header("Notificaciones", "Novedades, recordatorios y avisos de tu cuenta")}
+        ${Header("News", "Novedades, recordatorios y avisos de tu cuenta")}
 
         <div class="table-toolbar">
             <div class="notif-tabs">

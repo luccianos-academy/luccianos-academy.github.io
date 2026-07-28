@@ -32,7 +32,7 @@ import {
 import {
     getComentariosDePublicacion, crearComentario, toggleLikeComentario, estaLikeadoComentario,
 } from "../data/comentarios.js";
-import { getCanales, canalInfo, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL } from "../data/canales.js";
+import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
@@ -57,7 +57,8 @@ export async function Comunicaciones(params = []) {
 }
 
 async function vistaListaCanales() {
-    const [canales, publicaciones] = await Promise.all([getCanales(), getPublicaciones()]);
+    const usuario = getUsuarioActual();
+    const [canales, publicaciones] = await Promise.all([getCanalesVisibles(usuario), getPublicaciones()]);
 
     const filasHtml = canales.map((c) => {
         const delCanal = publicaciones.filter((p) => String(p.canal) === String(c.id));
@@ -88,6 +89,20 @@ async function vistaListaCanales() {
 async function vistaCanal(canalId) {
     const info = await canalInfo(canalId);
     const usuario = getUsuarioActual();
+
+    // Blindaje contra acceso directo por URL a un canal restringido
+    // (ej. un Supervisor tipeando #/comunicaciones/5 de Capacitación) —
+    // el link ni siquiera aparece en la lista, pero esto lo cierra
+    // también si alguien conoce/adivina el id.
+    if (!puedeVerCanal(info, usuario)) {
+        return `
+            <div class="canal-header-nav">
+                <a href="#/comunicaciones" class="btn btn-secondary" style="width:auto">← Canales</a>
+            </div>
+            ${EmptyState({ titulo: "No tenés acceso a este canal", detalle: "Este canal está restringido a otro grupo.", icono: "candado" })}
+        `;
+    }
+
     const publicaciones = await getPublicacionesDeCanal(canalId);
 
     const itemsHtml = publicaciones.length
@@ -299,7 +314,7 @@ async function abrirDetallePublicacion(p) {
 async function abrirModalNuevaPublicacion(canalId) {
     const modalId = "modal-nueva-publicacion";
     const usuario = getUsuarioActual();
-    const canales = await getCanales();
+    const canales = await getCanalesVisibles(usuario);
 
     const contenidoHtml = `
         <label for="input-canal-pub">Canal</label>
@@ -356,13 +371,16 @@ async function abrirModalGestionarCanales() {
     const usuario = getUsuarioActual();
 
     async function contenidoActual() {
-        const canales = await getCanales();
+        const canales = await getCanalesVisibles(usuario);
         return `
             <div class="canal-gestion-lista">
                 ${canales.map((c) => `
                     <div class="canal-gestion-item">
                         <span class="canal-item-icono">${Icon(c.icono, { size: 16 })}</span>
                         <input type="text" class="input-canal-nombre" data-canal-id="${c.id}" value="${c.nombre}">
+                        <select class="input-canal-visibilidad" data-canal-id="${c.id}">
+                            ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === c.restringidoA ? " selected" : ""}>${v.nombre}</option>`).join("")}
+                        </select>
                         <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
                         ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
                     </div>
@@ -370,11 +388,14 @@ async function abrirModalGestionarCanales() {
             </div>
 
             <label for="input-nuevo-canal-nombre" style="margin-top:16px">Nuevo canal</label>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
                     ${ICONOS_CANAL.map((i) => `<option value="${i}">${i}</option>`).join("")}
                 </select>
-                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1">
+                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1 1 140px">
+                <select id="input-nuevo-canal-visibilidad" style="flex:0 0 160px">
+                    ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}">${v.nombre}</option>`).join("")}
+                </select>
                 <button class="btn btn-primary" id="btn-crear-canal" style="flex:0 0 auto">Crear</button>
             </div>
         `;
@@ -404,11 +425,13 @@ async function abrirModalGestionarCanales() {
     function bindAcciones() {
         document.querySelectorAll("[data-guardar-canal]").forEach((btn) => {
             btn.addEventListener("click", async () => {
-                const input = document.querySelector(`.input-canal-nombre[data-canal-id="${btn.dataset.guardarCanal}"]`);
+                const id = btn.dataset.guardarCanal;
+                const input = document.querySelector(`.input-canal-nombre[data-canal-id="${id}"]`);
+                const selectVisibilidad = document.querySelector(`.input-canal-visibilidad[data-canal-id="${id}"]`);
                 const nombre = input.value.trim();
                 if (!nombre) return;
-                await actualizarCanal(btn.dataset.guardarCanal, { nombre });
-                registrarEvento(usuario.id, "editar_canal", `Canal renombrado a "${nombre}"`);
+                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value });
+                registrarEvento(usuario.id, "editar_canal", `Canal "${nombre}" actualizado`);
                 await reRender();
             });
         });
@@ -426,7 +449,8 @@ async function abrirModalGestionarCanales() {
             const nombre = document.getElementById("input-nuevo-canal-nombre").value.trim();
             if (!nombre) return;
             const icono = document.getElementById("input-nuevo-canal-icono").value;
-            await crearCanal({ nombre, icono, creadoPor: usuario.nombre });
+            const restringidoA = document.getElementById("input-nuevo-canal-visibilidad").value;
+            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA });
             registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
             await reRender();
         });

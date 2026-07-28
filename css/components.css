@@ -406,6 +406,11 @@
     flex:1;
 }
 
+.canal-gestion-item .input-canal-visibilidad{
+    width:auto;
+    flex:0 0 150px;
+}
+
 .canal-gestion-item .btn{
     width:auto;
     flex-shrink:0;
