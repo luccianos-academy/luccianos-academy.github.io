@@ -2,18 +2,21 @@
    FARO v4
    data/mock/recursos.mock.js — Seed de "Recursos" para modo demo
 
-   URLs de ejemplo a propósito ("#") — los recursos reales apuntan a
-   Sheets internas del negocio (Auditorías, Claims, etc.), y esas URLs
-   no deben quedar hardcodeadas en el bundle público de GitHub Pages.
-   En producción, Admin carga las URLs reales desde "Gestionar
-   recursos" (quedan en la Sheet real, no en este archivo).
+   Un solo acceso ("Enlaces operaciones") que apunta al Google Sites
+   completo que arma el compañero de Operaciones — así los cambios
+   ahí (agregar/sacar una sección) no dependen de replicarlos acá.
+   Si ese Site algún día deja de existir (o hace falta separar un
+   acceso puntual), el mecanismo de abajo (data/recursos.js,
+   "Gestionar recursos") ya soporta cualquier cantidad de filas
+   individuales sin cambio de código — ver la lista completa de URLs
+   guardada aparte para ese caso.
+
+   URL de ejemplo a propósito ("#") — la real apunta a un Google
+   Sites interno del negocio, no debe quedar hardcodeada en el bundle
+   público de GitHub Pages. En producción, Admin/Supervisor la carga
+   desde "Gestionar recursos" (queda en la Sheet real, no acá).
 =============================*/
 
 export const recursosMock = [
-    { id: 1, nombre: "Auditorías", url: "#", icono: "evaluaciones", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
-    { id: 2, nombre: "Claims Pedidos Ya", url: "#", icono: "alertas", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
-    { id: 3, nombre: "Ponderados de Google", url: "#", icono: "dashboard", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
-    { id: 4, nombre: "Relevamientos", url: "#", icono: "reportes", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
-    { id: 5, nombre: "Herramientas mkt", url: "#", icono: "integraciones", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
-    { id: 6, nombre: "Modular", url: "#", icono: "configuracion", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
+    { id: 1, nombre: "Enlaces operaciones", url: "#", icono: "integraciones", visiblePara: "supervisor", creadoPor: "Gabriel Busquets" },
 ];
