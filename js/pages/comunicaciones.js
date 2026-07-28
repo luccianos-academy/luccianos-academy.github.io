@@ -75,7 +75,7 @@ async function vistaListaCanales() {
     }).join("");
 
     return `
-        ${Header("Comunicaciones", "Canales para Admin y Supervisores")}
+        ${Header("Coordinación Operativa", "Canales para Admin y Supervisores")}
 
         <div class="table-toolbar">
             <div></div>

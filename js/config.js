@@ -89,7 +89,7 @@ export const MODULOS = [
     { id: "configuracion",  nombre: "Configuración",        icono: "configuracion" },
     { id: "integraciones",  nombre: "Integraciones",        icono: "integraciones" },
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
-    { id: "comunicaciones", nombre: "Comunicaciones",       icono: "comentario" },
+    { id: "comunicaciones", nombre: "Coordinación Operativa", icono: "comentario" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },
     { id: "perfil",         nombre: "Mi perfil",            icono: "perfil" },
 ];
