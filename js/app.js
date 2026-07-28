@@ -4,6 +4,7 @@
 =============================*/
 
 import { initRouter } from "./router.js";
+import { iniciarEscuchaForeground } from "./services/push.js";
 
 document.addEventListener("DOMContentLoaded", initRouter);
 
@@ -14,3 +15,7 @@ document.addEventListener("DOMContentLoaded", initRouter);
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// Push con la pestaña abierta y en foco (ver services/push.js) — no
+// hace nada si el permiso todavía no fue otorgado.
+iniciarEscuchaForeground();
