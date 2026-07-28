@@ -40,6 +40,7 @@ import { getCursos } from "../data/cursos.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
+import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 
 const DIAS_ACCESO_INICIAL = 30;
@@ -470,6 +471,7 @@ export async function Colaboradores() {
     let colaboradores;
     let supervisores = [];
     let admins = [];
+    let cantidadLocalesElegidos = 0; // Capacitador — ver Header más abajo
 
     if (esAdmin) {
         // Un solo fetch para las 3 pestañas de rol — Colaboradores,
@@ -493,13 +495,23 @@ export async function Colaboradores() {
         // cargado). Capacitador ve TODOS los locales de la red
         // (getLocalesVisibles) — de solo lectura, puedeEditar ya da
         // false para cualquier fila que le aparezca acá.
-        const nombresLocales = await getLocalesVisibles(usuario);
+        let nombresLocales = await getLocalesVisibles(usuario);
+        // Preferencia personal (solo Capacitador, guardada en este
+        // dispositivo — ver services/preferenciasLocales.js): NO le
+        // saca acceso a nada, solo recorta cuáles ve por default. Sin
+        // preferencia guardada todavía, sigue viendo toda la red.
+        if (usuario.capacitador) {
+            const elegidos = getLocalesElegidos(usuario);
+            cantidadLocalesElegidos = elegidos.length;
+            if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
+        }
         const todos = await getColaboradores();
         colaboradores = todos.filter((c) => nombresLocales.includes(c.sucursal));
-        // Un capacitador ve TODA la red (~95 locales) — la mayoría sin
-        // nadie cargado todavía. Mismo recorte que ya usa la vista de
-        // Admin: agrupar solo por los locales que de verdad tienen
-        // gente, no mostrar decenas de secciones vacías.
+        // Un capacitador sin locales elegidos ve TODA la red (~95
+        // locales), la mayoría sin nadie cargado todavía. Mismo
+        // recorte que ya usa la vista de Admin: agrupar solo por los
+        // locales que de verdad tienen gente, no mostrar decenas de
+        // secciones vacías.
         gruposPorSucursal = usuario.capacitador
             ? [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b))
             : nombresLocales;
@@ -566,7 +578,7 @@ export async function Colaboradores() {
         : "";
 
     return `
-        ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.capacitador ? "Toda la red · Solo lectura" : usuario.sucursal || "Tus locales")}
+        ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : usuario.sucursal || "Tus locales")}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
@@ -576,12 +588,7 @@ export async function Colaboradores() {
 
         <div class="table-toolbar">
             <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre...">
-            ${usuario.capacitador ? `
-                <select id="filtro-local-capacitador">
-                    <option value="todos">Todos los locales</option>
-                    ${gruposPorSucursal.map((n) => `<option value="${n}">${n}</option>`).join("")}
-                </select>
-            ` : ""}
+            ${usuario.capacitador ? `<button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button>` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
@@ -684,19 +691,13 @@ export function bindColaboradores() {
 
     if (buscador) buscador.addEventListener("input", aplicarFiltros);
 
-    // Filtro de local (solo Capacitador — ve toda la red y necesita
-    // poder acotar la vista a un local puntual en vez de scrollear
-    // todos juntos). No le saca acceso a ningún local, solo cambia
-    // cuáles se muestran de una — puede volver a "Todos" cuando quiera.
-    const filtroLocal = document.getElementById("filtro-local-capacitador");
-    if (filtroLocal) {
-        filtroLocal.addEventListener("change", () => {
-            const elegido = filtroLocal.value;
-            document.querySelectorAll("[data-sucursal-seccion]").forEach((seccion) => {
-                seccion.hidden = elegido !== "todos" && seccion.dataset.sucursalSeccion !== elegido;
-            });
-        });
-    }
+    // "Elegir mis locales" (solo Capacitador — ve toda la red y
+    // necesita poder guardar cuáles le interesan, en vez de scrollear
+    // todos juntos cada vez). No le saca acceso a ningún local: la
+    // preferencia es propia de este dispositivo (ver
+    // services/preferenciasLocales.js) y se puede vaciar para volver
+    // a ver toda la red en cualquier momento.
+    document.getElementById("btn-elegir-locales")?.addEventListener("click", () => abrirModalElegirLocales());
 
     document.querySelectorAll("[data-filtro-activo]").forEach((pill) => {
         pill.addEventListener("click", () => {
@@ -883,6 +884,35 @@ export function bindColaboradores() {
             navigate("colaboradores");
         });
     });
+}
+
+/** Picker de "mis locales" para un Capacitador — misma pieza
+ *  (MultiSelectSucursales) que ya usan Manuales/Notificaciones para
+ *  acotar por local. Se guarda en este dispositivo (localStorage,
+ *  ver services/preferenciasLocales.js), no en la Sheet: es una
+ *  preferencia de pantalla, no un cambio de a quién ve o no ve —
+ *  vacío = sigue viendo toda la red, como antes de elegir nada. */
+async function abrirModalElegirLocales() {
+
+    const modalId = "modal-elegir-locales";
+    const usuario = getUsuarioActual();
+    const actuales = getLocalesElegidos(usuario);
+
+    const contenidoHtml = `
+        <p class="text-sm text-muted" style="margin-bottom:10px">Elegí los locales que te interesa seguir de cerca — "Mi equipo" y tu Inicio se van a acotar a esos. Dejalo vacío para seguir viendo toda la red.</p>
+        <label for="input-locales-elegidos">Mis locales</label>
+        ${MultiSelectSucursales("input-locales-elegidos", actuales)}
+    `;
+
+    abrirModal(Modal({ id: modalId, titulo: "Elegir mis locales", contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
+        const valor = document.getElementById("input-locales-elegidos").value.trim();
+        const elegidos = valor ? valor.split(",").map((n) => n.trim()).filter(Boolean) : [];
+        setLocalesElegidos(usuario, elegidos);
+        cerrarModal(modalId);
+        navigate("colaboradores");
+    });
+
+    bindMultiSelectSucursales("input-locales-elegidos");
 }
 
 async function abrirModalEditar(colaborador) {

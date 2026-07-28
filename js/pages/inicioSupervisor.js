@@ -20,6 +20,7 @@ import { ActivityFeed } from "../components/activityFeed.js";
 import { QuickAction } from "../components/quickAction.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getLocalesVisibles } from "../data/sucursales.js";
+import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
@@ -79,8 +80,16 @@ export async function InicioSupervisor() {
     // en pages/colaboradores.js, incluido el fallback a Usuarios.sucursal.
     // Un capacitador ve TODA la red acá (getLocalesVisibles), no solo
     // "su" local — es de solo lectura, no hay ninguna acción de
-    // gestión en esta pantalla que haya que blindar aparte.
-    const misLocales = await getLocalesVisibles(usuario);
+    // gestión en esta pantalla que haya que blindar aparte. Si eligió
+    // locales puntuales (ver services/preferenciasLocales.js, mismo
+    // picker que en "Mi equipo"), el panorama se acota a esos.
+    let misLocales = await getLocalesVisibles(usuario);
+    let cantidadLocalesElegidos = 0; // ver Header más abajo
+    if (usuario.capacitador) {
+        const elegidos = getLocalesElegidos(usuario);
+        cantidadLocalesElegidos = elegidos.length;
+        if (elegidos.length) misLocales = misLocales.filter((n) => elegidos.includes(n));
+    }
     const equipo = usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal));
     const equipoIds = equipo.map((c) => String(c.id));
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
@@ -141,7 +150,7 @@ export async function InicioSupervisor() {
         .map((a) => ({ fecha: a.fecha, texto: a.detalle }));
 
     return `
-        ${Header(`Bienvenido/a, ${usuario.nombre}`, usuario.capacitador ? "Toda la red · Solo lectura" : (misLocales.join(", ") || "Sin local asignado"), { saludo: true })}
+        ${Header(`Bienvenido/a, ${usuario.nombre}`, usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : (misLocales.join(", ") || "Sin local asignado"), { saludo: true })}
 
         <div class="cards">
             ${KpiCard("Mi equipo", equipo.length, { icono: "usuarios" })}
