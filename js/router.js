@@ -33,6 +33,7 @@ import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js
 import { Reportes, bindReportes } from "./pages/reportes.js";
 import { Historia } from "./pages/historia.js";
 import { Notificaciones, bindNotificaciones } from "./pages/notificaciones.js";
+import { Comunicaciones, bindComunicaciones } from "./pages/comunicaciones.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
 import { Configuracion } from "./pages/configuracion.js";
 import { Integraciones } from "./pages/integraciones.js";
@@ -64,6 +65,7 @@ const RUTAS = {
     integraciones: { render: Integraciones },
     historia:      { render: Historia },
     noticias:      { render: Notificaciones, bind: bindNotificaciones },
+    comunicaciones: { render: Comunicaciones, bind: bindComunicaciones },
     manuales:      { render: Manuales, bind: bindManuales },
 };
 

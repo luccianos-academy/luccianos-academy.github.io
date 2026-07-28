@@ -135,9 +135,9 @@ export const MENU_POR_ROL = {
     // autenticado (no tiene entrada en PERMISOS_PAGINA).
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "manuales", "configuracion", "perfil",
+        "academia", "comunicaciones", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "comunicaciones", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -159,6 +159,11 @@ const PERMISOS_PAGINA = {
     configuracion:  ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
+    // "Comunicaciones" es Admin ↔ Supervisor (incluye Capacitador, que
+    // es rol "supervisor") — Colaborador no participa. A diferencia de
+    // "noticias", esto SÍ necesita entrada acá: sin ella, cualquier
+    // autenticado (incluido Colaborador) podría entrar tipeando el hash.
+    comunicaciones: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
 };

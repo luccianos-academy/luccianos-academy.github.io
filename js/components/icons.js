@@ -67,6 +67,11 @@ const PATHS = {
 
     caja: `<path d="M5 10.5 6.5 4h11L19 10.5"/><rect x="4" y="10.5" width="16" height="9" rx="1.5"/><path d="M9 15h6"/>`,
 
+    // Comunicaciones (canales, comentarios, publicaciones)
+    idea: `<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.4.9 1 .9 1.6v.5h5.2v-.5c0-.6.3-1.2.9-1.6A6 6 0 0 0 12 3Z"/>`,
+
+    comentario: `<path d="M4 5.5h16v10.5H9.5L5 20v-4H4Z"/>`,
+
     corazon: `<path d="M12 20s-7-4.4-9.3-8.8C1.2 8 3 5 6.2 5c2 0 3.4 1.2 5.8 3.8C14.4 6.2 15.8 5 17.8 5 21 5 22.8 8 21.3 11.2 19 15.6 12 20 12 20Z"/>`,
 
     candado: `<rect x="6" y="11" width="12" height="9" rx="1.5"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/>`,
