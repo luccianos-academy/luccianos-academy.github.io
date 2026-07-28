@@ -532,8 +532,11 @@ export async function Colaboradores() {
         cuerpoHtml = gruposPorSucursal.map((nombreSucursal) => {
             const delGrupo = colaboradores.filter((c) => c.sucursal === nombreSucursal);
             const filas = ordenarPorProgresoAscendente(delGrupo.map((c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)));
+            // data-sucursal-seccion: ver filtro de local más abajo (solo
+            // Capacitador, que ve toda la red y necesita poder acotar la
+            // vista a un local puntual en vez de scrollear todos juntos).
             return `
-                <div class="section">
+                <div class="section" data-sucursal-seccion="${nombreSucursal}">
                     <h3>${nombreSucursal} <span class="text-sm text-muted">(${delGrupo.length})</span></h3>
                     ${Table(COLUMNAS_BASE(false, esAdmin), filas)}
                 </div>
@@ -573,6 +576,12 @@ export async function Colaboradores() {
 
         <div class="table-toolbar">
             <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre...">
+            ${usuario.capacitador ? `
+                <select id="filtro-local-capacitador">
+                    <option value="todos">Todos los locales</option>
+                    ${gruposPorSucursal.map((n) => `<option value="${n}">${n}</option>`).join("")}
+                </select>
+            ` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
@@ -674,6 +683,20 @@ export function bindColaboradores() {
     }
 
     if (buscador) buscador.addEventListener("input", aplicarFiltros);
+
+    // Filtro de local (solo Capacitador — ve toda la red y necesita
+    // poder acotar la vista a un local puntual en vez de scrollear
+    // todos juntos). No le saca acceso a ningún local, solo cambia
+    // cuáles se muestran de una — puede volver a "Todos" cuando quiera.
+    const filtroLocal = document.getElementById("filtro-local-capacitador");
+    if (filtroLocal) {
+        filtroLocal.addEventListener("change", () => {
+            const elegido = filtroLocal.value;
+            document.querySelectorAll("[data-sucursal-seccion]").forEach((seccion) => {
+                seccion.hidden = elegido !== "todos" && seccion.dataset.sucursalSeccion !== elegido;
+            });
+        });
+    }
 
     document.querySelectorAll("[data-filtro-activo]").forEach((pill) => {
         pill.addEventListener("click", () => {
