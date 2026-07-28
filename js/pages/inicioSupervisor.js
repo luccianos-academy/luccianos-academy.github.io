@@ -5,6 +5,11 @@
    Todo acotado a los locales del supervisor en sesión — nunca ve
    datos de otras sucursales ni accesos globales (Configuración,
    Integraciones, Reportes no existen en su menú).
+
+   Excepción: un Capacitador (Supervisor con capacitador:true) es de
+   solo lectura en toda la app y ve la red completa acá también — así
+   puede seguir el desarrollo de la capacitación en todos los locales,
+   no solo el suyo (ver data/sucursales.js: getLocalesVisibles).
 =============================*/
 
 import { Header } from "../components/header.js";
@@ -14,7 +19,7 @@ import { AlertCard } from "../components/alertCard.js";
 import { ActivityFeed } from "../components/activityFeed.js";
 import { QuickAction } from "../components/quickAction.js";
 import { getUsuarios } from "../data/usuarios.js";
-import { getMisLocales } from "../data/sucursales.js";
+import { getLocalesVisibles } from "../data/sucursales.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
@@ -72,7 +77,10 @@ export async function InicioSupervisor() {
     const hoyISO = fechaHoyISO();
     // Array de nombres (no de filas) — mismo criterio que "Mi equipo"
     // en pages/colaboradores.js, incluido el fallback a Usuarios.sucursal.
-    const misLocales = await getMisLocales(usuario);
+    // Un capacitador ve TODA la red acá (getLocalesVisibles), no solo
+    // "su" local — es de solo lectura, no hay ninguna acción de
+    // gestión en esta pantalla que haya que blindar aparte.
+    const misLocales = await getLocalesVisibles(usuario);
     const equipo = usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal));
     const equipoIds = equipo.map((c) => String(c.id));
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
@@ -109,10 +117,18 @@ export async function InicioSupervisor() {
         })),
     ].slice(0, 3);
 
-    const rankingLocales = misLocales.length > 1
+    // Para un capacitador, misLocales trae TODA la red (~95, la
+    // mayoría sin nadie cargado) — el ranking solo tiene sentido con
+    // los locales que de verdad tienen equipo, así no se llena de
+    // filas "Sin datos".
+    const localesConEquipo = usuario.capacitador
+        ? [...new Set(equipo.map((c) => c.sucursal).filter(Boolean))]
+        : misLocales;
+
+    const rankingLocales = localesConEquipo.length > 1
         ? RankingCard({
-            titulo: "Ranking de mis locales",
-            items: misLocales
+            titulo: usuario.capacitador ? "Ranking de locales de la red" : "Ranking de mis locales",
+            items: localesConEquipo
                 .map((nombre) => ({ nombre, promedio: promedioSucursal(nombre, usuarios, asignaciones, cursos) }))
                 .sort((a, b) => (b.promedio ?? -1) - (a.promedio ?? -1))
                 .map((l, i) => ({ posicion: i + 1, nombre: l.nombre, valor: l.promedio === null ? "Sin datos" : `${l.promedio}%` })),
@@ -125,7 +141,7 @@ export async function InicioSupervisor() {
         .map((a) => ({ fecha: a.fecha, texto: a.detalle }));
 
     return `
-        ${Header(`Bienvenido/a, ${usuario.nombre}`, misLocales.join(", ") || "Sin local asignado", { saludo: true })}
+        ${Header(`Bienvenido/a, ${usuario.nombre}`, usuario.capacitador ? "Toda la red · Solo lectura" : (misLocales.join(", ") || "Sin local asignado"), { saludo: true })}
 
         <div class="cards">
             ${KpiCard("Mi equipo", equipo.length, { icono: "usuarios" })}

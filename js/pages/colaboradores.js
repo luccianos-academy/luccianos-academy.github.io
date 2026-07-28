@@ -33,7 +33,7 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getUsuarios, getColaboradores, getColaboradoresPorSucursal, crearUsuario, actualizarUsuario, eliminarUsuario } from "../data/usuarios.js";
-import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales } from "../data/sucursales.js";
+import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales, getLocalesVisibles, agregarSupervisorASucursal, quitarSupervisorDeSucursal } from "../data/sucursales.js";
 import { getAsignaciones, getAsignacionesPorColaborador, eliminarAsignacion } from "../data/asignaciones.js";
 import { getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
@@ -157,7 +157,15 @@ async function campoSucursalModal(usuario, valorActual = "") {
         const [sucursales, supervisores] = esAdmin
             ? await Promise.all([getSucursales(), getUsuarios()])
             : [[], []];
-        const supervisorActual = sucursales.find((s) => s.nombre === valorActual)?.supervisor || "";
+        // Un local puede tener más de un supervisor (ej. cobertura de
+        // vacaciones) — se muestran los actuales como texto informativo
+        // y el campo de abajo solo AGREGA uno nuevo, nunca pisa a los
+        // que ya estaban. Para sacar a alguien, se edita desde su
+        // propio perfil de supervisor (destildar el local ahí).
+        const sucursalActual = sucursales.find((s) => s.nombre === valorActual);
+        const supervisoresActuales = sucursalActual?.supervisor
+            ? sucursalActual.supervisor.split(",").map((s) => s.trim()).filter(Boolean)
+            : [];
         const nombresSupervisores = supervisores.filter((u) => u.rol === "supervisor").map((u) => u.nombre);
 
         return {
@@ -165,9 +173,10 @@ async function campoSucursalModal(usuario, valorActual = "") {
                 <label for="input-sucursal">Sucursal</label>
                 ${AutocompleteSucursal("input-sucursal", valorActual)}
                 ${esAdmin ? `
-                    <label for="input-supervisor-sucursal" style="margin-top:14px">Supervisor de esta sucursal</label>
-                    ${autocompleteSimpleHtml("input-supervisor-sucursal", supervisorActual, "Sin asignar")}
-                    <p class="text-xs text-muted" style="margin-top:4px">Se guarda en el local (afecta a todo el equipo de esa sucursal, no solo a esta persona) — así aparece agrupado en "Mi equipo" del supervisor.</p>
+                    <label style="margin-top:14px">Supervisor(es) de esta sucursal</label>
+                    <p class="text-sm" style="margin-top:2px">${supervisoresActuales.length ? supervisoresActuales.join(", ") : "Sin asignar"}</p>
+                    ${autocompleteSimpleHtml("input-supervisor-sucursal", "", "Agregar otro supervisor...")}
+                    <p class="text-xs text-muted" style="margin-top:4px">Se guarda en el local (afecta a todo el equipo de esa sucursal, no solo a esta persona) — se suma a los que ya estén, no los reemplaza. Para sacar a alguien, editá su propio perfil de supervisor.</p>
                 ` : ""}
             `,
             bind: () => {
@@ -201,18 +210,19 @@ async function asegurarSucursalAsignada(nombreSucursal, usuario) {
 
 /** Contraparte para Admin: a diferencia de asegurarSucursalAsignada
  *  (que un Supervisor solo puede "reclamar" un local sin dueño), acá
- *  el Admin fija explícitamente quién es el supervisor — pisa lo que
- *  hubiera antes, porque es una decisión consciente desde el campo
- *  "Supervisor de esta sucursal", no una inferencia automática. Un
- *  valor vacío dejar el local sin supervisor asignado. */
+ *  el Admin decide explícitamente sumar un supervisor a esta sucursal
+ *  — se AGREGA a la lista (un local puede tener más de uno, ej.
+ *  cobertura de vacaciones), nunca pisa a los que ya estaban. Un
+ *  valor vacío no hace nada (para sacar a alguien, ver el perfil de
+ *  ese supervisor). */
 async function asignarSupervisorASucursal(nombreSucursal, nombreSupervisor) {
-    if (!nombreSucursal) return;
+    if (!nombreSucursal || !nombreSupervisor) return;
     const sucursales = await getSucursales();
     const existente = sucursales.find((s) => s.nombre === nombreSucursal);
     if (!existente) {
         await crearSucursal({ nombre: nombreSucursal, supervisor: nombreSupervisor });
-    } else if (existente.supervisor !== nombreSupervisor) {
-        await actualizarSucursal(existente.id, { supervisor: nombreSupervisor });
+    } else {
+        await agregarSupervisorASucursal(existente.id, nombreSupervisor);
     }
 }
 
@@ -269,6 +279,11 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
     if (esAdmin) {
         grupos.push({ items: [`<button class="menu-acciones-item menu-acciones-item-danger" data-eliminar-usuario="${colaborador.id}">Eliminar</button>`] });
     }
+
+    // Sin ninguna acción disponible (ej. Capacitador, solo lectura en
+    // toda la app), no tiene sentido dibujar el botón "⋮" — un menú
+    // que abre vacío al clickear parece roto.
+    if (!grupos.length) return "";
 
     return menuAcciones(grupos);
 }
@@ -441,10 +456,15 @@ export async function Colaboradores() {
     // lectura — puede ver el estado de su equipo, pero no registrar,
     // editar, deshabilitar ni extender acceso (eso queda en manos de
     // Admin/Supervisor).
+    //
+    // Capacitador (Supervisor con capacitador:true) es de solo lectura
+    // en TODA la app, decisión del cliente — ni siquiera gestiona su
+    // propio equipo real si lo tuviera. Ve todos los locales (más
+    // abajo, getLocalesVisibles), nunca botones de gestión.
     const esEncargado = usuario.rol === "colaborador" && usuario.encargado;
-    const puedeDeshabilitar = usuario.rol !== "colaborador";
-    const puedeEditar = usuario.rol !== "colaborador";
-    const puedeRegistrar = !esEncargado;
+    const puedeDeshabilitar = usuario.rol !== "colaborador" && !usuario.capacitador;
+    const puedeEditar = usuario.rol !== "colaborador" && !usuario.capacitador;
+    const puedeRegistrar = !esEncargado && !usuario.capacitador;
 
     let gruposPorSucursal = null; // Admin y Supervisor (con >1 local) ven la lista agrupada
     let colaboradores;
@@ -469,11 +489,20 @@ export async function Colaboradores() {
     } else {
         // Supervisor: puede tener más de un local a cargo (ver
         // getMisLocales, incluye el fallback a su propio
-        // Usuarios.sucursal si Sucursales.supervisor no lo tiene cargado).
-        const nombresLocales = await getMisLocales(usuario);
+        // Usuarios.sucursal si Sucursales.supervisor no lo tiene
+        // cargado). Capacitador ve TODOS los locales de la red
+        // (getLocalesVisibles) — de solo lectura, puedeEditar ya da
+        // false para cualquier fila que le aparezca acá.
+        const nombresLocales = await getLocalesVisibles(usuario);
         const todos = await getColaboradores();
         colaboradores = todos.filter((c) => nombresLocales.includes(c.sucursal));
-        gruposPorSucursal = nombresLocales;
+        // Un capacitador ve TODA la red (~95 locales) — la mayoría sin
+        // nadie cargado todavía. Mismo recorte que ya usa la vista de
+        // Admin: agrupar solo por los locales que de verdad tienen
+        // gente, no mostrar decenas de secciones vacías.
+        gruposPorSucursal = usuario.capacitador
+            ? [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+            : nombresLocales;
     }
 
     const asignaciones = await getAsignaciones();
@@ -481,11 +510,20 @@ export async function Colaboradores() {
 
     // Chequeo + desactivación de accesos vencidos — se corre cada vez
     // que se abre esta pantalla (ver nota arriba sobre por qué acá).
+    // Un capacitador es de solo lectura: corrige el badge en memoria
+    // para que se vea honesto (no queda mostrando "Activo" a alguien
+    // ya vencido), pero NO escribe en la Sheet — ver a todo el equipo
+    // de la red no puede tener el efecto secundario de desactivar
+    // gente que no es su equipo real.
     for (const c of colaboradores) {
         if (c.activo === "SI" && estadoAcceso(c).vencido) {
-            await actualizarUsuario(c.id, { activo: "NO" });
-            c.activo = "NO";
-            registrarEvento(usuario.id, "acceso_vencido", `El acceso de ${c.nombre} venció y se desactivó automáticamente.`);
+            if (usuario.capacitador) {
+                c.activo = "NO";
+            } else {
+                await actualizarUsuario(c.id, { activo: "NO" });
+                c.activo = "NO";
+                registrarEvento(usuario.id, "acceso_vencido", `El acceso de ${c.nombre} venció y se desactivó automáticamente.`);
+            }
         }
     }
 
@@ -525,7 +563,7 @@ export async function Colaboradores() {
         : "";
 
     return `
-        ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.sucursal || "Tus locales")}
+        ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.capacitador ? "Toda la red · Solo lectura" : usuario.sucursal || "Tus locales")}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
@@ -1019,25 +1057,30 @@ async function abrirModalUsuarioGenerico(rol, usuarioExistente = null) {
 }
 
 /** Aplica la selección de locales de un Supervisor a la Sheet
- *  "Sucursales": desvincula los que ya no están tildados y asigna (o
- *  re-apunta, si cambió de nombre) los que sí. Mismo criterio que
- *  asignarSupervisorASucursal (más arriba en este archivo) — el Admin
- *  fijando esto acá es una decisión consciente, pisa lo que hubiera
- *  antes en esos locales. */
+ *  "Sucursales": lo desvincula de los que ya no están tildados y lo
+ *  suma a los que sí — SIN afectar a otros supervisores que ya
+ *  tuviera ese mismo local (ver agregarSupervisorASucursal/
+ *  quitarSupervisorDeSucursal, data/sucursales.js). Antes esto
+ *  pisaba el campo entero; con más de un supervisor por local
+ *  posible (cobertura de vacaciones, locales grandes), pisar borraría
+ *  al resto. */
 async function sincronizarLocalesSupervisor(nombreAnterior, nombreNuevo, localesSeleccionados) {
     const sucursales = await getSucursales();
 
-    const asignadosAntes = sucursales.filter((s) => s.supervisor === nombreAnterior);
+    const asignadosAntes = sucursales.filter((s) => s.supervisor.split(",").map((n) => n.trim()).includes(nombreAnterior));
     for (const s of asignadosAntes) {
         if (!localesSeleccionados.includes(s.nombre)) {
-            await actualizarSucursal(s.id, { supervisor: "" });
+            await quitarSupervisorDeSucursal(s.id, nombreAnterior);
         }
     }
 
     for (const nombreLocal of localesSeleccionados) {
         const sucursal = sucursales.find((s) => s.nombre === nombreLocal);
-        if (sucursal && sucursal.supervisor !== nombreNuevo) {
-            await actualizarSucursal(sucursal.id, { supervisor: nombreNuevo });
+        if (sucursal) {
+            // Si cambió de nombre (edición de perfil), primero se saca
+            // el nombre viejo de este local antes de sumar el nuevo.
+            if (nombreAnterior !== nombreNuevo) await quitarSupervisorDeSucursal(sucursal.id, nombreAnterior);
+            await agregarSupervisorASucursal(sucursal.id, nombreNuevo);
         }
     }
 }
