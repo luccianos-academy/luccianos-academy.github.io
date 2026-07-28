@@ -128,16 +128,15 @@ export const MENU_POR_ROL = {
     // pages/configuracion.js), para no tener 15 ítems sueltos en el
     // menú. Siguen siendo rutas reales con el mismo PERMISOS_PAGINA de
     // siempre, solo cambia desde dónde se linkean.
-    // "noticias" tampoco está acá a propósito: desde la Fase 2 del
-    // centro de notificaciones, ese contenido se ve desde la campana
-    // (components/topbar.js → #/noticias), no como ítem de menú — un
-    // solo lugar en vez de dos. La ruta sigue abierta para cualquier
-    // autenticado (no tiene entrada en PERMISOS_PAGINA).
+    // "news" tampoco está acá a propósito: ese contenido se ve desde
+    // la campana (components/topbar.js → #/news), no como ítem de
+    // menú — un solo lugar en vez de dos. La ruta sigue abierta para
+    // cualquier autenticado (no tiene entrada en PERMISOS_PAGINA).
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "comunicaciones", "manuales", "configuracion", "perfil",
+        "academia", "coordinacionoperativa", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "comunicaciones", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -159,11 +158,12 @@ const PERMISOS_PAGINA = {
     configuracion:  ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
-    // "Comunicaciones" es Admin ↔ Supervisor (incluye Capacitador, que
-    // es rol "supervisor") — Colaborador no participa. A diferencia de
-    // "noticias", esto SÍ necesita entrada acá: sin ella, cualquier
-    // autenticado (incluido Colaborador) podría entrar tipeando el hash.
-    comunicaciones: ["admin", "supervisor"],
+    // "Coordinación Operativa" es Admin ↔ Supervisor (incluye
+    // Capacitador, que es rol "supervisor") — Colaborador no
+    // participa. A diferencia de "news", esto SÍ necesita entrada
+    // acá: sin ella, cualquier autenticado (incluido Colaborador)
+    // podría entrar tipeando el hash.
+    coordinacionoperativa: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
 };

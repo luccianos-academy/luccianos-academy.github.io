@@ -1,14 +1,14 @@
 /* ============================
    FARO v4
-   pages/comunicaciones.js — Comunicaciones (Admin ↔ Supervisores)
+   pages/coordinacionOperativa.js — Coordinación Operativa (Admin ↔ Supervisores)
 
-   Espacio de conversación por canales — distinto del centro de
-   notificaciones (pages/notificaciones.js, la campana): acá hay
-   comentarios, likes y reciprocidad, no solo avisos de arriba hacia
-   abajo. Colaborador no lo ve (ver services/auth.js). Capacitador
-   participa como cualquier Supervisor: puede publicar y comentar acá
-   — la regla de "solo lectura" de Capacitador es específica de la
-   gestión de equipos (Colaboradores), no de esta conversación.
+   Espacio de conversación por canales — distinto del centro de avisos
+   (pages/news.js, la campana): acá hay comentarios, likes y
+   reciprocidad, no solo avisos de arriba hacia abajo. Colaborador no
+   lo ve (ver services/auth.js). Capacitador participa como cualquier
+   Supervisor: puede publicar y comentar acá — la regla de "solo
+   lectura" de Capacitador es específica de la gestión de equipos
+   (Colaboradores), no de esta conversación.
 
    Los canales (data/canales.js) son una hoja editable, no una lista
    fija: Admin y Supervisor pueden crear/renombrar canales nuevos
@@ -16,8 +16,9 @@
    cambio de código. Eliminar un canal queda solo para Admin.
 
    Dos vistas en un mismo archivo, sin ruta aparte: lista de canales
-   (#/comunicaciones) y feed de un canal (#/comunicaciones/:canal) —
-   mismo patrón que cursos.js con el id de curso.
+   (#/coordinacionoperativa) y feed de un canal
+   (#/coordinacionoperativa/:canal) — mismo patrón que cursos.js con
+   el id de curso.
 =============================*/
 
 import { Header } from "../components/header.js";
@@ -51,7 +52,7 @@ function iniciales(nombre) {
     return String(nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
 }
 
-export async function Comunicaciones(params = []) {
+export async function CoordinacionOperativa(params = []) {
     const [canalId] = params;
     return canalId ? vistaCanal(canalId) : vistaListaCanales();
 }
@@ -64,7 +65,7 @@ async function vistaListaCanales() {
         const delCanal = publicaciones.filter((p) => String(p.canal) === String(c.id));
         const ultima = delCanal[0];
         return `
-            <a class="canal-item" href="#/comunicaciones/${c.id}">
+            <a class="canal-item" href="#/coordinacionoperativa/${c.id}">
                 <span class="canal-item-icono">${Icon(c.icono, { size: 20 })}</span>
                 <span class="canal-item-body">
                     <span class="canal-item-nombre">${c.nombre}</span>
@@ -75,7 +76,7 @@ async function vistaListaCanales() {
     }).join("");
 
     return `
-        ${Header("Coordinación Operativa", "Canales para Admin y Supervisores")}
+        ${Header("Coordinación Operativa", "Canales de comunicación")}
 
         <div class="table-toolbar">
             <div></div>
@@ -91,13 +92,13 @@ async function vistaCanal(canalId) {
     const usuario = getUsuarioActual();
 
     // Blindaje contra acceso directo por URL a un canal restringido
-    // (ej. un Supervisor tipeando #/comunicaciones/5 de Capacitación) —
-    // el link ni siquiera aparece en la lista, pero esto lo cierra
-    // también si alguien conoce/adivina el id.
+    // (ej. un Supervisor tipeando #/coordinacionoperativa/5 de
+    // Capacitación) — el link ni siquiera aparece en la lista, pero
+    // esto lo cierra también si alguien conoce/adivina el id.
     if (!puedeVerCanal(info, usuario)) {
         return `
             <div class="canal-header-nav">
-                <a href="#/comunicaciones" class="btn btn-secondary" style="width:auto">← Canales</a>
+                <a href="#/coordinacionoperativa" class="btn btn-secondary" style="width:auto">← Canales</a>
             </div>
             ${EmptyState({ titulo: "No tenés acceso a este canal", detalle: "Este canal está restringido a otro grupo.", icono: "candado" })}
         `;
@@ -111,7 +112,7 @@ async function vistaCanal(canalId) {
 
     return `
         <div class="canal-header-nav">
-            <a href="#/comunicaciones" class="btn btn-secondary" style="width:auto">← Canales</a>
+            <a href="#/coordinacionoperativa" class="btn btn-secondary" style="width:auto">← Canales</a>
         </div>
         ${Header(info.nombre, `${publicaciones.length} publicación(es)`)}
 
@@ -138,11 +139,11 @@ function filaPublicacion(p, usuario) {
             </div>
             <h3 style="margin-top:10px">${p.titulo}</h3>
             <p class="text-sm" style="margin-top:6px;color:var(--text)">${p.mensaje}</p>
-            ${p.adjuntoLabel ? `
-                <div class="publicacion-adjunto">
+            ${p.adjuntoLabel && p.adjuntoUrl ? `
+                <a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">
                     ${Icon("reportes", { size: 16 })}
                     <span>${p.adjuntoLabel}</span>
-                </div>
+                </a>
             ` : ""}
             <div class="publicacion-acciones">
                 <button class="publicacion-accion${likeada ? " activa" : ""}" data-like-publicacion="${p.id}">${Icon("corazon", { size: 15 })} <span data-like-count>${estaLikeCount(p)}</span></button>
@@ -156,7 +157,7 @@ function estaLikeCount(p) {
     return String(p.likesDe || "").split(",").map((s) => s.trim()).filter(Boolean).length;
 }
 
-export function bindComunicaciones(params = []) {
+export function bindCoordinacionOperativa(params = []) {
     const usuario = getUsuarioActual();
 
     document.getElementById("btn-gestionar-canales")?.addEventListener("click", () => abrirModalGestionarCanales());
@@ -171,7 +172,7 @@ export function bindComunicaciones(params = []) {
             const p = publicaciones.find((x) => String(x.id) === String(btn.dataset.likePublicacion));
             if (!p) return;
             await toggleLikePublicacion(p, usuario.id);
-            navigate(`comunicaciones/${p.canal}`);
+            navigate(`coordinacionoperativa/${p.canal}`);
         });
     });
 
@@ -215,7 +216,7 @@ async function abrirDetallePublicacion(p) {
                 </div>
             </div>
             <p class="text-sm" style="margin-top:10px">${p.mensaje}</p>
-            ${p.adjuntoLabel ? `<div class="publicacion-adjunto">${Icon("reportes", { size: 16 })}<span>${p.adjuntoLabel}</span></div>` : ""}
+            ${p.adjuntoLabel && p.adjuntoUrl ? `<a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">${Icon("reportes", { size: 16 })}<span>${p.adjuntoLabel}</span></a>` : ""}
 
             ${p.requiereConfirmacion ? `
                 <details class="noticia-detalle" style="margin-top:14px">
@@ -278,7 +279,7 @@ async function abrirDetallePublicacion(p) {
         await eliminarPublicacion(p.id);
         registrarEvento(usuario.id, "eliminar_publicacion", `Publicación "${p.titulo}" eliminada`);
         cerrarModal(modalId);
-        navigate(`comunicaciones/${p.canal}`);
+        navigate(`coordinacionoperativa/${p.canal}`);
     });
 
     async function reRenderDetalle() {
@@ -328,7 +329,10 @@ async function abrirModalNuevaPublicacion(canalId) {
         <label for="input-mensaje-pub">Mensaje</label>
         <textarea id="input-mensaje-pub" rows="4" placeholder="Escribí tu mensaje..."></textarea>
 
-        <label for="input-adjunto-pub">Adjunto (opcional) — nombre a mostrar</label>
+        <label for="input-adjunto-url-pub">Adjunto — link de Drive u otro (opcional)</label>
+        <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/...">
+
+        <label for="input-adjunto-pub">Texto del botón del adjunto</label>
         <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme">
 
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:10px">
@@ -347,17 +351,18 @@ async function abrirModalNuevaPublicacion(canalId) {
         if (!titulo || !mensaje) return;
 
         const canal = document.getElementById("input-canal-pub").value;
+        const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
         const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim();
         const destacado = document.getElementById("input-destacado-pub").checked;
         const requiereConfirmacion = document.getElementById("input-confirmacion-pub").checked;
 
         await crearPublicacion({
             canal, autorId: usuario.id, autorNombre: usuario.nombre, autorRol: usuario.rol,
-            titulo, mensaje, adjuntoLabel, destacado, requiereConfirmacion,
+            titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion,
         });
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
         cerrarModal(modalId);
-        navigate(`comunicaciones/${canal}`);
+        navigate(`coordinacionoperativa/${canal}`);
     });
 }
 
@@ -376,13 +381,17 @@ async function abrirModalGestionarCanales() {
             <div class="canal-gestion-lista">
                 ${canales.map((c) => `
                     <div class="canal-gestion-item">
-                        <span class="canal-item-icono">${Icon(c.icono, { size: 16 })}</span>
-                        <input type="text" class="input-canal-nombre" data-canal-id="${c.id}" value="${c.nombre}">
-                        <select class="input-canal-visibilidad" data-canal-id="${c.id}">
-                            ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === c.restringidoA ? " selected" : ""}>${v.nombre}</option>`).join("")}
-                        </select>
-                        <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
-                        ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
+                        <div class="canal-gestion-fila-nombre">
+                            <span class="canal-item-icono">${Icon(c.icono, { size: 16 })}</span>
+                            <input type="text" class="input-canal-nombre" data-canal-id="${c.id}" value="${c.nombre}">
+                        </div>
+                        <div class="canal-gestion-fila-acciones">
+                            <select class="input-canal-visibilidad" data-canal-id="${c.id}">
+                                ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === c.restringidoA ? " selected" : ""}>${v.nombre}</option>`).join("")}
+                            </select>
+                            <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
+                            ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
+                        </div>
                     </div>
                 `).join("")}
             </div>
@@ -390,7 +399,7 @@ async function abrirModalGestionarCanales() {
             <label for="input-nuevo-canal-nombre" style="margin-top:16px">Nuevo canal</label>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
-                    ${ICONOS_CANAL.map((i) => `<option value="${i}">${i}</option>`).join("")}
+                    ${ICONOS_CANAL.map((i) => `<option value="${i.id}">${i.nombre}</option>`).join("")}
                 </select>
                 <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1 1 140px">
                 <select id="input-nuevo-canal-visibilidad" style="flex:0 0 160px">
@@ -460,6 +469,6 @@ async function abrirModalGestionarCanales() {
     // Al cerrar este modal, la lista de canales de fondo puede haber
     // cambiado (uno nuevo, uno renombrado) — se refresca la pantalla.
     document.getElementById(modalId)?.querySelectorAll("[data-close]").forEach((btn) => {
-        btn.addEventListener("click", () => navigate("comunicaciones"));
+        btn.addEventListener("click", () => navigate("coordinacionoperativa"));
     });
 }

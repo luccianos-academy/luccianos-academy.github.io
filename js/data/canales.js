@@ -26,12 +26,24 @@ import { HOJAS } from "../config.js";
 // mismos íconos ya usados por los canales de ejemplo, no hace falta
 // más variedad por ahora (se puede sumar sin migrar nada).
 export const ICONOS_CANAL = [
-    "noticias", "configuracion", "warning", "idea", "comentario", "corazon",
-    "helado", "cafe", "chocolate", "pastel", "icepop", "caja", "usuarios", "academia",
+    { id: "noticias", nombre: "Anuncio" },
+    { id: "configuracion", nombre: "Supervisión" },
+    { id: "warning", nombre: "Alerta" },
+    { id: "idea", nombre: "Idea" },
+    { id: "comentario", nombre: "Comentario" },
+    { id: "corazon", nombre: "Corazón" },
+    { id: "helado", nombre: "Helado" },
+    { id: "cafe", nombre: "Café" },
+    { id: "chocolate", nombre: "Chocolate" },
+    { id: "pastel", nombre: "Pastelería" },
+    { id: "icepop", nombre: "Icepop" },
+    { id: "caja", nombre: "Caja" },
+    { id: "usuarios", nombre: "Equipo" },
+    { id: "academia", nombre: "Academia" },
 ];
 
 export const VISIBILIDAD_CANAL = [
-    { id: "", nombre: "Todos" },
+    { id: "", nombre: "Supervisores y Capacitadores" },
     { id: "supervisor", nombre: "Solo Supervisores" },
     { id: "capacitador", nombre: "Solo Capacitadores" },
 ];
@@ -40,7 +52,7 @@ function normalizarCanal(f) {
     return {
         id: f.id,
         nombre: String(f.nombre || "").trim(),
-        icono: ICONOS_CANAL.includes(f.icono) ? f.icono : "comentario",
+        icono: ICONOS_CANAL.some((i) => i.id === f.icono) ? f.icono : "comentario",
         creadoPor: String(f.creadoPor || "").trim(),
         restringidoA: String(f.restringidoA || "").trim(),
     };

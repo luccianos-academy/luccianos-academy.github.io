@@ -1,6 +1,6 @@
 /* ============================
    FARO v4
-   pages/notificaciones.js — Centro de notificaciones (campana)
+   pages/news.js — Centro de avisos (campana)
 
    Reemplaza a la vieja "Noticias" (lista plana, sin destinatarios ni
    estado de lectura): ahora es la bandeja única a la que apunta la
@@ -11,9 +11,8 @@
    Mantiene el mismo criterio dual que Manuales/la vieja Noticias:
    Colaborador/Supervisor ven y marcan como leído; Admin suma el panel
    de gestión (crear/editar/eliminar) sobre la misma pantalla, sin
-   ruta de administración aparte. Se registra bajo la ruta "noticias"
-   (router.js) para no romper el link de la campana ni el histórico
-   #/noticias.
+   ruta de administración aparte. Se registra bajo la ruta "news"
+   (router.js).
 =============================*/
 
 import { Header } from "../components/header.js";
@@ -168,7 +167,7 @@ function filaNotificacion(n, usuario, leida) {
     `;
 }
 
-export async function Notificaciones() {
+export async function News() {
 
     const usuario = getUsuarioActual();
     const esAdmin = usuario.rol === "admin";
@@ -223,7 +222,7 @@ export async function Notificaciones() {
     `;
 }
 
-export function bindNotificaciones() {
+export function bindNews() {
 
     const usuario = getUsuarioActual();
 
@@ -254,7 +253,7 @@ export function bindNotificaciones() {
             const items = await getNoticiasVisibles(usuario);
             await Promise.all(items.filter((n) => !estaLeida(n, usuario.id)).map((n) => marcarNotificacionLeida(n, usuario.id)));
             actualizarContadorCampana();
-            navigate("noticias");
+            navigate("news");
         });
     }
 
@@ -279,7 +278,7 @@ export function bindNotificaciones() {
             await eliminarNoticia(btn.dataset.eliminarNotif);
             registrarEvento(usuario.id, "eliminar_noticia", `Notificación ${btn.dataset.eliminarNotif} eliminada`);
             actualizarContadorCampana();
-            navigate("noticias");
+            navigate("news");
         });
     });
 }
@@ -329,7 +328,7 @@ function abrirDetalleNotificacion(noti, usuario) {
         await marcarNotificacionLeida(noti, usuario.id);
         actualizarContadorCampana();
         cerrarModal(modalId);
-        navigate("noticias");
+        navigate("news");
     });
 
     // Los botones Editar/Eliminar del detalle reusan el mismo binding
@@ -346,7 +345,7 @@ function abrirDetalleNotificacion(noti, usuario) {
             registrarEvento(usuario.id, "eliminar_noticia", `Notificación ${noti.id} eliminada`);
             cerrarModal(modalId);
             actualizarContadorCampana();
-            navigate("noticias");
+            navigate("news");
         });
     }
 }
@@ -373,7 +372,7 @@ async function abrirModalNotificacion(noti = null) {
 
         cerrarModal(modalId);
         actualizarContadorCampana();
-        navigate("noticias");
+        navigate("news");
     });
 
     bindMultiSelectSucursales("input-sucursal-notif");

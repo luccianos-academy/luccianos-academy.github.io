@@ -63,7 +63,7 @@ function pintarContador() {
  *  externa (redondo/circular en la topbar vs. inline junto al logo
  *  del sidebar) — el contador y el link son siempre los mismos. */
 export function CampanaBoton(variant = "topbar") {
-    return `<a class="campana-btn campana-btn-${variant}" href="#/noticias" aria-label="News">${Icon("campana", { size: variant === "topbar" ? 22 : 19 })}</a>`;
+    return `<a class="campana-btn campana-btn-${variant}" href="#/news" aria-label="News">${Icon("campana", { size: variant === "topbar" ? 22 : 19 })}</a>`;
 }
 
 export function TopBar() {
