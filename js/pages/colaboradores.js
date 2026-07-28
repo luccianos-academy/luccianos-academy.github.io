@@ -472,6 +472,7 @@ export async function Colaboradores() {
     let supervisores = [];
     let admins = [];
     let cantidadLocalesElegidos = 0; // Capacitador — ver Header más abajo
+    let localesElegidosSinDatos = []; // Capacitador — ver aviso más abajo
 
     if (esAdmin) {
         // Un solo fetch para las 3 pestañas de rol — Colaboradores,
@@ -500,8 +501,9 @@ export async function Colaboradores() {
         // dispositivo — ver services/preferenciasLocales.js): NO le
         // saca acceso a nada, solo recorta cuáles ve por default. Sin
         // preferencia guardada todavía, sigue viendo toda la red.
+        let elegidos = [];
         if (usuario.capacitador) {
-            const elegidos = getLocalesElegidos(usuario);
+            elegidos = getLocalesElegidos(usuario);
             cantidadLocalesElegidos = elegidos.length;
             if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
         }
@@ -515,6 +517,13 @@ export async function Colaboradores() {
         gruposPorSucursal = usuario.capacitador
             ? [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b))
             : nombresLocales;
+        // De los elegidos a mano, cuáles no tienen NADIE cargado
+        // todavía — sin este aviso, un local elegido que no tiene
+        // colaboradores simplemente "desaparece" de la pantalla sin
+        // explicación.
+        if (elegidos.length) {
+            localesElegidosSinDatos = elegidos.filter((n) => !gruposPorSucursal.includes(n));
+        }
     }
 
     const asignaciones = await getAsignaciones();
@@ -579,6 +588,13 @@ export async function Colaboradores() {
 
     return `
         ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : usuario.sucursal || "Tus locales")}
+
+        ${localesElegidosSinDatos.length ? `
+            <p class="text-sm text-muted" style="margin-top:-6px">
+                ${localesElegidosSinDatos.length === 1 ? "Uno de tus locales elegidos" : `${localesElegidosSinDatos.length} de tus locales elegidos`}
+                todavía no ${localesElegidosSinDatos.length === 1 ? "tiene" : "tienen"} colaboradores cargados: ${localesElegidosSinDatos.join(", ")}.
+            </p>
+        ` : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
