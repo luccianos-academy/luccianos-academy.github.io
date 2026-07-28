@@ -66,7 +66,7 @@ export async function activarPush(usuario) {
         return { ok: true };
     } catch (err) {
         console.warn("No se pudo activar push:", err.message);
-        return { ok: false, motivo: "error" };
+        return { ok: false, motivo: "error", detalle: err.message };
     }
 }
 

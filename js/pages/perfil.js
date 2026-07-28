@@ -79,6 +79,6 @@ export function bindPerfil() {
         btn.disabled = false;
         btn.textContent = "Activar";
         if (resultado.motivo === "denegado") alert("No diste el permiso de notificaciones — podés activarlo más tarde desde la configuración del navegador.");
-        else alert("No se pudo activar. Probá de nuevo en un momento.");
+        else alert("No se pudo activar. Probá de nuevo en un momento." + (resultado.detalle ? `\n\nDetalle: ${resultado.detalle}` : ""));
     });
 }
