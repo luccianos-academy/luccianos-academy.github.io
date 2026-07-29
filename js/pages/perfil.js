@@ -10,6 +10,7 @@
 import { Header } from "../components/header.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
+import { getTokensDeUsuario } from "../data/tokens.js";
 import { navigate } from "../router.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
@@ -17,23 +18,45 @@ const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colabora
 /** Estado del permiso → qué mostrar. "granted"/"denied" son
  *  decisiones del navegador que un botón nuestro no puede revertir
  *  (por diseño, así evitan que un sitio insista) — para "denied" solo
- *  se explica cómo re-habilitarlo a mano en la config del navegador. */
-function bloquePush() {
+ *  se explica cómo re-habilitarlo a mano en la config del navegador.
+ *
+ *  IMPORTANTE: "granted" (permiso del navegador) NO es lo mismo que
+ *  "hay un token real guardado" — un rechazo del backend, un error de
+ *  red, o un service worker con caché vieja pueden dejar el permiso
+ *  otorgado sin que el registro haya funcionado de verdad. Por eso
+ *  esto chequea la hoja "Tokens" real, no solo el permiso — mostrar
+ *  "Activadas ✓" sin haberlo verificado fue justamente el bug que hizo
+ *  perder tiempo buscando el problema en el lugar equivocado. */
+async function bloquePush(usuario) {
     if (!soportaPush()) return "";
 
     const estado = estadoPermisoPush();
-    if (estado === "granted") {
-        return `
-            <div class="card" style="max-width:420px;margin-top:16px">
-                <div class="item"><span>Notificaciones push</span><strong class="text-sm" style="color:var(--success)">Activadas ✓</strong></div>
-            </div>
-        `;
-    }
     if (estado === "denied") {
         return `
             <div class="card" style="max-width:420px;margin-top:16px">
                 <div class="item"><span>Notificaciones push</span><strong class="text-sm text-muted">Bloqueadas</strong></div>
                 <p class="text-xs text-muted" style="margin-top:8px">Las bloqueaste antes desde el navegador. Para recibirlas, habilitalas a mano en la configuración del sitio (ícono de candado en la barra de direcciones).</p>
+            </div>
+        `;
+    }
+    if (estado === "granted") {
+        const tokens = await getTokensDeUsuario(usuario.id);
+        if (tokens.length) {
+            return `
+                <div class="card" style="max-width:420px;margin-top:16px">
+                    <div class="item"><span>Notificaciones push</span><strong class="text-sm" style="color:var(--success)">Activadas ✓</strong></div>
+                </div>
+            `;
+        }
+        // El navegador dio el permiso, pero no hay ningún token
+        // guardado para este usuario — el registro falló en algún
+        // punto (backend, red, service worker). Reintentar no vuelve a
+        // pedir el permiso nativo (ya está concedido), solo repite el
+        // registro del token.
+        return `
+            <div class="card" style="max-width:420px;margin-top:16px">
+                <div class="item"><span>Notificaciones push</span><button class="btn btn-secondary" id="btn-activar-push" style="width:auto">Reintentar</button></div>
+                <p class="text-xs text-muted" style="margin-top:8px">Diste el permiso, pero el dispositivo no quedó registrado. Puede ser algo puntual — tocá "Reintentar".</p>
             </div>
         `;
     }
@@ -61,7 +84,7 @@ export async function Perfil() {
             </div>
         </div>
 
-        ${bloquePush()}
+        ${await bloquePush(usuario)}
     `;
 }
 
