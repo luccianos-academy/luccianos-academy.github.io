@@ -67,14 +67,26 @@ self.addEventListener("push", (evento) => {
 /** Click en la notificación → enfoca una pestaña ya abierta de la app
  *  si existe, o abre una nueva. `data.url` lo arma el backend al
  *  mandar el push (ver apps-script/Code.gs, enviarPush) — normalmente
- *  el link directo a la publicación/noticia que lo disparó. */
+ *  el link directo a la publicación/noticia que lo disparó. Llega como
+ *  ruta relativa tipo "#/news" (ver mandarPushDeNoticia en
+ *  pages/news.js), NO como URL absoluta.
+ *
+ *  Bug real encontrado (2026-07-29, con captura de un usuario real): un
+ *  string relativo como "#/news" pasado directo a self.clients.openWindow()
+ *  se resuelve contra la ubicación del PROPIO service worker (sw.js),
+ *  no contra la raíz de la app — terminaba abriendo ".../sw.js#/news",
+ *  que el navegador sirve como texto plano (el código fuente crudo del
+ *  archivo). Resolverlo explícitamente contra self.registration.scope
+ *  (la raíz real de la app) lo arregla para cualquier ruta relativa que
+ *  se mande, hoy o en el futuro. */
 self.addEventListener("notificationclick", (evento) => {
     evento.notification.close();
-    const url = evento.notification.data?.url || "/";
+    const url = new URL(evento.notification.data?.url || "/", self.registration.scope).href;
     evento.waitUntil(
         self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientes) => {
-            for (const c of clientes) {
-                if ("focus" in c) return c.focus();
+            const existente = clientes.find((c) => "focus" in c);
+            if (existente) {
+                return "navigate" in existente ? existente.navigate(url).then((c) => c.focus()) : existente.focus();
             }
             return self.clients.openWindow(url);
         })
