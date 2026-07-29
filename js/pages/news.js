@@ -30,6 +30,7 @@ import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana } from "../components/topbar.js";
+import { mandarPush } from "../services/push.js";
 
 // "capacitador"/"encargado" no son roles reales (ver data/usuarios.js)
 // — son flags sobre supervisor/colaborador — mismo criterio que ya usa
@@ -368,6 +369,21 @@ function abrirDetalleNotificacion(noti, usuario) {
     }
 }
 
+/** Push real a quienes puedan ver esta noticia — mismo criterio que
+ *  puedeVerNoticia (campana/centro de avisos), así el destinatario del
+ *  push es exactamente el mismo público que después la ve en News. No
+ *  bloquea la creación si el envío falla (modo demo, red, un token
+ *  vencido) — la noticia ya quedó guardada de todas formas, un push
+ *  fallido no debería perder el contenido. */
+async function mandarPushDeNoticia(noticia, usuarios) {
+    try {
+        const destinatarios = usuarios.filter((u) => puedeVerNoticia(noticia, u)).map((u) => u.id);
+        if (destinatarios.length) await mandarPush(destinatarios, noticia.titulo, noticia.resumen, "#/news");
+    } catch (err) {
+        console.warn("No se pudo mandar el push de la noticia:", err.message);
+    }
+}
+
 async function abrirModalNotificacion(noti = null) {
 
     const modalId = "modal-notif";
@@ -386,6 +402,7 @@ async function abrirModalNotificacion(noti = null) {
         } else {
             await crearNoticia(cambios);
             registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
+            await mandarPushDeNoticia(cambios, usuarios);
         }
 
         cerrarModal(modalId);
