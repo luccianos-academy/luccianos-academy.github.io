@@ -62,7 +62,7 @@ export async function activarPush(usuario) {
         const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
         if (!token) return { ok: false, motivo: "sin-token" };
 
-        await registrarToken(usuario.id, token);
+        await registrarToken(usuario.id, token, usuario.nombre);
         return { ok: true };
     } catch (err) {
         console.warn("No se pudo activar push:", err.message);

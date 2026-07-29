@@ -60,6 +60,11 @@ function normalizarNoticia(f) {
         prioridad: String(f.prioridad || "info").trim() || "info",
         visiblePara: String(f.visiblePara || "").trim(),
         sucursal: String(f.sucursal || "").trim(),
+        // Dirigida a UNA persona puntual, no por rol/local — pisa todo
+        // lo demás cuando está cargada (ver puedeVerNoticia). Pensada
+        // para avisos 1 a 1 (ej. "renueva tu certificado vos") sin
+        // tener que inventar un rol nuevo para un caso de uno solo.
+        destinatarioId: String(f.destinatarioId || "").trim(),
         leidoPor: String(f.leidoPor || "").trim(),
     };
 }
@@ -67,6 +72,9 @@ function normalizarNoticia(f) {
 /** Mismo criterio que puedeVerManual (data/manuales.js), con una
  *  diferencia a propósito: acá vacío = visible para todos. */
 export function puedeVerNoticia(noticia, usuario) {
+    const destinatarioId = String(noticia.destinatarioId || "").trim();
+    if (destinatarioId) return String(usuario.id) === destinatarioId;
+
     const visiblePara = String(noticia.visiblePara || "").trim();
     const sucursalNoticia = String(noticia.sucursal || "").trim();
 
@@ -79,9 +87,14 @@ export function puedeVerNoticia(noticia, usuario) {
         return false;
     }
 
+    // "capacitador"/"encargado" no son roles reales (flags sobre
+    // supervisor/colaborador, ver data/usuarios.js) — marcarlos SOLOS
+    // (sin también tildar "supervisor"/"colaborador") dirige el aviso
+    // únicamente a ese subgrupo, no a todo el rol base.
     const roles = visiblePara.split(",").map((r) => r.trim()).filter(Boolean);
     const paraCapacitador = roles.includes("capacitador") && usuario.rol === "supervisor" && usuario.capacitador;
-    return roles.includes(usuario.rol) || paraCapacitador;
+    const paraEncargado = roles.includes("encargado") && usuario.rol === "colaborador" && usuario.encargado;
+    return roles.includes(usuario.rol) || paraCapacitador || paraEncargado;
 }
 
 export function estaLeida(noticia, usuarioId) {
@@ -106,13 +119,14 @@ export async function getNoticiasVisibles(usuario) {
     return todas.filter((n) => puedeVerNoticia(n, usuario));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, visiblePara, sucursal }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, visiblePara, sucursal, destinatarioId }) {
     return writeSheet(HOJAS.NOTICIAS, {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
         adjuntoUrl: adjuntoUrl || "", adjuntoLabel: adjuntoLabel || "",
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         visiblePara: visiblePara || "", sucursal: sucursal || "",
+        destinatarioId: destinatarioId || "",
         leidoPor: "",
     }, noticiasMock);
 }

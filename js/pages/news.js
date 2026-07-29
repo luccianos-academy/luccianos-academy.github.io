@@ -25,16 +25,21 @@ import {
     marcarNotificacionLeida, estaLeida, puedeVerNoticia, TIPOS_NOTIFICACION, PRIORIDADES,
 } from "../data/noticias.js";
 import { getCursos } from "../data/cursos.js";
+import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana } from "../components/topbar.js";
 
-// "capacitador" no es un rol real (ver data/usuarios.js), mismo
-// criterio que ya usa Manuales para poder dirigir contenido solo a
-// capacitadores sin que lo vea cualquier Supervisor.
+// "capacitador"/"encargado" no son roles reales (ver data/usuarios.js)
+// — son flags sobre supervisor/colaborador — mismo criterio que ya usa
+// Manuales para poder dirigir contenido solo a ese subgrupo sin que lo
+// vea cualquier Supervisor/Colaborador. Agregar un rol nuevo el día de
+// mañana es sumar una fila acá + el caso especial en puedeVerNoticia
+// si hace falta (data/noticias.js), nada más.
 const ROLES_COMPARTIR = [
     { id: "colaborador", label: "Colaborador" },
+    { id: "encargado",   label: "Encargado" },
     { id: "supervisor",  label: "Supervisor" },
     { id: "capacitador", label: "Capacitador" },
     { id: "admin",       label: "Admin" },
@@ -78,7 +83,7 @@ function etiquetaGrupo(fecha) {
     return formatearFecha(fecha);
 }
 
-function camposNotificacionHtml(n = {}, cursos = []) {
+function camposNotificacionHtml(n = {}, cursos = [], usuarios = []) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesTipo = TIPOS_NOTIFICACION.map((t) => `<option value="${t.id}"${(n.tipo || "noticia") === t.id ? " selected" : ""}>${t.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
@@ -89,6 +94,11 @@ function camposNotificacionHtml(n = {}, cursos = []) {
             ${r.label}
         </label>
     `).join("");
+    const opcionesUsuarios = usuarios
+        .slice()
+        .sort((a, b) => a.nombre.localeCompare(b.nombre))
+        .map((u) => `<option value="${u.id}"${String(n.destinatarioId) === String(u.id) ? " selected" : ""}>${u.nombre} (${u.rol})</option>`)
+        .join("");
 
     return `
         <label for="input-titulo">Título</label>
@@ -118,6 +128,13 @@ function camposNotificacionHtml(n = {}, cursos = []) {
         <label for="input-sucursal-notif">Locales específicos (opcional)</label>
         ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
 
+        <label for="input-destinatario-especifico">Destinatario específico (opcional)</label>
+        <select id="input-destinatario-especifico">
+            <option value="">Ninguno — usar Público/Locales de arriba</option>
+            ${opcionesUsuarios}
+        </select>
+        <p class="text-xs text-muted" style="margin-top:4px">Si elegís una persona acá, la noticia va SOLO para ella — pisa el Público y los Locales de arriba.</p>
+
         <label for="input-detalle">Detalle (opcional)</label>
         <textarea id="input-detalle" rows="4" placeholder="Solo si hay información extensa para desplegar. Si se deja vacío, no se muestra nada extra.">${n.detalle || ""}</textarea>
 
@@ -145,6 +162,7 @@ function leerCamposNotificacion() {
         fecha: document.getElementById("input-fecha").value,
         visiblePara: rolesElegidos.join(","),
         sucursal: document.getElementById("input-sucursal-notif").value.trim(),
+        destinatarioId: document.getElementById("input-destinatario-especifico").value,
         detalle: document.getElementById("input-detalle").value.trim(),
         enlace: document.getElementById("input-enlace").value,
         adjuntoUrl: document.getElementById("input-adjunto-url").value.trim(),
@@ -353,8 +371,8 @@ function abrirDetalleNotificacion(noti, usuario) {
 async function abrirModalNotificacion(noti = null) {
 
     const modalId = "modal-notif";
-    const cursos = await getCursos();
-    const contenidoHtml = camposNotificacionHtml(noti || {}, cursos);
+    const [cursos, usuarios] = await Promise.all([getCursos(), getUsuarios()]);
+    const contenidoHtml = camposNotificacionHtml(noti || {}, cursos, usuarios);
 
     abrirModal(Modal({ id: modalId, titulo: noti ? `Editar: ${noti.titulo}` : "Nueva notificación", contenidoHtml, textoConfirmar: noti ? "Guardar" : "Enviar notificación" }), modalId, async () => {
 

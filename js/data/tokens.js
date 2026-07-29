@@ -21,6 +21,7 @@ function normalizarToken(f) {
     return {
         id: f.id,
         usuarioId: f.usuarioId,
+        usuarioNombre: String(f.usuarioNombre || "").trim(),
         token: String(f.token || "").trim(),
         creadoEn: String(f.creadoEn || "").trim(),
     };
@@ -51,12 +52,14 @@ export async function getTokensDeUsuarios(usuarioIds) {
 
 /** No duplica: si ese mismo token ya está registrado (puede pasar si
  *  el navegador lo re-emite sin haber cambiado nada), no crea fila
- *  nueva. */
-export async function registrarToken(usuarioId, token) {
+ *  nueva. "usuarioNombre" es solo para que la Sheet se lea a simple
+ *  vista (quién es cada fila) — el envío real sigue usando usuarioId,
+ *  el nombre no se usa para nada funcional. */
+export async function registrarToken(usuarioId, token, usuarioNombre) {
     const existentes = await getTokens();
     if (existentes.some((t) => t.token === token)) return;
     const resultado = await writeSheet(HOJAS.TOKENS, {
-        usuarioId, token, creadoEn: new Date().toISOString(),
+        usuarioId, usuarioNombre: usuarioNombre || "", token, creadoEn: new Date().toISOString(),
     }, tokensMock);
     // writeSheet no tira sola ante un rechazo del backend (ej. permiso
     // faltante en PERMISOS_ESCRITURA) — sin este chequeo, activarPush()

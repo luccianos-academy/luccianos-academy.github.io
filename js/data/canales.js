@@ -11,11 +11,13 @@
 
    "restringidoA" acota quién ve el canal: "" (todos los que entran a
    Comunicaciones), "supervisor" (solo Supervisor sin capacitador, para
-   temas de supervisión que no le interesan a Capacitación) o
-   "capacitador" (solo Supervisor con capacitador:true). Admin siempre
-   ve todos los canales, para poder moderar cualquiera — mismo criterio
-   que ya usa puedeVerManual/puedeVerNoticia con "capacitador" como
-   caso especial (no es un rol real, ver data/usuarios.js).
+   temas de supervisión que no le interesan a Capacitación), "capacitador"
+   (solo Supervisor con capacitador:true), o "admin" (nadie más que
+   Admin — pensado para probar cosas, ej. push, sin exponerlas a
+   usuarios reales). Admin siempre ve todos los canales igual, para
+   poder moderar cualquiera — mismo criterio que ya usa
+   puedeVerManual/puedeVerNoticia con "capacitador" como caso especial
+   (no es un rol real, ver data/usuarios.js).
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
@@ -46,6 +48,7 @@ export const VISIBILIDAD_CANAL = [
     { id: "", nombre: "Supervisores y Capacitadores" },
     { id: "supervisor", nombre: "Solo Supervisores" },
     { id: "capacitador", nombre: "Solo Capacitadores" },
+    { id: "admin", nombre: "Solo Admin (pruebas)" },
 ];
 
 function normalizarCanal(f) {
@@ -62,6 +65,7 @@ export function puedeVerCanal(canal, usuario) {
     if (usuario.rol === "admin") return true;
     const restriccion = String(canal.restringidoA || "").trim();
     if (!restriccion) return true;
+    if (restriccion === "admin") return false;
     if (restriccion === "capacitador") return usuario.rol === "supervisor" && !!usuario.capacitador;
     if (restriccion === "supervisor") return usuario.rol === "supervisor" && !usuario.capacitador;
     return true;
