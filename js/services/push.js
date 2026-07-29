@@ -79,31 +79,3 @@ export async function mandarPush(usuarioIds, titulo, cuerpo, url) {
     return enviarPushReal(usuarioIds, titulo, cuerpo, url);
 }
 
-/** Muestra un push que llega con la pestaña ABIERTA Y EN FOCO —
- *  distinto del caso "segundo plano" que ya maneja sw.js. Firebase
- *  entrega el mensaje por un camino totalmente separado en este caso
- *  (evento "onMessage" del SDK en la página, no pasa por el service
- *  worker) — sin este listener, un push llegaba "en silencio" mientras
- *  se estaba mirando la pestaña, que es exactamente cuando alguien lo
- *  nota menos. Se llama una vez al arrancar la app (app.js), y no hace
- *  nada si todavía no se activó el permiso — no tiene sentido
- *  inicializar Firebase para alguien que nunca lo aceptó. */
-export function iniciarEscuchaForeground() {
-    if (!soportaPush() || Notification.permission !== "granted") return;
-    try {
-        inicializarFirebase();
-        firebase.messaging().onMessage((payload) => {
-            const { title, body } = payload.notification || {};
-            navigator.serviceWorker.ready.then((registro) => {
-                registro.showNotification(title || "Lucciano's Academy", {
-                    body: body || "",
-                    icon: "assets/icons/icon-192.png",
-                    badge: "assets/icons/icon-192.png",
-                    data: payload.data || {},
-                });
-            });
-        });
-    } catch (err) {
-        console.warn("No se pudo iniciar la escucha de push en primer plano:", err.message);
-    }
-}
