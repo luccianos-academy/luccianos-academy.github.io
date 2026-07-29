@@ -24,24 +24,40 @@ import {
     eliminarDatosSheet,
 } from "./google.js";
 
-// Varias pantallas piden la MISMA hoja casi al mismo tiempo (ej. al
-// marcar una noticia como leída: el contador de la campana y la propia
-// página de News piden "Noticias" con milisegundos de diferencia) —
-// sin esto, eso son dos round-trips completos a Apps Script (lento,
-// 1-3s cada uno) por una sola interacción. Mientras un pedido de una
-// hoja está en vuelo, cualquier otro pedido de esa MISMA hoja espera
-// esa misma promesa en vez de disparar uno nuevo. No cachea nada más
-// allá de eso — apenas resuelve (o falla), el siguiente pedido vuelve
-// a ir a la red, así que no hay riesgo de datos viejos.
-const pedidosEnVuelo = {};
+// La app pedía CADA hoja de cero en CADA navegación — cada pedido a
+// Apps Script tarda 1-3s posta (red + ejecución), así que 2-4 hojas
+// por pantalla (Promise.all típico) se sentían como 5-10s reales de
+// espera por cada clic, incluso para datos que no cambiaron nada
+// (Cursos, Sucursales, Usuarios rara vez cambian de un minuto a otro).
+// Cache corto en memoria: mientras una hoja tenga un pedido reciente
+// (menos de CACHE_TTL_MS), se reusa esa respuesta en vez de ir a la
+// red de nuevo — y se invalida SOLA apenas alguien escribe en esa
+// misma hoja (ver invalidar()), así que nunca ves desactualizado algo
+// que vos mismo acabás de guardar. El único costo real es no ver al
+// toque un cambio que hizo OTRA persona en simultáneo — aceptable acá
+// (~20-30 usuarios, sin tiempo real ya de entrada).
+const CACHE_TTL_MS = 20000;
+const cache = {}; // { [hoja]: { datos, ts } }
+const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes de la misma hoja
+
+function invalidar(hoja) {
+    delete cache[hoja];
+}
 
 export async function fetchSheet(hoja, mockRows) {
     if (USE_MOCK_DATA) return structuredClone(mockRows);
+
+    const cacheado = cache[hoja];
+    if (cacheado && Date.now() - cacheado.ts < CACHE_TTL_MS) {
+        return [...cacheado.datos];
+    }
+
     if (!pedidosEnVuelo[hoja]) {
         pedidosEnVuelo[hoja] = obtenerDatosSheet(hoja).finally(() => { delete pedidosEnVuelo[hoja]; });
     }
-    const filas = await pedidosEnVuelo[hoja];
-    return filas || [];
+    const filas = (await pedidosEnVuelo[hoja]) || [];
+    cache[hoja] = { datos: filas, ts: Date.now() };
+    return [...filas];
 }
 
 export async function writeSheet(hoja, fila, mockRows) {
@@ -50,7 +66,9 @@ export async function writeSheet(hoja, fila, mockRows) {
         mockRows.push(nuevaFila);
         return { ok: true, fila: nuevaFila };
     }
-    return guardarDatosSheet(hoja, fila);
+    const resultado = await guardarDatosSheet(hoja, fila);
+    invalidar(hoja);
+    return resultado;
 }
 
 export async function updateSheet(hoja, id, cambios, mockRows) {
@@ -59,7 +77,9 @@ export async function updateSheet(hoja, id, cambios, mockRows) {
         if (fila) Object.assign(fila, cambios);
         return { ok: !!fila };
     }
-    return actualizarDatosSheet(hoja, id, cambios);
+    const resultado = await actualizarDatosSheet(hoja, id, cambios);
+    invalidar(hoja);
+    return resultado;
 }
 
 export async function deleteSheet(hoja, id, mockRows) {
@@ -68,5 +88,7 @@ export async function deleteSheet(hoja, id, mockRows) {
         if (index !== -1) mockRows.splice(index, 1);
         return { ok: index !== -1 };
     }
-    return eliminarDatosSheet(hoja, id);
+    const resultado = await eliminarDatosSheet(hoja, id);
+    invalidar(hoja);
+    return resultado;
 }
