@@ -23,56 +23,46 @@ self.addEventListener("fetch", () => {
 });
 
 /* ----------------------------------------------------------------
-   Firebase Cloud Messaging (push real) — muestra la notificación
+   Push real (Firebase Cloud Messaging) — muestra la notificación
    cuando llega un push CON LA APP CERRADA/en segundo plano (con la
-   app abierta y en foco, Firebase la entrega directo a la página en
-   vez de pasar por acá, no hace falta manejar ese caso).
+   app abierta y en foco, Firebase la entrega directo a la página, ver
+   services/push.js → iniciarEscuchaForeground).
 
-   Un service worker clásico (este, registrado sin {type:"module"})
-   no puede usar `import` — por eso `importScripts()` y por eso
-   FIREBASE_CONFIG está repetido acá en vez de importado de config.js.
-   Mantenerlo sincronizado a mano con js/config.js cuando exista el
-   proyecto real (son valores públicos, no secretos, está bien que
-   vivan en dos lugares).
-
-   PENDIENTE: reemplazar por los valores reales una vez creado el
-   proyecto Firebase — mientras apiKey esté vacío, initializeApp()
-   tira, así que todo este bloque queda en un try/catch que no rompe
-   el resto del service worker (fetch/install/activate siguen andando
-   igual aunque push todavía no esté configurado).
+   A propósito NO usa el SDK de Firebase acá adentro (antes cargaba
+   firebase-messaging-compat.js e inicializaba firebase.messaging(),
+   todo envuelto en un try/catch que se tragaba cualquier error en
+   silencio). getToken() del lado de la página ya deja todo lo que
+   hace falta: una PushSubscription real asociada a ESTE service
+   worker. De ahí en más, la entrega es 100% Web Push estándar del
+   navegador — un evento "push" nativo — y no depende en nada de que
+   el SDK de Firebase haya cargado bien acá adentro. Con el SDK, un
+   fallo silencioso de importScripts()/initializeApp() (red, CSP,
+   versión del SDK, lo que sea) significaba CERO manejador de push
+   registrado y CERO notificaciones, en cualquier dispositivo, sin
+   ningún error visible — exactamente el bug que costó horas de
+   diagnóstico encontrar. Este handler nativo no tiene ese punto único
+   de falla.
 ------------------------------------------------------------------ */
-try {
-    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js");
-    importScripts("https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging-compat.js");
+self.addEventListener("push", (evento) => {
+    if (!evento.data) return;
 
-    const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyB6YJZebu7r_Nuk_daHElYUy5zBP1B-Rpk",
-        authDomain: "lucciano-s-academy-web.firebaseapp.com",
-        projectId: "lucciano-s-academy-web",
-        storageBucket: "lucciano-s-academy-web.firebasestorage.app",
-        messagingSenderId: "1008760177490",
-        appId: "1:1008760177490:web:62f272f1ff8af4cf68708b",
-    };
-
-    if (FIREBASE_CONFIG.apiKey) {
-        firebase.initializeApp(FIREBASE_CONFIG);
-        const messaging = firebase.messaging();
-
-        messaging.onBackgroundMessage((payload) => {
-            const { title, body, icon } = payload.notification || {};
-            self.registration.showNotification(title || "Lucciano's Academy", {
-                body: body || "",
-                icon: icon || "assets/icons/icon-192.png",
-                badge: "assets/icons/icon-192.png",
-                data: payload.data || {},
-            });
-        });
+    let payload;
+    try {
+        payload = evento.data.json();
+    } catch (err) {
+        return;
     }
-} catch (err) {
-    // No hay proyecto Firebase configurado todavía, u otro error de
-    // red al cargar el SDK — el resto del service worker sigue
-    // funcionando normal (instalabilidad de la PWA no depende de esto).
-}
+
+    const datosNotif = payload.notification || {};
+    evento.waitUntil(
+        self.registration.showNotification(datosNotif.title || "Lucciano's Academy", {
+            body: datosNotif.body || "",
+            icon: datosNotif.icon || "assets/icons/icon-192.png",
+            badge: "assets/icons/icon-192.png",
+            data: payload.data || {},
+        })
+    );
+});
 
 /** Click en la notificación → enfoca una pestaña ya abierta de la app
  *  si existe, o abre una nueva. `data.url` lo arma el backend al
