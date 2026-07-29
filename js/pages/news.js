@@ -29,7 +29,7 @@ import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
-import { actualizarContadorCampana } from "../components/topbar.js";
+import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
 
 // "capacitador"/"encargado" no son roles reales (ver data/usuarios.js)
@@ -270,8 +270,11 @@ export function bindNews() {
     if (btnMarcarTodas) {
         btnMarcarTodas.addEventListener("click", async () => {
             const items = await getNoticiasVisibles(usuario);
-            await Promise.all(items.filter((n) => !estaLeida(n, usuario.id)).map((n) => marcarNotificacionLeida(n, usuario.id)));
-            actualizarContadorCampana();
+            const noLeidas = items.filter((n) => !estaLeida(n, usuario.id));
+            await Promise.all(noLeidas.map((n) => marcarNotificacionLeida(n, usuario.id)));
+            // Ya sabemos que bajó en noLeidas.length — evita re-pedir
+            // "Noticias" solo para confirmar el número (ver dataSource.js).
+            decrementarContadorCampana(noLeidas.length);
             navigate("news");
         });
     }
@@ -345,7 +348,10 @@ function abrirDetalleNotificacion(noti, usuario) {
         </div>
     `, modalId, leida ? null : async () => {
         await marcarNotificacionLeida(noti, usuario.id);
-        actualizarContadorCampana();
+        // Ya sabemos que baja en 1 — evita re-pedir "Noticias" solo para
+        // confirmar el número (ver dataSource.js: el pedido que sigue,
+        // el de la propia lista de News, ya alcanza para eso).
+        decrementarContadorCampana();
         cerrarModal(modalId);
         navigate("news");
     });

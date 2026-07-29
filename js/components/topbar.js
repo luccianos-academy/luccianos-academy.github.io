@@ -37,9 +37,19 @@ async function recalcularContador() {
 }
 
 /** Se expone para que otras pantallas (notificaciones.js) fuercen un
- *  recálculo después de marcar como leída / crear / eliminar. */
+ *  recálculo después de crear / eliminar (casos donde no sabemos de
+ *  antemano si el número sube, baja o queda igual). */
 export function actualizarContadorCampana() {
     recalcularContador();
+}
+
+/** Para "marcar como leída": ya sabemos que el número baja en "n" —
+ *  ajustar el número en memoria y repintar es instantáneo, evita un
+ *  round-trip a Apps Script (lento) solo para confirmar algo que ya
+ *  sabemos del lado del cliente. */
+export function decrementarContadorCampana(n = 1) {
+    contadorCache = Math.max(0, contadorCache - n);
+    pintarContador();
 }
 
 function pintarContador() {
