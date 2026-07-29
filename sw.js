@@ -24,24 +24,24 @@ self.addEventListener("fetch", () => {
 
 /* ----------------------------------------------------------------
    Push real (Firebase Cloud Messaging) — muestra la notificación
-   cuando llega un push CON LA APP CERRADA/en segundo plano (con la
-   app abierta y en foco, Firebase la entrega directo a la página, ver
-   services/push.js → iniciarEscuchaForeground).
+   cuando llega un push CON LA APP CERRADA/en segundo plano.
 
-   A propósito NO usa el SDK de Firebase acá adentro (antes cargaba
-   firebase-messaging-compat.js e inicializaba firebase.messaging(),
-   todo envuelto en un try/catch que se tragaba cualquier error en
-   silencio). getToken() del lado de la página ya deja todo lo que
-   hace falta: una PushSubscription real asociada a ESTE service
-   worker. De ahí en más, la entrega es 100% Web Push estándar del
-   navegador — un evento "push" nativo — y no depende en nada de que
-   el SDK de Firebase haya cargado bien acá adentro. Con el SDK, un
-   fallo silencioso de importScripts()/initializeApp() (red, CSP,
-   versión del SDK, lo que sea) significaba CERO manejador de push
-   registrado y CERO notificaciones, en cualquier dispositivo, sin
-   ningún error visible — exactamente el bug que costó horas de
-   diagnóstico encontrar. Este handler nativo no tiene ese punto único
-   de falla.
+   A propósito NO usa el SDK de Firebase acá adentro — getToken() del
+   lado de la página ya deja todo lo que hace falta: una
+   PushSubscription real asociada a ESTE service worker. De ahí en
+   más, la entrega es 100% Web Push estándar del navegador — un
+   evento "push" nativo.
+
+   A propósito el backend manda un "data message" (todo adentro de
+   payload.data, ver apps-script/Code.gs → _enviarUnPush), NO un
+   "notification message" (payload.notification). Un mensaje CON
+   "notification" espera que el SDK de Firebase lo decodifique acá
+   adentro con su formato interno propio — sin ese SDK cargado, podía
+   llegar el push y quedar sin mostrarse, sin ningún error visible
+   (probablemente la causa real de por qué no llegaba nada a ningún
+   dispositivo). Un "data message" es JSON plano, sin ninguna magia
+   de por medio — por eso acá se lee de payload.data, no de
+   payload.notification.
 ------------------------------------------------------------------ */
 self.addEventListener("push", (evento) => {
     if (!evento.data) return;
@@ -53,13 +53,13 @@ self.addEventListener("push", (evento) => {
         return;
     }
 
-    const datosNotif = payload.notification || {};
+    const datos = payload.data || payload; // por las dudas llegue "plano"
     evento.waitUntil(
-        self.registration.showNotification(datosNotif.title || "Lucciano's Academy", {
-            body: datosNotif.body || "",
-            icon: datosNotif.icon || "assets/icons/icon-192.png",
+        self.registration.showNotification(datos.title || "Lucciano's Academy", {
+            body: datos.body || "",
+            icon: "assets/icons/icon-192.png",
             badge: "assets/icons/icon-192.png",
-            data: payload.data || {},
+            data: { url: datos.url || "/" },
         })
     );
 });

@@ -770,7 +770,19 @@ function _obtenerAccessTokenFCM() {
 /** Manda UN push a UN token. Devuelve {ok, invalido} — invalido:true
  *  cuando FCM dice que ese token ya no sirve (UNREGISTERED/inválido),
  *  para que el caller lo borre de la hoja "Tokens" y no lo siga
- *  intentando para siempre. */
+ *  intentando para siempre.
+ *
+ *  A propósito manda un "data message" (todo adentro de "data", SIN
+ *  campo "notification") en vez de un "notification message". Un
+ *  mensaje CON "notification" espera que el SDK de Firebase lo
+ *  decodifique del lado del service worker (formato interno propio) —
+ *  nuestro sw.js ya no carga ese SDK ahí (ver sw.js), así que un
+ *  push con "notification" podía llegar y quedar sin mostrarse, sin
+ *  ningún error visible. Un "data message" es JSON plano que
+ *  cualquier listener nativo de "push" puede leer sin depender de
+ *  nada de Firebase — FCM lo entrega tal cual, sin magia de por
+ *  medio. Nota: FCM exige que TODOS los valores de "data" sean
+ *  strings (no objetos/números crudos). */
 function _enviarUnPush(token, titulo, cuerpo, url, accessToken, projectId) {
     const resp = UrlFetchApp.fetch("https://fcm.googleapis.com/v1/projects/" + projectId + "/messages:send", {
         method: "post",
@@ -779,8 +791,7 @@ function _enviarUnPush(token, titulo, cuerpo, url, accessToken, projectId) {
         payload: JSON.stringify({
             message: {
                 token: token,
-                notification: { title: titulo, body: cuerpo },
-                data: url ? { url: url } : {},
+                data: { title: titulo, body: cuerpo, url: url || "" },
             },
         }),
         muteHttpExceptions: true,
