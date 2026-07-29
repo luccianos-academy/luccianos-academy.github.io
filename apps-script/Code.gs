@@ -523,7 +523,24 @@ function eliminar(hoja, id, usuarioActual) {
     return _eliminarCrudo(hoja, id);
 }
 
+/** Interruptor de emergencia: por defecto Supervisor tiene paridad con
+ *  Admin en Canales/Recursos (crear/actualizar/eliminar) — pedido
+ *  explícito del usuario, para no depender de que Admin gestione todo.
+ *  Si hace falta restringirlo por algún inconveniente puntual, alcanza
+ *  con cargar la Propiedad del script SUPERVISOR_GESTIONA_CANALES_RECURSOS
+ *  en "NO" (Configuración del proyecto → Propiedades del script, mismo
+ *  lugar que SESSION_SECRET) — sin tocar código ni redesplegar. Ausente
+ *  o cualquier otro valor = sigue como está hoy (Supervisor con paridad). */
+function _supervisorGestionaCanalesRecursos() {
+    const v = PropertiesService.getScriptProperties().getProperty("SUPERVISOR_GESTIONA_CANALES_RECURSOS");
+    return String(v || "").trim().toUpperCase() !== "NO";
+}
+
 function _autorizarEscritura(hoja, operacion, usuarioActual) {
+    if ((hoja === "Canales" || hoja === "Recursos") && !_supervisorGestionaCanalesRecursos()) {
+        if (usuarioActual.rol === "admin") return { ok: true };
+        return { ok: false, error: "La gestión de " + hoja + " está restringida a Admin por ahora." };
+    }
     const reglas = PERMISOS_ESCRITURA[hoja];
     if (!reglas) return { ok: false, error: 'Hoja desconocida: "' + hoja + '".' };
     const permitidos = reglas[operacion] || [];
