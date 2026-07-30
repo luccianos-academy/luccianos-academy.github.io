@@ -487,7 +487,12 @@ async function abrirModalNuevaPublicacion(canalId) {
         });
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
         const canalObj = canales.find((c) => String(c.id) === String(canal));
-        if (canalObj) await mandarPushDePublicacion(canalObj, titulo, mensaje);
+        // Sin "await" — mismo criterio que news.js: la publicación ya
+        // quedó guardada, no hay razón para dejar el modal en
+        // "Guardando..." mientras el push (varios segundos con
+        // destinatarios reales) todavía viaja. mandarPushDePublicacion
+        // ya atrapa sus propios errores.
+        if (canalObj) mandarPushDePublicacion(canalObj, titulo, mensaje);
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${canal}`);
     });

@@ -408,7 +408,13 @@ async function abrirModalNotificacion(noti = null) {
         } else {
             await crearNoticia(cambios);
             registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
-            await mandarPushDeNoticia(cambios, usuarios);
+            // Sin "await" a propósito: la noticia ya quedó guardada, no
+            // hay razón para dejar el modal en "Guardando..." mientras
+            // el push (que puede tardar varios segundos con muchos
+            // destinatarios reales) todavía viaja — mandarPushDeNoticia
+            // ya atrapa sus propios errores, así que no hace falta
+            // esperarlo para saber si la creación funcionó.
+            mandarPushDeNoticia(cambios, usuarios);
         }
 
         cerrarModal(modalId);
