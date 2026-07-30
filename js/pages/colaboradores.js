@@ -625,13 +625,19 @@ export async function Colaboradores() {
         }
     }
 
-    const asignaciones = await getAsignaciones();
-    const cursos = await getCursos();
-    // Solo hacen falta para Supervisor/Capacitador/Encargado (el
-    // detalle de evaluación real, ver estadoEvaluacion) — Admin usa
-    // filaDeColaborador, que no los toca.
-    const resultados = esAdmin ? [] : await getResultados();
-    const cursosConEvaluacion = esAdmin ? new Set() : new Set((await getEvaluaciones()).map((p) => String(p.cursoId)));
+    // Los 4 pedidos son independientes entre sí — en paralelo (en vez
+    // de un await atrás del otro) para no pagar 1-3s reales de red
+    // por CADA uno en serie. Resultados/Evaluaciones solo hacen falta
+    // para Supervisor/Capacitador/Encargado (el detalle de evaluación
+    // real, ver estadoEvaluacion) — Admin usa filaDeColaborador, que
+    // no los toca, así que ni se piden.
+    const [asignaciones, cursos, resultados, evaluaciones] = await Promise.all([
+        getAsignaciones(),
+        getCursos(),
+        esAdmin ? [] : getResultados(),
+        esAdmin ? [] : getEvaluaciones(),
+    ]);
+    const cursosConEvaluacion = esAdmin ? new Set() : new Set(evaluaciones.map((p) => String(p.cursoId)));
 
     // Chequeo + desactivación de accesos vencidos — se corre cada vez
     // que se abre esta pantalla (ver nota arriba sobre por qué acá).
