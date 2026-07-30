@@ -38,6 +38,7 @@ import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
+import { mandarPush } from "../services/push.js";
 
 function formatearFechaHora(iso) {
     const d = new Date(iso);
@@ -322,6 +323,22 @@ async function abrirDetallePublicacion(p) {
     });
 }
 
+/** Push automático al publicar en un canal — pedido explícito del
+ *  usuario tras probarlo y notar que solo funcionaba en News ("Fase
+ *  C" original era solo para News, esto lo suma acá con el mismo
+ *  criterio: mandar a quien puede VER el canal, mismo filtro que ya
+ *  usa la lista de canales — admin/supervisor según la visibilidad
+ *  configurada). No bloquea la publicación si el push falla. */
+async function mandarPushDePublicacion(canalObj, titulo, mensaje) {
+    try {
+        const usuarios = await getUsuarios();
+        const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u)).map((u) => u.id);
+        if (destinatarios.length) await mandarPush(destinatarios, titulo, mensaje, `#/coordinacionoperativa/${canalObj.id}`);
+    } catch (err) {
+        console.warn("No se pudo mandar el push de la publicación:", err.message);
+    }
+}
+
 async function abrirModalNuevaPublicacion(canalId) {
     const modalId = "modal-nueva-publicacion";
     const usuario = getUsuarioActual();
@@ -371,6 +388,8 @@ async function abrirModalNuevaPublicacion(canalId) {
             titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion,
         });
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
+        const canalObj = canales.find((c) => String(c.id) === String(canal));
+        if (canalObj) await mandarPushDePublicacion(canalObj, titulo, mensaje);
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${canal}`);
     });
