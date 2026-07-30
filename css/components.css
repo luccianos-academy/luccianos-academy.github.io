@@ -207,66 +207,47 @@
     white-space:nowrap;
 }
 
-/* ── Comunicaciones (pages/comunicaciones.js) ─────────────────────
-   Mismo lenguaje visual que .notif-* (campana) — es la conversación
-   entre Admin y Supervisores, así que se ve familiar sin ser
-   idéntica: acá suma avatar con iniciales, likes y comentarios. */
-
-.canal-lista{
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-}
-
-.canal-item{
-    display:flex;
-    align-items:center;
-    gap:14px;
-    background:var(--card);
-    border:1px solid var(--line);
-    border-radius:var(--radius-sm);
-    padding:16px 18px;
-    text-decoration:none;
-    transition:var(--transition);
-}
-
-.canal-item:hover{
-    box-shadow:var(--shadow-hover);
-    transform:translateY(-1px);
-}
+/* ── Coordinación Operativa (pages/coordinacionOperativa.js) ──────
+   Rediseño estilo WhatsApp (pedido explícito del usuario, "el
+   apartado visual no es fluido") — la lista de canales reusa el
+   MISMO patrón ya probado de .notif-item (campana/News: ícono +
+   título + preview truncado + fecha), en vez de inventar uno
+   paralelo. Lo nuevo acá es la tarjeta de adjunto tipo archivo, la
+   pila de avatares de "leído por", el toggle deslizable y el header
+   de compose (Cancelar/Publicar) del modal de nueva publicación. */
 
 .canal-item-icono{
-    flex-shrink:0;
-    width:42px;
-    height:42px;
-    border-radius:50%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
     background:var(--gold-soft);
     color:var(--gold-deep);
 }
 
-.canal-item-body{
-    display:flex;
-    flex-direction:column;
-    gap:2px;
-    min-width:0;
-}
-
-.canal-item-nombre{
-    font-weight:700;
-    font-size:15px;
-    color:var(--text);
-}
-
-.canal-item-detalle{
-    font-size:12.5px;
-    color:var(--muted);
+.canal-item-destacado{
+    color:var(--gold-deep);
+    flex-shrink:0;
 }
 
 .canal-header-nav{
     margin-bottom:10px;
+}
+
+.canal-header-chat{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:18px;
+}
+
+.canal-header-avatar{
+    width:52px;
+    height:52px;
+}
+
+.canal-header-chat h2{
+    margin:0;
+}
+
+.canal-header-chat p{
+    margin:2px 0 0;
 }
 
 .publicacion-card{
@@ -314,24 +295,54 @@
     font-size:11px;
 }
 
+/* Tarjeta de adjunto tipo archivo — ícono en un cuadrado + nombre +
+   ícono de descarga, en vez del link plano de antes. */
 .publicacion-adjunto{
     display:flex;
     align-items:center;
-    gap:8px;
+    gap:10px;
     margin-top:10px;
-    padding:9px 12px;
+    padding:9px 10px;
     background:var(--bg);
     border:1px solid var(--line);
-    border-radius:var(--radius-sm);
-    font-size:13px;
-    color:var(--text);
+    border-radius:10px;
     text-decoration:none;
-    width:fit-content;
+    width:100%;
+    max-width:340px;
     transition:var(--transition);
 }
 
 .publicacion-adjunto:hover{
     border-color:var(--gold);
+}
+
+.publicacion-adjunto-icono{
+    flex-shrink:0;
+    width:34px;
+    height:34px;
+    border-radius:8px;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.publicacion-adjunto-nombre{
+    flex:1;
+    min-width:0;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+
+.publicacion-adjunto-descargar{
+    flex-shrink:0;
+    color:var(--muted);
+    display:flex;
 }
 
 .publicacion-acciones{
@@ -382,6 +393,34 @@
     gap:10px;
 }
 
+/* Pila de avatares superpuestos + "Ver todos" que despliega el
+   detalle completo (mismo <details> de siempre, ver leido-por-lista
+   más abajo) — en vez de arrancar directo con la lista de texto. */
+.leido-avatares{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:4px;
+}
+
+.leido-avatares-pila{
+    display:flex;
+}
+
+.leido-avatares-pila .publicacion-avatar-sm{
+    margin-left:-8px;
+    border:2px solid var(--card);
+}
+
+.leido-avatares-pila .publicacion-avatar-sm:first-child{
+    margin-left:0;
+}
+
+.leido-avatares-texto{
+    font-size:12.5px;
+    color:var(--muted);
+}
+
 .leido-por-lista{
     display:flex;
     flex-direction:column;
@@ -395,6 +434,128 @@
     align-items:center;
     font-size:13px;
     padding:4px 0;
+}
+
+/* Toggle deslizable — mismo <input type="checkbox"> de siempre
+   (nada de JS nuevo), solo estilizado como interruptor en vez de
+   tildable, para "Destacado"/"Requiere confirmación" en el compose. */
+.toggle-switch{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    font-weight:400;
+    padding:4px 0;
+}
+
+.toggle-switch input[type="checkbox"]{
+    appearance:none;
+    -webkit-appearance:none;
+    width:42px;
+    height:24px;
+    border-radius:999px;
+    background:var(--line);
+    position:relative;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:var(--transition);
+}
+
+.toggle-switch input[type="checkbox"]::before{
+    content:"";
+    position:absolute;
+    top:2px;
+    left:2px;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    background:#fff;
+    transition:var(--transition);
+}
+
+.toggle-switch input[type="checkbox"]:checked{
+    background:var(--gold);
+}
+
+.toggle-switch input[type="checkbox"]:checked::before{
+    transform:translateX(18px);
+}
+
+/* Header tipo "compose" del modal de Nueva publicación — Cancelar /
+   título / Publicar en una sola fila, en vez del título arriba +
+   Cancelar/Confirmar abajo del modal genérico. */
+.compose-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+}
+
+.compose-header h2{
+    margin:0;
+    font-size:15px;
+}
+
+.compose-header-btn{
+    background:none;
+    border:none;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    padding:6px 4px;
+}
+
+.compose-header-cancelar{
+    color:var(--muted);
+}
+
+.compose-header-publicar{
+    color:var(--gold-deep);
+}
+
+.compose-header-publicar:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+}
+
+.compose-contador{
+    font-size:11.5px;
+    color:var(--muted);
+    text-align:right;
+    margin-top:2px;
+}
+
+/* Input de adjunto con ícono prefijo — un solo campo prolijo en vez
+   del <input> plano de antes (subida real de archivo queda fuera de
+   alcance de este pase, ver plan). */
+.input-adjunto-chip{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:0 12px;
+    background:var(--bg);
+}
+
+.input-adjunto-chip svg{
+    flex-shrink:0;
+    color:var(--muted);
+}
+
+.input-adjunto-chip input{
+    border:none;
+    background:none;
+    padding:11px 0;
+    flex:1;
+    min-width:0;
+}
+
+.input-adjunto-chip input:focus{
+    outline:none;
+    box-shadow:none;
 }
 
 .canal-gestion-lista{

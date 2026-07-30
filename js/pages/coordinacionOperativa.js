@@ -22,7 +22,7 @@
 =============================*/
 
 import { Header } from "../components/header.js";
-import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
+import { abrirModal, cerrarModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
 import {
@@ -62,16 +62,25 @@ async function vistaListaCanales() {
     const usuario = getUsuarioActual();
     const [canales, publicaciones] = await Promise.all([getCanalesVisibles(usuario), getPublicaciones()]);
 
+    // Mismo patrón visual que .notif-item (campana/News) — ícono +
+    // título + preview truncado a una línea + fecha a la derecha —
+    // en vez de un ítem de lista genérico aparte. El "preview" es el
+    // título de la última publicación real del canal, como en
+    // cualquier lista de chats.
     const filasHtml = canales.map((c) => {
         const delCanal = publicaciones.filter((p) => String(p.canal) === String(c.id));
         const ultima = delCanal[0];
         return `
-            <a class="canal-item" href="#/coordinacionoperativa/${c.id}">
-                <span class="canal-item-icono">${Icon(c.icono, { size: 20 })}</span>
-                <span class="canal-item-body">
-                    <span class="canal-item-nombre">${c.nombre}</span>
-                    <span class="canal-item-detalle">${delCanal.length ? `${delCanal.length} publicación(es) · última ${formatearFechaHora(ultima.fecha)}` : "Sin publicaciones todavía"}</span>
+            <a class="notif-item" href="#/coordinacionoperativa/${c.id}">
+                <span class="notif-item-icono canal-item-icono">${Icon(c.icono, { size: 20 })}</span>
+                <span class="notif-item-body">
+                    <span class="notif-item-titulo">
+                        ${c.nombre}
+                        ${ultima?.destacado ? `<span class="canal-item-destacado">${Icon("trofeo", { size: 13 })}</span>` : ""}
+                    </span>
+                    <span class="notif-item-resumen">${ultima ? ultima.titulo : "Sin publicaciones todavía"}</span>
                 </span>
+                <span class="notif-item-fecha">${ultima ? formatearFechaHora(ultima.fecha) : ""}</span>
             </a>
         `;
     }).join("");
@@ -84,7 +93,7 @@ async function vistaListaCanales() {
             <button class="btn btn-secondary" id="btn-gestionar-canales">Gestionar canales</button>
         </div>
 
-        <div class="section canal-lista">${filasHtml || `<p class="text-sm text-muted">Todavía no hay canales — creá el primero.</p>`}</div>
+        <div class="section notif-lista">${filasHtml || `<p class="text-sm text-muted">Todavía no hay canales — creá el primero.</p>`}</div>
     `;
 }
 
@@ -105,24 +114,75 @@ async function vistaCanal(canalId) {
         `;
     }
 
-    const publicaciones = await getPublicacionesDeCanal(canalId);
+    const [publicaciones, usuarios] = await Promise.all([getPublicacionesDeCanal(canalId), getUsuarios()]);
+    // "Miembros" = quiénes de gestión (admin/supervisor) pueden ver
+    // ESTE canal puntual — mismo filtro que ya usa "Leído por" más
+    // abajo, no una lista guardada aparte (ver plan: sin modelo de
+    // datos nuevo para esto).
+    const miembros = usuarios.filter((u) => (u.rol === "admin" || u.rol === "supervisor") && puedeVerCanal(info, u));
 
     const itemsHtml = publicaciones.length
         ? publicaciones.map((p) => filaPublicacion(p, usuario)).join("")
         : EmptyState({ titulo: "Todavía no hay publicaciones", detalle: "Sé el primero en escribir algo en este canal.", icono: info.icono });
 
+    const infoHtml = `
+        <div class="section">
+            <h4>Miembros con acceso (${miembros.length})</h4>
+            <div class="leido-por-lista" style="margin-top:10px">
+                ${miembros.map((m) => `
+                    <div class="leido-por-item">
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <span class="publicacion-avatar publicacion-avatar-sm">${iniciales(m.nombre)}</span>
+                            ${m.nombre}
+                        </span>
+                        <span class="text-xs text-muted">${m.rol === "admin" ? "Administración" : m.capacitador ? "Capacitador" : "Supervisor"}</span>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+    `;
+
     return `
         <div class="canal-header-nav">
             <a href="#/coordinacionoperativa" class="btn btn-secondary" style="width:auto">← Canales</a>
         </div>
-        ${Header(info.nombre, `${publicaciones.length} publicación(es)`)}
 
-        <div class="table-toolbar">
-            <div></div>
-            <button class="btn btn-primary" id="btn-nueva-publicacion" data-canal="${canalId}">+ Nueva publicación</button>
+        <div class="canal-header-chat">
+            <span class="notif-item-icono canal-item-icono canal-header-avatar">${Icon(info.icono, { size: 26 })}</span>
+            <div>
+                <h2>${info.nombre}</h2>
+                <p class="text-sm text-muted">${miembros.length} miembro(s)</p>
+            </div>
         </div>
 
-        <div class="section" style="display:flex;flex-direction:column;gap:14px" id="lista-publicaciones">${itemsHtml}</div>
+        <div class="notif-tabs" style="margin-bottom:16px">
+            <button class="notif-tab active" data-canal-tab="publicaciones">Publicaciones</button>
+            <button class="notif-tab" data-canal-tab="informacion">Información</button>
+        </div>
+
+        <div data-canal-panel="publicaciones">
+            <div class="table-toolbar">
+                <div></div>
+                <button class="btn btn-primary" id="btn-nueva-publicacion" data-canal="${canalId}">+ Nueva publicación</button>
+            </div>
+            <div class="section" style="display:flex;flex-direction:column;gap:14px" id="lista-publicaciones">${itemsHtml}</div>
+        </div>
+        <div data-canal-panel="informacion" hidden>${infoHtml}</div>
+    `;
+}
+
+/** Tarjeta de adjunto tipo archivo — ícono + nombre + botón
+ *  descargar, reusada en la tarjeta de la publicación y en su
+ *  detalle. Sigue siendo un link (subida real de archivo queda
+ *  fuera de alcance, ver plan) — solo cambia cómo se ve. */
+function adjuntoCardHtml(p) {
+    if (!p.adjuntoLabel || !p.adjuntoUrl) return "";
+    return `
+        <a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">
+            <span class="publicacion-adjunto-icono">${Icon("documento", { size: 17 })}</span>
+            <span class="publicacion-adjunto-nombre">${p.adjuntoLabel}</span>
+            <span class="publicacion-adjunto-descargar">${Icon("descargar", { size: 16 })}</span>
+        </a>
     `;
 }
 
@@ -140,12 +200,7 @@ function filaPublicacion(p, usuario) {
             </div>
             <h3 style="margin-top:10px">${p.titulo}</h3>
             <p class="text-sm" style="margin-top:6px;color:var(--text)">${p.mensaje}</p>
-            ${p.adjuntoLabel && p.adjuntoUrl ? `
-                <a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">
-                    ${Icon("reportes", { size: 16 })}
-                    <span>${p.adjuntoLabel}</span>
-                </a>
-            ` : ""}
+            ${adjuntoCardHtml(p)}
             <div class="publicacion-acciones">
                 <button class="publicacion-accion${likeada ? " activa" : ""}" data-like-publicacion="${p.id}">${Icon("corazon", { size: 15 })} <span data-like-count>${estaLikeCount(p)}</span></button>
                 <button class="publicacion-accion" data-ver-publicacion="${p.id}">${Icon("comentario", { size: 15 })} Ver / comentar</button>
@@ -162,6 +217,19 @@ export function bindCoordinacionOperativa(params = []) {
     const usuario = getUsuarioActual();
 
     document.getElementById("btn-gestionar-canales")?.addEventListener("click", () => abrirModalGestionarCanales());
+
+    // Tabs Publicaciones/Información del header del canal — mismo
+    // patrón simple que ya usa News (mostrar/ocultar paneles ya
+    // renderizados, sin re-pedir datos al servidor).
+    document.querySelectorAll("[data-canal-tab]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll("[data-canal-tab]").forEach((t) => t.classList.remove("active"));
+            tab.classList.add("active");
+            document.querySelectorAll("[data-canal-panel]").forEach((p) => {
+                p.hidden = p.dataset.canalPanel !== tab.dataset.canalTab;
+            });
+        });
+    });
 
     document.getElementById("btn-nueva-publicacion")?.addEventListener("click", (e) => {
         abrirModalNuevaPublicacion(e.target.dataset.canal);
@@ -217,20 +285,28 @@ async function abrirDetallePublicacion(p) {
                 </div>
             </div>
             <p class="text-sm" style="margin-top:10px">${p.mensaje}</p>
-            ${p.adjuntoLabel && p.adjuntoUrl ? `<a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">${Icon("reportes", { size: 16 })}<span>${p.adjuntoLabel}</span></a>` : ""}
+            ${adjuntoCardHtml(p)}
 
             ${p.requiereConfirmacion ? `
-                <details class="noticia-detalle" style="margin-top:14px">
-                    <summary>Leído por (${leidoIds.length}/${supervisoresYAdmin.length})</summary>
-                    <div class="leido-por-lista">
-                        ${supervisoresYAdmin.map((u) => `
-                            <div class="leido-por-item">
-                                <span>${u.nombre}</span>
-                                <span class="badge ${leidoIds.includes(String(u.id)) ? "badge-success" : "badge-muted"}">${leidoIds.includes(String(u.id)) ? "Leído" : "Pendiente"}</span>
-                            </div>
-                        `).join("")}
+                <div style="margin-top:14px">
+                    <div class="leido-avatares">
+                        <span class="leido-avatares-pila">
+                            ${supervisoresYAdmin.slice(0, 5).map((u) => `<span class="publicacion-avatar publicacion-avatar-sm" title="${u.nombre}">${iniciales(u.nombre)}</span>`).join("")}
+                        </span>
+                        <span class="leido-avatares-texto">${leidoIds.length}/${supervisoresYAdmin.length} leyeron</span>
                     </div>
-                </details>
+                    <details class="noticia-detalle" style="margin-top:8px">
+                        <summary>Ver todos (${supervisoresYAdmin.length})</summary>
+                        <div class="leido-por-lista">
+                            ${supervisoresYAdmin.map((u) => `
+                                <div class="leido-por-item">
+                                    <span>${u.nombre}</span>
+                                    <span class="badge ${leidoIds.includes(String(u.id)) ? "badge-success" : "badge-muted"}">${leidoIds.includes(String(u.id)) ? "Leído" : "Pendiente"}</span>
+                                </div>
+                            `).join("")}
+                        </div>
+                    </details>
+                </div>
             ` : ""}
 
             <h4 style="margin-top:16px">Comentarios (${comentarios.length})</h4>
@@ -339,40 +415,56 @@ async function mandarPushDePublicacion(canalObj, titulo, mensaje) {
     }
 }
 
+/** No usa el Modal() genérico a propósito — el header "Cancelar /
+ *  título / Publicar" tipo compose (pedido del usuario, ver mockup)
+ *  no entra en el molde de título-arriba + Cancelar/Confirmar-abajo.
+ *  Mismo mecanismo de siempre para el auto-cierre y el guard de
+ *  doble-envío: data-close/data-confirm con ese id, ver modal.js. */
 async function abrirModalNuevaPublicacion(canalId) {
     const modalId = "modal-nueva-publicacion";
     const usuario = getUsuarioActual();
     const canales = await getCanalesVisibles(usuario);
 
-    const contenidoHtml = `
-        <label for="input-canal-pub">Canal</label>
-        <select id="input-canal-pub">
-            ${canales.map((c) => `<option value="${c.id}"${String(c.id) === String(canalId) ? " selected" : ""}>${c.nombre}</option>`).join("")}
-        </select>
+    abrirModal(`
+        <div class="modal-overlay" id="${modalId}">
+            <div class="modal">
+                <div class="compose-header">
+                    <button class="compose-header-btn compose-header-cancelar" data-close="${modalId}">Cancelar</button>
+                    <h2>Nueva publicación</h2>
+                    <button class="compose-header-btn compose-header-publicar" data-confirm="${modalId}">Publicar</button>
+                </div>
+                <div class="modal-body">
+                    <label for="input-canal-pub">Canal</label>
+                    <select id="input-canal-pub">
+                        ${canales.map((c) => `<option value="${c.id}"${String(c.id) === String(canalId) ? " selected" : ""}>${c.nombre}</option>`).join("")}
+                    </select>
 
-        <label for="input-titulo-pub">Título</label>
-        <input type="text" id="input-titulo-pub" placeholder="Ej: Cambio de uniforme">
+                    <label for="input-titulo-pub">Título</label>
+                    <input type="text" id="input-titulo-pub" placeholder="Ej: Cambio de uniforme">
 
-        <label for="input-mensaje-pub">Mensaje</label>
-        <textarea id="input-mensaje-pub" rows="4" placeholder="Escribí tu mensaje..."></textarea>
+                    <label for="input-mensaje-pub">Mensaje</label>
+                    <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
+                    <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-        <label for="input-adjunto-url-pub">Adjunto — link de Drive u otro (opcional)</label>
-        <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/...">
+                    <label for="input-adjunto-url-pub">Adjunto (opcional)</label>
+                    <div class="input-adjunto-chip">
+                        ${Icon("enlace", { size: 16 })}
+                        <input type="text" id="input-adjunto-url-pub" placeholder="Pegar link de Drive u otro">
+                    </div>
+                    <input type="text" id="input-adjunto-pub" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
 
-        <label for="input-adjunto-pub">Texto del botón del adjunto</label>
-        <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme">
-
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:10px">
-            <input type="checkbox" id="input-destacado-pub" style="width:auto">
-            Marcar como destacado
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400">
-            <input type="checkbox" id="input-confirmacion-pub" style="width:auto">
-            Requiere confirmación de lectura
-        </label>
-    `;
-
-    abrirModal(Modal({ id: modalId, titulo: "Nueva publicación", contenidoHtml, textoConfirmar: "Publicar" }), modalId, async () => {
+                    <label class="toggle-switch" style="margin-top:16px">
+                        Marcar como destacado
+                        <input type="checkbox" id="input-destacado-pub">
+                    </label>
+                    <label class="toggle-switch">
+                        Requiere confirmación de lectura
+                        <input type="checkbox" id="input-confirmacion-pub">
+                    </label>
+                </div>
+            </div>
+        </div>
+    `, modalId, async () => {
         const titulo = document.getElementById("input-titulo-pub").value.trim();
         const mensaje = document.getElementById("input-mensaje-pub").value.trim();
         if (!titulo || !mensaje) return;
@@ -393,6 +485,10 @@ async function abrirModalNuevaPublicacion(canalId) {
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${canal}`);
     });
+
+    const mensajeInput = document.getElementById("input-mensaje-pub");
+    const contador = document.getElementById("contador-mensaje-pub");
+    mensajeInput.addEventListener("input", () => { contador.textContent = mensajeInput.value.length; });
 }
 
 /** Corregir una publicación ya creada (typo, link mal copiado, etc.)
@@ -403,30 +499,40 @@ async function abrirModalEditarPublicacion(p) {
     const modalId = "modal-editar-publicacion";
     const usuario = getUsuarioActual();
 
-    const contenidoHtml = `
-        <label for="input-titulo-editar-pub">Título</label>
-        <input type="text" id="input-titulo-editar-pub" value="${p.titulo}">
+    abrirModal(`
+        <div class="modal-overlay" id="${modalId}">
+            <div class="modal">
+                <div class="compose-header">
+                    <button class="compose-header-btn compose-header-cancelar" data-close="${modalId}">Cancelar</button>
+                    <h2>Editar publicación</h2>
+                    <button class="compose-header-btn compose-header-publicar" data-confirm="${modalId}">Guardar</button>
+                </div>
+                <div class="modal-body">
+                    <label for="input-titulo-editar-pub">Título</label>
+                    <input type="text" id="input-titulo-editar-pub" value="${p.titulo}">
 
-        <label for="input-mensaje-editar-pub">Mensaje</label>
-        <textarea id="input-mensaje-editar-pub" rows="4">${p.mensaje}</textarea>
+                    <label for="input-mensaje-editar-pub">Mensaje</label>
+                    <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-        <label for="input-adjunto-url-editar-pub">Adjunto — link de Drive u otro (opcional)</label>
-        <input type="text" id="input-adjunto-url-editar-pub" value="${p.adjuntoUrl || ""}" placeholder="https://drive.google.com/...">
+                    <label for="input-adjunto-url-editar-pub">Adjunto (opcional)</label>
+                    <div class="input-adjunto-chip">
+                        ${Icon("enlace", { size: 16 })}
+                        <input type="text" id="input-adjunto-url-editar-pub" value="${p.adjuntoUrl || ""}" placeholder="Pegar link de Drive u otro">
+                    </div>
+                    <input type="text" id="input-adjunto-editar-pub" value="${p.adjuntoLabel || ""}" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
 
-        <label for="input-adjunto-editar-pub">Texto del botón del adjunto</label>
-        <input type="text" id="input-adjunto-editar-pub" value="${p.adjuntoLabel || ""}" placeholder="Ej: Manual de Uniforme">
-
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:10px">
-            <input type="checkbox" id="input-destacado-editar-pub" style="width:auto"${p.destacado ? " checked" : ""}>
-            Marcar como destacado
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400">
-            <input type="checkbox" id="input-confirmacion-editar-pub" style="width:auto"${p.requiereConfirmacion ? " checked" : ""}>
-            Requiere confirmación de lectura
-        </label>
-    `;
-
-    abrirModal(Modal({ id: modalId, titulo: "Editar publicación", contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
+                    <label class="toggle-switch" style="margin-top:16px">
+                        Marcar como destacado
+                        <input type="checkbox" id="input-destacado-editar-pub"${p.destacado ? " checked" : ""}>
+                    </label>
+                    <label class="toggle-switch">
+                        Requiere confirmación de lectura
+                        <input type="checkbox" id="input-confirmacion-editar-pub"${p.requiereConfirmacion ? " checked" : ""}>
+                    </label>
+                </div>
+            </div>
+        </div>
+    `, modalId, async () => {
         const titulo = document.getElementById("input-titulo-editar-pub").value.trim();
         const mensaje = document.getElementById("input-mensaje-editar-pub").value.trim();
         if (!titulo || !mensaje) return;
