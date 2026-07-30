@@ -10,6 +10,7 @@
 import { Header } from "../components/header.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
+import { esIOS, yaInstalada } from "../services/installPrompt.js";
 import { getTokensDeUsuario } from "../data/tokens.js";
 import { navigate } from "../router.js";
 
@@ -27,8 +28,33 @@ const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colabora
  *  esto chequea la hoja "Tokens" real, no solo el permiso — mostrar
  *  "Activadas ✓" sin haberlo verificado fue justamente el bug que hizo
  *  perder tiempo buscando el problema en el lugar equivocado. */
+/** Cuando soportaPush() da false no había NADA acá antes — ni botón
+ *  ni explicación, la sección entera desaparecía en silencio. Eso es
+ *  justo lo que reportaron algunas personas ("no me sale para poder
+ *  activarlas"): la causa real casi siempre es específica de iPhone
+ *  (la API de notificaciones ni existe en Safari normal, solo dentro
+ *  de la app YA instalada en la pantalla de inicio, y recién desde
+ *  iOS 16.4), no un problema del dispositivo en sí — por eso antes se
+ *  veía "normal" para unos y "sin opción" para otros sin explicación. */
+function motivoSinPush() {
+    if (!esIOS()) {
+        return "Este navegador no soporta notificaciones push. Si estás abriendo el link desde adentro de otra app (Instagram, WhatsApp, etc.), abrilo en Safari o Chrome directamente.";
+    }
+    if (!yaInstalada()) {
+        return "En iPhone, las notificaciones solo funcionan dentro de la app YA instalada en la pantalla de inicio (no en Safari normal). Instalala primero: menú Compartir → Agregar a inicio, y abrila desde ese ícono.";
+    }
+    return "Tu iPhone necesita iOS 16.4 o más nuevo para recibir notificaciones push. Revisá si tenés una actualización pendiente en Ajustes → General → Actualización de Software.";
+}
+
 async function bloquePush(usuario) {
-    if (!soportaPush()) return "";
+    if (!soportaPush()) {
+        return `
+            <div class="card" style="max-width:420px;margin-top:16px">
+                <div class="item"><span>Notificaciones push</span><strong class="text-sm text-muted">No disponibles</strong></div>
+                <p class="text-xs text-muted" style="margin-top:8px">${motivoSinPush()}</p>
+            </div>
+        `;
+    }
 
     const estado = estadoPermisoPush();
     if (estado === "denied") {
