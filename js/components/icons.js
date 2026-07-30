@@ -102,6 +102,8 @@ const PATHS = {
     // Tarjeta de adjunto y selector de "Adjuntar" (Coordinación Operativa)
     documento: `<path d="M7 3.5h7l4 4V19a1.3 1.3 0 0 1-1.3 1.3H7A1.3 1.3 0 0 1 5.7 19V4.8A1.3 1.3 0 0 1 7 3.5Z"/><path d="M14 3.5V8h4.2"/><path d="M8.5 12.5h7M8.5 15.5h7M8.5 18h4"/>`,
     enlace: `<path d="M9.5 14.5 14.5 9.5"/><path d="M11 7.5 12.7 5.8a3 3 0 0 1 4.2 4.2L15.2 11.7"/><path d="M13 16.5 11.3 18.2a3 3 0 0 1-4.2-4.2L8.8 12.3"/>`,
+    imagen: `<rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.4"/><path d="m5.5 17 4.5-5 3 3 2.5-3 3 4.5"/>`,
+    video: `<rect x="4" y="6.5" width="12.5" height="11" rx="1.5"/><path d="m16.5 10.5 3.5-2.2v7.4l-3.5-2.2"/>`,
 };
 
 export function Icon(name, { size = 20 } = {}) {

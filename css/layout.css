@@ -649,10 +649,11 @@
 }
 
 /* ── Tabs inferiores (components/bottomNav.js) ────────────────────
-   Mobile-only (activado en responsive.css), Colaborador únicamente
-   (el componente ya devuelve "" para otros roles). Fixed al fondo;
-   .content suma padding-bottom cuando existe, vía :has(), para que
-   el último contenido de cada pantalla no quede tapado detrás. */
+   Mobile-only (activado en responsive.css), Colaborador y Supervisor
+   (el componente ya devuelve "" para Admin, que tiene demasiadas
+   secciones para 4 tabs). Fixed al fondo; .content suma padding-bottom
+   cuando existe, vía :has(), para que el último contenido de cada
+   pantalla no quede tapado detrás. */
 .bottom-nav{
     display:none;
     position:fixed;

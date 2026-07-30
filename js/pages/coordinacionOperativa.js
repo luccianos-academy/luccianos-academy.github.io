@@ -446,9 +446,15 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-                    <label for="input-adjunto-url-pub">Adjunto (opcional)</label>
+                    <label>Adjunto (opcional)</label>
+                    <div class="adjunto-tipos">
+                        ${adjuntoTipoBtnHtml("documento", "PDF")}
+                        ${adjuntoTipoBtnHtml("imagen", "Imagen")}
+                        ${adjuntoTipoBtnHtml("video", "Video")}
+                        ${adjuntoTipoBtnHtml("enlace", "Link", true)}
+                    </div>
                     <div class="input-adjunto-chip">
-                        ${Icon("enlace", { size: 16 })}
+                        <span id="icono-adjunto-pub">${Icon("enlace", { size: 16 })}</span>
                         <input type="text" id="input-adjunto-url-pub" placeholder="Pegar link de Drive u otro">
                     </div>
                     <input type="text" id="input-adjunto-pub" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
@@ -489,6 +495,26 @@ async function abrirModalNuevaPublicacion(canalId) {
     const mensajeInput = document.getElementById("input-mensaje-pub");
     const contador = document.getElementById("contador-mensaje-pub");
     mensajeInput.addEventListener("input", () => { contador.textContent = mensajeInput.value.length; });
+    bindAdjuntoTipos("icono-adjunto-pub");
+}
+
+/** Botón de tipo de adjunto (PDF/Imagen/Video/Link) — puramente
+ *  visual: solo cambia el ícono mostrado sobre el campo de link de
+ *  siempre, no agrega un mecanismo de subida real (ver nota en
+ *  components.css). */
+function adjuntoTipoBtnHtml(tipo, etiqueta, activo = false) {
+    return `<button type="button" class="adjunto-tipo-btn${activo ? " active" : ""}" data-tipo="${tipo}">${Icon(tipo, { size: 18 })}<span>${etiqueta}</span></button>`;
+}
+
+function bindAdjuntoTipos(iconoDestinoId) {
+    const destino = document.getElementById(iconoDestinoId);
+    document.querySelectorAll(".adjunto-tipo-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".adjunto-tipo-btn").forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            if (destino) destino.innerHTML = Icon(btn.dataset.tipo, { size: 16 });
+        });
+    });
 }
 
 /** Corregir una publicación ya creada (typo, link mal copiado, etc.)
@@ -514,9 +540,15 @@ async function abrirModalEditarPublicacion(p) {
                     <label for="input-mensaje-editar-pub">Mensaje</label>
                     <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-                    <label for="input-adjunto-url-editar-pub">Adjunto (opcional)</label>
+                    <label>Adjunto (opcional)</label>
+                    <div class="adjunto-tipos">
+                        ${adjuntoTipoBtnHtml("documento", "PDF")}
+                        ${adjuntoTipoBtnHtml("imagen", "Imagen")}
+                        ${adjuntoTipoBtnHtml("video", "Video")}
+                        ${adjuntoTipoBtnHtml("enlace", "Link", true)}
+                    </div>
                     <div class="input-adjunto-chip">
-                        ${Icon("enlace", { size: 16 })}
+                        <span id="icono-adjunto-editar-pub">${Icon("enlace", { size: 16 })}</span>
                         <input type="text" id="input-adjunto-url-editar-pub" value="${p.adjuntoUrl || ""}" placeholder="Pegar link de Drive u otro">
                     </div>
                     <input type="text" id="input-adjunto-editar-pub" value="${p.adjuntoLabel || ""}" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
@@ -551,6 +583,8 @@ async function abrirModalEditarPublicacion(p) {
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${p.canal}`);
     });
+
+    bindAdjuntoTipos("icono-adjunto-editar-pub");
 }
 
 /** Gestión de canales — Admin y Supervisor pueden crear/renombrar;

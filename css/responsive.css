@@ -62,9 +62,8 @@
     }
 
     /* Tabs inferiores (bottomNav.js) — mobile-only, mismo breakpoint
-       que la topbar. El componente ya devuelve "" para roles que no
-       son Colaborador, así que este display:flex no le agrega una
-       barra vacía a nadie más. */
+       que la topbar. El componente ya devuelve "" para Admin, así que
+       este display:flex no le agrega una barra vacía a nadie más. */
     .bottom-nav{
         display:flex;
     }
