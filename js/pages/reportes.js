@@ -22,6 +22,7 @@ import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
+import { getUsuarioActual } from "../services/auth.js";
 
 const TIPOS = [
     { id: "semaforo",     titulo: "Semáforo",       descripcion: "Quién está bien y quién necesita refuerzo, con ranking.", icono: "alertas" },
@@ -122,27 +123,61 @@ function resumenSemaforo(colaboradores, asignaciones, cursos) {
     return { total, promedioGeneral, ...porNivel };
 }
 
-function rankingColaboradores(colaboradores, asignaciones, cursos) {
-    return colaboradores
-        .map((c) => ({ nombre: c.nombre, sucursal: c.sucursal || "—", promedio: progresoPersona(c, asignaciones, cursos) ?? 0 }))
-        .sort((a, b) => b.promedio - a.promedio)
-        .map((c, i) => ({ posicion: i + 1, nombre: `${c.nombre} · ${c.sucursal}`, valor: `${c.promedio}% ${badgeNivel(nivelDe(c.promedio))}` }));
+/** Celda coloreada para un % puntual de curso — mismo criterio de
+ *  cortes que nivelDe, pero pensado para una tabla densa (matriz
+ *  colaborador × curso) en vez de un badge grande. */
+function celdaPct(pct) {
+    const tono = pct >= UMBRAL_VERDE ? "success" : pct >= UMBRAL_AMARILLO ? "warning" : "danger";
+    return `<span class="badge badge-${tono}">${pct}%</span>`;
 }
 
-/** Promedio de CADA curso, mirando a todos los colaboradores a
- *  quienes les aplica (mismo filtro de "Gestión" que progresoPersona)
- *  — ordenado peor-primero, así el curso más flojo de toda la red
- *  salta a la vista de entrada. */
-function analisisPorCurso(colaboradores, cursos, asignaciones) {
-    return cursos
-        .map((curso) => {
-            const aplica = colaboradores.filter((c) => curso.categoria !== "Gestión" || c.encargado);
-            if (!aplica.length) return null;
-            const promedio = Math.round(aplica.reduce((s, c) => s + progresoCursoDePersona(c, curso, asignaciones), 0) / aplica.length);
-            return { curso: curso.nombre, promedio };
+/** La tabla principal del Semáforo: una fila por colaborador, con
+ *  Sucursal (para identificar el local de un vistazo, pedido del
+ *  usuario), quién es Encargado, Total/Resultado/Nivel, y DESPUÉS una
+ *  columna por cada curso real de la app con su % puntual — mismo
+ *  espíritu que el informe de referencia (S1..S8), pero con los
+ *  módulos reales de Academy en vez de checklist semanal.
+ *  "Cumple/No cumple" del original no se trasladó: ahí contaba ítems
+ *  de un checklist fijo, acá no hay un equivalente real (el % por
+ *  curso ya cuenta esa historia, columna por columna). "No aplica"
+ *  (cursos de Gestión para quien no es encargado) se muestra en gris,
+ *  sin contar en Total. */
+function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
+    const filas = colaboradores
+        .map((c) => {
+            const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
+            const total = cursosAplicables.length;
+            const promedio = total
+                ? Math.round(cursosAplicables.reduce((s, cur) => s + progresoCursoDePersona(c, cur, asignaciones), 0) / total)
+                : 0;
+
+            const fila = {
+                _promedio: promedio,
+                colaborador: c.encargado ? `${c.nombre} <span class="badge badge-muted">Encargado</span>` : c.nombre,
+                sucursal: c.sucursal || "—",
+                total: String(total),
+                resultado: `${promedio}%`,
+                nivel: badgeNivel(nivelDe(promedio)),
+            };
+            cursos.forEach((cur) => {
+                const aplica = cur.categoria !== "Gestión" || c.encargado;
+                fila[`curso_${cur.id}`] = aplica
+                    ? celdaPct(progresoCursoDePersona(c, cur, asignaciones))
+                    : `<span class="text-xs text-muted">No aplica</span>`;
+            });
+            return fila;
         })
-        .filter(Boolean)
-        .sort((a, b) => a.promedio - b.promedio);
+        .sort((a, b) => b._promedio - a._promedio);
+
+    const columnas = [
+        { key: "colaborador", label: "Colaborador" },
+        { key: "sucursal", label: "Sucursal" },
+        { key: "total", label: "Total módulos" },
+        { key: "resultado", label: "Resultado" },
+        { key: "nivel", label: "Nivel" },
+        ...cursos.map((cur) => ({ key: `curso_${cur.id}`, label: cur.nombre })),
+    ];
+    return Table(columnas, filas);
 }
 
 /** Para cada colaborador en Amarillo/Rojo, qué cursos puntuales están
@@ -163,13 +198,6 @@ function areasAReforzar(colaboradores, cursos, asignaciones) {
         })
         .filter(Boolean)
         .sort((a, b) => a.promedio - b.promedio);
-}
-
-function tablaPorCurso(porCurso) {
-    return Table(
-        [{ key: "curso", label: "Curso" }, { key: "promedio", label: "Promedio de la red" }],
-        porCurso.map((p) => ({ curso: p.curso, promedio: `${p.promedio}%` }))
-    );
 }
 
 /** Una fila por (colaborador, curso débil) — mismo formato que un
@@ -204,24 +232,21 @@ function tablaAreasAReforzar(items) {
     );
 }
 
-function vistaSemaforo(colaboradores, asignaciones, cursos) {
+function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
-    const ranking = rankingColaboradores(colaboradores, asignaciones, cursos);
-    const porCurso = analisisPorCurso(colaboradores, cursos, asignaciones);
     const reforzar = areasAReforzar(colaboradores, cursos, asignaciones);
 
     return `
         <div class="cards" style="margin-bottom:20px">
-            ${KpiCard("Colaboradores evaluados", resumen.total)}
-            ${KpiCard("Promedio general", `${resumen.promedioGeneral}%`)}
+            ${KpiCard(tituloGrupo || "Colaboradores evaluados", resumen.total)}
+            ${KpiCard("Promedio", `${resumen.promedioGeneral}%`)}
             ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success" })}
             ${KpiCard("Amarillo", resumen.AMARILLO, { icono: "warning", tono: "warning" })}
             ${KpiCard("Rojo", resumen.ROJO, { icono: "warning", tono: "danger" })}
         </div>
-        ${RankingCard({ titulo: "Ranking de desempeño", items: ranking })}
-        <div class="card" style="margin-top:20px">
-            <h3>Promedio por curso (toda la red)</h3>
-            ${tablaPorCurso(porCurso)}
+        <div class="card">
+            <h3>Desempeño por colaborador y por módulo</h3>
+            ${tablaMatrizSemaforo(colaboradores, cursos, asignaciones)}
         </div>
         <div class="card" style="margin-top:20px">
             <h3>Áreas a reforzar — Amarillo y Rojo</h3>
@@ -291,6 +316,27 @@ function tendenciaSemanal(resultados) {
     }));
 }
 
+/** Alcance del Semáforo para quien NO es Admin — un solo lugar para
+ *  ajustar esto si el criterio cambia (pedido explícito del usuario):
+ *   · Supervisor con capacitador:true (Capacitador): toda la red,
+ *     mismo criterio de solo-lectura que ya tiene en el resto de la app.
+ *   · Supervisor sin capacitador: solo su equipo (sus locales).
+ *   · Colaborador con encargado:true (Encargado): colaboradores de
+ *     SU MISMA sucursal (no toda la red, pero tampoco solo él mismo —
+ *     ya tiene su propio detalle en su Inicio).
+ */
+async function colaboradoresVisiblesSemaforo(usuarioActual, usuarios, sucursales) {
+    const colaboradores = usuarios.filter((u) => u.rol === "colaborador");
+    if (usuarioActual.rol === "supervisor") {
+        if (usuarioActual.capacitador) return colaboradores;
+        const nombresLocales = await getMisLocales(usuarioActual, sucursales);
+        return colaboradores.filter((c) => nombresLocales.includes(c.sucursal));
+    }
+    // colaborador + encargado (única otra forma de llegar acá, ver
+    // services/auth.js puedeAccederA).
+    return colaboradores.filter((c) => c.sucursal === usuarioActual.sucursal);
+}
+
 async function renderPreview(tipoId) {
     const [usuarios, sucursales, asignaciones, resultados, cursos] = await Promise.all([
         getUsuarios(), getSucursales(), getAsignaciones(), getResultados(), getCursos(),
@@ -307,6 +353,27 @@ async function renderPreview(tipoId) {
 }
 
 export async function Reportes() {
+
+    const usuarioActual = getUsuarioActual();
+
+    // Supervisor/Capacitador/Encargado: acceso acotado a Semáforo
+    // (pedido explícito del usuario), NO al resto de la suite — esos
+    // otros reportes comparan TODA la red (otros locales, otros
+    // supervisores) y no se pidió abrir esa comparativa a estos roles.
+    if (usuarioActual.rol !== "admin") {
+        const [usuarios, sucursales, asignaciones, cursos] = await Promise.all([
+            getUsuarios(), getSucursales(), getAsignaciones(), getCursos(),
+        ]);
+        const colaboradores = await colaboradoresVisiblesSemaforo(usuarioActual, usuarios, sucursales);
+        const tituloGrupo = usuarioActual.rol === "supervisor" && !usuarioActual.capacitador
+            ? "Mi equipo"
+            : "Colaboradores evaluados";
+
+        return `
+            ${Header("Semáforo de desempeño", "Quién está bien y quién necesita refuerzo")}
+            <div class="section">${vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo)}</div>
+        `;
+    }
 
     const tarjetas = TIPOS.map((t, i) => ReportCard({ ...t, seleccionado: i === 0 })).join("");
     const previewInicial = await renderPreview(TIPOS[0].id);

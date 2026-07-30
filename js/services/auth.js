@@ -141,7 +141,7 @@ export const MENU_POR_ROL = {
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
         "academia", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "recursos", "reportes", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -158,7 +158,7 @@ const PERMISOS_PAGINA = {
     locales:        ["admin"],
     academia:       ["admin"],
     evaluaciones:   ["admin"],
-    reportes:       ["admin"],
+    reportes:       ["admin", "supervisor"],
     alertas:        ["admin"],
     configuracion:  ["admin"],
     integraciones:  ["admin"],
@@ -179,6 +179,9 @@ export function puedeAccederA(pagina) {
     // Encargado (colaborador con encargado=true) suma acceso a la
     // pantalla de equipo, acotada a su sucursal — ver pages/colaboradores.js.
     if (pagina === "colaboradores" && usuario.rol === "colaborador" && usuario.encargado) return true;
+    // Encargado también suma acceso al Semáforo de Reportes, acotado a
+    // su misma sucursal — ver pages/reportes.js (colaboradoresVisiblesSemaforo).
+    if (pagina === "reportes" && usuario.rol === "colaborador" && usuario.encargado) return true;
     const rolesPermitidos = PERMISOS_PAGINA[pagina];
     if (!rolesPermitidos) return true;
     return rolesPermitidos.includes(usuario.rol);
