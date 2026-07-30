@@ -13,6 +13,7 @@ import { MascotaCarga } from "./components/mascotaCarga.js";
 import { bindInstallBanner } from "./components/installBanner.js";
 import { bindMaestro } from "./components/maestro.js";
 import { haySesion, puedeAccederA, getUsuarioActual, logout, volverAAdmin } from "./services/auth.js";
+import { obtenerMiUsuario } from "./data/usuarios.js";
 
 import { Login } from "./pages/login.js";
 import { InicioAdmin } from "./pages/inicioAdmin.js";
@@ -73,6 +74,17 @@ const RUTAS = {
 
 const RUTAS_PUBLICAS = ["login"];
 
+// "Ver Nuestra Historia antes de empezar" — pedido explícito del
+// usuario. Solo Colaborador/Encargado (son quienes realmente
+// "empiezan" la formación; Supervisor/Admin no rinden cursos). Con
+// que hayan ABIERTO Historia una vez alcanza (ver pages/historia.js,
+// marcarHistoriaVista) — no hace falta leerla entera. Se chequea acá
+// (no en PERMISOS_PAGINA/puedeAccederA) porque es dinámico por
+// persona, no una regla fija por rol, y porque el destino del
+// redirect es una pantalla puntual (Historia), no "inicio" como el
+// resto de los rechazos de acceso.
+const RUTAS_GATEADAS_HISTORIA = ["cursos", "examen", "misevaluaciones"];
+
 /** "#/cursos/12" → { path:"cursos", params:["12"] }. Un solo segmento de
  *  parámetro alcanza para este incremento; Sprint 5+ (detalle de curso/
  *  lección) puede sumar más sin tocar este parser. */
@@ -118,6 +130,22 @@ async function handleRoute() {
 
     if (haySesion() && !puedeAccederA(path)) {
         return navigate("inicio", { replace: true });
+    }
+
+    if (haySesion() && RUTAS_GATEADAS_HISTORIA.includes(path)) {
+        const usuario = getUsuarioActual();
+        if (usuario.rol === "colaborador") {
+            // Fetch fresco (no el de la sesión cacheada en login) — es
+            // la única forma de que el gate se desactive apenas la
+            // persona abre Historia, sin esperar a que vuelva a
+            // loguearse. obtenerMiUsuario ya tiene su propio cache
+            // corto (ver dataSource.js), así que esto no es un pedido
+            // de red extra en cada navegación.
+            const fresco = await obtenerMiUsuario(usuario);
+            if (fresco && !fresco.historiaVista) {
+                return navigate("historia", { replace: true });
+            }
+        }
     }
 
     return renderRuta(path, ruta, params);

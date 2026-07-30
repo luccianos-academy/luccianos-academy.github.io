@@ -41,6 +41,13 @@ function normalizarUsuario(f) {
         // un Supervisor de sucursal en la interfaz (así el capacitador
         // no queda mezclado con "el supervisor" sin que nadie lo note).
         capacitador: String(f.capacitador || "").trim().toUpperCase() === "SI",
+        // Gate de "Nuestra Historia" (pedido explícito del usuario:
+        // que la vean antes de empezar la formación) — ver router.js
+        // y pages/historia.js. Vacío = todavía no la vio (incluye
+        // usuarios cargados antes de que existiera esta columna, que
+        // a propósito quedan sin verla marcada — no hay forma de
+        // saber si ya la leyeron antes de este cambio).
+        historiaVista: String(f.historiaVista || "").trim().toUpperCase() === "SI",
     };
 }
 
@@ -87,6 +94,14 @@ export async function crearUsuario({ nombre, email, rol, sucursal = "", encargad
 
 export async function actualizarUsuario(id, cambios) {
     return updateSheet(HOJAS.USUARIOS, id, cambios, usuariosMock);
+}
+
+/** Se llama al abrir Nuestra Historia (ver pages/historia.js) — con
+ *  abrir la página una vez alcanza, no hace falta leerla entera ni
+ *  confirmar nada aparte (decisión explícita del usuario). No pisa
+ *  nada si ya estaba marcada. */
+export async function marcarHistoriaVista(id) {
+    return updateSheet(HOJAS.USUARIOS, id, { historiaVista: "SI" }, usuariosMock);
 }
 
 export async function eliminarUsuario(id) {

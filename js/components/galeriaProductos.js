@@ -30,8 +30,14 @@ function categoriasDe(producto) {
     return producto.categorias || [producto.categoria];
 }
 
+// "Parve" (sin lácteos, apto kosher) y "vegano" NO son lo mismo — un
+// producto parve podría llevar algún ingrediente no vegano y seguir
+// siendo apto parve. Acá se muestran juntos porque el usuario
+// confirmó que, en este catálogo puntual, todo lo parve es también
+// vegano de verdad — no es una equivalencia automática para
+// cualquier producto nuevo que se cargue a futuro con kosher:"parve".
 function badgeKosher(producto) {
-    if (producto.kosher === "parve") return `<span class="badge-kosher badge-kosher-parve" title="Parve — vegano, sin lácteos">Parve</span>`;
+    if (producto.kosher === "parve") return `<span class="badge-kosher badge-kosher-parve" title="Parve — sin lácteos, apto kosher. También vegano.">PARVE/VEGAN</span>`;
     if (producto.kosher === "dairy") return `<span class="badge-kosher badge-kosher-dairy" title="Dairy — con lácteos">Dairy</span>`;
     return "";
 }

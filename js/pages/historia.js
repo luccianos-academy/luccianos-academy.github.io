@@ -13,6 +13,8 @@
 =============================*/
 
 import { Header } from "../components/header.js";
+import { getUsuarioActual } from "../services/auth.js";
+import { marcarHistoriaVista } from "../data/usuarios.js";
 
 const PROPOSITO = [
     { titulo: "Magia en la atención al cliente", texto: "Trato personalizado, empatía y cercanía en cada interacción." },
@@ -37,6 +39,17 @@ const PRINCIPIOS_TONIO = [
 ];
 
 export async function Historia() {
+
+    // Gate de "antes de empezar" (ver router.js): con que un
+    // Colaborador/Encargado ABRA esta página una vez ya alcanza —
+    // no bloqueante para el resto de los roles, que no rinden
+    // formación. Sin "await" a propósito: no tiene sentido demorar
+    // el render de la página por esto, y si falla (red lenta, etc.)
+    // el gate simplemente se vuelve a activar la próxima vez.
+    const usuario = getUsuarioActual();
+    if (usuario && usuario.rol === "colaborador" && !usuario.historiaVista) {
+        marcarHistoriaVista(usuario.id).catch(() => {});
+    }
 
     const propositoHtml = PROPOSITO.map((p) => `
         <div class="card">
@@ -63,7 +76,7 @@ export async function Historia() {
                 <div>
                     <h2>Quiénes somos</h2>
                     <p class="text-sm" style="margin-top:10px;color:var(--text)">Sus fundadores, padre e hijo, <b>Christian y Daniel Otero</b>, viajaron a Italia con el objetivo de traer la última tecnología para fabricar helado y a los mejores maestros heladeros.</p>
-                    <p class="text-sm" style="margin-top:10px;color:var(--text)">Combinaron las mejores materias primas nacionales e italianas junto a chocolates belgas para desarrollar un producto único, inigualable y transformarse en el sinónimo del mejor helado Premium del mercado.</p>
+                    <p class="text-sm" style="margin-top:10px;color:var(--text)">Combinaron las mejores materias primas nacionales e italianas junto a chocolates belgas para desarrollar un producto único, inigualable y transformarse en el sinónimo del mejor helado artesanal Premium del mercado.</p>
                     <p class="text-sm" style="margin-top:10px;color:var(--text)">Logran brindar una experiencia superadora a los clientes a través del producto ofrecido y sus diferentes locales, con diseño de vanguardia.</p>
                 </div>
             </div>
