@@ -45,8 +45,34 @@ export function abrirModal(modalHtml, id, onConfirm) {
         if (e.target === overlay) cerrarModal(id);
     });
 
+    // Sin esto, un guardado que tarda unos segundos (red real contra
+    // Apps Script) parece "no hacer nada" — la persona vuelve a
+    // tocar "Guardar"/"Enviar" y el onConfirm corre DE NUEVO antes de
+    // que termine el primero, duplicando lo que sea que haga (crear
+    // la misma noticia/publicación/curso dos veces, mandar el push
+    // dos veces, etc.). El botón se deshabilita apenas se toca y
+    // muestra "Guardando..." hasta que el onConfirm termina. Si el
+    // propio onConfirm hace un "return" temprano por validación (sin
+    // cerrar el modal, ver ej. news.js) el botón se reactiva solo,
+    // así la persona puede corregir y reintentar.
     if (onConfirm) {
-        overlay.querySelector(`[data-confirm="${id}"]`).addEventListener("click", onConfirm);
+        const btnConfirmar = overlay.querySelector(`[data-confirm="${id}"]`);
+        const textoOriginal = btnConfirmar.textContent;
+        btnConfirmar.addEventListener("click", async () => {
+            if (btnConfirmar.disabled) return;
+            btnConfirmar.disabled = true;
+            btnConfirmar.textContent = "Guardando...";
+            try {
+                await onConfirm();
+            } finally {
+                // Si onConfirm cerró el modal (caso normal), el botón ya no
+                // está en el DOM — esto es un no-op inofensivo.
+                if (document.body.contains(btnConfirmar)) {
+                    btnConfirmar.disabled = false;
+                    btnConfirmar.textContent = textoOriginal;
+                }
+            }
+        });
     }
 }
 
