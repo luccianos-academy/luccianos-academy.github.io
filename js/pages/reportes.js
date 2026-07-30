@@ -364,6 +364,13 @@ function fechaLocalISO(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Fecha de hoy en formato legible — solo para el encabezado que
+ *  aparece al exportar a PDF (ver .solo-impresion, css/layout.css),
+ *  así quien lo recibe sabe de qué momento es el estado. */
+export function fechaHoyLegible() {
+    return new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
+}
+
 function tendenciaMensual(resultados, cantidadMeses) {
     const hoy = new Date();
     const claves = [];
@@ -400,7 +407,10 @@ async function renderPreview(tipoId) {
         const colaboradores = usuarios.filter((u) => u.rol === "colaborador");
         return `
             <div id="semaforo-filtros">${filtrosSemaforoHtml()}</div>
-            <div id="semaforo-contenido">${vistaSemaforo(colaboradores, asignaciones, cursos)}</div>
+            <div id="semaforo-contenido" class="imprimible">
+                <p class="solo-impresion" style="margin-bottom:16px;font-weight:700">Lucciano's Academy — Semáforo de desempeño — ${fechaHoyLegible()}</p>
+                ${vistaSemaforo(colaboradores, asignaciones, cursos)}
+            </div>
         `;
     }
     if (tipoId === "local") return RankingCard({ titulo: "Reporte por local", items: rankingLocales(usuarios, sucursales, asignaciones, cursos) });
@@ -425,7 +435,7 @@ export async function Reportes() {
         <div class="section">
             <div class="header" style="margin-bottom:0">
                 <h2>Vista previa</h2>
-                <button class="btn btn-secondary" disabled title="Próximamente">Exportar (Próximamente)</button>
+                <button class="btn btn-secondary" id="btn-exportar-reporte">🖨 Exportar PDF</button>
             </div>
             <div id="reporte-preview" style="margin-top:20px">${previewInicial}</div>
         </div>
@@ -435,12 +445,24 @@ export async function Reportes() {
 export function bindReportes() {
     bindSemaforo(); // "Semáforo" es TIPOS[0] — ya está montado en el primer render.
 
+    // "Exportar" solo tiene sentido con el Semáforo (único reporte con
+    // clase ".imprimible" por ahora, ver renderPreview) — se
+    // deshabilita solo para el resto de las tarjetas, en vez de
+    // imprimir una pantalla vacía.
+    const btnExportar = document.getElementById("btn-exportar-reporte");
+    btnExportar?.addEventListener("click", () => window.print());
+
     document.querySelectorAll("[data-report-id]").forEach((card) => {
         card.addEventListener("click", async () => {
             document.querySelectorAll("[data-report-id]").forEach((c) => c.classList.remove("selected"));
             card.classList.add("selected");
             document.getElementById("reporte-preview").innerHTML = await renderPreview(card.dataset.reportId);
             bindSemaforo();
+            if (btnExportar) {
+                const esSemaforo = card.dataset.reportId === "semaforo";
+                btnExportar.disabled = !esSemaforo;
+                btnExportar.title = esSemaforo ? "" : "Disponible solo para el reporte Semáforo por ahora";
+            }
         });
     });
 }

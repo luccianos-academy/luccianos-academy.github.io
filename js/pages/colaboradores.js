@@ -44,7 +44,7 @@ import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 import { KpiCard } from "../components/kpiCard.js";
-import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona } from "./reportes.js";
+import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona, fechaHoyLegible } from "./reportes.js";
 
 const DIAS_ACCESO_INICIAL = 30;
 const DIAS_EXTENSION = 15;
@@ -467,8 +467,12 @@ const ROL_TABS = [
 function resumenSemaforoHtml(colaboradores, asignaciones, cursos) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
     return `
+        <p class="solo-impresion" style="margin-bottom:16px;font-weight:700">Lucciano's Academy — Estado del equipo — ${fechaHoyLegible()}</p>
         <div class="section">
-            <h3>Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
+            <div class="header" style="margin-bottom:0">
+                <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
+                <button class="btn btn-secondary" id="btn-exportar-equipo">🖨 Exportar PDF</button>
+            </div>
             <div class="cards" style="margin:14px 0">
                 ${KpiCard("Promedio", `${resumen.promedioGeneral}%`, { ayuda: "Promedio de lecciones vistas — no de evaluaciones aprobadas." })}
                 ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success", ayuda: "Colaboradores con 85% o más de las lecciones vistas." })}
@@ -705,6 +709,8 @@ export async function Colaboradores() {
             </p>
         ` : ""}
 
+        ${!esAdmin ? '<div class="imprimible">' : ""}
+
         ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos) : ""}
 
         ${esAdmin ? `
@@ -740,6 +746,8 @@ export async function Colaboradores() {
             ${esAdmin ? `<div data-rol-panel="supervisor" hidden>${cuerpoSupervisoresHtml}</div>` : ""}
             ${esAdmin ? `<div data-rol-panel="admin" hidden>${cuerpoAdminsHtml}</div>` : ""}
         </div>
+
+        ${!esAdmin ? "</div>" : ""}
     `;
 }
 
@@ -795,6 +803,7 @@ function bindMenuAcciones() {
 export function bindColaboradores() {
 
     bindMenuAcciones();
+    document.getElementById("btn-exportar-equipo")?.addEventListener("click", () => window.print());
 
     const buscador = document.getElementById("buscador-colaboradores");
     let filtroActivo = "todos";
