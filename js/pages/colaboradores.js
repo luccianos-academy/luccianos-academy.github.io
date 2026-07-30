@@ -327,7 +327,12 @@ function progresoColaborador(colaborador, asignaciones, cursos) {
         const a = propias.find((x) => String(x.cursoId) === String(cur.id));
         return s + (a ? a.progreso : 0);
     }, 0);
-    const hechos = propias.filter((a) => a.estado === "completado").length;
+    // Mismo filtro de "aplicables" que "total" — sin esto, una
+    // asignación no aplicable (ej. de un curso de Gestión en alguien
+    // que no es encargado) marcada "completado" infla "hechos" sin
+    // inflar "total", mostrando cosas imposibles como "9 de 7".
+    const idsCursosAplicables = cursosAplicables.map((cur) => String(cur.id));
+    const hechos = propias.filter((a) => a.estado === "completado" && idsCursosAplicables.includes(String(a.cursoId))).length;
 
     return { pct: Math.round(suma / cursosAplicables.length), hechos, total: cursosAplicables.length };
 }

@@ -95,7 +95,13 @@ export async function InicioColaborador() {
             return s + (a ? a.progreso : 0);
         }, 0) / cursosAplicables.length)
         : 0;
-    const cursosCompletados = asignaciones.filter((a) => a.estado === "completado").length;
+    // Mismo filtro de "aplicables" que el promedio de arriba — sin
+    // esto, una asignación vieja/no aplicable (ej. quedó de cuando
+    // era encargado, o de un curso que ya no corresponde) marcada
+    // "completado" inflaba el numerador sin inflar el denominador,
+    // mostrando cosas imposibles como "9 de 7 módulos".
+    const idsCursosAplicables = cursosAplicables.map((c) => String(c.id));
+    const cursosCompletados = asignaciones.filter((a) => a.estado === "completado" && idsCursosAplicables.includes(String(a.cursoId))).length;
     const nivel = nivelPorCursosCompletados(cursosCompletados);
 
     // Usuarios.fechaAlta se completa sola al crear el usuario (ver
@@ -107,7 +113,6 @@ export async function InicioColaborador() {
         ? asignaciones.map((a) => a.fechaAlta).sort()[0]
         : null);
 
-    const completadas = asignaciones.filter((a) => a.estado === "completado").length;
     const evaluacionesPct = resultados.length
         ? Math.round((resultados.filter((r) => r.aprobado).length / resultados.length) * 100)
         : null;
@@ -151,7 +156,7 @@ export async function InicioColaborador() {
     const cursoSinComenzar = cursosAplicables.find((c) => !asignaciones.some((a) => String(a.cursoId) === String(c.id)));
 
     const desafios = [];
-    if (completadas > 0) {
+    if (cursosCompletados > 0) {
         const ultimoCompletado = cursosPorId[asignaciones.find((a) => a.estado === "completado")?.cursoId];
         if (ultimoCompletado) desafios.push({ texto: `Completaste ${ultimoCompletado.nombre}`, hecho: true });
     }
@@ -271,7 +276,7 @@ export async function InicioColaborador() {
         <div class="section">
             <h2>Tu progreso</h2>
             <div class="cards">
-                ${statProgressCard("Capacitaciones", `${completadas}/${cursosAplicables.length}`, cursosAplicables.length ? (completadas / cursosAplicables.length) * 100 : 0)}
+                ${statProgressCard("Capacitaciones", `${cursosCompletados}/${cursosAplicables.length}`, cursosAplicables.length ? (cursosCompletados / cursosAplicables.length) * 100 : 0)}
                 ${statProgressCard("Evaluaciones aprobadas", evaluacionesPct !== null ? `${evaluacionesPct}%` : "—", evaluacionesPct ?? 0)}
                 ${statProgressCard("Ruta completada", `${progresoPromedio}%`, progresoPromedio)}
             </div>
