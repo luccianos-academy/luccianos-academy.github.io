@@ -239,6 +239,69 @@ function tablaAreasAReforzar(items) {
     );
 }
 
+/** Pedido explícito del usuario: sin filtros, ver a TODA la red junta
+ *  en una sola pantalla "es un desmadre" para poder gestionar bien.
+ *  Sucursal (select) + Nivel (pills, mismo patrón que Colaboradores)
+ *  — recorta la lista ANTES de calcular resumen/matriz/áreas a
+ *  reforzar (no es un show/hide de filas: esos tres bloques dependen
+ *  del conjunto filtrado). Ver bindSemaforo() más abajo. */
+function filtrosSemaforoHtml(colaboradoresTotal) {
+    const sucursales = [...new Set(colaboradoresTotal.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    return `
+        <div class="galeria-pills" style="margin-bottom:14px">
+            <button class="pill-categoria activa" data-semaforo-nivel="todos">Todos</button>
+            <button class="pill-categoria" data-semaforo-nivel="VERDE">Verde</button>
+            <button class="pill-categoria" data-semaforo-nivel="AMARILLO">Amarillo</button>
+            <button class="pill-categoria" data-semaforo-nivel="ROJO">Rojo</button>
+        </div>
+        <select id="semaforo-filtro-sucursal" style="margin-bottom:20px;max-width:280px">
+            <option value="">Todas las sucursales</option>
+            ${sucursales.map((s) => `<option value="${s}">${s}</option>`).join("")}
+        </select>
+    `;
+}
+
+/** Recalcula el contenido (resumen + matriz + áreas a reforzar) con
+ *  los filtros actuales, sin tocar los controles de filtro — así el
+ *  select/pill elegido no se resetea en cada cambio. */
+async function actualizarSemaforo() {
+    const contenedor = document.getElementById("semaforo-contenido");
+    const filtros = document.getElementById("semaforo-filtros");
+    if (!contenedor || !filtros) return;
+
+    const [usuarios, asignaciones, cursos] = await Promise.all([getUsuarios(), getAsignaciones(), getCursos()]);
+    let colaboradores = usuarios.filter((u) => u.rol === "colaborador");
+
+    const sucursal = document.getElementById("semaforo-filtro-sucursal")?.value;
+    if (sucursal) colaboradores = colaboradores.filter((c) => c.sucursal === sucursal);
+
+    const nivel = filtros.querySelector("[data-semaforo-nivel].activa")?.dataset.semaforoNivel;
+    if (nivel && nivel !== "todos") {
+        colaboradores = colaboradores.filter((c) => nivelDe(progresoPersona(c, asignaciones, cursos) ?? 0) === nivel);
+    }
+
+    contenedor.innerHTML = vistaSemaforo(colaboradores, asignaciones, cursos);
+}
+
+/** Conecta los filtros de la vista Semáforo — no-op si esa vista no
+ *  está montada ahora mismo (el usuario cambió a otro tipo de
+ *  reporte). Se llama tanto en bindReportes() (primer montaje) como
+ *  cada vez que se vuelve a elegir la tarjeta "Semáforo" (el HTML se
+ *  reinserta de cero, así que los listeners viejos ya no sirven). */
+function bindSemaforo() {
+    const filtros = document.getElementById("semaforo-filtros");
+    if (!filtros) return;
+
+    filtros.querySelectorAll("[data-semaforo-nivel]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            filtros.querySelectorAll("[data-semaforo-nivel]").forEach((b) => b.classList.remove("activa"));
+            btn.classList.add("activa");
+            actualizarSemaforo();
+        });
+    });
+    document.getElementById("semaforo-filtro-sucursal")?.addEventListener("change", actualizarSemaforo);
+}
+
 function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
     const reforzar = areasAReforzar(colaboradores, cursos, asignaciones);
@@ -328,7 +391,13 @@ async function renderPreview(tipoId) {
         getUsuarios(), getSucursales(), getAsignaciones(), getResultados(), getCursos(),
     ]);
 
-    if (tipoId === "semaforo") return vistaSemaforo(usuarios.filter((u) => u.rol === "colaborador"), asignaciones, cursos);
+    if (tipoId === "semaforo") {
+        const colaboradores = usuarios.filter((u) => u.rol === "colaborador");
+        return `
+            <div id="semaforo-filtros">${filtrosSemaforoHtml(colaboradores)}</div>
+            <div id="semaforo-contenido">${vistaSemaforo(colaboradores, asignaciones, cursos)}</div>
+        `;
+    }
     if (tipoId === "local") return RankingCard({ titulo: "Reporte por local", items: rankingLocales(usuarios, sucursales, asignaciones, cursos) });
     if (tipoId === "supervisor") return RankingCard({ titulo: "Reporte por supervisor", items: await rankingSupervisores(usuarios, sucursales, asignaciones, cursos) });
     if (tipoId === "colaborador") return tablaColaboradores(usuarios, asignaciones, cursos);
@@ -359,11 +428,14 @@ export async function Reportes() {
 }
 
 export function bindReportes() {
+    bindSemaforo(); // "Semáforo" es TIPOS[0] — ya está montado en el primer render.
+
     document.querySelectorAll("[data-report-id]").forEach((card) => {
         card.addEventListener("click", async () => {
             document.querySelectorAll("[data-report-id]").forEach((c) => c.classList.remove("selected"));
             card.classList.add("selected");
             document.getElementById("reporte-preview").innerHTML = await renderPreview(card.dataset.reportId);
+            bindSemaforo();
         });
     });
 }
