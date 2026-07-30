@@ -68,6 +68,34 @@ const ESTILOS_IMPRESION = `
     button, .fila-acciones, input[type="checkbox"], .mod-tooltip,
     .table-toolbar, .galeria-pills, .barra-enviar-mail { display: none !important; }
 
+    /* Botón real para pasar a PDF — pedido explícito del usuario:
+       "quiero que se muestre para ver que todo está correcto y luego
+       me dé opción de convertir a PDF", no que salte derecho al
+       diálogo de impresión del navegador. Vive en la pestaña de
+       vista previa, nunca en el PDF/papel final (oculto acá mismo, no
+       hace falta @media print aparte porque ya es una regla propia
+       de este documento). */
+    #btn-imprimir-popup {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #c2a065;
+        color: #1a1712;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 18px;
+        font-size: 14px;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+        margin-bottom: 20px;
+    }
+    #btn-imprimir-popup:hover { background: #d9b876; }
+
+    @media print {
+        #btn-imprimir-popup { display: none !important; }
+    }
+
     /* Horizontal por defecto — las tablas tienen 9+ columnas
        (Semáforo por módulo, Áreas a reforzar), en vertical quedaban
        muy apretadas/cortadas. */
@@ -114,13 +142,18 @@ export function exportarAPdf(elementId, titulo) {
             <title>${titulo}</title>
             <style>${ESTILOS_IMPRESION}</style>
         </head>
-        <body>${origen.innerHTML}</body>
+        <body>
+            <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
+            ${origen.innerHTML}
+        </body>
         </html>
     `);
     ventana.document.close();
 
-    ventana.onload = () => {
-        ventana.focus();
-        ventana.print();
-    };
+    // A propósito NO se llama a print() solo — el usuario pidió ver
+    // la vista previa primero ("para ver que todo está correcto") y
+    // recién ahí decidir imprimir, en vez de saltar directo al
+    // diálogo del navegador.
+    ventana.focus();
+    ventana.document.getElementById("btn-imprimir-popup")?.addEventListener("click", () => ventana.print());
 }

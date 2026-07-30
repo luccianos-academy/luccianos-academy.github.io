@@ -465,10 +465,10 @@ const ROL_TABS = [
  *  sección — el detalle por colaborador/curso vive DENTRO de la misma
  *  tabla de gestión de siempre (ver COLUMNAS_SEMAFORO_GESTION /
  *  filaSemaforoGestion más abajo), no repetido. */
-function resumenSemaforoHtml(colaboradores, asignaciones, cursos, alcance) {
+function resumenSemaforoHtml(colaboradores, asignaciones, cursos) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
     return `
-        ${membreteHtml("Estado del equipo", alcance)}
+        ${membreteHtml("Estado del equipo")}
         <div class="section">
             <div class="header" style="margin-bottom:0">
                 <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
@@ -714,7 +714,7 @@ export async function Colaboradores() {
 
         ${!esAdmin ? '<div class="imprimible" id="equipo-imprimible">' : ""}
 
-        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, alcanceLabel) : ""}
+        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos) : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
