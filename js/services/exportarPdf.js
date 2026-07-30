@@ -115,7 +115,7 @@ export function membreteHtml(titulo, alcance) {
         <div class="membrete-impresion">
             <div class="membrete-marca">Lucciano's Academy</div>
             <div class="membrete-titulo">${titulo}</div>
-            <div class="membrete-meta">${alcance ? `${alcance} · ` : ""}Estado al ${fecha}</div>
+            <div class="membrete-meta">${alcance ? `${alcance} · ` : ""}${fecha}</div>
         </div>
     `;
 }
