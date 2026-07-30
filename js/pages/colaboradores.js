@@ -44,7 +44,8 @@ import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 import { KpiCard } from "../components/kpiCard.js";
-import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona, fechaHoyLegible } from "./reportes.js";
+import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona } from "./reportes.js";
+import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 
 const DIAS_ACCESO_INICIAL = 30;
 const DIAS_EXTENSION = 15;
@@ -464,10 +465,10 @@ const ROL_TABS = [
  *  sección — el detalle por colaborador/curso vive DENTRO de la misma
  *  tabla de gestión de siempre (ver COLUMNAS_SEMAFORO_GESTION /
  *  filaSemaforoGestion más abajo), no repetido. */
-function resumenSemaforoHtml(colaboradores, asignaciones, cursos) {
+function resumenSemaforoHtml(colaboradores, asignaciones, cursos, alcance) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
     return `
-        <p class="solo-impresion" style="margin-bottom:16px;font-weight:700">Lucciano's Academy — Estado del equipo — ${fechaHoyLegible()}</p>
+        ${membreteHtml("Estado del equipo", alcance)}
         <div class="section">
             <div class="header" style="margin-bottom:0">
                 <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
@@ -699,8 +700,10 @@ export async function Colaboradores() {
             : `<p class="text-sm text-muted">Todavía no hay administradores cargados.</p>`)
         : "";
 
+    const alcanceLabel = esAdmin ? "Todas las sucursales" : usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : usuario.sucursal || "Tus locales";
+
     return `
-        ${Header(esEncargado ? "Mi local" : "Colaboradores", esAdmin ? "Todas las sucursales" : usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : usuario.sucursal || "Tus locales")}
+        ${Header(esEncargado ? "Mi local" : "Colaboradores", alcanceLabel)}
 
         ${localesElegidosSinDatos.length ? `
             <p class="text-sm text-muted" style="margin-top:-6px">
@@ -709,9 +712,9 @@ export async function Colaboradores() {
             </p>
         ` : ""}
 
-        ${!esAdmin ? '<div class="imprimible">' : ""}
+        ${!esAdmin ? '<div class="imprimible" id="equipo-imprimible">' : ""}
 
-        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos) : ""}
+        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, alcanceLabel) : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
@@ -803,7 +806,7 @@ function bindMenuAcciones() {
 export function bindColaboradores() {
 
     bindMenuAcciones();
-    document.getElementById("btn-exportar-equipo")?.addEventListener("click", () => window.print());
+    document.getElementById("btn-exportar-equipo")?.addEventListener("click", () => exportarAPdf("equipo-imprimible", "Estado del equipo - Lucciano's Academy"));
 
     const buscador = document.getElementById("buscador-colaboradores");
     let filtroActivo = "todos";

@@ -26,6 +26,7 @@ import { RankingCard } from "../components/rankingCard.js";
 import { Table } from "../components/table.js";
 import { KpiCard } from "../components/kpiCard.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
+import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getAsignaciones } from "../data/asignaciones.js";
@@ -284,7 +285,16 @@ async function actualizarSemaforo() {
         colaboradores = colaboradores.filter((c) => nivelDe(progresoPersona(c, asignaciones, cursos) ?? 0) === nivel);
     }
 
-    contenedor.innerHTML = vistaSemaforo(colaboradores, asignaciones, cursos);
+    // El membrete del PDF se regenera acá también (no solo en el
+    // primer render) — sin esto, cambiar un filtro pisaba el
+    // innerHTML entero de #semaforo-contenido y se perdía la marca/
+    // fecha que solo se había puesto una vez al montar la pantalla.
+    const alcance = [
+        sucursales.length === 1 ? sucursales[0] : sucursales.length ? `${sucursales.length} sucursales` : "Toda la red",
+        nivel && nivel !== "todos" ? `Nivel ${nivel}` : null,
+    ].filter(Boolean).join(" · ");
+
+    contenedor.innerHTML = membreteHtml("Semáforo de desempeño", alcance) + vistaSemaforo(colaboradores, asignaciones, cursos);
 }
 
 /** Conecta los filtros de la vista Semáforo — no-op si esa vista no
@@ -364,13 +374,6 @@ function fechaLocalISO(d) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** Fecha de hoy en formato legible — solo para el encabezado que
- *  aparece al exportar a PDF (ver .solo-impresion, css/layout.css),
- *  así quien lo recibe sabe de qué momento es el estado. */
-export function fechaHoyLegible() {
-    return new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
-}
-
 function tendenciaMensual(resultados, cantidadMeses) {
     const hoy = new Date();
     const claves = [];
@@ -408,7 +411,7 @@ async function renderPreview(tipoId) {
         return `
             <div id="semaforo-filtros">${filtrosSemaforoHtml()}</div>
             <div id="semaforo-contenido" class="imprimible">
-                <p class="solo-impresion" style="margin-bottom:16px;font-weight:700">Lucciano's Academy — Semáforo de desempeño — ${fechaHoyLegible()}</p>
+                ${membreteHtml("Semáforo de desempeño", "Toda la red")}
                 ${vistaSemaforo(colaboradores, asignaciones, cursos)}
             </div>
         `;
@@ -450,7 +453,7 @@ export function bindReportes() {
     // deshabilita solo para el resto de las tarjetas, en vez de
     // imprimir una pantalla vacía.
     const btnExportar = document.getElementById("btn-exportar-reporte");
-    btnExportar?.addEventListener("click", () => window.print());
+    btnExportar?.addEventListener("click", () => exportarAPdf("semaforo-contenido", "Semáforo de desempeño - Lucciano's Academy"));
 
     document.querySelectorAll("[data-report-id]").forEach((card) => {
         card.addEventListener("click", async () => {
