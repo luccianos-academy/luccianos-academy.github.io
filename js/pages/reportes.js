@@ -189,58 +189,6 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
     return Table(columnas, filas);
 }
 
-/** Para cada colaborador en Amarillo/Rojo, qué cursos puntuales están
- *  más flojos (debajo del 70%) — el "plan de acción" concreto, no
- *  solo el número general. Verde no aparece acá: ya está bien. */
-function areasAReforzar(colaboradores, cursos, asignaciones) {
-    return colaboradores
-        .map((c) => {
-            const promedio = progresoPersona(c, asignaciones, cursos) ?? 0;
-            const nivel = nivelDe(promedio);
-            if (nivel === "VERDE") return null;
-            const aplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
-            const debiles = aplicables
-                .map((cur) => ({ curso: cur.nombre, valor: progresoCursoDePersona(c, cur, asignaciones) }))
-                .filter((x) => x.valor < 70)
-                .sort((a, b) => a.valor - b.valor);
-            return { nombre: c.nombre, sucursal: c.sucursal || "—", promedio, nivel, debiles };
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.promedio - b.promedio);
-}
-
-/** Una fila por (colaborador, curso débil) — mismo formato que un
- *  "plan de acción" tradicional: el nombre y el resultado general
- *  solo aparecen en la primera fila de esa persona, no repetidos. */
-function tablaAreasAReforzar(items) {
-    const filas = [];
-    items.forEach((it) => {
-        if (!it.debiles.length) {
-            filas.push({ colaborador: it.nombre, sucursal: it.sucursal, resultado: `${it.promedio}% ${badgeNivel(it.nivel)}`, curso: "—", porcentaje: "—" });
-            return;
-        }
-        it.debiles.forEach((d, i) => {
-            filas.push({
-                colaborador: i === 0 ? it.nombre : "",
-                sucursal: i === 0 ? it.sucursal : "",
-                resultado: i === 0 ? `${it.promedio}% ${badgeNivel(it.nivel)}` : "",
-                curso: d.curso,
-                porcentaje: `${d.valor}%`,
-            });
-        });
-    });
-    return Table(
-        [
-            { key: "colaborador", label: "Colaborador" },
-            { key: "sucursal", label: "Sucursal" },
-            { key: "resultado", label: "Resultado gral." },
-            { key: "curso", label: "Curso a reforzar" },
-            { key: "porcentaje", label: "% del curso" },
-        ],
-        filas
-    );
-}
-
 /** Pedido explícito del usuario: sin filtros, ver a TODA la red junta
  *  en una sola pantalla "es un desmadre" para poder gestionar bien.
  *  Sucursal (multi-selección con chips, mismo componente que ya usan
@@ -264,9 +212,9 @@ function filtrosSemaforoHtml() {
     `;
 }
 
-/** Recalcula el contenido (resumen + matriz + áreas a reforzar) con
- *  los filtros actuales, sin tocar los controles de filtro — así los
- *  chips/pill elegidos no se resetean en cada cambio. */
+/** Recalcula el contenido (resumen + matriz) con los filtros
+ *  actuales, sin tocar los controles de filtro — así los chips/pill
+ *  elegidos no se resetean en cada cambio. */
 async function actualizarSemaforo() {
     const contenedor = document.getElementById("semaforo-contenido");
     const filtros = document.getElementById("semaforo-filtros");
@@ -319,7 +267,6 @@ function bindSemaforo() {
 
 function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
-    const reforzar = areasAReforzar(colaboradores, cursos, asignaciones);
 
     return `
         <div class="cards" style="margin-bottom:20px">
@@ -332,10 +279,6 @@ function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
         <div class="card">
             <h3>Desempeño por colaborador y por módulo</h3>
             ${tablaMatrizSemaforo(colaboradores, cursos, asignaciones)}
-        </div>
-        <div class="card" style="margin-top:20px">
-            <h3>Áreas a reforzar — Amarillo y Rojo</h3>
-            ${tablaAreasAReforzar(reforzar)}
         </div>
     `;
 }
