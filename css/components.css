@@ -892,6 +892,17 @@ table.data-table tbody tr:hover{
    desktop (CSS puro); en celular, JS le suma la clase
    ".mostrar-tooltip" al tocar y la saca sola a los 2s (ver
    bindColaboradores). */
+/* Celda de una columna de curso (M1..Mn en Colaboradores): % de
+   progreso (lecciones vistas) arriba, resultado real de la
+   evaluación abajo — dos señales distintas, no la misma cosa (ver
+   estadoEvaluacion en pages/colaboradores.js). */
+.celda-curso{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:4px;
+}
+
 .mod-tooltip{
     position:relative;
     cursor:help;

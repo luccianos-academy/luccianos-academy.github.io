@@ -35,8 +35,9 @@ import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/
 import { getUsuarios, getColaboradores, getColaboradoresPorSucursal, crearUsuario, actualizarUsuario, eliminarUsuario } from "../data/usuarios.js";
 import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales, getLocalesVisibles, agregarSupervisorASucursal, quitarSupervisorDeSucursal } from "../data/sucursales.js";
 import { getAsignaciones, getAsignacionesPorColaborador, eliminarAsignacion } from "../data/asignaciones.js";
-import { getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
+import { getResultados, getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
+import { getEvaluaciones } from "../data/evaluaciones.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
@@ -502,7 +503,24 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     { key: "acciones", label: "" },
 ];
 
-function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin) {
+/** Debajo del % de progreso (que solo mide si vio las lecciones), el
+ *  resultado REAL de la evaluación de ese curso — pedido explícito
+ *  del usuario: "si vio todo pero no rindió, cualquiera puede dar
+ *  todo como marcado y figura 100%", sin que se note que en realidad
+ *  nunca demostró que aprendió. "Sin rendir" queda atenuado pero
+ *  visible junto al 100% — es exactamente el caso a detectar. Cursos
+ *  sin evaluación cargada todavía (ver cursosConEvaluacion) no
+ *  muestran nada acá, no hay nada que rindiera. */
+function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
+    if (!cursosConEvaluacion.has(String(curso.id))) return "";
+    const r = resultados.find((x) => String(x.colaboradorId) === String(colaborador.id) && String(x.cursoId) === String(curso.id));
+    if (!r) return `<span class="text-xs text-muted">Sin rendir</span>`;
+    const tono = r.aprobado ? "success" : "danger";
+    const icono = r.aprobado ? "✓" : "✗";
+    return `<span class="text-xs progreso-mini-texto-${tono}">${icono} ${r.nota}</span>`;
+}
+
+function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
     const fila = {
         ...c,
@@ -518,7 +536,7 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
     cursos.forEach((cur) => {
         const aplica = cur.categoria !== "Gestión" || c.encargado;
         fila[`curso_${cur.id}`] = aplica
-            ? celdaPct(progresoCursoDePersona(c, cur, asignaciones))
+            ? `<div class="celda-curso">${celdaPct(progresoCursoDePersona(c, cur, asignaciones))}${estadoEvaluacion(c, cur, resultados, cursosConEvaluacion)}</div>`
             : `<span class="text-xs text-muted">No aplica</span>`;
     });
     return fila;
@@ -604,6 +622,11 @@ export async function Colaboradores() {
 
     const asignaciones = await getAsignaciones();
     const cursos = await getCursos();
+    // Solo hacen falta para Supervisor/Capacitador/Encargado (el
+    // detalle de evaluación real, ver estadoEvaluacion) — Admin usa
+    // filaDeColaborador, que no los toca.
+    const resultados = esAdmin ? [] : await getResultados();
+    const cursosConEvaluacion = esAdmin ? new Set() : new Set((await getEvaluaciones()).map((p) => String(p.cursoId)));
 
     // Chequeo + desactivación de accesos vencidos — se corre cada vez
     // que se abre esta pantalla (ver nota arriba sobre por qué acá).
@@ -631,7 +654,7 @@ export async function Colaboradores() {
     // simple (columnas de siempre) — ese detalle ya lo tiene en Reportes.
     const armarFila = esAdmin
         ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
-        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin);
+        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion);
     const columnasTabla = esAdmin ? COLUMNAS_BASE(false, esAdmin) : COLUMNAS_SEMAFORO_GESTION(cursos);
 
     let cuerpoHtml;
