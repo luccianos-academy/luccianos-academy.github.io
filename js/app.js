@@ -4,8 +4,12 @@
 =============================*/
 
 import { initRouter } from "./router.js";
+import { bindTooltips } from "./services/tooltips.js";
 
-document.addEventListener("DOMContentLoaded", initRouter);
+document.addEventListener("DOMContentLoaded", () => {
+    initRouter();
+    bindTooltips();
+});
 
 // Registra el service worker mínimo (ver sw.js) — necesario en Android/
 // Chrome para que dispare beforeinstallprompt (ver services/

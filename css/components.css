@@ -936,12 +936,20 @@ table.data-table tbody tr:hover{
     color:var(--text);
     border:1px solid var(--gold);
     border-radius:8px;
-    padding:6px 10px;
+    padding:8px 12px;
     font-size:12px;
     font-weight:500;
     text-transform:none;
     letter-spacing:normal;
-    white-space:nowrap;
+    line-height:1.4;
+    /* Explicaciones más largas (ej. tarjetas KPI) necesitan poder
+       partirse en varias líneas — los labels cortos (ej. "M1") de
+       todas formas nunca llegan a los 220px, así que este ancho no
+       les cambia nada. */
+    white-space:normal;
+    width:max-content;
+    max-width:220px;
+    text-align:left;
     box-shadow:var(--shadow);
 }
 
@@ -951,6 +959,35 @@ table.data-table tbody tr:hover{
 .mod-tooltip.mostrar-tooltip::after{
     opacity:1;
     transform:translateX(-50%) translateY(0);
+}
+
+/* Variante ⓘ para explicar qué significa una tarjeta/sección
+   (KpiCard, encabezados de sección) — mismo mecanismo de .mod-tooltip,
+   pero sin el subrayado punteado (no hay texto abreviado que aclarar
+   acá, es un ícono aparte). */
+.kpi-ayuda{
+    display:inline-block;
+    margin-left:6px;
+    border-bottom:none;
+    color:var(--muted);
+    font-size:14px;
+    font-weight:400;
+    vertical-align:middle;
+}
+
+.kpi-ayuda::after{
+    left:0;
+    transform:translateX(0) translateY(-4px);
+}
+
+.kpi-ayuda::before{
+    left:8px;
+    transform:translateX(-50%) translateY(-1px);
+}
+
+.kpi-ayuda:hover::after,
+.kpi-ayuda.mostrar-tooltip::after{
+    transform:translateX(0) translateY(0);
 }
 
 .celda-truncada{

@@ -468,12 +468,12 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
     return `
         <div class="section">
-            <h3>Semáforo de desempeño</h3>
+            <h3>Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
             <div class="cards" style="margin:14px 0">
-                ${KpiCard("Promedio", `${resumen.promedioGeneral}%`)}
-                ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success" })}
-                ${KpiCard("Amarillo", resumen.AMARILLO, { icono: "warning", tono: "warning" })}
-                ${KpiCard("Rojo", resumen.ROJO, { icono: "warning", tono: "danger" })}
+                ${KpiCard("Promedio", `${resumen.promedioGeneral}%`, { ayuda: "Promedio de lecciones vistas — no de evaluaciones aprobadas." })}
+                ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success", ayuda: "Colaboradores con 85% o más de las lecciones vistas." })}
+                ${KpiCard("Amarillo", resumen.AMARILLO, { icono: "warning", tono: "warning", ayuda: "Colaboradores entre 60% y 84% de las lecciones vistas." })}
+                ${KpiCard("Rojo", resumen.ROJO, { icono: "warning", tono: "danger", ayuda: "Colaboradores por debajo del 60% de las lecciones vistas." })}
             </div>
         </div>
     `;
@@ -792,33 +792,9 @@ function bindMenuAcciones() {
     });
 }
 
-/** Tooltip propio de los módulos abreviados (M1..Mn, ver
- *  COLUMNAS_SEMAFORO_GESTION) — en desktop ya se ve solo con CSS
- *  (:hover), esto es SOLO para celular: tocar el módulo lo muestra,
- *  y a los 2s se esconde solo (nadie hace hover en un celular, y sin
- *  esto quedaría abierto para siempre tapando la fila de al lado).
- *  Mismo guard que bindMenuAcciones — bindColaboradores() corre de
- *  nuevo cada vez que se vuelve a esta pantalla. */
-function bindTooltipsModulo() {
-    if (document._tooltipsModuloListo) return;
-    document._tooltipsModuloListo = true;
-
-    document.addEventListener("click", (e) => {
-        const tocado = e.target.closest(".mod-tooltip");
-        document.querySelectorAll(".mod-tooltip.mostrar-tooltip").forEach((el) => {
-            if (el !== tocado) el.classList.remove("mostrar-tooltip");
-        });
-        if (!tocado) return;
-        tocado.classList.add("mostrar-tooltip");
-        clearTimeout(tocado._tooltipTimeout);
-        tocado._tooltipTimeout = setTimeout(() => tocado.classList.remove("mostrar-tooltip"), 2000);
-    });
-}
-
 export function bindColaboradores() {
 
     bindMenuAcciones();
-    bindTooltipsModulo();
 
     const buscador = document.getElementById("buscador-colaboradores");
     let filtroActivo = "todos";
