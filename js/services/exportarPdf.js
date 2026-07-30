@@ -68,19 +68,25 @@ const ESTILOS_IMPRESION = `
     button, .fila-acciones, input[type="checkbox"], .mod-tooltip,
     .table-toolbar, .galeria-pills, .barra-enviar-mail { display: none !important; }
 
-    /* Botón real para pasar a PDF — pedido explícito del usuario:
+    /* Botones reales para pasar a PDF — pedido explícito del usuario:
        "quiero que se muestre para ver que todo está correcto y luego
        me dé opción de convertir a PDF", no que salte derecho al
-       diálogo de impresión del navegador. Vive en la pestaña de
-       vista previa, nunca en el PDF/papel final (oculto acá mismo, no
+       diálogo de impresión del navegador. Viven en la pestaña de
+       vista previa, nunca en el PDF/papel final (ocultos acá mismo, no
        hace falta @media print aparte porque ya es una regla propia
-       de este documento). */
-    #btn-imprimir-popup {
+       de este documento) — #barra-acciones-popup es hermano de
+       #contenido-pdf (no ancestro), así que descargarAPdf() nunca lo
+       captura sin necesidad de excluirlo a mano. */
+    #barra-acciones-popup {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    #barra-acciones-popup button {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        background: #c2a065;
-        color: #1a1712;
         border: none;
         border-radius: 8px;
         padding: 10px 18px;
@@ -88,12 +94,15 @@ const ESTILOS_IMPRESION = `
         font-weight: 700;
         font-family: inherit;
         cursor: pointer;
-        margin-bottom: 20px;
     }
+    #btn-imprimir-popup { background: #c2a065; color: #1a1712; }
     #btn-imprimir-popup:hover { background: #d9b876; }
+    #btn-descargar-popup { background: #fff; color: #1a1712; border: 1px solid #c2a065 !important; }
+    #btn-descargar-popup:hover { background: #f7f0e2; }
+    #btn-descargar-popup:disabled { opacity: .5; cursor: wait; }
 
     @media print {
-        #btn-imprimir-popup { display: none !important; }
+        #barra-acciones-popup { display: none !important; }
     }
 
     /* Horizontal por defecto — las tablas tienen 9+ columnas
@@ -120,6 +129,13 @@ export function membreteHtml(titulo, alcance) {
     `;
 }
 
+// CDN de html2pdf.js (html2canvas + jsPDF empaquetados) — mismo
+// dominio ya permitido para Firebase, cero dependencias nuevas que
+// instalar (el proyecto no usa bundler/npm). Se carga DENTRO de la
+// pestaña de vista previa (no en index.html) para no sumarle este
+// peso a los usuarios que nunca exportan un PDF.
+const HTML2PDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+
 /** Abre una pestaña nueva con el contenido de "elementId", lista para
  *  imprimir/guardar como PDF — sin arrastrar el sidebar/tema oscuro
  *  de la app. */
@@ -143,8 +159,12 @@ export function exportarAPdf(elementId, titulo) {
             <style>${ESTILOS_IMPRESION}</style>
         </head>
         <body>
-            <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
-            ${origen.innerHTML}
+            <div id="barra-acciones-popup">
+                <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
+                <button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>
+            </div>
+            <div id="contenido-pdf">${origen.innerHTML}</div>
+            <script src="${HTML2PDF_CDN}"><\/script>
         </body>
         </html>
     `);
@@ -156,4 +176,40 @@ export function exportarAPdf(elementId, titulo) {
     // diálogo del navegador.
     ventana.focus();
     ventana.document.getElementById("btn-imprimir-popup")?.addEventListener("click", () => ventana.print());
+
+    const btnDescargar = ventana.document.getElementById("btn-descargar-popup");
+    const habilitarDescarga = () => {
+        btnDescargar.disabled = false;
+        btnDescargar.textContent = "⬇ Descargar PDF";
+    };
+    // El script puede tardar en cargar (CDN externo) — si ya estaba en
+    // cache del navegador puede haber "cargado" antes de que este
+    // listener se registre, por eso el chequeo directo de respaldo.
+    if (ventana.html2pdf) {
+        habilitarDescarga();
+    } else {
+        ventana.document.querySelector(`script[src="${HTML2PDF_CDN}"]`).addEventListener("load", habilitarDescarga);
+    }
+
+    btnDescargar.addEventListener("click", () => {
+        btnDescargar.disabled = true;
+        btnDescargar.textContent = "⬇ Generando...";
+        const nombreArchivo = titulo.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim() + ".pdf";
+        ventana.html2pdf()
+            .from(ventana.document.getElementById("contenido-pdf"))
+            .set({
+                margin: 10,
+                filename: nombreArchivo,
+                image: { type: "jpeg", quality: 0.95 },
+                html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+                jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+            })
+            .save()
+            .then(habilitarDescarga)
+            .catch((err) => {
+                console.warn("No se pudo generar la descarga directa:", err.message);
+                alert("No se pudo generar la descarga directa — probá con \"Convertir a PDF / Imprimir\" y elegí \"Guardar como PDF\".");
+                habilitarDescarga();
+            });
+    });
 }
