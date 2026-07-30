@@ -51,6 +51,13 @@ export async function bindMultiSelectSucursales(inputId) {
             <span class="multi-sucursal-chip">${n.replace("Lucciano's ", "")}<button type="button" data-quitar-local="${n}" aria-label="Quitar">×</button></span>
         `).join("");
         hidden.value = elegidas.join(",");
+        // Los formularios que ya usan esto (Manuales, Noticias) leen
+        // el valor recién al guardar, nunca en vivo — así que este
+        // evento no les cambiaba nada al agregarlo. pages/reportes.js
+        // (filtro del Semáforo) sí necesita reaccionar al toque a
+        // cada chip agregado/quitado, mismo patrón que un <select>
+        // nativo disparando "change".
+        hidden.dispatchEvent(new Event("change"));
 
         chips.querySelectorAll("[data-quitar-local]").forEach((btn) => {
             btn.addEventListener("click", () => {

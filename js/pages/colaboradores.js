@@ -308,7 +308,7 @@ const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
     ...(mostrarSucursal ? [{ key: "sucursal", label: "Sucursal" }] : []),
     { key: "progresoBadge", label: "Progreso" },
     { key: "estadoBadge", label: "Estado" },
-    { key: "accesoBadge", label: "Acceso" },
+    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tocá los tres puntos (⋮) de cada fila para editar, activar/desactivar, o dar acceso permanente/extender los días a este colaborador.">ⓘ</span>` },
     { key: "acciones", label: "" },
 ];
 
@@ -499,7 +499,7 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     // tocar (celular, ver bindColaboradores) — pedido del usuario.
     ...cursos.map((cur, i) => ({ key: `curso_${cur.id}`, label: `<span class="mod-tooltip" data-tooltip-texto="${cur.nombre}">M${i + 1}</span>` })),
     { key: "estadoBadge", label: "Estado" },
-    { key: "accesoBadge", label: "Acceso" },
+    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tocá los tres puntos (⋮) de cada fila para editar, activar/desactivar, o dar acceso permanente/extender los días a este colaborador.">ⓘ</span>` },
     { key: "acciones", label: "" },
 ];
 
