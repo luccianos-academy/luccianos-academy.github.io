@@ -89,15 +89,16 @@ export function Sidebar(rutaActiva = "inicio") {
 
     asegurarMiUsuarioCache(usuario);
 
-    // Encargado suma "Mi local" y "Reportes" (Semáforo acotado a su
-    // sucursal, ver pages/reportes.js) sin agregar un 4to nivel a
-    // MENU_POR_ROL — ver services/auth.js. Se insertan antes de
-    // "perfil" (no al final) para que "Mi perfil" siga siendo
-    // siempre el último ítem del menú.
+    // Encargado suma "Mi local" (misma pantalla que usa el Supervisor,
+    // acotada a su propia sucursal — incluye el Semáforo de desempeño
+    // arriba de la tabla de gestión, ver pages/colaboradores.js) sin
+    // agregar un 4to nivel a MENU_POR_ROL — ver services/auth.js. Se
+    // inserta antes de "perfil" (no al final) para que "Mi perfil"
+    // siga siendo siempre el último ítem del menú.
     const idsDelMenu = [...(MENU_POR_ROL[usuario.rol] || ["inicio"])];
     if (esEncargado) {
         const posPerfil = idsDelMenu.indexOf("perfil");
-        idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "colaboradores", "reportes");
+        idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "colaboradores");
     }
 
     // { activo, texto } por id de módulo — misma fuente que usa

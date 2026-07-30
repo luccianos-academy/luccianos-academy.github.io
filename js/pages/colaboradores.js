@@ -42,6 +42,8 @@ import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
+import { KpiCard } from "../components/kpiCard.js";
+import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona } from "./reportes.js";
 
 const DIAS_ACCESO_INICIAL = 30;
 const DIAS_EXTENSION = 15;
@@ -453,6 +455,75 @@ const ROL_TABS = [
     { id: "admin",       label: "Admins" },
 ];
 
+/** Resumen del Semáforo (Supervisor/Capacitador/Encargado) — pedido
+ *  explícito del usuario: nada de un ítem de menú "Reportes" aparte,
+ *  y nada de una tabla separada de la de gestión (mostrar el mismo
+ *  colaborador dos veces, una en cada tabla, se sentía redundante).
+ *  Solo el resumen de arriba (promedio + semáforo) es propio de esta
+ *  sección — el detalle por colaborador/curso vive DENTRO de la misma
+ *  tabla de gestión de siempre (ver COLUMNAS_SEMAFORO_GESTION /
+ *  filaSemaforoGestion más abajo), no repetido. */
+function resumenSemaforoHtml(colaboradores, asignaciones, cursos) {
+    const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
+    return `
+        <div class="section">
+            <h3>Semáforo de desempeño</h3>
+            <div class="cards" style="margin:14px 0">
+                ${KpiCard("Promedio", `${resumen.promedioGeneral}%`)}
+                ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success" })}
+                ${KpiCard("Amarillo", resumen.AMARILLO, { icono: "warning", tono: "warning" })}
+                ${KpiCard("Rojo", resumen.ROJO, { icono: "warning", tono: "danger" })}
+            </div>
+        </div>
+    `;
+}
+
+/** Columnas de la tabla de gestión para Supervisor/Capacitador/
+ *  Encargado — la de siempre (Nombre/Email/Rol/Estado/Acceso/
+ *  Acciones) MÁS el detalle del Semáforo (Total/Resultado/Nivel +
+ *  una columna por curso), todo en una sola tabla en vez de dos
+ *  separadas. Admin sigue viendo la versión simple (COLUMNAS_BASE) —
+ *  no se pidió este detalle ahí, y ya maneja 3 pestañas de rol. */
+const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
+    { key: "nombre", label: "Nombre" },
+    { key: "email", label: "Email" },
+    { key: "rolLabel", label: "Rol" },
+    { key: "total", label: "Total módulos" },
+    { key: "resultado", label: "Resultado" },
+    { key: "nivel", label: "Nivel" },
+    // "M1".."Mn" en vez del nombre completo del curso — con 6-8 cursos
+    // reales, la columna con el nombre entero (ej. "Atención al
+    // Cliente") volvía la tabla enorme. El nombre real aparece en un
+    // tooltip propio (css .mod-tooltip) al pasar el mouse (desktop) o
+    // tocar (celular, ver bindColaboradores) — pedido del usuario.
+    ...cursos.map((cur, i) => ({ key: `curso_${cur.id}`, label: `<span class="mod-tooltip" data-tooltip-texto="${cur.nombre}">M${i + 1}</span>` })),
+    { key: "estadoBadge", label: "Estado" },
+    { key: "accesoBadge", label: "Acceso" },
+    { key: "acciones", label: "" },
+];
+
+function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin) {
+    const progreso = progresoColaborador(c, asignaciones, cursos);
+    const fila = {
+        ...c,
+        rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
+        progreso: progreso.pct,
+        total: String(progreso.total),
+        resultado: progreso.pct === null ? "—" : `${progreso.pct}%`,
+        nivel: progreso.pct === null ? "" : badgeNivel(nivelDe(progreso.pct)),
+        estadoBadge: badgeAcceso(c),
+        accesoBadge: badgeVencimiento(c),
+        acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),
+    };
+    cursos.forEach((cur) => {
+        const aplica = cur.categoria !== "Gestión" || c.encargado;
+        fila[`curso_${cur.id}`] = aplica
+            ? celdaPct(progresoCursoDePersona(c, cur, asignaciones))
+            : `<span class="text-xs text-muted">No aplica</span>`;
+    });
+    return fila;
+}
+
 export async function Colaboradores() {
 
     const usuario = getUsuarioActual();
@@ -553,18 +624,28 @@ export async function Colaboradores() {
         }
     }
 
+    // Supervisor/Capacitador/Encargado ven el detalle del Semáforo
+    // (Total/Resultado/Nivel/M1..Mn) integrado en la MISMA tabla de
+    // gestión — pedido explícito del usuario, para no repetir a cada
+    // colaborador en dos tablas separadas. Admin sigue con la versión
+    // simple (columnas de siempre) — ese detalle ya lo tiene en Reportes.
+    const armarFila = esAdmin
+        ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
+        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin);
+    const columnasTabla = esAdmin ? COLUMNAS_BASE(false, esAdmin) : COLUMNAS_SEMAFORO_GESTION(cursos);
+
     let cuerpoHtml;
     if (gruposPorSucursal) {
         cuerpoHtml = gruposPorSucursal.map((nombreSucursal) => {
             const delGrupo = colaboradores.filter((c) => c.sucursal === nombreSucursal);
-            const filas = ordenarPorProgresoAscendente(delGrupo.map((c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)));
+            const filas = ordenarPorProgresoAscendente(delGrupo.map(armarFila));
             // data-sucursal-seccion: ver filtro de local más abajo (solo
             // Capacitador, que ve toda la red y necesita poder acotar la
             // vista a un local puntual en vez de scrollear todos juntos).
             return `
                 <div class="section" data-sucursal-seccion="${nombreSucursal}">
                     <h3>${nombreSucursal} <span class="text-sm text-muted">(${delGrupo.length})</span></h3>
-                    ${Table(COLUMNAS_BASE(false, esAdmin), filas)}
+                    ${Table(columnasTabla, filas)}
                 </div>
             `;
         }).join("");
@@ -572,9 +653,9 @@ export async function Colaboradores() {
             cuerpoHtml = `<p class="text-sm text-muted">${esAdmin ? "Todavía no hay colaboradores cargados." : "Todavía no tenés ningún local asignado como supervisor."}</p>`;
         }
     } else {
-        const filasSinOrdenar = colaboradores.map((c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin));
+        const filasSinOrdenar = colaboradores.map(armarFila);
         const filas = esAdmin ? ordenarPorFechaAltaDescendente(filasSinOrdenar) : ordenarPorProgresoAscendente(filasSinOrdenar);
-        cuerpoHtml = Table(COLUMNAS_BASE(esAdmin, esAdmin), filas);
+        cuerpoHtml = Table(esAdmin ? COLUMNAS_BASE(esAdmin, esAdmin) : columnasTabla, filas);
     }
 
     // Pestañas de supervisor/admin: solo existen para Admin — el
@@ -600,6 +681,8 @@ export async function Colaboradores() {
                 todavía no ${localesElegidosSinDatos.length === 1 ? "tiene" : "tienen"} colaboradores cargados: ${localesElegidosSinDatos.join(", ")}.
             </p>
         ` : ""}
+
+        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos) : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
@@ -686,9 +769,33 @@ function bindMenuAcciones() {
     });
 }
 
+/** Tooltip propio de los módulos abreviados (M1..Mn, ver
+ *  COLUMNAS_SEMAFORO_GESTION) — en desktop ya se ve solo con CSS
+ *  (:hover), esto es SOLO para celular: tocar el módulo lo muestra,
+ *  y a los 2s se esconde solo (nadie hace hover en un celular, y sin
+ *  esto quedaría abierto para siempre tapando la fila de al lado).
+ *  Mismo guard que bindMenuAcciones — bindColaboradores() corre de
+ *  nuevo cada vez que se vuelve a esta pantalla. */
+function bindTooltipsModulo() {
+    if (document._tooltipsModuloListo) return;
+    document._tooltipsModuloListo = true;
+
+    document.addEventListener("click", (e) => {
+        const tocado = e.target.closest(".mod-tooltip");
+        document.querySelectorAll(".mod-tooltip.mostrar-tooltip").forEach((el) => {
+            if (el !== tocado) el.classList.remove("mostrar-tooltip");
+        });
+        if (!tocado) return;
+        tocado.classList.add("mostrar-tooltip");
+        clearTimeout(tocado._tooltipTimeout);
+        tocado._tooltipTimeout = setTimeout(() => tocado.classList.remove("mostrar-tooltip"), 2000);
+    });
+}
+
 export function bindColaboradores() {
 
     bindMenuAcciones();
+    bindTooltipsModulo();
 
     const buscador = document.getElementById("buscador-colaboradores");
     let filtroActivo = "todos";

@@ -10,6 +10,14 @@
    Los helpers de agregación (ranking de locales/supervisores) se
    duplican acá desde pages/dashboardEjecutivo.js a propósito — ver
    nota en ese archivo.
+
+   `tablaMatrizSemaforo`/`resumenSemaforo` (el reporte "Semáforo": una
+   fila por colaborador, una columna por curso, coloreada) se
+   EXPORTAN porque pages/colaboradores.js también los usa — Supervisor/
+   Capacitador/Encargado ven ese mismo desglose arriba de su tabla de
+   gestión de siempre, en vez de un ítem de menú aparte (decisión
+   explícita del usuario: no quería una pantalla de "Reportes" extra
+   para estos roles, sino que "Mi equipo"/"Mi local" ya la incluyera).
 =============================*/
 
 import { Header } from "../components/header.js";
@@ -22,7 +30,6 @@ import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
-import { getUsuarioActual } from "../services/auth.js";
 
 const TIPOS = [
     { id: "semaforo",     titulo: "Semáforo",       descripcion: "Quién está bien y quién necesita refuerzo, con ranking.", icono: "alertas" },
@@ -41,13 +48,13 @@ const TIPOS = [
 const UMBRAL_VERDE = 85;
 const UMBRAL_AMARILLO = 60;
 
-function nivelDe(promedio) {
+export function nivelDe(promedio) {
     if (promedio >= UMBRAL_VERDE) return "VERDE";
     if (promedio >= UMBRAL_AMARILLO) return "AMARILLO";
     return "ROJO";
 }
 
-function badgeNivel(nivel) {
+export function badgeNivel(nivel) {
     const clase = nivel === "VERDE" ? "badge-success" : nivel === "AMARILLO" ? "badge-warning" : "badge-danger";
     return `<span class="badge ${clase}">${nivel}</span>`;
 }
@@ -109,12 +116,12 @@ async function rankingSupervisores(usuarios, sucursales, asignaciones, cursos) {
  *  arrancó. Mismo criterio que progresoPersona, pero curso por curso
  *  en vez de promediado, para poder mostrar dónde está floja cada
  *  persona (no solo el promedio general). */
-function progresoCursoDePersona(persona, curso, asignaciones) {
+export function progresoCursoDePersona(persona, curso, asignaciones) {
     const a = asignaciones.find((x) => String(x.colaboradorId) === String(persona.id) && String(x.cursoId) === String(curso.id));
     return a ? a.progreso : 0;
 }
 
-function resumenSemaforo(colaboradores, asignaciones, cursos) {
+export function resumenSemaforo(colaboradores, asignaciones, cursos) {
     const promedios = colaboradores.map((c) => progresoPersona(c, asignaciones, cursos) ?? 0);
     const total = promedios.length;
     const promedioGeneral = total ? Math.round(promedios.reduce((s, v) => s + v, 0) / total) : 0;
@@ -126,7 +133,7 @@ function resumenSemaforo(colaboradores, asignaciones, cursos) {
 /** Celda coloreada para un % puntual de curso — mismo criterio de
  *  cortes que nivelDe, pero pensado para una tabla densa (matriz
  *  colaborador × curso) en vez de un badge grande. */
-function celdaPct(pct) {
+export function celdaPct(pct) {
     const tono = pct >= UMBRAL_VERDE ? "success" : pct >= UMBRAL_AMARILLO ? "warning" : "danger";
     return `<span class="badge badge-${tono}">${pct}%</span>`;
 }
@@ -142,7 +149,7 @@ function celdaPct(pct) {
  *  curso ya cuenta esa historia, columna por columna). "No aplica"
  *  (cursos de Gestión para quien no es encargado) se muestra en gris,
  *  sin contar en Total. */
-function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
+export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
     const filas = colaboradores
         .map((c) => {
             const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
@@ -316,27 +323,6 @@ function tendenciaSemanal(resultados) {
     }));
 }
 
-/** Alcance del Semáforo para quien NO es Admin — un solo lugar para
- *  ajustar esto si el criterio cambia (pedido explícito del usuario):
- *   · Supervisor con capacitador:true (Capacitador): toda la red,
- *     mismo criterio de solo-lectura que ya tiene en el resto de la app.
- *   · Supervisor sin capacitador: solo su equipo (sus locales).
- *   · Colaborador con encargado:true (Encargado): colaboradores de
- *     SU MISMA sucursal (no toda la red, pero tampoco solo él mismo —
- *     ya tiene su propio detalle en su Inicio).
- */
-async function colaboradoresVisiblesSemaforo(usuarioActual, usuarios, sucursales) {
-    const colaboradores = usuarios.filter((u) => u.rol === "colaborador");
-    if (usuarioActual.rol === "supervisor") {
-        if (usuarioActual.capacitador) return colaboradores;
-        const nombresLocales = await getMisLocales(usuarioActual, sucursales);
-        return colaboradores.filter((c) => nombresLocales.includes(c.sucursal));
-    }
-    // colaborador + encargado (única otra forma de llegar acá, ver
-    // services/auth.js puedeAccederA).
-    return colaboradores.filter((c) => c.sucursal === usuarioActual.sucursal);
-}
-
 async function renderPreview(tipoId) {
     const [usuarios, sucursales, asignaciones, resultados, cursos] = await Promise.all([
         getUsuarios(), getSucursales(), getAsignaciones(), getResultados(), getCursos(),
@@ -353,27 +339,6 @@ async function renderPreview(tipoId) {
 }
 
 export async function Reportes() {
-
-    const usuarioActual = getUsuarioActual();
-
-    // Supervisor/Capacitador/Encargado: acceso acotado a Semáforo
-    // (pedido explícito del usuario), NO al resto de la suite — esos
-    // otros reportes comparan TODA la red (otros locales, otros
-    // supervisores) y no se pidió abrir esa comparativa a estos roles.
-    if (usuarioActual.rol !== "admin") {
-        const [usuarios, sucursales, asignaciones, cursos] = await Promise.all([
-            getUsuarios(), getSucursales(), getAsignaciones(), getCursos(),
-        ]);
-        const colaboradores = await colaboradoresVisiblesSemaforo(usuarioActual, usuarios, sucursales);
-        const tituloGrupo = usuarioActual.rol === "supervisor" && !usuarioActual.capacitador
-            ? "Mi equipo"
-            : "Colaboradores evaluados";
-
-        return `
-            ${Header("Semáforo de desempeño", "Quién está bien y quién necesita refuerzo")}
-            <div class="section">${vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo)}</div>
-        `;
-    }
 
     const tarjetas = TIPOS.map((t, i) => ReportCard({ ...t, seleccionado: i === 0 })).join("");
     const previewInicial = await renderPreview(TIPOS[0].id);
