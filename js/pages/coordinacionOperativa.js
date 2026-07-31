@@ -105,7 +105,7 @@ async function vistaListaCanales() {
             <span class="compose-ico">${Icon("comentario", { size: 24 })}</span>
             <div>
                 <h1>Comunicaciones</h1>
-                <p>Canales de comunicación entre administración y supervisión.</p>
+                <p>El espacio de Supervisión y Capacitación.</p>
             </div>
             <button type="button" class="compose-ayuda" id="btn-ayuda-comunicaciones">${Icon("alertas", { size: 16 })} ¿Cómo funciona?</button>
         </div>
@@ -245,11 +245,13 @@ export function bindCoordinacionOperativa(params = []) {
 
     document.getElementById("btn-ayuda-comunicaciones")?.addEventListener("click", () => {
         alert(
-            "Comunicaciones es el canal entre administración y supervisión.\n\n" +
-            "• Solo Administración crea y organiza los canales.\n" +
-            "• Supervisión puede publicar dentro de un canal.\n" +
-            "• Capacitación solo puede ver y comentar.\n\n" +
-            "Cada publicación puede llevar un adjunto (por ahora, un link)."
+            "Comunicaciones\n" +
+            "El espacio de Supervisión y Capacitación.\n\n" +
+            "• Cada canal tiene un destino y un tema propio.\n" +
+            "• La creación y organización de los canales está a cargo de Administración.\n" +
+            "• Supervisión publica dentro de cada canal.\n" +
+            "• Capacitación acompaña comentando en las publicaciones.\n\n" +
+            "Cada publicación puede incluir un adjunto (por ahora, un enlace)."
         );
     });
 

@@ -57,7 +57,7 @@ export async function Recursos() {
             <span class="compose-ico">${Icon("integraciones", { size: 24 })}</span>
             <div>
                 <h1>Recursos</h1>
-                <p>Accesos rápidos a herramientas operativas.</p>
+                <p>Accesos rápidos a las herramientas operativas del equipo (planillas, formularios, drive).</p>
             </div>
             <button type="button" class="compose-ayuda" id="btn-ayuda-recursos">${Icon("alertas", { size: 16 })} ¿Cómo funciona?</button>
         </div>
@@ -80,10 +80,8 @@ export function bindRecursos() {
 
     document.getElementById("btn-ayuda-recursos")?.addEventListener("click", () => {
         alert(
-            "Recursos son los accesos rápidos a herramientas operativas (Sheets, Drive, formularios, etc.).\n\n" +
-            "• Solo Administración agrega, edita o quita recursos.\n" +
-            "• El resto solo ve los que le corresponden por su rol.\n\n" +
-            "¿Necesitás sumar un acceso? Pasame el link y lo cargo."
+            "Recursos\n" +
+            "Accesos rápidos a las herramientas operativas del equipo (planillas, formularios, drive)."
         );
     });
 }

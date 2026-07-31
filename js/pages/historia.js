@@ -17,6 +17,7 @@ import { Icon } from "../components/icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { marcarHistoriaVista } from "../data/usuarios.js";
 import { navigate } from "../router.js";
+import { setItem } from "../services/storage.js";
 
 const PROPOSITO = [
     { titulo: "Magia en la atención al cliente", texto: "Trato personalizado, empatía y cercanía en cada interacción." },
@@ -158,11 +159,8 @@ export function bindHistoria() {
         const usuario = getUsuarioActual();
         try {
             await marcarHistoriaVista(usuario.id);
-            // El gate del router re-fetchea con obtenerMiUsuario (y el
-            // cache de la hoja Usuarios ya se invalidó con la escritura
-            // de arriba), así que al navegar a cursos ya ve
-            // historiaVista=true y no rebota de vuelta acá. No hace
-            // falta tocar la sesión en memoria.
+            usuario.historiaVista = true;
+            setItem("sesion", usuario);
             navigate("cursos");
         } catch (err) {
             btn.disabled = false;
