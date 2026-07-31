@@ -104,7 +104,7 @@ export async function Perfil() {
         <div class="card" style="max-width:420px">
             <div class="list">
                 <div class="item"><span>Nombre</span><strong>${usuario.nombre}</strong></div>
-                <div class="item"><span>Email</span><strong>${usuario.email}</strong></div>
+                <div class="item"><span>Email</span><strong style="word-break:break-word;text-align:right">${usuario.email}</strong></div>
                 <div class="item"><span>Rol</span><strong>${ROL_LEGIBLE[usuario.rol] || usuario.rol}${usuario.encargado ? " (Encargado)" : ""}${usuario.capacitador ? " (Capacitador)" : ""}</strong></div>
                 ${usuario.sucursal ? `<div class="item"><span>Sucursal</span><strong>${usuario.sucursal}</strong></div>` : ""}
             </div>

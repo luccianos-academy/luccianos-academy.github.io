@@ -39,19 +39,39 @@ function renderPasosNumerados(texto) {
 
 /** Texto plano con 3+ ítems tipo "Nombre: detalle" queda como pared
  *  de texto en un único párrafo — si los detecta, los separa en una
- *  lista prolija; si no, lo deja como párrafo normal. */
+ *  lista prolija; si no, lo deja como párrafo normal. Detecta bullets (•),
+ *  saltos de línea, o puntos separadores. */
 export function renderProcedimiento(texto) {
     if (!texto) return "";
     if (/^1\)\s/.test(texto.trim())) return renderPasosNumerados(texto);
 
-    const items = texto
-        .split(/\.\s+/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
+    let items = [];
+
+    // Intenta detectar bullet points (•) primero
+    if (texto.includes("•")) {
+        items = texto
+            .split("•")
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    // Si no hay bullets, intenta saltos de línea
+    else if (/\n/.test(texto)) {
+        items = texto
+            .split(/\n+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    // Si no hay saltos, intenta puntos como separador
+    else {
+        items = texto
+            .split(/\.\s+/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
+    }
 
     if (items.length < 3) {
-        return `<p class="text-sm" style="margin-top:10px;color:var(--text)">${texto}</p>`;
+        return `<p class="text-sm" style="margin-top:10px;color:var(--text);white-space:pre-wrap">${texto}</p>`;
     }
 
     return `
