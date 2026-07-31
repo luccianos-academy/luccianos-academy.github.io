@@ -31,11 +31,11 @@ import { navigate } from "../router.js";
 export async function Recursos() {
     const usuario = getUsuarioActual();
     const recursos = await getRecursosVisibles(usuario);
-    // Mismo criterio que Canales (Coordinación Operativa): gestionar
-    // no es exclusivo de Admin — cualquier Supervisor (incluido
-    // Capacitador, que acá NO es de solo lectura, esa regla es
-    // específica de Colaboradores) puede cargar/editar/borrar.
-    const puedeGestionar = usuario.rol === "admin" || usuario.rol === "supervisor";
+    // Solo Admin gestiona Recursos — pedido explícito del usuario:
+    // "solo yo puedo gestionarlo, si alguien necesita algo me da
+    // especificaciones y lo cargo". Nadie más (ni Supervisor) ve los
+    // botones de cargar/editar/borrar.
+    const puedeGestionar = usuario.rol === "admin";
 
     // Sin target="_blank" a propósito — en la PWA instalada (iPhone)
     // eso saca a la persona de la app hacia Safari, sin forma fácil de

@@ -16,6 +16,7 @@ import { Header } from "../components/header.js";
 import { Icon } from "../components/icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { marcarHistoriaVista } from "../data/usuarios.js";
+import { navigate } from "../router.js";
 
 const PROPOSITO = [
     { titulo: "Magia en la atención al cliente", texto: "Trato personalizado, empatía y cercanía en cada interacción." },
@@ -41,21 +42,15 @@ const PRINCIPIOS_TONIO = [
 
 export async function Historia() {
 
-    // Gate de "antes de empezar" (ver router.js): con que un
-    // Colaborador/Encargado ABRA esta página una vez ya alcanza —
-    // no bloqueante para el resto de los roles, que no rinden
-    // formación. Sin "await" a propósito: no tiene sentido demorar
-    // el render de la página por esto, y si falla (red lenta, etc.)
-    // el gate simplemente se vuelve a activar la próxima vez.
+    // Ya NO se marca como vista con solo abrir la página — pedido
+    // explícito del usuario: que haya un botón "Visto" que la persona
+    // toca cuando quiere, para que no se sienta ni una obligación ni
+    // una ambigüedad de "cuánto tengo que quedarme acá". El router
+    // sigue redirigiendo a un Colaborador sin historiaVista para que
+    // pase por acá primero (ver RUTAS_GATEADAS_HISTORIA), pero recién
+    // el botón de abajo desactiva ese gate. Ver bindHistoria.
     const usuario = getUsuarioActual();
-    // Guardado ANTES de marcarHistoriaVista (que es async y no
-    // bloquea el render) — así el aviso de abajo refleja si el gate
-    // seguía activo cuando la persona llegó acá, no si ya se marcó
-    // en el ratito que tardó el fetch.
-    const gateEstabaActivo = usuario && usuario.rol === "colaborador" && !usuario.historiaVista;
-    if (gateEstabaActivo) {
-        marcarHistoriaVista(usuario.id).catch(() => {});
-    }
+    const faltaMarcar = usuario && usuario.rol === "colaborador" && !usuario.historiaVista;
 
     const propositoHtml = PROPOSITO.map((p) => `
         <div class="card">
@@ -76,12 +71,12 @@ export async function Historia() {
     return `
         ${Header("Nuestra Historia", "Lucciano's es una empresa familiar que nace a partir del deseo de atender al segmento de consumidores más exigentes de helado artesanal de Argentina.")}
 
-        ${gateEstabaActivo ? `
+        ${faltaMarcar ? `
             <div class="aviso-historia">
                 ${Icon("idea", { size: 20 })}
                 <div>
                     <strong>Tu formación comienza con nuestra historia</strong>
-                    <p>Antes de acceder a los cursos, dedicá unos minutos a conocer el origen, la evolución y los valores que hacen único a Lucciano's.</p>
+                    <p>Tomate unos minutos para conocer el origen, la evolución y los valores que hacen único a Lucciano's. Cuando termines de leer, tocá "Marcá como visto" al final para continuar con tus cursos.</p>
                 </div>
             </div>
         ` : ""}
@@ -142,5 +137,37 @@ export async function Historia() {
             <p class="text-sm text-muted" style="margin-bottom:14px">La base para que cada colaborador pueda ofrecer la mejor experiencia posible.</p>
             <div class="cards">${principiosHtml}</div>
         </div>
+
+        ${faltaMarcar ? `
+            <div class="section historia-cierre">
+                <p class="text-sm text-muted" style="margin-bottom:14px">¿Terminaste de leer? Marcalo como visto para continuar con tus cursos.</p>
+                <button class="btn btn-primary" id="btn-historia-visto">${Icon("check", { size: 18 })} Marcá como visto y continuar</button>
+            </div>
+        ` : ""}
     `;
+}
+
+export function bindHistoria() {
+    const btn = document.getElementById("btn-historia-visto");
+    if (!btn) return;
+
+    btn.addEventListener("click", async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = "Guardando...";
+        const usuario = getUsuarioActual();
+        try {
+            await marcarHistoriaVista(usuario.id);
+            // El gate del router re-fetchea con obtenerMiUsuario (y el
+            // cache de la hoja Usuarios ya se invalidó con la escritura
+            // de arriba), así que al navegar a cursos ya ve
+            // historiaVista=true y no rebota de vuelta acá. No hace
+            // falta tocar la sesión en memoria.
+            navigate("cursos");
+        } catch (err) {
+            btn.disabled = false;
+            btn.textContent = "Marcá como visto y continuar";
+            alert(err.message || "No se pudo guardar. Probá de nuevo en un momento.");
+        }
+    });
 }
