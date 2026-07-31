@@ -10,8 +10,10 @@ import { EmptyState } from "./components/emptyState.js";
 import { Icon } from "./components/icons.js";
 import { estaViendoComo, getUsuarioActual } from "./services/auth.js";
 import { getItem, setItem } from "./services/storage.js";
+import { soportaPush, estadoPermisoPush, activarPush } from "./services/push.js";
 
 const CLAVE_BETA_CERRADO = "banner_beta_cerrado";
+const CLAVE_PUSH_CERRADO = "banner_push_cerrado";
 
 /**
  * Renderiza el layout base (sidebar + contenido) dentro de #app
@@ -37,6 +39,7 @@ export function renderLayout(rutaActiva) {
             </div>
         ` : ""}
         ${BannerBeta(usuario)}
+        ${BannerPush(usuario)}
         ${TopBar()}
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
         <div class="layout">
@@ -47,6 +50,7 @@ export function renderLayout(rutaActiva) {
     `;
 
     bindBannerBeta();
+    bindBannerPush(usuario);
 
     return document.querySelector("#content");
 }
@@ -74,6 +78,63 @@ function bindBannerBeta() {
     banner?.querySelector("[data-beta-cerrar]")?.addEventListener("click", () => {
         setItem(CLAVE_BETA_CERRADO, new Date().toISOString().slice(0, 10));
         banner.remove();
+    });
+}
+
+/**
+ * Aviso de que existen notificaciones push, para cualquier rol —
+ * pedido explícito del usuario: "nadie sabe que debe darle push para
+ * recibir notificaciones", hoy esa opción vivía escondida en Mi
+ * Perfil sin ningún aviso en ningún otro lado. El botón "Activar"
+ * dispara el permiso nativo ahí mismo, sin tener que ir a buscarlo.
+ * Solo aparece con el permiso en estado "default" (nunca preguntado)
+ * — "denied"/"granted" son decisiones ya tomadas, no hay nada que
+ * este banner pueda ofrecer ahí (mismo criterio que pages/perfil.js).
+ * Se puede cerrar, pero solo por hoy — reaparece mañana si sigue sin
+ * activarse, mismo patrón que el banner de beta.
+ */
+function BannerPush(usuario) {
+    if (!usuario) return "";
+    if (!soportaPush()) return "";
+    if (estadoPermisoPush() !== "default") return "";
+    if (getItem(CLAVE_PUSH_CERRADO, "") === new Date().toISOString().slice(0, 10)) return "";
+
+    return `
+        <div class="banner-push" data-push-banner>
+            <span>Activá las <strong>notificaciones push</strong> para enterarte al toque de avisos importantes, aunque no tengas la app abierta.</span>
+            <button class="btn btn-primary banner-push-activar" data-push-activar>Activar</button>
+            <button class="banner-push-cerrar" data-push-cerrar aria-label="Cerrar">${Icon("cerrar", { size: 14 })}</button>
+        </div>
+    `;
+}
+
+function bindBannerPush(usuario) {
+    const banner = document.querySelector("[data-push-banner]");
+    if (!banner) return;
+
+    banner.querySelector("[data-push-cerrar]")?.addEventListener("click", () => {
+        setItem(CLAVE_PUSH_CERRADO, new Date().toISOString().slice(0, 10));
+        banner.remove();
+    });
+
+    banner.querySelector("[data-push-activar]")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        btn.textContent = "Activando...";
+        const resultado = await activarPush(usuario);
+        // Tanto si funcionó como si la persona lo rechazó, no tiene
+        // sentido seguir mostrando el banner en esta sesión — "denied"
+        // no se puede volver a preguntar (decisión del navegador) y
+        // "ok" ya no hace falta.
+        setItem(CLAVE_PUSH_CERRADO, new Date().toISOString().slice(0, 10));
+        banner.remove();
+        if (!resultado.ok) {
+            if (resultado.motivo === "denegado") {
+                alert("No diste el permiso de notificaciones — podés activarlo más tarde desde la configuración del navegador.");
+            } else {
+                alert("No se pudo activar. Podés reintentarlo desde Mi perfil en un momento.");
+            }
+        }
     });
 }
 

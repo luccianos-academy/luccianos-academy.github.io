@@ -3354,6 +3354,61 @@ table.data-table tbody tr:hover{
     }
 }
 
+/* Banner "activá el push" (ui.js) — cualquier rol, mismo lenguaje
+   visual que el banner de beta, más un botón de acción inline. */
+
+.banner-push{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:12px;
+    background:#fff4d6;
+    color:#5c3d00;
+    font-size:13.5px;
+    font-weight:500;
+    padding:10px 40px 10px 16px;
+    text-align:center;
+    position:relative;
+    line-height:1.4;
+}
+
+.banner-push strong{
+    font-weight:700;
+}
+
+.banner-push-activar{
+    width:auto;
+    flex-shrink:0;
+    padding:6px 16px;
+    font-size:13px;
+}
+
+.banner-push-cerrar{
+    position:absolute;
+    right:10px;
+    top:50%;
+    transform:translateY(-50%);
+    background:none;
+    border:none;
+    color:#5c3d00;
+    opacity:.65;
+    cursor:pointer;
+    padding:6px;
+    display:flex;
+}
+
+.banner-push-cerrar:hover{
+    opacity:1;
+}
+
+@media (max-width:600px){
+    .banner-push{
+        font-size:12.5px;
+        padding:9px 36px 9px 12px;
+    }
+}
+
 /* Aviso en "Nuestra Historia" (pages/historia.js) — explica la regla
    de gate ("Colaborador tiene que abrir esta página una vez antes de
    entrar a Academia/rendir examen", ver router.js) que hasta ahora
