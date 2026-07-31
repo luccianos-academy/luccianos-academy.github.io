@@ -258,26 +258,39 @@ export function bindCoordinacionOperativa(params = []) {
     });
 }
 
-async function abrirDetallePublicacion(p) {
+function abrirDetallePublicacion(p) {
     const usuario = getUsuarioActual();
     const modalId = "modal-publicacion";
 
     if (p.requiereConfirmacion && !estaLeidaPublicacion(p, usuario.id)) {
-        await marcarPublicacionLeida(p, usuario.id);
-        // marcarPublicacionLeida escribe sobre la fila real (mock o
-        // Sheet), pero "p" acá es una copia normalizada (getPublicaciones
-        // mapea cada fila a un objeto nuevo) — sin este parche local, el
-        // "Leído por" de la primera apertura del modal se ve desactualizado
-        // hasta la próxima vez que se vuelva a pedir la lista.
+        // Sin "await" a propósito — antes esto se esperaba ANTES de
+        // siquiera abrir el modal, así que "Ver/comentar" se sentía
+        // colgado unos segundos con la pantalla en blanco (reportado
+        // en vivo: "me caliento la pava y me tomo dos mates"). Marcar
+        // como leída no tiene por qué bloquear ver el contenido.
+        marcarPublicacionLeida(p, usuario.id).catch((err) => console.warn("No se pudo marcar como leída:", err.message));
+        // Parche local optimista — "p" acá es una copia normalizada
+        // (getPublicaciones mapea cada fila a un objeto nuevo), así
+        // que sin esto el "Leído por" de esta apertura se ve
+        // desactualizado hasta la próxima vez que se pida la lista.
         const actuales = String(p.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
         actuales.push(String(usuario.id));
         p.leidoPor = actuales.join(",");
     }
 
     async function contenidoActual() {
-        const comentarios = await getComentariosDePublicacion(p.id);
-        const usuarios = await getUsuarios();
-        const supervisoresYAdmin = usuarios.filter((u) => u.rol === "admin" || u.rol === "supervisor");
+        const [comentarios, usuarios, canalDeLaPublicacion] = await Promise.all([
+            getComentariosDePublicacion(p.id),
+            getUsuarios(),
+            canalInfo(p.canal),
+        ]);
+        // Bug real reportado por el usuario: esto antes era TODO
+        // admin+supervisor sin importar el canal ("Solo Capacitadores"
+        // mostraba supervisores igual, y viceversa) — el header del
+        // canal (vistaCanal, más arriba) ya filtraba bien con
+        // puedeVerCanal, pero acá abajo el "Leído por" usaba una
+        // lista aparte que nunca miraba la restricción del canal.
+        const supervisoresYAdmin = usuarios.filter((u) => puedeVerCanal(canalDeLaPublicacion, u) && (u.rol === "admin" || u.rol === "supervisor"));
         const leidoIds = String(p.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
 
         return `
@@ -333,6 +346,13 @@ async function abrirDetallePublicacion(p) {
     // (moderación) — un Supervisor no puede borrar la de otro.
     const puedeEliminar = usuario.rol === "admin" || String(p.autorId) === String(usuario.id);
 
+    // El modal se abre YA, con un placeholder — antes esperaba a que
+    // termine de bajar comentarios+usuarios+canal (varios segundos de
+    // red real) antes de mostrar NADA, mismo reclamo de fluidez que
+    // el resto de esta sesión. contenidoActual() se resuelve aparte y
+    // parcha #publicacion-detalle-body apenas está lista (reusa
+    // reRenderDetalle, la misma función que ya repinta el detalle
+    // después de comentar/likear).
     abrirModal(`
         <div class="modal-overlay" id="${modalId}">
             <div class="modal">
@@ -340,7 +360,9 @@ async function abrirDetallePublicacion(p) {
                     <h2>${p.titulo}</h2>
                     <button class="modal-close" data-close="${modalId}">✕</button>
                 </div>
-                <div class="modal-body" id="publicacion-detalle-body">${await contenidoActual()}</div>
+                <div class="modal-body" id="publicacion-detalle-body">
+                    <p class="text-sm text-muted">Cargando...</p>
+                </div>
                 <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
                     <textarea id="input-nuevo-comentario" rows="2" placeholder="Escribí un comentario..." style="width:100%"></textarea>
                     <span style="display:flex;justify-content:space-between;gap:8px">
@@ -359,6 +381,8 @@ async function abrirDetallePublicacion(p) {
             </div>
         </div>
     `, modalId);
+
+    reRenderDetalle();
 
     document.getElementById("btn-editar-publicacion")?.addEventListener("click", () => {
         cerrarModal(modalId);
@@ -390,7 +414,9 @@ async function abrirDetallePublicacion(p) {
             });
         });
     }
-    bindLikesComentario();
+    // No hace falta llamar bindLikesComentario() acá — reRenderDetalle()
+    // (ya disparado más arriba para pintar el contenido real) lo hace
+    // apenas el HTML con los botones de like existe de verdad.
 
     document.getElementById("btn-comentar")?.addEventListener("click", async () => {
         const input = document.getElementById("input-nuevo-comentario");
