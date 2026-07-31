@@ -347,7 +347,18 @@ function abrirDetalleNotificacion(noti, usuario) {
             </div>
         </div>
     `, modalId, leida ? null : async () => {
-        await marcarNotificacionLeida(noti, usuario.id);
+        try {
+            await marcarNotificacionLeida(noti, usuario.id);
+        } catch (err) {
+            // Antes esto quedaba en silencio — el try/finally de
+            // modal.js reactivaba el botón pero la persona no tenía
+            // forma de saber qué pasó (reportado en vivo: "se le
+            // tildaba y no podía darle marcado", real network timeout
+            // en un celular con señal intermitente, ver services/
+            // google.js). Ahora se lo decimos explícito.
+            alert(err.message || "No se pudo marcar como leída. Probá de nuevo.");
+            return;
+        }
         // Ya sabemos que baja en 1 — evita re-pedir "Noticias" solo para
         // confirmar el número (ver dataSource.js: el pedido que sigue,
         // el de la propia lista de News, ya alcanza para eso).

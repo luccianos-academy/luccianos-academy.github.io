@@ -32,6 +32,17 @@ function manejarSesionInvalida() {
     location.reload();
 }
 
+// Sin esto, un fetch que nunca resuelve (celular con señal
+// intermitente, cambio de wifi a datos a mitad de request) dejaba el
+// await colgado PARA SIEMPRE — nunca resuelve, nunca rechaza — así
+// que el botón de "Guardando..."/"Marcar como leída" quedaba trabado
+// sin remedio (reportado en vivo por el usuario probando en un
+// celular real: "se le tildaba y no podía darle marcado"). Con esto,
+// después de 20s el fetch se cancela solo y el error fluye por el
+// mismo camino de siempre (el try/finally de modal.js reactiva el
+// botón), en vez de colgar indefinidamente.
+const TIMEOUT_REQUEST_MS = 20000;
+
 async function gasRequest(accion, payload = {}) {
 
     if (!GAS_URL) {
@@ -39,11 +50,25 @@ async function gasRequest(accion, payload = {}) {
         return null;
     }
 
-    const res = await fetch(GAS_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ accion, token: getSessionToken(), ...payload }),
-    });
+    const controlador = new AbortController();
+    const timeoutId = setTimeout(() => controlador.abort(), TIMEOUT_REQUEST_MS);
+
+    let res;
+    try {
+        res = await fetch(GAS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ accion, token: getSessionToken(), ...payload }),
+            signal: controlador.signal,
+        });
+    } catch (err) {
+        if (err.name === "AbortError") {
+            throw new Error(`Se cortó la conexión mandando "${accion}" — probá de nuevo (revisá tu señal/wifi).`);
+        }
+        throw err;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 
     if (!res.ok) {
         throw new Error(`Error en GAS request (${accion}): ${res.status}`);

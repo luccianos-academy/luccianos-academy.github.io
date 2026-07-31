@@ -37,12 +37,17 @@ export async function Recursos() {
     // específica de Colaboradores) puede cargar/editar/borrar.
     const puedeGestionar = usuario.rol === "admin" || usuario.rol === "supervisor";
 
+    // Sin target="_blank" a propósito — en la PWA instalada (iPhone)
+    // eso saca a la persona de la app hacia Safari, sin forma fácil de
+    // volver (mismo bug ya encontrado y sacado de Manuales/Noticias/
+    // lecciones). Navegando en la misma ventana, el gesto de "volver"
+    // (swipe desde el borde) sigue funcionando adentro de la PWA.
     const itemsHtml = recursos.map((r) => `
-        <a class="canal-item" href="${r.url}" target="_blank" rel="noopener">
+        <a class="canal-item" href="${r.url}" rel="noopener">
             <span class="canal-item-icono">${Icon(r.icono, { size: 20 })}</span>
             <span class="canal-item-body">
                 <span class="canal-item-nombre">${r.nombre}</span>
-                <span class="canal-item-detalle">Se abre en una pestaña nueva</span>
+                <span class="canal-item-detalle">Enlace externo</span>
             </span>
         </a>
     `).join("");

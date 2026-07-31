@@ -177,8 +177,12 @@ async function vistaCanal(canalId) {
  *  fuera de alcance, ver plan) — solo cambia cómo se ve. */
 function adjuntoCardHtml(p) {
     if (!p.adjuntoLabel || !p.adjuntoUrl) return "";
+    // Sin target="_blank" a propósito — en la PWA instalada (iPhone)
+    // eso abre el PDF/documento atrapado dentro de la misma app, sin
+    // botón atrás para volver (mismo bug ya encontrado y sacado de
+    // Manuales/Noticias/lecciones, reintroducido acá sin querer).
     return `
-        <a class="publicacion-adjunto" href="${p.adjuntoUrl}" target="_blank" rel="noopener">
+        <a class="publicacion-adjunto" href="${p.adjuntoUrl}" rel="noopener">
             <span class="publicacion-adjunto-icono">${Icon("documento", { size: 17 })}</span>
             <span class="publicacion-adjunto-nombre">${p.adjuntoLabel}</span>
             <span class="publicacion-adjunto-descargar">${Icon("descargar", { size: 16 })}</span>
