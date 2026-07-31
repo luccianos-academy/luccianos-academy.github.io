@@ -268,12 +268,8 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                                 </select>
                             </div>
                             <div>
-                                <label for="input-adjunto-url" style="margin-top:0">Adjunto — ruta o link</label>
-                                <input type="text" id="input-adjunto-url" placeholder="Ej: assets/docs/certificado-kosher.pdf" value="${n.adjuntoUrl || ""}">
-                            </div>
-                            <div>
-                                <label for="input-adjunto-label" style="margin-top:0">Texto del botón</label>
-                                <input type="text" id="input-adjunto-label" placeholder="Ej: Ver certificado" value="${n.adjuntoLabel || ""}">
+                                <label for="input-adjuntos">Enlaces (uno por línea — formato: <code>URL|Etiqueta</code>)</label>
+                                <textarea id="input-adjuntos" rows="3" placeholder="Ej:&#10;https://banco.com/promo|Ir a promo&#10;https://otro.com/mas|Más info">${n.adjuntos?.map(a => `${a.url}|${a.label}`).join("\n") || (n.adjuntoUrl ? `${n.adjuntoUrl}|${n.adjuntoLabel || "Ver adjunto"}` : "")}</textarea>
                             </div>
                         </div>
 
@@ -306,8 +302,18 @@ function leerCamposNotificacion() {
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         detalle: document.getElementById("input-detalle").value.trim(),
         enlace: document.getElementById("input-enlace").value,
-        adjuntoUrl: document.getElementById("input-adjunto-url").value.trim(),
-        adjuntoLabel: document.getElementById("input-adjunto-label").value.trim(),
+        // adjuntos múltiples: parsea textarea con formato "URL|Etiqueta" por línea
+        adjuntos: (() => {
+            const texto = document.getElementById("input-adjuntos")?.value.trim() || "";
+            if (!texto) return [];
+            return texto
+                .split("\n")
+                .map(line => {
+                    const [url, label] = line.split("|").map(s => s.trim());
+                    return url ? { url, label: label || "Ver enlace" } : null;
+                })
+                .filter(Boolean);
+        })(),
     };
 }
 
@@ -489,7 +495,7 @@ function abrirDetalleNotificacion(noti, usuario) {
         ${noti.detalle ? `<div style="margin-top:0;margin-bottom:16px">${renderProcedimiento(noti.detalle)}</div>` : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
-            ${noti.adjuntoUrl ? `<a class="btn btn-secondary" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : ""}
+            ${noti.adjuntos?.map(a => `<a class="btn btn-secondary" href="${a.url}">${a.label}</a>`).join("") || (noti.adjuntoUrl ? `<a class="btn btn-secondary" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : "")}
             ${esAdmin ? `
                 <button class="btn btn-secondary" data-editar-notif="${noti.id}">Editar</button>
                 <button class="btn btn-secondary" data-eliminar-notif="${noti.id}">Eliminar</button>

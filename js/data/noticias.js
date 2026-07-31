@@ -76,6 +76,25 @@ function normalizarNoticia(f) {
         // están vacíos, la tarjeta se ve como antes.
         detalle: String(f.detalle || "").trim(),
         enlace: String(f.enlace || "").trim(),
+        // adjuntos es un array [{url, label}, ...]. Puede venir como JSON desde
+        // Sheets (adjuntos) o convertirse desde los antiguos adjuntoUrl/adjuntoLabel.
+        adjuntos: (() => {
+            try {
+                if (f.adjuntos) {
+                    const parsed = JSON.parse(String(f.adjuntos));
+                    if (Array.isArray(parsed)) return parsed.map(a => ({
+                        url: String(a.url || "").trim(),
+                        label: String(a.label || "Ver adjunto").trim()
+                    })).filter(a => a.url);
+                }
+            } catch {}
+            // Fallback: migra desde los campos antiguos individuales
+            if (f.adjuntoUrl) {
+                return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
+            }
+            return [];
+        })(),
+        // Deprecated — solo para compat. Usar adjuntos[0] en su lugar.
         adjuntoUrl: String(f.adjuntoUrl || "").trim(),
         adjuntoLabel: String(f.adjuntoLabel || "").trim(),
         tipo: String(f.tipo || "noticia").trim() || "noticia",
@@ -193,11 +212,18 @@ export async function getNoticiasVisibles(usuario) {
     return todas.filter((n) => !estaProgramada(n) && puedeVerNoticia(n, usuario, sucursales));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntos, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora }) {
+    // adjuntos es un array [{url, label}]. Si viene vacío pero hay adjuntoUrl (fallback),
+    // lo convierte. Guarda como JSON en la columna "adjuntos".
+    const adjuntosFinales = adjuntos && adjuntos.length > 0
+        ? adjuntos
+        : (adjuntoUrl ? [{ url: adjuntoUrl, label: adjuntoLabel || "Ver adjunto" }] : []);
+
     return writeSheet(HOJAS.NOTICIAS, {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
-        adjuntoUrl: adjuntoUrl || "", adjuntoLabel: adjuntoLabel || "",
+        adjuntos: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
+        adjuntoUrl: "", adjuntoLabel: "",  // deprecated
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
