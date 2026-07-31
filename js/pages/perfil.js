@@ -109,7 +109,9 @@ export async function Perfil() {
                     ${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "" })}
                 </div>
                 <div>
-                    <p class="text-xs text-muted">Foto de perfil</p>
+                    <p class="text-xs text-muted">Foto de perfil
+                        <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Recomendación: foto cuadrada (1:1) mínimo 200x200px. Se recortará automáticamente para ajustarse. Próximamente: opción de subir archivo directamente.">ⓘ</span>
+                    </p>
                     <input type="text" id="input-foto-perfil" placeholder="URL de tu foto (ej: https://...)" value="${usuario.foto || ""}" style="width:100%;max-width:200px">
                     <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar</button>
                 </div>
