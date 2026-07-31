@@ -479,14 +479,14 @@ function abrirDetalleNotificacion(noti, usuario) {
     const info = tipoInfo(noti.tipo);
 
     const contenidoHtml = `
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
             <span class="notif-item-icono" style="background:${prioridadInfo(noti.prioridad).color}22;color:${prioridadInfo(noti.prioridad).color}">${Icon(info.icono, { size: 18 })}</span>
             <div>
                 <div class="text-xs text-muted">${info.nombre} · ${formatearFecha(noti.fecha)}</div>
             </div>
         </div>
-        <p class="text-sm" style="margin-top:8px;white-space:pre-wrap">${escaparHtml(noti.resumen)}</p>
-        ${noti.detalle ? `<div style="margin-top:12px">${renderProcedimiento(noti.detalle)}</div>` : ""}
+        <p class="text-sm" style="margin-top:0;margin-bottom:16px;white-space:pre-wrap;line-height:1.6">${escaparHtml(noti.resumen)}</p>
+        ${noti.detalle ? `<div style="margin-top:0;margin-bottom:16px">${renderProcedimiento(noti.detalle)}</div>` : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
             ${noti.adjuntoUrl ? `<a class="btn btn-secondary" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : ""}
@@ -618,6 +618,12 @@ export function bindNuevaNews(params = []) {
         document.querySelectorAll("[data-pill-categoria]").forEach((p) => {
             p.classList.toggle("activa", p.dataset.pillCategoria.toLowerCase() === v);
         });
+    });
+    inputTipo?.addEventListener("blur", () => {
+        const v = inputTipo.value.trim();
+        if (v && v.toLowerCase() !== "noticia") {
+            recordarCategoria(v);
+        }
     });
     document.querySelectorAll("[data-borrar-categoria]").forEach((btn) => {
         btn.addEventListener("click", () => {
