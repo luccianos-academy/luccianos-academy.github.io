@@ -273,8 +273,6 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                             </div>
                         </div>
 
-                        <label for="input-detalle">Detalle</label>
-                        <textarea id="input-detalle" rows="4" placeholder="Solo si hay información extensa para desplegar. Si se deja vacío, no se muestra nada extra.">${n.detalle || ""}</textarea>
                     </div>
                 </details>
             </div>
@@ -300,7 +298,7 @@ function leerCamposNotificacion() {
         dirigidoA,
         // Los locales solo importan cuando se eligió ese modo.
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
-        detalle: document.getElementById("input-detalle").value.trim(),
+        detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
         // adjuntos múltiples: parsea textarea con formato "URL|Etiqueta" por línea
         adjuntos: (() => {
@@ -492,7 +490,6 @@ function abrirDetalleNotificacion(noti, usuario) {
             </div>
         </div>
         <p class="text-sm" style="margin-top:0;margin-bottom:16px;white-space:pre-wrap;line-height:1.6">${escaparHtml(noti.resumen)}</p>
-        ${noti.detalle ? `<div style="margin-top:0;margin-bottom:16px">${renderProcedimiento(noti.detalle)}</div>` : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
             ${noti.adjuntos?.map(a => `<a class="btn btn-secondary" href="${a.url}">${a.label}</a>`).join("") || (noti.adjuntoUrl ? `<a class="btn btn-secondary" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : "")}
