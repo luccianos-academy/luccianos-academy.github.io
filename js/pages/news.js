@@ -269,13 +269,35 @@ export function bindNews() {
     const btnMarcarTodas = document.getElementById("btn-marcar-todas");
     if (btnMarcarTodas) {
         btnMarcarTodas.addEventListener("click", async () => {
-            const items = await getNoticiasVisibles(usuario);
-            const noLeidas = items.filter((n) => !estaLeida(n, usuario.id));
-            await Promise.all(noLeidas.map((n) => marcarNotificacionLeida(n, usuario.id)));
-            // Ya sabemos que bajó en noLeidas.length — evita re-pedir
-            // "Noticias" solo para confirmar el número (ver dataSource.js).
-            decrementarContadorCampana(noLeidas.length);
-            navigate("news");
+            if (btnMarcarTodas.disabled) return;
+            const textoOriginal = btnMarcarTodas.textContent;
+            btnMarcarTodas.disabled = true;
+            btnMarcarTodas.textContent = "Marcando...";
+
+            try {
+                const items = await getNoticiasVisibles(usuario);
+                const noLeidas = items.filter((n) => !estaLeida(n, usuario.id));
+                // allSettled, no all — reportado en vivo por el usuario
+                // en Android real: "marcar todas no hace nada". Causa:
+                // Promise.all aborta TODO apenas UNA de las N escrituras
+                // en paralelo falla (timeout, conexión real inestable),
+                // sin aviso ni forma de recuperarse. Con allSettled, las
+                // que sí funcionaron quedan guardadas y se le avisa a la
+                // persona si alguna falló, en vez de silencio total.
+                const resultados = await Promise.allSettled(noLeidas.map((n) => marcarNotificacionLeida(n, usuario.id)));
+                const fallidas = resultados.filter((r) => r.status === "rejected").length;
+                const exitosas = resultados.length - fallidas;
+
+                if (exitosas) decrementarContadorCampana(exitosas);
+                if (fallidas) {
+                    alert(`Se marcaron ${exitosas} de ${resultados.length} — ${fallidas} no se pudieron guardar. Probá de nuevo en un momento.`);
+                }
+                navigate("news");
+            } catch (err) {
+                alert(err.message || "No se pudo marcar todas como leídas. Probá de nuevo.");
+                btnMarcarTodas.disabled = false;
+                btnMarcarTodas.textContent = textoOriginal;
+            }
         });
     }
 
