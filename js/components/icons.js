@@ -104,6 +104,10 @@ const PATHS = {
     enlace: `<path d="M9.5 14.5 14.5 9.5"/><path d="M11 7.5 12.7 5.8a3 3 0 0 1 4.2 4.2L15.2 11.7"/><path d="M13 16.5 11.3 18.2a3 3 0 0 1-4.2-4.2L8.8 12.3"/>`,
     imagen: `<rect x="4" y="5" width="16" height="14" rx="1.5"/><circle cx="9" cy="10" r="1.4"/><path d="m5.5 17 4.5-5 3 3 2.5-3 3 4.5"/>`,
     video: `<rect x="4" y="6.5" width="12.5" height="11" rx="1.5"/><path d="m16.5 10.5 3.5-2.2v7.4l-3.5-2.2"/>`,
+
+    // Sección "Publicación" (calendario) y botón "Subir archivo" del compose de News.
+    calendario: `<rect x="4" y="5.5" width="16" height="14" rx="1.5"/><path d="M4 9.5h16"/><path d="M8 3.5v4M16 3.5v4"/><path d="M8 13h2M14 13h2M8 16.5h2h6"/>`,
+    subir: `<path d="M12 20V9"/><path d="m7.5 13 4.5-4.5 4.5 4.5"/><path d="M5 5.5h14"/>`,
 };
 
 export function Icon(name, { size = 20 } = {}) {

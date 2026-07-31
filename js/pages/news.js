@@ -16,7 +16,7 @@
 =============================*/
 
 import { Header } from "../components/header.js";
-import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
+import { abrirModal, cerrarModal } from "../components/modal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { renderProcedimiento } from "../components/procedimiento.js";
 import { Icon } from "../components/icons.js";
@@ -35,27 +35,36 @@ import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
 
-// Categorías de noticia usadas antes — texto libre, pero se recuerdan
-// para autocompletar la próxima vez (pedido del usuario: "danos la
-// posibilidad de poner a gusto y una vez puesto que aparezca como ya
-// usado"). Semilla con las categorías base; se suma cada nueva.
-const CLAVE_CATEGORIAS = "categorias_noticia_usadas";
+// Categorías de noticia — texto libre, pero se recuerdan como pills
+// para reusar (pedido del usuario: "poner a gusto y que aparezca como
+// ya usado"). Es UNA lista editable en localStorage: se siembra con
+// las base la primera vez, se suma cada categoría nueva, y se puede
+// BORRAR cualquier pill (pedido: "dejá que borre las etiquetas ya
+// cargadas por si lo deseo"). Al borrarlas todas, no se re-siembran.
+const CLAVE_CATEGORIAS = "categorias_noticia";
 const CATEGORIAS_BASE = ["Curso", "Procedimiento", "Producto", "Capacitación", "Certificados", "Novedad", "Beneficios", "Campaña"];
 
 function categoriasRecordadas() {
-    const guardadas = getItem(CLAVE_CATEGORIAS, []);
-    const todas = [...CATEGORIAS_BASE, ...(Array.isArray(guardadas) ? guardadas : [])];
-    return [...new Set(todas.map((c) => String(c).trim()).filter(Boolean))];
+    const guardadas = getItem(CLAVE_CATEGORIAS, null);
+    // null = nunca se tocó la lista → sembrar con las base. Un array
+    // vacío guardado = el usuario las borró todas a propósito, se
+    // respeta (no se re-siembra).
+    if (!Array.isArray(guardadas)) return [...CATEGORIAS_BASE];
+    return guardadas.map((c) => String(c).trim()).filter(Boolean);
 }
 
 function recordarCategoria(categoria) {
     const c = String(categoria || "").trim();
     if (!c) return;
-    const guardadas = getItem(CLAVE_CATEGORIAS, []);
-    const lista = Array.isArray(guardadas) ? guardadas : [];
-    if (!lista.some((x) => x.toLowerCase() === c.toLowerCase()) && !CATEGORIAS_BASE.some((x) => x.toLowerCase() === c.toLowerCase())) {
+    const lista = categoriasRecordadas();
+    if (!lista.some((x) => x.toLowerCase() === c.toLowerCase())) {
         setItem(CLAVE_CATEGORIAS, [...lista, c]);
     }
+}
+
+function olvidarCategoria(categoria) {
+    const c = String(categoria || "").trim().toLowerCase();
+    setItem(CLAVE_CATEGORIAS, categoriasRecordadas().filter((x) => x.toLowerCase() !== c));
 }
 
 /** Quién puede crear una News — pedido del usuario: "el apartado de
@@ -80,6 +89,54 @@ function tipoInfo(tipoId) {
 
 function prioridadInfo(prioridadId) {
     return PRIORIDADES.find((p) => p.id === prioridadId) || PRIORIDADES[2];
+}
+
+function escaparHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/** Markdown liviano → HTML para la descripción (lo que inserta la
+ *  toolbar del compose: **negrita**, _cursiva_, [texto](url), listas
+ *  con "- "/"1. "). Escapa primero (es texto del usuario) y recién ahí
+ *  aplica el formato, así no se puede inyectar HTML. */
+function renderResumenRico(texto) {
+    const lineas = escaparHtml(texto).split("\n");
+    let html = "";
+    let enLista = null; // "ul" | "ol" | null
+    const cerrarLista = () => { if (enLista) { html += `</${enLista}>`; enLista = null; } };
+    lineas.forEach((linea) => {
+        const ul = linea.match(/^\s*-\s+(.*)/);
+        const ol = linea.match(/^\s*\d+\.\s+(.*)/);
+        if (ul) {
+            if (enLista !== "ul") { cerrarLista(); html += "<ul>"; enLista = "ul"; }
+            html += `<li>${inlineMd(ul[1])}</li>`;
+        } else if (ol) {
+            if (enLista !== "ol") { cerrarLista(); html += "<ol>"; enLista = "ol"; }
+            html += `<li>${inlineMd(ol[1])}</li>`;
+        } else {
+            cerrarLista();
+            html += linea.trim() ? `<p>${inlineMd(linea)}</p>` : "";
+        }
+    });
+    cerrarLista();
+    return html;
+}
+
+function inlineMd(s) {
+    return s
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/_([^_]+)_/g, "<em>$1</em>")
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" rel="noopener">$1</a>');
+}
+
+/** Versión en texto plano (sin marcadores) para los previews de la
+ *  lista, donde no se renderiza HTML. */
+function resumenPlano(texto) {
+    return String(texto || "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/_([^_]+)_/g, "$1")
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/^\s*(-|\d+\.)\s+/gm, "");
 }
 
 // "YYYY-MM-DD" es una fecha sin hora — leerla con new Date(str) y
@@ -116,75 +173,197 @@ function camposNotificacionHtml(n = {}, cursos = []) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
     const dirigidoActual = n.dirigidoA || "";
+    const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
 
-    // Radios de "A quién va dirigida" — News es solo para
-    // colaboradores; Supervisión + Admin siempre reciben copia (no son
-    // opción). Ver DIRIGIDO_A en data/noticias.js.
+    // Pills de categoría ya usadas — click rellena el input; cada una
+    // tiene un × para borrarla de la lista (pedido del usuario).
+    const pillsCategoria = categoriasRecordadas().map((c) => `
+        <span class="pill-categoria-wrap">
+            <button type="button" class="pill-categoria${tipoActual.toLowerCase() === c.toLowerCase() ? " activa" : ""}" data-pill-categoria="${c}">${c}</button>
+            <button type="button" class="pill-cat-borrar" data-borrar-categoria="${c}" aria-label="Borrar ${c}" title="Borrar etiqueta">×</button>
+        </span>
+    `).join("");
+
+    // Descripción de cada público objetivo, para la radio-card (ver
+    // DIRIGIDO_A en data/noticias.js). News es solo para colaboradores;
+    // Supervisión + Admin siempre reciben copia (no son opción).
+    const DESC_DIRIGIDO = {
+        "": "A todos los colaboradores de la red.",
+        "encargados-propios": "Solo encargados de locales propios.",
+        "encargados-franquicias": "Solo encargados de franquicias.",
+        "colaboradores-local": "Elegí a qué locales enviarla.",
+        "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
+    };
     const radiosDirigido = DIRIGIDO_A.map((d) => `
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:0">
-            <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" style="width:auto;flex-shrink:0" ${dirigidoActual === d.id ? "checked" : ""}>
-            ${d.nombre}
+        <label class="radio-card">
+            <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" ${dirigidoActual === d.id ? "checked" : ""}>
+            <span class="radio-card-titulo">${d.nombre}</span>
+            <span class="radio-card-desc">${DESC_DIRIGIDO[d.id] || ""}</span>
         </label>
     `).join("");
 
     return `
-        <label for="input-titulo">Título</label>
-        <input type="text" id="input-titulo" placeholder="Ej: Nuevo curso disponible" value="${n.titulo || ""}">
+        <div class="form-secciones">
 
-        <label for="input-mensaje">Descripción</label>
-        <textarea id="input-mensaje" rows="3" placeholder="Un par de líneas, con qué encontrar y dónde revisarlo...">${n.resumen || ""}</textarea>
+            <div class="form-seccion">
+                <div class="form-seccion-head">
+                    <span class="form-seccion-ico">${Icon("reportes", { size: 18 })}</span>
+                    <h3>1. Información</h3>
+                </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-            <div>
-                <label for="input-tipo">Tipo / Categoría</label>
-                <input type="text" id="input-tipo" list="lista-categorias" placeholder="Ej: Novedad, Producto..." value="${n.tipo && n.tipo !== "noticia" ? n.tipo : ""}">
-                <datalist id="lista-categorias">${opcionesCategoria}</datalist>
+                <div class="form-cols-2">
+                    <div class="form-col">
+                        <label for="input-titulo">Título</label>
+                        <input type="text" id="input-titulo" placeholder="Ej: Nuevo curso disponible" value="${n.titulo || ""}">
+
+                        <label for="input-mensaje">Descripción</label>
+                        <div class="rt-wrap">
+                            <div class="rt-toolbar" data-rt-target="input-mensaje">
+                                <button type="button" class="rt-btn" data-rt="bold" title="Negrita" style="font-weight:700">B</button>
+                                <button type="button" class="rt-btn" data-rt="italic" title="Cursiva" style="font-style:italic">I</button>
+                                <button type="button" class="rt-btn" data-rt="ul" title="Lista">${Icon("noticias", { size: 15 })}</button>
+                                <button type="button" class="rt-btn" data-rt="ol" title="Lista numerada">1.</button>
+                                <button type="button" class="rt-btn" data-rt="link" title="Enlace">${Icon("enlace", { size: 15 })}</button>
+                            </div>
+                            <textarea id="input-mensaje" rows="5" placeholder="Contá de qué se trata esta novedad...">${n.resumen || ""}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-col">
+                        <label for="input-tipo">Categoría</label>
+                        <input type="text" id="input-tipo" list="lista-categorias" placeholder="Escribí una categoría (ej: Novedad)" value="${tipoActual}">
+                        <datalist id="lista-categorias">${opcionesCategoria}</datalist>
+                        <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Elegí una etiqueta o escribí una nueva. Las nuevas quedan guardadas para reusar.</p>
+                        <div class="galeria-pills" style="margin-top:8px;margin-bottom:0">${pillsCategoria}</div>
+
+                        <label for="input-prioridad">Prioridad</label>
+                        <select id="input-prioridad">${opcionesPrioridad}</select>
+                    </div>
+                </div>
             </div>
-            <div>
-                <label for="input-prioridad">Prioridad</label>
-                <select id="input-prioridad">${opcionesPrioridad}</select>
+
+            <div class="form-seccion">
+                <div class="form-seccion-head">
+                    <span class="form-seccion-ico">${Icon("compartir", { size: 18 })}</span>
+                    <h3>2. ¿A quién va dirigida?</h3>
+                </div>
+                <p class="form-seccion-sub">La noticia se enviará al público seleccionado. Supervisión siempre recibe copia.</p>
+
+                <div class="radio-cards">${radiosDirigido}</div>
+
+                <div id="wrap-sucursal-notif" style="margin-top:14px">
+                    <label for="input-sucursal-notif" style="margin-top:0">Seleccionar locales</label>
+                    ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
+                </div>
+
+                <div class="form-info-box">
+                    ${Icon("check", { size: 16 })}
+                    <p>Supervisión siempre recibe copia automática de todas las News.</p>
+                </div>
             </div>
+
+            <div class="form-seccion">
+                <div class="form-seccion-head">
+                    <span class="form-seccion-ico">${Icon("calendario", { size: 18 })}</span>
+                    <h3>3. Publicación</h3>
+                </div>
+
+                <div class="radio-cards">
+                    <label class="radio-card">
+                        <input type="radio" name="cuando-publicar" class="input-cuando" value="ahora" ${estaProgramada(n) ? "" : "checked"}>
+                        <span class="radio-card-radio"></span>
+                        <span class="radio-card-titulo">Publicar ahora</span>
+                        <span class="radio-card-desc">La noticia se enviará inmediatamente.</span>
+                    </label>
+                    <label class="radio-card">
+                        <input type="radio" name="cuando-publicar" class="input-cuando" value="programar" ${estaProgramada(n) ? "checked" : ""}>
+                        <span class="radio-card-radio"></span>
+                        <span class="radio-card-titulo">Programar publicación <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></span>
+                        <span class="radio-card-desc">Elegí fecha y hora para que se envíe sola.</span>
+                        <span id="wrap-fecha-notif" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;display:${estaProgramada(n) ? "grid" : "none"}">
+                            <span>
+                                <label for="input-fecha" style="margin-top:0;pointer-events:none">Fecha</label>
+                                <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}" min="${fechaHoyISO()}">
+                            </span>
+                            <span>
+                                <label for="input-hora" style="margin-top:0;pointer-events:none">Hora</label>
+                                <input type="time" id="input-hora" value="${n.hora || "09:00"}">
+                            </span>
+                        </span>
+                    </label>
+                </div>
+
+                <div class="form-info-box">
+                    ${Icon("campana", { size: 16 })}
+                    <p>Si la programás, se publica sola ese día y Supervisión recibe un aviso cuando se envía.</p>
+                </div>
+            </div>
+
+            <div class="form-seccion">
+                <details>
+                    <summary>
+                        <div class="form-seccion-head" style="margin-bottom:0">
+                            <span class="form-seccion-ico">${Icon("configuracion", { size: 18 })}</span>
+                            <h3>4. Opciones avanzadas <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></h3>
+                            <span class="chevron">${Icon("flecha-der", { size: 16 })}</span>
+                        </div>
+                    </summary>
+                    <div style="margin-top:16px">
+                        <div class="form-avanzadas-3">
+                            <div>
+                                <label for="input-enlace" style="margin-top:0">Curso relacionado</label>
+                                <select id="input-enlace">
+                                    <option value="">Ninguno</option>
+                                    ${opcionesCursos}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="input-adjunto-url" style="margin-top:0">Adjunto — ruta o link</label>
+                                <input type="text" id="input-adjunto-url" placeholder="Ej: assets/docs/certificado-kosher.pdf" value="${n.adjuntoUrl || ""}">
+                            </div>
+                            <div>
+                                <label for="input-adjunto-label" style="margin-top:0">Texto del botón</label>
+                                <input type="text" id="input-adjunto-label" placeholder="Ej: Ver certificado" value="${n.adjuntoLabel || ""}">
+                            </div>
+                        </div>
+
+                        <label for="input-detalle">Detalle</label>
+                        <textarea id="input-detalle" rows="4" placeholder="Solo si hay información extensa para desplegar. Si se deja vacío, no se muestra nada extra.">${n.detalle || ""}</textarea>
+                    </div>
+                </details>
+            </div>
+
         </div>
-
-        <label>¿A quién va dirigida?</label>
-        <p class="text-xs text-muted" style="margin-top:0;margin-bottom:6px">Supervisión y Administración siempre reciben copia — no hace falta elegirlos.</p>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">${radiosDirigido}</div>
-
-        <div id="wrap-sucursal-notif" style="margin-top:12px">
-            <label for="input-sucursal-notif">Locales específicos</label>
-            ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
-        </div>
-
-        <label style="margin-top:16px">Publicación</label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:4px">
-            <input type="radio" name="cuando-publicar" class="input-cuando" value="ahora" style="width:auto;flex-shrink:0" ${estaProgramada(n) ? "" : "checked"}>
-            Publicar ahora
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:4px">
-            <input type="radio" name="cuando-publicar" class="input-cuando" value="programar" style="width:auto;flex-shrink:0" ${estaProgramada(n) ? "checked" : ""}>
-            Programar para una fecha
-        </label>
-        <div id="wrap-fecha-notif" style="margin-top:8px${estaProgramada(n) ? "" : ";display:none"}">
-            <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}" min="${fechaHoyISO()}">
-            <p class="text-xs text-muted" style="margin-top:4px">Se publica sola ese día. Supervisión recibe un aviso cuando se envía.</p>
-        </div>
-
-        <label for="input-detalle">Detalle (opcional)</label>
-        <textarea id="input-detalle" rows="4" placeholder="Solo si hay información extensa para desplegar. Si se deja vacío, no se muestra nada extra.">${n.detalle || ""}</textarea>
-
-        <label for="input-enlace">Curso relacionado (opcional)</label>
-        <select id="input-enlace">
-            <option value="">Ninguno</option>
-            ${opcionesCursos}
-        </select>
-
-        <label for="input-adjunto-url">Adjunto — ruta o link (opcional)</label>
-        <input type="text" id="input-adjunto-url" placeholder="Ej: assets/docs/certificado-kosher.pdf" value="${n.adjuntoUrl || ""}">
-
-        <label for="input-adjunto-label">Texto del botón del adjunto</label>
-        <input type="text" id="input-adjunto-label" placeholder="Ej: Ver certificado" value="${n.adjuntoLabel || ""}">
     `;
+}
+
+/** Inserta markdown liviano en un textarea desde la toolbar (B / I /
+ *  listas / link) — el detalle/descripción lo renderiza después con
+ *  renderProcedimiento. Envuelve la selección o inserta un placeholder. */
+function aplicarFormatoRico(textarea, accion) {
+    const ini = textarea.selectionStart;
+    const fin = textarea.selectionEnd;
+    const sel = textarea.value.slice(ini, fin);
+    let reemplazo = sel;
+    if (accion === "bold") reemplazo = `**${sel || "texto"}**`;
+    else if (accion === "italic") reemplazo = `_${sel || "texto"}_`;
+    else if (accion === "ul") reemplazo = (sel || "Ítem").split("\n").map((l) => `- ${l}`).join("\n");
+    else if (accion === "ol") reemplazo = (sel || "Ítem").split("\n").map((l, i) => `${i + 1}. ${l}`).join("\n");
+    else if (accion === "link") reemplazo = `[${sel || "texto"}](https://)`;
+    textarea.value = textarea.value.slice(0, ini) + reemplazo + textarea.value.slice(fin);
+    textarea.focus();
+    textarea.setSelectionRange(ini, ini + reemplazo.length);
+}
+
+function bindToolbarsRicas() {
+    document.querySelectorAll(".rt-toolbar").forEach((tb) => {
+        const textarea = document.getElementById(tb.dataset.rtTarget);
+        if (!textarea) return;
+        tb.querySelectorAll("[data-rt]").forEach((btn) => {
+            btn.addEventListener("click", () => aplicarFormatoRico(textarea, btn.dataset.rt));
+        });
+    });
 }
 
 function leerCamposNotificacion() {
@@ -198,6 +377,9 @@ function leerCamposNotificacion() {
         prioridad: document.getElementById("input-prioridad").value,
         // Publicar ahora = hoy; programar = la fecha elegida.
         fecha: publicarAhora ? fechaHoyISO() : document.getElementById("input-fecha").value,
+        // Hora solo aplica a programadas — la usará el trigger de backend
+        // (pendiente) para el envío automático. Hoy es informativa.
+        hora: publicarAhora ? "" : (document.getElementById("input-hora")?.value || ""),
         dirigidoA,
         // Los locales solo importan cuando se eligió ese modo.
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
@@ -216,7 +398,7 @@ function filaNotificacion(n, usuario, leida) {
             <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
             <span class="notif-item-body">
                 <span class="notif-item-titulo">${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
-                <span class="notif-item-resumen">${n.resumen}</span>
+                <span class="notif-item-resumen">${escaparHtml(resumenPlano(n.resumen))}</span>
             </span>
             <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
         </button>
@@ -342,18 +524,16 @@ export function bindNews() {
     // Crear News: Admin + Supervisor (no capacitador). Ver puedeCrearNoticia.
     if (puedeCrearNoticia(usuario)) {
         const btnNueva = document.getElementById("btn-nueva-notif");
-        if (btnNueva) btnNueva.addEventListener("click", () => abrirModalNotificacion());
+        if (btnNueva) btnNueva.addEventListener("click", () => navigate("newsnueva"));
     }
 
     // Editar/eliminar una News ya publicada: solo Admin (moderación).
     if (usuario.rol !== "admin") return;
 
     document.querySelectorAll("[data-editar-notif]").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
+        btn.addEventListener("click", (e) => {
             e.stopPropagation();
-            const items = await getNoticias();
-            const noti = items.find((n) => String(n.id) === String(btn.dataset.editarNotif));
-            if (noti) abrirModalNotificacion(noti);
+            navigate(`newsnueva/${btn.dataset.editarNotif}`);
         });
     });
 
@@ -384,7 +564,7 @@ function abrirDetalleNotificacion(noti, usuario) {
                 <div class="text-xs text-muted">${info.nombre} · ${formatearFecha(noti.fecha)}</div>
             </div>
         </div>
-        <p class="text-sm" style="margin-top:8px">${noti.resumen}</p>
+        <div class="text-sm texto-rico" style="margin-top:8px">${renderResumenRico(noti.resumen)}</div>
         ${noti.detalle ? `<div style="margin-top:12px">${renderProcedimiento(noti.detalle)}</div>` : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
@@ -437,7 +617,7 @@ function abrirDetalleNotificacion(noti, usuario) {
     if (usuario.rol === "admin") {
         document.querySelector(`#${modalId} [data-editar-notif]`)?.addEventListener("click", () => {
             cerrarModal(modalId);
-            abrirModalNotificacion(noti);
+            navigate(`newsnueva/${noti.id}`);
         });
         document.querySelector(`#${modalId} [data-eliminar-notif]`)?.addEventListener("click", async () => {
             if (!confirm("¿Eliminar esta notificación?")) return;
@@ -465,45 +645,68 @@ async function mandarPushDeNoticia(noticia, usuarios, sucursales) {
     }
 }
 
-async function abrirModalNotificacion(noti = null) {
+/** Página completa "Nueva News" / "Editar News" (fiel a la captura del
+ *  usuario) — reemplaza el modal anterior: header con ícono + título,
+ *  las 4 secciones en tarjetas, y una barra de acciones abajo. Ruta
+ *  #/newsnueva (crear) o #/newsnueva/:id (editar). Solo Admin+Supervisor
+ *  (no capacitador) llegan acá — ver puedeCrearNoticia y el gate en el
+ *  router/botones. */
+export async function NuevaNews(params = []) {
+    const usuario = getUsuarioActual();
+    if (!puedeCrearNoticia(usuario)) return `<p class="text-sm text-muted" style="padding:24px">No tenés permiso para crear News.</p>`;
 
-    const modalId = "modal-notif";
-    const [cursos, usuarios, sucursales] = await Promise.all([getCursos(), getUsuarios(), getSucursales()]);
-    const contenidoHtml = camposNotificacionHtml(noti || {}, cursos);
+    const id = params[0];
+    const [cursos, noticias] = await Promise.all([getCursos(), id ? getNoticias() : Promise.resolve([])]);
+    const noti = id ? noticias.find((n) => String(n.id) === String(id)) : null;
 
-    abrirModal(Modal({ id: modalId, titulo: noti ? `Editar: ${noti.titulo}` : "Nueva News", contenidoHtml, textoConfirmar: noti ? "Guardar" : "Publicar" }), modalId, async () => {
+    return `
+        <div class="compose-page-header">
+            <span class="compose-ico">${Icon("noticias", { size: 24 })}</span>
+            <div>
+                <h1>${noti ? "Editar News" : "Nueva News"}</h1>
+                <p>Informá novedades importantes a colaboradores y encargados.</p>
+            </div>
+            <button type="button" class="compose-ayuda" id="btn-ayuda-news">${Icon("alertas", { size: 16 })} ¿Cómo funciona News?</button>
+        </div>
 
-        const cambios = leerCamposNotificacion();
-        if (!cambios.titulo || !cambios.fecha) return;
+        ${camposNotificacionHtml(noti || {}, cursos)}
 
-        recordarCategoria(cambios.tipo);
-        const programada = estaProgramada(cambios);
+        <div class="compose-footer">
+            <button class="btn btn-secondary" id="btn-cancelar-news">Cancelar</button>
+            <button class="btn btn-primary" id="btn-publicar-news">${noti ? "Guardar cambios" : "Publicar"}</button>
+        </div>
+    `;
+}
 
-        const usuario = getUsuarioActual();
-        if (noti) {
-            await actualizarNoticia(noti.id, cambios);
-            registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);
-        } else {
-            await crearNoticia(cambios);
-            registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
-            // El push se manda solo si se publica AHORA. Si está
-            // programada (fecha futura), el push/aviso a Supervisión
-            // tiene que dispararse EN LA FECHA — eso necesita un
-            // trigger de tiempo en el backend (Apps Script), todavía no
-            // implementado (ver nota al pie del archivo). Sin "await":
-            // no bloquea el cierre del modal, ya atrapa sus errores.
-            if (!programada) mandarPushDeNoticia(cambios, usuarios, sucursales);
-        }
-
-        cerrarModal(modalId);
-        actualizarContadorCampana();
-        navigate("news");
-    });
+export function bindNuevaNews(params = []) {
+    const id = params && params[0];
 
     bindMultiSelectSucursales("input-sucursal-notif");
+    bindToolbarsRicas();
 
-    // Mostrar el selector de locales solo cuando el público es
-    // "Locales específicos".
+    // Pills de categoría — click rellena el input y resalta la elegida.
+    const inputTipo = document.getElementById("input-tipo");
+    document.querySelectorAll("[data-pill-categoria]").forEach((pill) => {
+        pill.addEventListener("click", () => {
+            inputTipo.value = pill.dataset.pillCategoria;
+            document.querySelectorAll("[data-pill-categoria]").forEach((p) => p.classList.remove("activa"));
+            pill.classList.add("activa");
+        });
+    });
+    inputTipo?.addEventListener("input", () => {
+        const v = inputTipo.value.trim().toLowerCase();
+        document.querySelectorAll("[data-pill-categoria]").forEach((p) => {
+            p.classList.toggle("activa", p.dataset.pillCategoria.toLowerCase() === v);
+        });
+    });
+    document.querySelectorAll("[data-borrar-categoria]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            olvidarCategoria(btn.dataset.borrarCategoria);
+            btn.closest(".pill-categoria-wrap")?.remove();
+        });
+    });
+
+    // Locales visibles solo con "Locales específicos".
     const wrapSucursal = document.getElementById("wrap-sucursal-notif");
     function actualizarWrapSucursal() {
         const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
@@ -512,14 +715,71 @@ async function abrirModalNotificacion(noti = null) {
     document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapSucursal));
     actualizarWrapSucursal();
 
-    // Mostrar el date-picker solo cuando se elige "Programar".
+    // Fecha/hora visibles solo con "Programar".
     const wrapFecha = document.getElementById("wrap-fecha-notif");
     function actualizarWrapFecha() {
         const cuando = document.querySelector(".input-cuando:checked")?.value;
-        if (wrapFecha) wrapFecha.style.display = cuando === "programar" ? "" : "none";
+        if (wrapFecha) wrapFecha.style.display = cuando === "programar" ? "grid" : "none";
     }
     document.querySelectorAll(".input-cuando").forEach((r) => r.addEventListener("change", actualizarWrapFecha));
     actualizarWrapFecha();
+
+    // El date/hora viven dentro del <label> de la card "Programar" — un
+    // click en ellos activaría el radio (ya seleccionado, inofensivo)
+    // pero además el label puede robar el foco del picker. Frenar la
+    // propagación del click deja al picker abrir tranquilo.
+    ["input-fecha", "input-hora"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("click", (e) => e.stopPropagation());
+    });
+
+    document.getElementById("btn-ayuda-news")?.addEventListener("click", () => {
+        alert("News son avisos para tu equipo. Elegí el público, escribí el mensaje y publicá ahora o programá una fecha. Supervisión siempre recibe copia.");
+    });
+
+    document.getElementById("btn-cancelar-news")?.addEventListener("click", () => navigate("news"));
+
+    const btnPublicar = document.getElementById("btn-publicar-news");
+    btnPublicar?.addEventListener("click", async () => {
+        if (btnPublicar.disabled) return;
+        const cambios = leerCamposNotificacion();
+        if (!cambios.titulo || !cambios.resumen) {
+            alert("Completá al menos el título y la descripción.");
+            return;
+        }
+        if (!cambios.fecha) { alert("Elegí una fecha de publicación."); return; }
+
+        const textoOriginal = btnPublicar.textContent;
+        btnPublicar.disabled = true;
+        btnPublicar.textContent = "Guardando...";
+
+        try {
+            recordarCategoria(cambios.tipo);
+            const programada = estaProgramada(cambios);
+            const usuario = getUsuarioActual();
+
+            if (id) {
+                await actualizarNoticia(id, cambios);
+                registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);
+            } else {
+                await crearNoticia(cambios);
+                registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
+                // Push solo si se publica AHORA (las programadas las
+                // dispara el backend el día que toca — pendiente, ver pie
+                // del archivo). Sin await: no bloquea la navegación.
+                if (!programada) {
+                    Promise.all([getUsuarios(), getSucursales()])
+                        .then(([usuarios, sucursales]) => mandarPushDeNoticia(cambios, usuarios, sucursales))
+                        .catch(() => {});
+                }
+            }
+            actualizarContadorCampana();
+            navigate("news");
+        } catch (err) {
+            alert(err.message || "No se pudo guardar. Probá de nuevo.");
+            btnPublicar.disabled = false;
+            btnPublicar.textContent = textoOriginal;
+        }
+    });
 }
 
 /* ============================================================

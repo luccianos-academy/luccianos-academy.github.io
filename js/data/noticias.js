@@ -34,11 +34,15 @@ import { getSucursales } from "./sucursales.js";
 //   "encargados-propios"   → encargados de locales propios (dinámico, Sucursales.esPropio)
 //   "encargados-franquicias" → encargados de franquicias (por descarte)
 //   "colaboradores-local"  → colaboradores de los locales elegidos (campo "sucursal")
+//   "solo-admin"           → NADIE más que Admin (prueba) — pedido
+//                            explícito del usuario: poder probar el
+//                            flujo sin enviarle a ningún colaborador.
 export const DIRIGIDO_A = [
     { id: "", nombre: "Todos los colaboradores" },
     { id: "encargados-propios", nombre: "Encargados — Locales propios" },
     { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
     { id: "colaboradores-local", nombre: "Locales específicos" },
+    { id: "solo-admin", nombre: "Solo Admin (prueba)" },
 ];
 
 export const TIPOS_NOTIFICACION = [
@@ -76,6 +80,10 @@ function normalizarNoticia(f) {
         adjuntoLabel: String(f.adjuntoLabel || "").trim(),
         tipo: String(f.tipo || "noticia").trim() || "noticia",
         prioridad: String(f.prioridad || "info").trim() || "info",
+        // Hora de envío para noticias PROGRAMADAS ("HH:MM") — la usará
+        // el trigger de backend (pendiente) para el envío automático.
+        // Vacío en las que se publican al toque.
+        hora: String(f.hora || "").trim(),
         // A quién apunta (ver DIRIGIDO_A). Vacío = todos los
         // colaboradores. Reemplaza al viejo "visiblePara" (por rol) —
         // las filas viejas con visiblePara se leen igual acá (fallback)
@@ -99,10 +107,15 @@ function normalizarNoticia(f) {
  *  para los modos propios/franquicias (miran Sucursales.esPropio); si
  *  no se pasa, esos modos no matchean a nadie (criterio conservador). */
 export function puedeVerNoticia(noticia, usuario, sucursales = []) {
-    if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
-
-    // De acá en adelante, usuario es colaborador (encargado o no).
     const dirigidoA = String(noticia.dirigidoA || "").trim();
+
+    // "Solo Admin (prueba)": NADIE más que Admin — ni siquiera
+    // Supervisión, que normalmente recibe copia de todo. Es el modo de
+    // prueba para no molestar a nadie mientras se arma una News.
+    if (dirigidoA === "solo-admin") return usuario.rol === "admin";
+
+    // Supervisión y Admin ven/reciben copia de TODO el resto.
+    if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
 
     // Compat: noticias viejas sin dirigidoA pero con visiblePara/sucursal
     // por el modelo anterior — se respetan como estaban.
@@ -180,13 +193,14 @@ export async function getNoticiasVisibles(usuario) {
     return todas.filter((n) => !estaProgramada(n) && puedeVerNoticia(n, usuario, sucursales));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora }) {
     return writeSheet(HOJAS.NOTICIAS, {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
         adjuntoUrl: adjuntoUrl || "", adjuntoLabel: adjuntoLabel || "",
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
+        hora: hora || "",
         leidoPor: "",
     }, noticiasMock);
 }

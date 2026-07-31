@@ -956,6 +956,401 @@
     gap:10px;
 }
 
+/* ── Formulario por secciones (compose de News, estilo captura del
+   usuario) — secciones numeradas en tarjetas, radio-cards para elegir
+   destinatario/publicación, caja de info. El modal que lo contiene se
+   ensancha vía :has() (mismo recurso ya usado en responsive.css). */
+.modal:has(.form-secciones){
+    max-width:780px;
+}
+
+.form-secciones{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.form-seccion{
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:18px 18px 20px;
+    background:var(--bg);
+}
+
+/* Estilo de los controles de formulario DENTRO de las secciones — hace
+   falta acá aparte de .modal-body porque el compose de News ahora es una
+   PÁGINA completa, no un modal, así que las reglas .modal-body no lo
+   alcanzan (sin esto los inputs salían sin estilo, labels inline). */
+.form-seccion label{
+    display:block;
+    font-size:13px;
+    color:var(--muted);
+    margin-top:16px;
+    margin-bottom:6px;
+}
+.form-seccion input,
+.form-seccion select,
+.form-seccion textarea{
+    width:100%;
+    padding:11px 14px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    font-size:14px;
+    font-family:inherit;
+    background:var(--card);
+    color:var(--text);
+}
+.form-seccion input::placeholder,
+.form-seccion textarea::placeholder{
+    color:var(--muted);
+}
+.form-seccion select option{
+    background:var(--card);
+    color:var(--text);
+}
+.form-seccion textarea{
+    resize:vertical;
+    min-height:60px;
+}
+/* Los radios/checks nativos no deben estirarse al 100% como los inputs
+   de texto. */
+.form-seccion input[type="radio"],
+.form-seccion input[type="checkbox"]{
+    width:auto;
+}
+.form-seccion .form-seccion-head + label,
+.form-seccion .form-seccion-sub + label,
+.form-seccion .form-col > label:first-child,
+.form-seccion .radio-cards + * label:first-child{
+    margin-top:0;
+}
+
+/* Layout de 2 columnas para la sección "Información" (como la captura:
+   Título+Descripción a la izquierda, Categoría+Prioridad a la derecha). */
+.form-cols-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+.form-col{
+    min-width:0;
+}
+.form-col > label:first-child{
+    margin-top:0;
+}
+
+.form-seccion-head{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:16px;
+}
+
+/* Ícono de sección (documento / compartir / calendario / engranaje),
+   como en la captura — cuadrado suave a la izquierda del título. */
+.form-seccion-ico{
+    flex-shrink:0;
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.form-seccion-num{
+    flex-shrink:0;
+    width:26px;
+    height:26px;
+    border-radius:50%;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+}
+
+.form-seccion-head h3{
+    margin:0;
+    font-size:15px;
+}
+
+.form-seccion-sub{
+    font-size:12.5px;
+    color:var(--muted);
+    margin:0 0 12px;
+    line-height:1.4;
+}
+
+/* Grid de tarjetas seleccionables (destinatario, publicación) sobre
+   un radio nativo escondido — la tarjeta entera es el área clickeable. */
+.radio-cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+    gap:10px;
+}
+
+.radio-card{
+    position:relative;
+    display:block;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.radio-card:hover{
+    border-color:var(--gold);
+}
+
+.radio-card input{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+}
+
+/* Indicador circular (radio custom) arriba a la izquierda de cada
+   tarjeta, como en la captura. */
+.radio-card-radio{
+    display:block;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    margin-bottom:12px;
+    transition:var(--transition);
+}
+
+.radio-card-titulo{
+    display:block;
+    font-size:14px;
+    font-weight:700;
+    color:var(--text);
+    margin-bottom:4px;
+}
+
+.radio-card-desc{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.4;
+}
+
+.radio-card:has(input:checked){
+    border-color:var(--gold);
+    background:var(--gold-soft);
+}
+
+.radio-card:has(input:checked) .radio-card-titulo{
+    color:var(--gold-deep);
+}
+
+.radio-card:has(input:checked) .radio-card-radio{
+    border-color:var(--gold);
+    background:radial-gradient(circle, var(--gold) 0 5px, transparent 6px);
+}
+
+/* Caja de info al pie de una sección (ej. "Supervisión siempre recibe
+   copia"). */
+.form-info-box{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-top:14px;
+    padding:12px 14px;
+    border:1px solid var(--gold);
+    background:var(--gold-soft);
+    border-radius:var(--radius-sm);
+}
+
+.form-info-box svg{
+    flex-shrink:0;
+    color:var(--gold-deep);
+    margin-top:1px;
+}
+
+.form-info-box p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--text);
+    line-height:1.45;
+}
+
+/* Pill de categoría con botón de borrar (×) — pedido del usuario:
+   "dejá que borre las etiquetas ya cargadas por si lo deseo". El × vive
+   dentro del pill, a la derecha del texto. */
+.pill-categoria-wrap{
+    display:inline-flex;
+    align-items:center;
+}
+.pill-cat-borrar{
+    border:none;
+    background:none;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:0 0 0 4px;
+    margin-left:2px;
+}
+.pill-categoria-wrap .pill-categoria{
+    display:inline-flex;
+    align-items:center;
+    gap:2px;
+}
+.pill-cat-borrar:hover{
+    color:var(--danger);
+}
+
+/* "Opciones avanzadas" colapsable (como la captura). */
+.form-seccion details > summary{
+    list-style:none;
+    cursor:pointer;
+}
+.form-seccion details > summary::-webkit-details-marker{
+    display:none;
+}
+.form-seccion details[open] .form-seccion-head .chevron{
+    transform:rotate(180deg);
+}
+.form-seccion .chevron{
+    margin-left:auto;
+    color:var(--muted);
+    transition:var(--transition);
+}
+
+/* En pantallas angostas, la sección de 2 columnas se apila. */
+@media (max-width:600px){
+    .form-cols-2{
+        grid-template-columns:1fr;
+        gap:0;
+    }
+    .form-col > label:first-child{
+        margin-top:16px;
+    }
+    .form-cols-2 > .form-col:first-child > label:first-child{
+        margin-top:0;
+    }
+    .form-avanzadas-3{
+        grid-template-columns:1fr !important;
+    }
+}
+
+/* Grilla de 3 columnas para "Opciones avanzadas" (Curso / Adjunto /
+   Texto del botón), como en la captura. */
+.form-avanzadas-3{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:16px;
+}
+.form-avanzadas-3 > div > label:first-child{
+    margin-top:0;
+}
+
+/* ── Página "Nueva News" (compose full-page, fiel a la captura) ── */
+.compose-page-header{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    margin-bottom:22px;
+}
+.compose-page-header .compose-ico{
+    flex-shrink:0;
+    width:44px;
+    height:44px;
+    border-radius:12px;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.compose-page-header h1{
+    font-size:26px;
+    margin:0;
+}
+.compose-page-header p{
+    margin:2px 0 0;
+    color:var(--muted);
+    font-size:13.5px;
+}
+.compose-page-header .compose-ayuda{
+    margin-left:auto;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    color:var(--muted);
+    font-size:13px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    flex-shrink:0;
+}
+.compose-page-header .compose-ayuda:hover{
+    color:var(--text);
+}
+
+/* Barra de acciones al pie (Cancelar / Guardar borrador / Publicar). */
+.compose-footer{
+    position:sticky;
+    bottom:0;
+    display:flex;
+    justify-content:center;
+    gap:12px;
+    padding:16px 0;
+    margin-top:20px;
+    background:linear-gradient(to top, var(--bg) 70%, transparent);
+    flex-wrap:wrap;
+}
+.compose-footer .btn{
+    width:auto;
+    min-width:150px;
+}
+
+/* Editor de descripción con barra de formato (B / I / listas / link).
+   Inserta markdown liviano en el textarea; el detalle lo renderiza. */
+.rt-wrap{
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:var(--card);
+}
+.rt-toolbar{
+    display:flex;
+    align-items:center;
+    gap:2px;
+    padding:6px 8px;
+    border-bottom:1px solid var(--line);
+    background:var(--bg);
+}
+.rt-btn{
+    width:30px;
+    height:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:none;
+    background:none;
+    color:var(--muted);
+    cursor:pointer;
+    border-radius:6px;
+    font-size:14px;
+}
+.rt-btn:hover{
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+}
+.rt-wrap textarea{
+    border:none !important;
+    border-radius:0 !important;
+    margin:0 !important;
+}
+
 /* TABLE */
 
 .table-wrapper{

@@ -170,6 +170,11 @@ const PERMISOS_PAGINA = {
     // anterior de esta sesión, revertido acá). El targeting por
     // Encargado propio/franquicia vive ahora en News, no acá.
     coordinacionoperativa: ["admin", "supervisor"],
+    // Crear/editar News (página compose) — Admin + Supervisor (el
+    // filtro fino de Capacitador lo hace puedeCrearNoticia en la propia
+    // página). La ruta "news" (leer) sigue abierta a cualquier
+    // autenticado. Sin esto, un Colaborador podría entrar tipeando el hash.
+    newsnueva: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
 };

@@ -33,7 +33,7 @@ import { MisEvaluaciones } from "./pages/misEvaluaciones.js";
 import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js";
 import { Reportes, bindReportes } from "./pages/reportes.js";
 import { Historia, bindHistoria } from "./pages/historia.js";
-import { News, bindNews } from "./pages/news.js";
+import { News, bindNews, NuevaNews, bindNuevaNews } from "./pages/news.js";
 import { CoordinacionOperativa, bindCoordinacionOperativa } from "./pages/coordinacionOperativa.js";
 import { Recursos, bindRecursos } from "./pages/recursos.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
@@ -67,6 +67,7 @@ const RUTAS = {
     integraciones: { render: Integraciones },
     historia:      { render: Historia, bind: bindHistoria },
     news:      { render: News, bind: bindNews },
+    newsnueva: { render: NuevaNews, bind: bindNuevaNews },
     coordinacionoperativa: { render: CoordinacionOperativa, bind: bindCoordinacionOperativa },
     recursos:      { render: Recursos, bind: bindRecursos },
     manuales:      { render: Manuales, bind: bindManuales },
