@@ -13,6 +13,7 @@
 =============================*/
 
 import { Header } from "../components/header.js";
+import { Icon } from "../components/icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { marcarHistoriaVista } from "../data/usuarios.js";
 
@@ -47,7 +48,12 @@ export async function Historia() {
     // el render de la página por esto, y si falla (red lenta, etc.)
     // el gate simplemente se vuelve a activar la próxima vez.
     const usuario = getUsuarioActual();
-    if (usuario && usuario.rol === "colaborador" && !usuario.historiaVista) {
+    // Guardado ANTES de marcarHistoriaVista (que es async y no
+    // bloquea el render) — así el aviso de abajo refleja si el gate
+    // seguía activo cuando la persona llegó acá, no si ya se marcó
+    // en el ratito que tardó el fetch.
+    const gateEstabaActivo = usuario && usuario.rol === "colaborador" && !usuario.historiaVista;
+    if (gateEstabaActivo) {
         marcarHistoriaVista(usuario.id).catch(() => {});
     }
 
@@ -69,6 +75,16 @@ export async function Historia() {
 
     return `
         ${Header("Nuestra Historia", "Lucciano's es una empresa familiar que nace a partir del deseo de atender al segmento de consumidores más exigentes de helado artesanal de Argentina.")}
+
+        ${gateEstabaActivo ? `
+            <div class="aviso-historia">
+                ${Icon("idea", { size: 20 })}
+                <div>
+                    <strong>Antes de arrancar tu formación</strong>
+                    <p>Te pedimos ver esta página una vez — no hace falta completar nada más acá. Después vas a poder entrar a Academia y rendir tus evaluaciones con normalidad.</p>
+                </div>
+            </div>
+        ` : ""}
 
         <div class="section">
             <div class="grid-2-1">

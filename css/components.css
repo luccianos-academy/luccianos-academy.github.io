@@ -3354,6 +3354,41 @@ table.data-table tbody tr:hover{
     }
 }
 
+/* Aviso en "Nuestra Historia" (pages/historia.js) — explica la regla
+   de gate ("Colaborador tiene que abrir esta página una vez antes de
+   entrar a Academia/rendir examen", ver router.js) que hasta ahora
+   era invisible: la persona caía acá redirigida sin ningún cartel
+   que le dijera por qué. Se muestra solo mientras el gate sigue
+   activo para ella (historiaVista todavía en false). */
+.aviso-historia{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    background:var(--gold-soft);
+    border:1px solid var(--gold);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:20px;
+}
+
+.aviso-historia svg{
+    flex-shrink:0;
+    color:var(--gold-deep);
+    margin-top:2px;
+}
+
+.aviso-historia strong{
+    display:block;
+    margin-bottom:4px;
+    color:var(--text);
+}
+
+.aviso-historia p{
+    font-size:13px;
+    color:var(--muted);
+    margin:0;
+}
+
 /* Progreso mini (colaboradores.js) — barra + % compacto para tablas
    de equipo, con Sin datos/atrasado/en curso/al día a simple vista. */
 
