@@ -36,6 +36,7 @@ import {
 import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
+import { getSucursales } from "../data/sucursales.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
@@ -52,6 +53,16 @@ function formatearFechaHora(iso) {
 
 function iniciales(nombre) {
     return String(nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
+}
+
+/** Etiqueta de rol para la lista de "Miembros con acceso" — antes
+ *  asumía admin/supervisor nada más (antes de los canales de
+ *  Encargados no había otra opción); ahora un canal puede tener
+ *  Encargados como audiencia real. */
+function rolLegibleCanal(u) {
+    if (u.rol === "admin") return "Administración";
+    if (u.rol === "supervisor") return u.capacitador ? "Capacitador" : "Supervisor";
+    return u.encargado ? "Encargado/a" : "Colaborador";
 }
 
 export async function CoordinacionOperativa(params = []) {
@@ -101,12 +112,17 @@ async function vistaListaCanales() {
 async function vistaCanal(canalId) {
     const info = await canalInfo(canalId);
     const usuario = getUsuarioActual();
+    // "encargados-propios"/"encargados-franquicias" necesitan mirar
+    // Sucursales.esPropio para resolver puedeVerCanal — se prefetchea
+    // ACÁ (antes del gate de abajo) para que ni el chequeo de acceso
+    // ni el conteo de miembros más abajo se queden sin este dato.
+    const sucursales = await getSucursales();
 
     // Blindaje contra acceso directo por URL a un canal restringido
     // (ej. un Supervisor tipeando #/coordinacionoperativa/5 de
     // Capacitación) — el link ni siquiera aparece en la lista, pero
     // esto lo cierra también si alguien conoce/adivina el id.
-    if (!puedeVerCanal(info, usuario)) {
+    if (!puedeVerCanal(info, usuario, sucursales)) {
         return `
             <div class="canal-header-nav">
                 <a href="#/coordinacionoperativa" class="btn btn-secondary" style="width:auto">← Canales</a>
@@ -116,11 +132,12 @@ async function vistaCanal(canalId) {
     }
 
     const [publicaciones, usuarios] = await Promise.all([getPublicacionesDeCanal(canalId), getUsuarios()]);
-    // "Miembros" = quiénes de gestión (admin/supervisor) pueden ver
-    // ESTE canal puntual — mismo filtro que ya usa "Leído por" más
-    // abajo, no una lista guardada aparte (ver plan: sin modelo de
-    // datos nuevo para esto).
-    const miembros = usuarios.filter((u) => (u.rol === "admin" || u.rol === "supervisor") && puedeVerCanal(info, u));
+    // "Miembros" = quiénes pueden ver ESTE canal puntual — mismo
+    // filtro que ya usa "Leído por" más abajo, no una lista guardada
+    // aparte (ver plan: sin modelo de datos nuevo para esto). Ya no
+    // se limita a admin/supervisor a mano: puedeVerCanal solo, para
+    // que los canales de Encargados cuenten bien a su propia audiencia.
+    const miembros = usuarios.filter((u) => puedeVerCanal(info, u, sucursales));
 
     const itemsHtml = publicaciones.length
         ? publicaciones.map((p) => filaPublicacion(p, usuario)).join("")
@@ -136,7 +153,7 @@ async function vistaCanal(canalId) {
                             <span class="publicacion-avatar publicacion-avatar-sm">${iniciales(m.nombre)}</span>
                             ${m.nombre}
                         </span>
-                        <span class="text-xs text-muted">${m.rol === "admin" ? "Administración" : m.capacitador ? "Capacitador" : "Supervisor"}</span>
+                        <span class="text-xs text-muted">${rolLegibleCanal(m)}</span>
                     </div>
                 `).join("")}
             </div>
@@ -280,10 +297,11 @@ function abrirDetallePublicacion(p) {
     }
 
     async function contenidoActual() {
-        const [comentarios, usuarios, canalDeLaPublicacion] = await Promise.all([
+        const [comentarios, usuarios, canalDeLaPublicacion, sucursales] = await Promise.all([
             getComentariosDePublicacion(p.id),
             getUsuarios(),
             canalInfo(p.canal),
+            getSucursales(),
         ]);
         // Bug real reportado por el usuario: esto antes era TODO
         // admin+supervisor sin importar el canal ("Solo Capacitadores"
@@ -291,7 +309,10 @@ function abrirDetallePublicacion(p) {
         // canal (vistaCanal, más arriba) ya filtraba bien con
         // puedeVerCanal, pero acá abajo el "Leído por" usaba una
         // lista aparte que nunca miraba la restricción del canal.
-        const supervisoresYAdmin = usuarios.filter((u) => puedeVerCanal(canalDeLaPublicacion, u) && (u.rol === "admin" || u.rol === "supervisor"));
+        // Ya no se acota a admin/supervisor a mano tampoco: un canal
+        // de Encargados necesita que su audiencia real (Encargados)
+        // aparezca acá, no una lista de gestión que no le corresponde.
+        const supervisoresYAdmin = usuarios.filter((u) => puedeVerCanal(canalDeLaPublicacion, u, sucursales));
         const leidoIds = String(p.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
 
         return `
@@ -438,8 +459,8 @@ function abrirDetallePublicacion(p) {
  *  configurada). No bloquea la publicación si el push falla. */
 async function mandarPushDePublicacion(canalObj, titulo, mensaje) {
     try {
-        const usuarios = await getUsuarios();
-        const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u)).map((u) => u.id);
+        const [usuarios, sucursales] = await Promise.all([getUsuarios(), getSucursales()]);
+        const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u, sucursales)).map((u) => u.id);
         if (destinatarios.length) await mandarPush(destinatarios, titulo, mensaje, `#/coordinacionoperativa/${canalObj.id}`);
     } catch (err) {
         console.warn("No se pudo mandar el push de la publicación:", err.message);

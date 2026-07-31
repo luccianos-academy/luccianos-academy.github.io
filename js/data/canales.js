@@ -30,11 +30,22 @@
    algo cargado, gana por sobre "restringidoA" (mismo criterio "el
    local gana" que ya usa Manuales) — son modos alternativos, no se
    combinan.
+
+   "restringidoA" también acepta "encargados-propios"/
+   "encargados-franquicias" — a diferencia de "sucursal" (una lista
+   fija elegida a mano), esto se resuelve DINÁMICAMENTE contra
+   Sucursales.esPropio (data/sucursales.js) en cada chequeo: un local
+   nuevo cae del lado correcto solo con marcarlo como propio o no,
+   sin volver a tocar el canal. Pedido explícito del usuario: "por
+   descarte los que no sean propios serán franquicias, y aunque no
+   estén cargados, si en algún momento se decide sumar a esos
+   encargados estarán incluidos".
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { canalesMock } from "./mock/canales.mock.js";
 import { HOJAS } from "../config.js";
+import { getSucursales } from "./sucursales.js";
 
 // Set acotado para el selector de ícono al crear/editar un canal —
 // mismos íconos ya usados por los canales de ejemplo, no hace falta
@@ -61,6 +72,8 @@ export const VISIBILIDAD_CANAL = [
     { id: "supervisor", nombre: "Solo Supervisores" },
     { id: "capacitador", nombre: "Solo Capacitadores" },
     { id: "admin", nombre: "Solo Admin (pruebas)" },
+    { id: "encargados-propios", nombre: "Encargados — Locales propios" },
+    { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
 ];
 
 function normalizarCanal(f) {
@@ -74,7 +87,14 @@ function normalizarCanal(f) {
     };
 }
 
-export function puedeVerCanal(canal, usuario) {
+/** sucursales es opcional — solo hace falta para resolver
+ *  "encargados-propios"/"encargados-franquicias" (necesitan mirar
+ *  Sucursales.esPropio). Si no se pasa, esos dos modos simplemente no
+ *  matchean a nadie (mismo criterio conservador que "sin dato, no se
+ *  muestra" en vez de asumir). Quien llama en un `.filter()` la trae
+ *  prefetcheada UNA vez, mismo patrón que sucursalesPrefetch en
+ *  data/sucursales.js. */
+export function puedeVerCanal(canal, usuario, sucursales = []) {
     if (usuario.rol === "admin") return true;
 
     const locales = String(canal.sucursal || "").trim();
@@ -88,6 +108,12 @@ export function puedeVerCanal(canal, usuario) {
     if (restriccion === "admin") return false;
     if (restriccion === "capacitador") return usuario.rol === "supervisor" && !!usuario.capacitador;
     if (restriccion === "supervisor") return usuario.rol === "supervisor" && !usuario.capacitador;
+    if (restriccion === "encargados-propios" || restriccion === "encargados-franquicias") {
+        if (usuario.rol !== "colaborador" || !usuario.encargado) return false;
+        const sucursal = sucursales.find((s) => s.nombre === usuario.sucursal);
+        const esPropio = !!(sucursal && sucursal.esPropio);
+        return restriccion === "encargados-propios" ? esPropio : !esPropio;
+    }
     return true;
 }
 
@@ -104,9 +130,9 @@ export async function getCanales() {
 /** Canales que un usuario puede VER — Admin ve todos (gestión); el
  *  resto queda filtrado por puedeVerCanal. */
 export async function getCanalesVisibles(usuario) {
-    const todos = await getCanales();
-    if (usuario.rol === "admin") return todos;
-    return todos.filter((c) => puedeVerCanal(c, usuario));
+    if (usuario.rol === "admin") return getCanales();
+    const [todos, sucursales] = await Promise.all([getCanales(), getSucursales()]);
+    return todos.filter((c) => puedeVerCanal(c, usuario, sucursales));
 }
 
 export async function canalInfo(canalId) {

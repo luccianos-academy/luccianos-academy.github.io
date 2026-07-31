@@ -12,7 +12,14 @@
 =============================*/
 
 export const sucursalesMock = [
-    { id: 1, nombre: "Lucciano's Martinez GBA", supervisor: "Tomás Ojeda", estado: "Activa" },
+    // esPropio: TODAVÍA no hay una lista real del usuario (pendiente,
+    // ver [[project_faro_canales_roles_destinatarios]]) — Martinez GBA
+    // queda marcado acá SOLO para poder mostrar el canal "Nuestros
+    // locales" (Encargados — propios) funcionando de punta a punta en
+    // modo demo. Reemplazar por la clasificación real apenas el
+    // usuario la mande; el resto de los 99 locales quedan sin marcar
+    // (= franquicia por descarte, el default real).
+    { id: 1, nombre: "Lucciano's Martinez GBA", supervisor: "Tomás Ojeda", estado: "Activa", esPropio: "SI" },
     { id: 2, nombre: "Lucciano's Olivos GBA", supervisor: "Tomás Ojeda", estado: "Activa" },
     { id: 3, nombre: "Lucciano's Parque Avellaneda Shopping GBA", supervisor: "", estado: "Activa" },
     { id: 4, nombre: "Lucciano's Ituzaingo GBA", supervisor: "", estado: "Activa" },

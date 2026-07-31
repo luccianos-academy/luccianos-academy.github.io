@@ -22,10 +22,24 @@ function badgeEstado(local) {
         : `<span class="badge badge-muted">Inactiva</span>`;
 }
 
+// Propio vs franquicia — usado por los canales de Comunicaciones
+// "Encargados — Locales propios/Franquicias" (ver data/canales.js,
+// puedeVerCanal). Por descarte: si no está marcado como propio, es
+// franquicia — mismo criterio pedido explícito del usuario.
+function badgeTipo(local) {
+    return local.esPropio
+        ? `<span class="badge badge-success">Propio</span>`
+        : `<span class="badge badge-muted">Franquicia</span>`;
+}
+
 function filaAcciones(local) {
-    return local.estado === "Activa"
+    const estadoBtn = local.estado === "Activa"
         ? `<button class="btn btn-secondary" data-desactivar="${local.id}">Desactivar</button>`
         : `<button class="btn btn-primary" data-activar="${local.id}">Activar</button>`;
+    const tipoBtn = local.esPropio
+        ? `<button class="btn btn-secondary" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
+        : `<button class="btn btn-secondary" data-marcar-propio="${local.id}">Marcar propio</button>`;
+    return `<span style="display:flex;gap:8px;flex-wrap:wrap">${estadoBtn}${tipoBtn}</span>`;
 }
 
 export async function Locales() {
@@ -35,6 +49,7 @@ export async function Locales() {
     const columnas = [
         { key: "nombre", label: "Local" },
         { key: "supervisor", label: "Supervisor" },
+        { key: "tipoBadge", label: "Tipo" },
         { key: "estadoBadge", label: "Estado" },
         { key: "acciones", label: "" },
     ];
@@ -42,6 +57,7 @@ export async function Locales() {
     const filas = locales.map((l) => ({
         ...l,
         supervisor: l.supervisor || "—",
+        tipoBadge: badgeTipo(l),
         estadoBadge: badgeEstado(l),
         acciones: filaAcciones(l),
     }));
@@ -89,6 +105,22 @@ export function bindLocales() {
         });
     });
 
+    document.querySelectorAll("[data-marcar-propio]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            await actualizarSucursal(btn.dataset.marcarPropio, { esPropio: "SI" });
+            registrarEvento(getUsuarioActual().id, "editar_local", `Local marcado como propio (id ${btn.dataset.marcarPropio})`);
+            navigate("locales");
+        });
+    });
+
+    document.querySelectorAll("[data-marcar-franquicia]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            await actualizarSucursal(btn.dataset.marcarFranquicia, { esPropio: "NO" });
+            registrarEvento(getUsuarioActual().id, "editar_local", `Local marcado como franquicia (id ${btn.dataset.marcarFranquicia})`);
+            navigate("locales");
+        });
+    });
+
     const btnNuevo = document.getElementById("btn-nuevo-local");
     if (btnNuevo) btnNuevo.addEventListener("click", abrirModalNuevoLocal);
 }
@@ -109,16 +141,22 @@ async function abrirModalNuevoLocal() {
             <option value="">Sin asignar</option>
             ${supervisores.map((s) => `<option value="${s.nombre}">${s.nombre}</option>`).join("")}
         </select>
+
+        <label class="toggle-switch" style="margin-top:16px">
+            Local propio (no franquicia)
+            <input type="checkbox" id="input-es-propio">
+        </label>
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Nuevo local", contenidoHtml, textoConfirmar: "Crear" }), modalId, async () => {
 
         const nombre = document.getElementById("input-nombre").value.trim();
         const supervisor = document.getElementById("input-supervisor").value;
+        const esPropio = document.getElementById("input-es-propio").checked;
 
         if (!nombre) return;
 
-        await crearSucursal({ nombre, supervisor, estado: "Activa" });
+        await crearSucursal({ nombre, supervisor, estado: "Activa", esPropio });
         registrarEvento(getUsuarioActual().id, "crear_local", `Alta de local ${nombre}`);
 
         cerrarModal(modalId);

@@ -18,6 +18,16 @@ function normalizarSucursal(f) {
         // falta una hoja nueva, solo interpretar el campo como lista.
         supervisor: f.supervisor || "",
         estado: f.estado || "Activa",
+        // Propio vs franquicia — pedido explícito del usuario: "por
+        // descarte los que no sean propios serán franquicias", o sea
+        // que el default (celda vacía o cualquier cosa que no sea
+        // "SI") es franquicia, no al revés. Usado por
+        // data/canales.js (puedeVerCanal) para los canales
+        // "Encargados — Locales propios/Franquicias": como se resuelve
+        // dinámicamente acá (no una lista fija guardada en el canal),
+        // un local nuevo cae solo del lado correcto apenas se carga,
+        // sin tener que volver a tocar ningún canal.
+        esPropio: String(f.esPropio || "").trim().toUpperCase() === "SI",
     };
 }
 
@@ -31,8 +41,8 @@ export async function getSucursales() {
     }
 }
 
-export async function crearSucursal({ nombre, supervisor = "", estado = "Activa" }) {
-    return writeSheet(HOJAS.SUCURSALES, { nombre, supervisor, estado }, sucursalesMock);
+export async function crearSucursal({ nombre, supervisor = "", estado = "Activa", esPropio = false }) {
+    return writeSheet(HOJAS.SUCURSALES, { nombre, supervisor, estado, esPropio: esPropio ? "SI" : "NO" }, sucursalesMock);
 }
 
 export async function actualizarSucursal(id, cambios) {
