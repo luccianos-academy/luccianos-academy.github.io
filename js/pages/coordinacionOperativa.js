@@ -21,7 +21,6 @@
    el id de curso.
 =============================*/
 
-import { Header } from "../components/header.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
@@ -102,7 +101,14 @@ async function vistaListaCanales() {
     }).join("");
 
     return `
-        ${Header("Comunicaciones", "Canales de comunicación")}
+        <div class="compose-page-header">
+            <span class="compose-ico">${Icon("comentario", { size: 24 })}</span>
+            <div>
+                <h1>Comunicaciones</h1>
+                <p>Canales de comunicación entre administración y supervisión.</p>
+            </div>
+            <button type="button" class="compose-ayuda" id="btn-ayuda-comunicaciones">${Icon("alertas", { size: 16 })} ¿Cómo funciona?</button>
+        </div>
 
         <div class="table-toolbar">
             <div></div>
@@ -236,6 +242,16 @@ export function bindCoordinacionOperativa(params = []) {
     const usuario = getUsuarioActual();
 
     document.getElementById("btn-gestionar-canales")?.addEventListener("click", () => abrirModalGestionarCanales());
+
+    document.getElementById("btn-ayuda-comunicaciones")?.addEventListener("click", () => {
+        alert(
+            "Comunicaciones es el canal entre administración y supervisión.\n\n" +
+            "• Solo Administración crea y organiza los canales.\n" +
+            "• Supervisión puede publicar dentro de un canal.\n" +
+            "• Capacitación solo puede ver y comentar.\n\n" +
+            "Cada publicación puede llevar un adjunto (por ahora, un link)."
+        );
+    });
 
     // Tabs Publicaciones/Información del header del canal — mismo
     // patrón simple que ya usa News (mostrar/ocultar paneles ya

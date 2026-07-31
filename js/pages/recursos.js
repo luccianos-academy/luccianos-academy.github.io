@@ -5,9 +5,10 @@
    Reemplaza el Google Sites que armó el equipo de Operaciones a mano
    (un menú de links a Sheets/Drive: Auditorías, Claims, Ponderados de
    Google, Relevamientos, etc.) por una versión editable adentro de la
-   app: Admin Y Supervisor agregan/renombran/borran accesos desde acá
-   (mismo criterio que Canales — el Admin no tiene que ser el único
-   que gestiona esto), sin depender de otra herramienta aparte ni de
+   app: SOLO Admin agrega/renombra/borra accesos desde acá (pedido
+   explícito del usuario: "solo yo puedo agregar o quitar, nadie pone
+   ni quita ni edita nada"). El resto solo VE los recursos que le
+   corresponden por rol, sin depender de otra herramienta aparte ni de
    un cambio de código.
 
    "visiblePara" (data/recursos.js) es una lista de roles, no un solo
@@ -16,7 +17,6 @@
    roles que se cargue a futuro (ver VISIBILIDAD_RECURSO_PRESETS).
 =============================*/
 
-import { Header } from "../components/header.js";
 import { abrirModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
@@ -53,7 +53,14 @@ export async function Recursos() {
     `).join("");
 
     return `
-        ${Header("Recursos", "Accesos rápidos a herramientas operativas")}
+        <div class="compose-page-header">
+            <span class="compose-ico">${Icon("integraciones", { size: 24 })}</span>
+            <div>
+                <h1>Recursos</h1>
+                <p>Accesos rápidos a herramientas operativas.</p>
+            </div>
+            <button type="button" class="compose-ayuda" id="btn-ayuda-recursos">${Icon("alertas", { size: 16 })} ¿Cómo funciona?</button>
+        </div>
 
         ${puedeGestionar ? `
             <div class="table-toolbar">
@@ -70,6 +77,15 @@ export async function Recursos() {
 
 export function bindRecursos() {
     document.getElementById("btn-gestionar-recursos")?.addEventListener("click", () => abrirModalGestionarRecursos());
+
+    document.getElementById("btn-ayuda-recursos")?.addEventListener("click", () => {
+        alert(
+            "Recursos son los accesos rápidos a herramientas operativas (Sheets, Drive, formularios, etc.).\n\n" +
+            "• Solo Administración agrega, edita o quita recursos.\n" +
+            "• El resto solo ve los que le corresponden por su rol.\n\n" +
+            "¿Necesitás sumar un acceso? Pasame el link y lo cargo."
+        );
+    });
 }
 
 async function abrirModalGestionarRecursos() {
