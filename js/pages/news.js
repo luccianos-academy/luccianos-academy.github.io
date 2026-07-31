@@ -55,7 +55,9 @@ function categoriasRecordadas() {
 
 function recordarCategoria(categoria) {
     const c = String(categoria || "").trim();
-    if (!c) return;
+    // "noticia" es el tipo por defecto cuando no se elige categoría —
+    // no es una etiqueta real, no debe quedar guardada como pill.
+    if (!c || c.toLowerCase() === "noticia") return;
     const lista = categoriasRecordadas();
     if (!lista.some((x) => x.toLowerCase() === c.toLowerCase())) {
         setItem(CLAVE_CATEGORIAS, [...lista, c]);
@@ -93,50 +95,6 @@ function prioridadInfo(prioridadId) {
 
 function escaparHtml(s) {
     return String(s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-}
-
-/** Markdown liviano → HTML para la descripción (lo que inserta la
- *  toolbar del compose: **negrita**, _cursiva_, [texto](url), listas
- *  con "- "/"1. "). Escapa primero (es texto del usuario) y recién ahí
- *  aplica el formato, así no se puede inyectar HTML. */
-function renderResumenRico(texto) {
-    const lineas = escaparHtml(texto).split("\n");
-    let html = "";
-    let enLista = null; // "ul" | "ol" | null
-    const cerrarLista = () => { if (enLista) { html += `</${enLista}>`; enLista = null; } };
-    lineas.forEach((linea) => {
-        const ul = linea.match(/^\s*-\s+(.*)/);
-        const ol = linea.match(/^\s*\d+\.\s+(.*)/);
-        if (ul) {
-            if (enLista !== "ul") { cerrarLista(); html += "<ul>"; enLista = "ul"; }
-            html += `<li>${inlineMd(ul[1])}</li>`;
-        } else if (ol) {
-            if (enLista !== "ol") { cerrarLista(); html += "<ol>"; enLista = "ol"; }
-            html += `<li>${inlineMd(ol[1])}</li>`;
-        } else {
-            cerrarLista();
-            html += linea.trim() ? `<p>${inlineMd(linea)}</p>` : "";
-        }
-    });
-    cerrarLista();
-    return html;
-}
-
-function inlineMd(s) {
-    return s
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(/_([^_]+)_/g, "<em>$1</em>")
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" rel="noopener">$1</a>');
-}
-
-/** Versión en texto plano (sin marcadores) para los previews de la
- *  lista, donde no se renderiza HTML. */
-function resumenPlano(texto) {
-    return String(texto || "")
-        .replace(/\*\*([^*]+)\*\*/g, "$1")
-        .replace(/_([^_]+)_/g, "$1")
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-        .replace(/^\s*(-|\d+\.)\s+/gm, "");
 }
 
 // "YYYY-MM-DD" es una fecha sin hora — leerla con new Date(str) y
@@ -218,16 +176,7 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                         <input type="text" id="input-titulo" placeholder="Ej: Nuevo curso disponible" value="${n.titulo || ""}">
 
                         <label for="input-mensaje">Descripción</label>
-                        <div class="rt-wrap">
-                            <div class="rt-toolbar" data-rt-target="input-mensaje">
-                                <button type="button" class="rt-btn" data-rt="bold" title="Negrita" style="font-weight:700">B</button>
-                                <button type="button" class="rt-btn" data-rt="italic" title="Cursiva" style="font-style:italic">I</button>
-                                <button type="button" class="rt-btn" data-rt="ul" title="Lista">${Icon("noticias", { size: 15 })}</button>
-                                <button type="button" class="rt-btn" data-rt="ol" title="Lista numerada">1.</button>
-                                <button type="button" class="rt-btn" data-rt="link" title="Enlace">${Icon("enlace", { size: 15 })}</button>
-                            </div>
-                            <textarea id="input-mensaje" rows="5" placeholder="Contá de qué se trata esta novedad...">${n.resumen || ""}</textarea>
-                        </div>
+                        <textarea id="input-mensaje" rows="6" placeholder="Contá de qué se trata esta novedad...">${n.resumen || ""}</textarea>
                     </div>
 
                     <div class="form-col">
@@ -338,34 +287,6 @@ function camposNotificacionHtml(n = {}, cursos = []) {
     `;
 }
 
-/** Inserta markdown liviano en un textarea desde la toolbar (B / I /
- *  listas / link) — el detalle/descripción lo renderiza después con
- *  renderProcedimiento. Envuelve la selección o inserta un placeholder. */
-function aplicarFormatoRico(textarea, accion) {
-    const ini = textarea.selectionStart;
-    const fin = textarea.selectionEnd;
-    const sel = textarea.value.slice(ini, fin);
-    let reemplazo = sel;
-    if (accion === "bold") reemplazo = `**${sel || "texto"}**`;
-    else if (accion === "italic") reemplazo = `_${sel || "texto"}_`;
-    else if (accion === "ul") reemplazo = (sel || "Ítem").split("\n").map((l) => `- ${l}`).join("\n");
-    else if (accion === "ol") reemplazo = (sel || "Ítem").split("\n").map((l, i) => `${i + 1}. ${l}`).join("\n");
-    else if (accion === "link") reemplazo = `[${sel || "texto"}](https://)`;
-    textarea.value = textarea.value.slice(0, ini) + reemplazo + textarea.value.slice(fin);
-    textarea.focus();
-    textarea.setSelectionRange(ini, ini + reemplazo.length);
-}
-
-function bindToolbarsRicas() {
-    document.querySelectorAll(".rt-toolbar").forEach((tb) => {
-        const textarea = document.getElementById(tb.dataset.rtTarget);
-        if (!textarea) return;
-        tb.querySelectorAll("[data-rt]").forEach((btn) => {
-            btn.addEventListener("click", () => aplicarFormatoRico(textarea, btn.dataset.rt));
-        });
-    });
-}
-
 function leerCamposNotificacion() {
     const dirigidoA = document.querySelector(".input-dirigido-a:checked")?.value || "";
     const publicarAhora = document.querySelector(".input-cuando:checked")?.value !== "programar";
@@ -398,7 +319,7 @@ function filaNotificacion(n, usuario, leida) {
             <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
             <span class="notif-item-body">
                 <span class="notif-item-titulo">${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
-                <span class="notif-item-resumen">${escaparHtml(resumenPlano(n.resumen))}</span>
+                <span class="notif-item-resumen">${escaparHtml(n.resumen)}</span>
             </span>
             <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
         </button>
@@ -564,7 +485,7 @@ function abrirDetalleNotificacion(noti, usuario) {
                 <div class="text-xs text-muted">${info.nombre} · ${formatearFecha(noti.fecha)}</div>
             </div>
         </div>
-        <div class="text-sm texto-rico" style="margin-top:8px">${renderResumenRico(noti.resumen)}</div>
+        <p class="text-sm" style="margin-top:8px;white-space:pre-wrap">${escaparHtml(noti.resumen)}</p>
         ${noti.detalle ? `<div style="margin-top:12px">${renderProcedimiento(noti.detalle)}</div>` : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
@@ -682,7 +603,6 @@ export function bindNuevaNews(params = []) {
     const id = params && params[0];
 
     bindMultiSelectSucursales("input-sucursal-notif");
-    bindToolbarsRicas();
 
     // Pills de categoría — click rellena el input y resalta la elegida.
     const inputTipo = document.getElementById("input-tipo");
