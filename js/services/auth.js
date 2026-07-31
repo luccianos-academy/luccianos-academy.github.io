@@ -163,12 +163,12 @@ const PERMISOS_PAGINA = {
     configuracion:  ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
-    // "Comunicaciones" es Admin ↔ Supervisor (incluye Capacitador,
-    // que es rol "supervisor") por defecto — Encargado suma acceso
-    // acotado más abajo (puedeAccederA), mismo patrón que
-    // "colaboradores"/Mi local: solo ve los canales restringidos a su
-    // propia sucursal (ver puedeVerCanal, data/canales.js), nunca los
-    // de rol supervisor/capacitador.
+    // "Comunicaciones" es exclusivamente Admin ↔ Supervisor (incluye
+    // Capacitador, que es rol "supervisor") — pedido explícito del
+    // usuario: "esa función es solo para supervisor y admin", nunca
+    // Colaborador/Encargado (eso quedó mal alcanzado en un pase
+    // anterior de esta sesión, revertido acá). El targeting por
+    // Encargado propio/franquicia vive ahora en News, no acá.
     coordinacionoperativa: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
@@ -180,11 +180,6 @@ export function puedeAccederA(pagina) {
     // Encargado (colaborador con encargado=true) suma acceso a la
     // pantalla de equipo, acotada a su sucursal — ver pages/colaboradores.js.
     if (pagina === "colaboradores" && usuario.rol === "colaborador" && usuario.encargado) return true;
-    // Mismo criterio para Comunicaciones — entra a la pantalla, pero
-    // getCanalesVisibles/puedeVerCanal (data/canales.js) ya se
-    // encargan de que solo vea los canales restringidos a su propia
-    // sucursal, nunca los de supervisor/capacitador.
-    if (pagina === "coordinacionoperativa" && usuario.rol === "colaborador" && usuario.encargado) return true;
     const rolesPermitidos = PERMISOS_PAGINA[pagina];
     if (!rolesPermitidos) return true;
     return rolesPermitidos.includes(usuario.rol);

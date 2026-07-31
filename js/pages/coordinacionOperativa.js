@@ -34,9 +34,7 @@ import {
     getComentariosDePublicacion, crearComentario, toggleLikeComentario, estaLikeadoComentario,
 } from "../data/comentarios.js";
 import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
-import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
-import { getSucursales } from "../data/sucursales.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
@@ -55,14 +53,20 @@ function iniciales(nombre) {
     return String(nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
 }
 
-/** Etiqueta de rol para la lista de "Miembros con acceso" — antes
- *  asumía admin/supervisor nada más (antes de los canales de
- *  Encargados no había otra opción); ahora un canal puede tener
- *  Encargados como audiencia real. */
+/** Etiqueta de rol para la lista de "Miembros con acceso" — Comunicaciones
+ *  es exclusivamente Admin/Supervisor, nunca Colaborador. */
 function rolLegibleCanal(u) {
     if (u.rol === "admin") return "Administración";
-    if (u.rol === "supervisor") return u.capacitador ? "Capacitador" : "Supervisor";
-    return u.encargado ? "Encargado/a" : "Colaborador";
+    return u.capacitador ? "Capacitador" : "Supervisor";
+}
+
+/** Quién puede publicar en un canal — pedido explícito del usuario:
+ *  "supervisores solo pueden subir una publicación, capacitador solo
+ *  ver y comentar". Capacitador es un Supervisor con capacitador:true
+ *  (ver data/usuarios.js) — por eso se excluye a mano acá, no alcanza
+ *  con chequear el rol solo. */
+function puedeCrearPublicacion(usuario) {
+    return usuario.rol === "admin" || (usuario.rol === "supervisor" && !usuario.capacitador);
 }
 
 export async function CoordinacionOperativa(params = []) {
@@ -102,7 +106,7 @@ async function vistaListaCanales() {
 
         <div class="table-toolbar">
             <div></div>
-            <button class="btn btn-secondary" id="btn-gestionar-canales">Gestionar canales</button>
+            ${usuario.rol === "admin" ? `<button class="btn btn-secondary" id="btn-gestionar-canales">Gestionar canales</button>` : ""}
         </div>
 
         <div class="section notif-lista">${filasHtml || `<p class="text-sm text-muted">Todavía no hay canales — creá el primero.</p>`}</div>
@@ -112,17 +116,12 @@ async function vistaListaCanales() {
 async function vistaCanal(canalId) {
     const info = await canalInfo(canalId);
     const usuario = getUsuarioActual();
-    // "encargados-propios"/"encargados-franquicias" necesitan mirar
-    // Sucursales.esPropio para resolver puedeVerCanal — se prefetchea
-    // ACÁ (antes del gate de abajo) para que ni el chequeo de acceso
-    // ni el conteo de miembros más abajo se queden sin este dato.
-    const sucursales = await getSucursales();
 
     // Blindaje contra acceso directo por URL a un canal restringido
     // (ej. un Supervisor tipeando #/coordinacionoperativa/5 de
     // Capacitación) — el link ni siquiera aparece en la lista, pero
     // esto lo cierra también si alguien conoce/adivina el id.
-    if (!puedeVerCanal(info, usuario, sucursales)) {
+    if (!puedeVerCanal(info, usuario)) {
         return `
             <div class="canal-header-nav">
                 <a href="#/coordinacionoperativa" class="btn btn-secondary" style="width:auto">← Canales</a>
@@ -132,12 +131,10 @@ async function vistaCanal(canalId) {
     }
 
     const [publicaciones, usuarios] = await Promise.all([getPublicacionesDeCanal(canalId), getUsuarios()]);
-    // "Miembros" = quiénes pueden ver ESTE canal puntual — mismo
-    // filtro que ya usa "Leído por" más abajo, no una lista guardada
-    // aparte (ver plan: sin modelo de datos nuevo para esto). Ya no
-    // se limita a admin/supervisor a mano: puedeVerCanal solo, para
-    // que los canales de Encargados cuenten bien a su propia audiencia.
-    const miembros = usuarios.filter((u) => puedeVerCanal(info, u, sucursales));
+    // "Miembros" = quiénes de gestión (admin/supervisor) pueden ver
+    // ESTE canal puntual — mismo filtro que ya usa "Leído por" más
+    // abajo, no una lista guardada aparte.
+    const miembros = usuarios.filter((u) => (u.rol === "admin" || u.rol === "supervisor") && puedeVerCanal(info, u));
 
     const itemsHtml = publicaciones.length
         ? publicaciones.map((p) => filaPublicacion(p, usuario)).join("")
@@ -181,7 +178,7 @@ async function vistaCanal(canalId) {
         <div data-canal-panel="publicaciones">
             <div class="table-toolbar">
                 <div></div>
-                <button class="btn btn-primary" id="btn-nueva-publicacion" data-canal="${canalId}">+ Nueva publicación</button>
+                ${puedeCrearPublicacion(usuario) ? `<button class="btn btn-primary" id="btn-nueva-publicacion" data-canal="${canalId}">+ Nueva publicación</button>` : ""}
             </div>
             <div class="section" style="display:flex;flex-direction:column;gap:14px" id="lista-publicaciones">${itemsHtml}</div>
         </div>
@@ -297,11 +294,10 @@ function abrirDetallePublicacion(p) {
     }
 
     async function contenidoActual() {
-        const [comentarios, usuarios, canalDeLaPublicacion, sucursales] = await Promise.all([
+        const [comentarios, usuarios, canalDeLaPublicacion] = await Promise.all([
             getComentariosDePublicacion(p.id),
             getUsuarios(),
             canalInfo(p.canal),
-            getSucursales(),
         ]);
         // Bug real reportado por el usuario: esto antes era TODO
         // admin+supervisor sin importar el canal ("Solo Capacitadores"
@@ -309,10 +305,7 @@ function abrirDetallePublicacion(p) {
         // canal (vistaCanal, más arriba) ya filtraba bien con
         // puedeVerCanal, pero acá abajo el "Leído por" usaba una
         // lista aparte que nunca miraba la restricción del canal.
-        // Ya no se acota a admin/supervisor a mano tampoco: un canal
-        // de Encargados necesita que su audiencia real (Encargados)
-        // aparezca acá, no una lista de gestión que no le corresponde.
-        const supervisoresYAdmin = usuarios.filter((u) => puedeVerCanal(canalDeLaPublicacion, u, sucursales));
+        const supervisoresYAdmin = usuarios.filter((u) => puedeVerCanal(canalDeLaPublicacion, u) && (u.rol === "admin" || u.rol === "supervisor"));
         const leidoIds = String(p.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
 
         return `
@@ -459,8 +452,8 @@ function abrirDetallePublicacion(p) {
  *  configurada). No bloquea la publicación si el push falla. */
 async function mandarPushDePublicacion(canalObj, titulo, mensaje) {
     try {
-        const [usuarios, sucursales] = await Promise.all([getUsuarios(), getSucursales()]);
-        const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u, sucursales)).map((u) => u.id);
+        const usuarios = await getUsuarios();
+        const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u)).map((u) => u.id);
         if (destinatarios.length) await mandarPush(destinatarios, titulo, mensaje, `#/coordinacionoperativa/${canalObj.id}`);
     } catch (err) {
         console.warn("No se pudo mandar el push de la publicación:", err.message);
@@ -644,22 +637,19 @@ async function abrirModalEditarPublicacion(p) {
     bindAdjuntoTipos("icono-adjunto-editar-pub");
 }
 
-/** Gestión de canales — Admin y Supervisor pueden crear/renombrar;
- *  eliminar queda solo para Admin (un canal con publicaciones reales
- *  adentro es más delicado de borrar que crearlo). Todo vive en la
+/** Gestión de canales — exclusivamente Admin (pedido explícito del
+ *  usuario: "yo solo puedo crear canales"; Supervisor solo publica,
+ *  ver puedeCrearPublicacion). El botón que abre este modal ya está
+ *  gateado a admin-only en vistaListaCanales, así que nadie más llega
+ *  hasta acá — sin chequeo de rol duplicado adentro. Todo vive en la
  *  hoja "Canales" (data/canales.js), no en el código — un canal
- *  nuevo queda disponible al toque para cualquiera, sin deploy. */
+ *  nuevo queda disponible al toque, sin deploy. */
 async function abrirModalGestionarCanales() {
     const modalId = "modal-gestionar-canales";
     const usuario = getUsuarioActual();
-    // Compartida entre contenidoActual() (la llena) y bindAcciones()
-    // (la usa para bindear los selectores de chips) — evita pedir
-    // getCanalesVisibles() dos veces en cada render.
-    let canalesActuales = [];
 
     async function contenidoActual() {
         const canales = await getCanalesVisibles(usuario);
-        canalesActuales = canales;
         return `
             <div class="canal-gestion-lista">
                 ${canales.map((c) => `
@@ -673,10 +663,8 @@ async function abrirModalGestionarCanales() {
                                 ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === c.restringidoA ? " selected" : ""}>${v.nombre}</option>`).join("")}
                             </select>
                             <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
-                            ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
+                            <button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>
                         </div>
-                        <label class="text-xs text-muted" style="margin-top:6px;display:block">O restringir a sucursales puntuales (Encargados de esos locales, propios o franquicia) — vacío usa el desplegable de arriba</label>
-                        ${MultiSelectSucursales(`input-canal-sucursal-${c.id}`, c.sucursal ? c.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
                     </div>
                 `).join("")}
             </div>
@@ -686,14 +674,12 @@ async function abrirModalGestionarCanales() {
                 <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
                     ${ICONOS_CANAL.map((i) => `<option value="${i.id}">${i.nombre}</option>`).join("")}
                 </select>
-                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Franquicias" style="flex:1 1 140px">
+                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1 1 140px">
                 <select id="input-nuevo-canal-visibilidad" style="flex:0 0 160px">
                     ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}">${v.nombre}</option>`).join("")}
                 </select>
                 <button class="btn btn-primary" id="btn-crear-canal" style="flex:0 0 auto">Crear</button>
             </div>
-            <label class="text-xs text-muted" style="margin-top:6px;display:block">O restringir el nuevo canal a sucursales puntuales (Encargados) — vacío usa el desplegable de arriba</label>
-            ${MultiSelectSucursales("input-nuevo-canal-sucursal")}
         `;
     }
 
@@ -718,16 +704,15 @@ async function abrirModalGestionarCanales() {
         await bindAcciones();
     }
 
-    async function bindAcciones() {
+    function bindAcciones() {
         document.querySelectorAll("[data-guardar-canal]").forEach((btn) => {
             btn.addEventListener("click", async () => {
                 const id = btn.dataset.guardarCanal;
                 const input = document.querySelector(`.input-canal-nombre[data-canal-id="${id}"]`);
                 const selectVisibilidad = document.querySelector(`.input-canal-visibilidad[data-canal-id="${id}"]`);
-                const sucursal = document.getElementById(`input-canal-sucursal-${id}`)?.value || "";
                 const nombre = input.value.trim();
                 if (!nombre) return;
-                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value, sucursal });
+                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value });
                 registrarEvento(usuario.id, "editar_canal", `Canal "${nombre}" actualizado`);
                 await reRender();
             });
@@ -747,21 +732,12 @@ async function abrirModalGestionarCanales() {
             if (!nombre) return;
             const icono = document.getElementById("input-nuevo-canal-icono").value;
             const restringidoA = document.getElementById("input-nuevo-canal-visibilidad").value;
-            const sucursal = document.getElementById("input-nuevo-canal-sucursal")?.value || "";
-            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA, sucursal });
+            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA });
             registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
             await reRender();
         });
-
-        // Un selector de chips por canal (más el del formulario "Nuevo
-        // canal") — cada uno necesita su propio bind, mismo mecanismo
-        // que ya usa Manuales para un solo campo.
-        await Promise.all([
-            ...canalesActuales.map((c) => bindMultiSelectSucursales(`input-canal-sucursal-${c.id}`)),
-            bindMultiSelectSucursales("input-nuevo-canal-sucursal"),
-        ]);
     }
-    await bindAcciones();
+    bindAcciones();
 
     // Al cerrar este modal, la lista de canales de fondo puede haber
     // cambiado (uno nuevo, uno renombrado) — se refresca la pantalla.

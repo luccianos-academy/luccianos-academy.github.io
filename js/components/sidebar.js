@@ -91,16 +91,17 @@ export function Sidebar(rutaActiva = "inicio") {
 
     // Encargado suma "Mi local" (misma pantalla que usa el Supervisor,
     // acotada a su propia sucursal — incluye el Semáforo de desempeño
-    // arriba de la tabla de gestión, ver pages/colaboradores.js) y
-    // "Comunicaciones" (acotada a los canales restringidos a su
-    // sucursal, ver puedeVerCanal en data/canales.js) sin agregar un
-    // 4to nivel a MENU_POR_ROL — ver services/auth.js. Se inserta
-    // antes de "perfil" (no al final) para que "Mi perfil" siga
-    // siendo siempre el último ítem del menú.
+    // arriba de la tabla de gestión, ver pages/colaboradores.js) sin
+    // agregar un 4to nivel a MENU_POR_ROL — ver services/auth.js. Se
+    // inserta antes de "perfil" (no al final) para que "Mi perfil"
+    // siga siendo siempre el último ítem del menú. Comunicaciones NO
+    // se suma acá — es exclusivamente Admin/Supervisor, pedido
+    // explícito del usuario (revertido tras un pase anterior que lo
+    // había sumado por error).
     const idsDelMenu = [...(MENU_POR_ROL[usuario.rol] || ["inicio"])];
     if (esEncargado) {
         const posPerfil = idsDelMenu.indexOf("perfil");
-        idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "colaboradores", "coordinacionoperativa");
+        idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "colaboradores");
     }
 
     // { activo, texto } por id de módulo — misma fuente que usa
