@@ -22,32 +22,60 @@ import { renderProcedimiento } from "../components/procedimiento.js";
 import { Icon } from "../components/icons.js";
 import {
     getNoticias, getNoticiasVisibles, crearNoticia, actualizarNoticia, eliminarNoticia,
-    marcarNotificacionLeida, estaLeida, puedeVerNoticia, TIPOS_NOTIFICACION, PRIORIDADES,
+    marcarNotificacionLeida, estaLeida, puedeVerNoticia, estaProgramada,
+    TIPOS_NOTIFICACION, PRIORIDADES, DIRIGIDO_A,
 } from "../data/noticias.js";
 import { getCursos } from "../data/cursos.js";
 import { getUsuarios } from "../data/usuarios.js";
+import { getSucursales } from "../data/sucursales.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { getItem, setItem } from "../services/storage.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
 
-// "capacitador"/"encargado" no son roles reales (ver data/usuarios.js)
-// — son flags sobre supervisor/colaborador — mismo criterio que ya usa
-// Manuales para poder dirigir contenido solo a ese subgrupo sin que lo
-// vea cualquier Supervisor/Colaborador. Agregar un rol nuevo el día de
-// mañana es sumar una fila acá + el caso especial en puedeVerNoticia
-// si hace falta (data/noticias.js), nada más.
-const ROLES_COMPARTIR = [
-    { id: "colaborador", label: "Colaborador" },
-    { id: "encargado",   label: "Encargado" },
-    { id: "supervisor",  label: "Supervisor" },
-    { id: "capacitador", label: "Capacitador" },
-    { id: "admin",       label: "Admin" },
-];
+// Categorías de noticia usadas antes — texto libre, pero se recuerdan
+// para autocompletar la próxima vez (pedido del usuario: "danos la
+// posibilidad de poner a gusto y una vez puesto que aparezca como ya
+// usado"). Semilla con las categorías base; se suma cada nueva.
+const CLAVE_CATEGORIAS = "categorias_noticia_usadas";
+const CATEGORIAS_BASE = ["Curso", "Procedimiento", "Producto", "Capacitación", "Certificados", "Novedad", "Beneficios", "Campaña"];
+
+function categoriasRecordadas() {
+    const guardadas = getItem(CLAVE_CATEGORIAS, []);
+    const todas = [...CATEGORIAS_BASE, ...(Array.isArray(guardadas) ? guardadas : [])];
+    return [...new Set(todas.map((c) => String(c).trim()).filter(Boolean))];
+}
+
+function recordarCategoria(categoria) {
+    const c = String(categoria || "").trim();
+    if (!c) return;
+    const guardadas = getItem(CLAVE_CATEGORIAS, []);
+    const lista = Array.isArray(guardadas) ? guardadas : [];
+    if (!lista.some((x) => x.toLowerCase() === c.toLowerCase()) && !CATEGORIAS_BASE.some((x) => x.toLowerCase() === c.toLowerCase())) {
+        setItem(CLAVE_CATEGORIAS, [...lista, c]);
+    }
+}
+
+/** Quién puede crear una News — pedido del usuario: "el apartado de
+ *  News es el que solo supervisor puede crear". Admin también (gestiona
+ *  todo). Capacitador queda afuera (es Supervisor con flag, pero su
+ *  regla es solo ver/comentar). Editar/eliminar una News ya publicada
+ *  queda solo para Admin (moderación) — News no guarda autor. */
+function puedeCrearNoticia(usuario) {
+    return usuario.rol === "admin" || (usuario.rol === "supervisor" && !usuario.capacitador);
+}
 
 function tipoInfo(tipoId) {
-    return TIPOS_NOTIFICACION.find((t) => t.id === tipoId) || TIPOS_NOTIFICACION[0];
+    const conocido = TIPOS_NOTIFICACION.find((t) => t.id === tipoId);
+    if (conocido) return conocido;
+    // Categoría de texto libre (ej. "Novedad", "Producto") — se
+    // muestra tal cual la escribió el usuario, con el ícono genérico
+    // de noticia. "noticia"/"" caen al primer tipo base.
+    const texto = String(tipoId || "").trim();
+    if (!texto || texto === "noticia") return TIPOS_NOTIFICACION[0];
+    return { icono: "noticias", nombre: texto };
 }
 
 function prioridadInfo(prioridadId) {
@@ -84,34 +112,34 @@ function etiquetaGrupo(fecha) {
     return formatearFecha(fecha);
 }
 
-function camposNotificacionHtml(n = {}, cursos = [], usuarios = []) {
+function camposNotificacionHtml(n = {}, cursos = []) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
-    const opcionesTipo = TIPOS_NOTIFICACION.map((t) => `<option value="${t.id}"${(n.tipo || "noticia") === t.id ? " selected" : ""}>${t.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
-    const rolesActuales = n.visiblePara ? n.visiblePara.split(",").map((r) => r.trim()) : [];
-    const checkboxesHtml = ROLES_COMPARTIR.map((r) => `
+    const dirigidoActual = n.dirigidoA || "";
+    const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
+
+    // Radios de "A quién va dirigida" — News es solo para
+    // colaboradores; Supervisión + Admin siempre reciben copia (no son
+    // opción). Ver DIRIGIDO_A en data/noticias.js.
+    const radiosDirigido = DIRIGIDO_A.map((d) => `
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:0">
-            <input type="checkbox" class="input-compartir-rol" value="${r.id}" style="width:auto;flex-shrink:0" ${rolesActuales.includes(r.id) ? "checked" : ""}>
-            ${r.label}
+            <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" style="width:auto;flex-shrink:0" ${dirigidoActual === d.id ? "checked" : ""}>
+            ${d.nombre}
         </label>
     `).join("");
-    const opcionesUsuarios = usuarios
-        .slice()
-        .sort((a, b) => a.nombre.localeCompare(b.nombre))
-        .map((u) => `<option value="${u.id}"${String(n.destinatarioId) === String(u.id) ? " selected" : ""}>${u.nombre} (${u.rol})</option>`)
-        .join("");
 
     return `
         <label for="input-titulo">Título</label>
         <input type="text" id="input-titulo" placeholder="Ej: Nuevo curso disponible" value="${n.titulo || ""}">
 
-        <label for="input-mensaje">Mensaje</label>
+        <label for="input-mensaje">Descripción</label>
         <textarea id="input-mensaje" rows="3" placeholder="Un par de líneas, con qué encontrar y dónde revisarlo...">${n.resumen || ""}</textarea>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
             <div>
                 <label for="input-tipo">Tipo / Categoría</label>
-                <select id="input-tipo">${opcionesTipo}</select>
+                <input type="text" id="input-tipo" list="lista-categorias" placeholder="Ej: Novedad, Producto..." value="${n.tipo && n.tipo !== "noticia" ? n.tipo : ""}">
+                <datalist id="lista-categorias">${opcionesCategoria}</datalist>
             </div>
             <div>
                 <label for="input-prioridad">Prioridad</label>
@@ -119,22 +147,28 @@ function camposNotificacionHtml(n = {}, cursos = [], usuarios = []) {
             </div>
         </div>
 
-        <label for="input-fecha">Fecha</label>
-        <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}">
+        <label>¿A quién va dirigida?</label>
+        <p class="text-xs text-muted" style="margin-top:0;margin-bottom:6px">Supervisión y Administración siempre reciben copia — no hace falta elegirlos.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px">${radiosDirigido}</div>
 
-        <label>Público</label>
-        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">${checkboxesHtml}</div>
-        <p class="text-xs text-muted" style="margin-top:4px">Sin marcar nada = todos los usuarios. Colaborador = toda la red. O elegí locales específicos abajo.</p>
+        <div id="wrap-sucursal-notif" style="margin-top:12px">
+            <label for="input-sucursal-notif">Locales específicos</label>
+            ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
+        </div>
 
-        <label for="input-sucursal-notif">Locales específicos (opcional)</label>
-        ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
-
-        <label for="input-destinatario-especifico">Destinatario específico (opcional)</label>
-        <select id="input-destinatario-especifico">
-            <option value="">Ninguno — usar Público/Locales de arriba</option>
-            ${opcionesUsuarios}
-        </select>
-        <p class="text-xs text-muted" style="margin-top:4px">Si elegís una persona acá, la noticia va SOLO para ella — pisa el Público y los Locales de arriba.</p>
+        <label style="margin-top:16px">Publicación</label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:4px">
+            <input type="radio" name="cuando-publicar" class="input-cuando" value="ahora" style="width:auto;flex-shrink:0" ${estaProgramada(n) ? "" : "checked"}>
+            Publicar ahora
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:4px">
+            <input type="radio" name="cuando-publicar" class="input-cuando" value="programar" style="width:auto;flex-shrink:0" ${estaProgramada(n) ? "checked" : ""}>
+            Programar para una fecha
+        </label>
+        <div id="wrap-fecha-notif" style="margin-top:8px${estaProgramada(n) ? "" : ";display:none"}">
+            <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}" min="${fechaHoyISO()}">
+            <p class="text-xs text-muted" style="margin-top:4px">Se publica sola ese día. Supervisión recibe un aviso cuando se envía.</p>
+        </div>
 
         <label for="input-detalle">Detalle (opcional)</label>
         <textarea id="input-detalle" rows="4" placeholder="Solo si hay información extensa para desplegar. Si se deja vacío, no se muestra nada extra.">${n.detalle || ""}</textarea>
@@ -154,16 +188,19 @@ function camposNotificacionHtml(n = {}, cursos = [], usuarios = []) {
 }
 
 function leerCamposNotificacion() {
-    const rolesElegidos = Array.from(document.querySelectorAll(".input-compartir-rol:checked")).map((c) => c.value);
+    const dirigidoA = document.querySelector(".input-dirigido-a:checked")?.value || "";
+    const publicarAhora = document.querySelector(".input-cuando:checked")?.value !== "programar";
+    const tipo = document.getElementById("input-tipo").value.trim() || "noticia";
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         resumen: document.getElementById("input-mensaje").value.trim(),
-        tipo: document.getElementById("input-tipo").value,
+        tipo,
         prioridad: document.getElementById("input-prioridad").value,
-        fecha: document.getElementById("input-fecha").value,
-        visiblePara: rolesElegidos.join(","),
-        sucursal: document.getElementById("input-sucursal-notif").value.trim(),
-        destinatarioId: document.getElementById("input-destinatario-especifico").value,
+        // Publicar ahora = hoy; programar = la fecha elegida.
+        fecha: publicarAhora ? fechaHoyISO() : document.getElementById("input-fecha").value,
+        dirigidoA,
+        // Los locales solo importan cuando se eligió ese modo.
+        sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         detalle: document.getElementById("input-detalle").value.trim(),
         enlace: document.getElementById("input-enlace").value,
         adjuntoUrl: document.getElementById("input-adjunto-url").value.trim(),
@@ -190,6 +227,7 @@ export async function News() {
 
     const usuario = getUsuarioActual();
     const esAdmin = usuario.rol === "admin";
+    const puedeCrear = puedeCrearNoticia(usuario);
     const [items, cursos] = await Promise.all([getNoticiasVisibles(usuario), getCursos()]);
 
     const noLeidas = items.filter((n) => !estaLeida(n, usuario.id));
@@ -232,7 +270,7 @@ export async function News() {
             </div>
             <span style="display:flex;gap:10px;flex-wrap:wrap">
                 ${noLeidas.length ? `<button class="btn btn-secondary" id="btn-marcar-todas">Marcar todas como leídas</button>` : ""}
-                ${esAdmin ? `<button class="btn btn-primary" id="btn-nueva-notif">+ Nueva notificación</button>` : ""}
+                ${puedeCrear ? `<button class="btn btn-primary" id="btn-nueva-notif">+ Nueva News</button>` : ""}
             </span>
         </div>
 
@@ -301,10 +339,14 @@ export function bindNews() {
         });
     }
 
-    if (usuario.rol !== "admin") return;
+    // Crear News: Admin + Supervisor (no capacitador). Ver puedeCrearNoticia.
+    if (puedeCrearNoticia(usuario)) {
+        const btnNueva = document.getElementById("btn-nueva-notif");
+        if (btnNueva) btnNueva.addEventListener("click", () => abrirModalNotificacion());
+    }
 
-    const btnNueva = document.getElementById("btn-nueva-notif");
-    if (btnNueva) btnNueva.addEventListener("click", () => abrirModalNotificacion());
+    // Editar/eliminar una News ya publicada: solo Admin (moderación).
+    if (usuario.rol !== "admin") return;
 
     document.querySelectorAll("[data-editar-notif]").forEach((btn) => {
         btn.addEventListener("click", async (e) => {
@@ -414,9 +456,9 @@ function abrirDetalleNotificacion(noti, usuario) {
  *  bloquea la creación si el envío falla (modo demo, red, un token
  *  vencido) — la noticia ya quedó guardada de todas formas, un push
  *  fallido no debería perder el contenido. */
-async function mandarPushDeNoticia(noticia, usuarios) {
+async function mandarPushDeNoticia(noticia, usuarios, sucursales) {
     try {
-        const destinatarios = usuarios.filter((u) => puedeVerNoticia(noticia, u)).map((u) => u.id);
+        const destinatarios = usuarios.filter((u) => puedeVerNoticia(noticia, u, sucursales)).map((u) => u.id);
         if (destinatarios.length) await mandarPush(destinatarios, noticia.titulo, noticia.resumen, "#/news");
     } catch (err) {
         console.warn("No se pudo mandar el push de la noticia:", err.message);
@@ -426,13 +468,16 @@ async function mandarPushDeNoticia(noticia, usuarios) {
 async function abrirModalNotificacion(noti = null) {
 
     const modalId = "modal-notif";
-    const [cursos, usuarios] = await Promise.all([getCursos(), getUsuarios()]);
-    const contenidoHtml = camposNotificacionHtml(noti || {}, cursos, usuarios);
+    const [cursos, usuarios, sucursales] = await Promise.all([getCursos(), getUsuarios(), getSucursales()]);
+    const contenidoHtml = camposNotificacionHtml(noti || {}, cursos);
 
-    abrirModal(Modal({ id: modalId, titulo: noti ? `Editar: ${noti.titulo}` : "Nueva notificación", contenidoHtml, textoConfirmar: noti ? "Guardar" : "Enviar notificación" }), modalId, async () => {
+    abrirModal(Modal({ id: modalId, titulo: noti ? `Editar: ${noti.titulo}` : "Nueva News", contenidoHtml, textoConfirmar: noti ? "Guardar" : "Publicar" }), modalId, async () => {
 
         const cambios = leerCamposNotificacion();
         if (!cambios.titulo || !cambios.fecha) return;
+
+        recordarCategoria(cambios.tipo);
+        const programada = estaProgramada(cambios);
 
         const usuario = getUsuarioActual();
         if (noti) {
@@ -441,13 +486,13 @@ async function abrirModalNotificacion(noti = null) {
         } else {
             await crearNoticia(cambios);
             registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
-            // Sin "await" a propósito: la noticia ya quedó guardada, no
-            // hay razón para dejar el modal en "Guardando..." mientras
-            // el push (que puede tardar varios segundos con muchos
-            // destinatarios reales) todavía viaja — mandarPushDeNoticia
-            // ya atrapa sus propios errores, así que no hace falta
-            // esperarlo para saber si la creación funcionó.
-            mandarPushDeNoticia(cambios, usuarios);
+            // El push se manda solo si se publica AHORA. Si está
+            // programada (fecha futura), el push/aviso a Supervisión
+            // tiene que dispararse EN LA FECHA — eso necesita un
+            // trigger de tiempo en el backend (Apps Script), todavía no
+            // implementado (ver nota al pie del archivo). Sin "await":
+            // no bloquea el cierre del modal, ya atrapa sus errores.
+            if (!programada) mandarPushDeNoticia(cambios, usuarios, sucursales);
         }
 
         cerrarModal(modalId);
@@ -456,4 +501,38 @@ async function abrirModalNotificacion(noti = null) {
     });
 
     bindMultiSelectSucursales("input-sucursal-notif");
+
+    // Mostrar el selector de locales solo cuando el público es
+    // "Locales específicos".
+    const wrapSucursal = document.getElementById("wrap-sucursal-notif");
+    function actualizarWrapSucursal() {
+        const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
+        if (wrapSucursal) wrapSucursal.style.display = dirigido === "colaboradores-local" ? "" : "none";
+    }
+    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapSucursal));
+    actualizarWrapSucursal();
+
+    // Mostrar el date-picker solo cuando se elige "Programar".
+    const wrapFecha = document.getElementById("wrap-fecha-notif");
+    function actualizarWrapFecha() {
+        const cuando = document.querySelector(".input-cuando:checked")?.value;
+        if (wrapFecha) wrapFecha.style.display = cuando === "programar" ? "" : "none";
+    }
+    document.querySelectorAll(".input-cuando").forEach((r) => r.addEventListener("change", actualizarWrapFecha));
+    actualizarWrapFecha();
 }
+
+/* ============================================================
+   PENDIENTE (backend): envío automático de noticias PROGRAMADAS.
+
+   Hoy una noticia con fecha futura se OCULTA a los destinatarios hasta
+   ese día (estaProgramada, data/noticias.js) y aparece sola cuando
+   alguien abre la app en/después de la fecha — eso funciona 100% del
+   lado cliente. Lo que FALTA y necesita un disparador de tiempo en
+   Apps Script (ScriptApp time-driven trigger, corriendo 1x/día):
+     1. Mandar el push de la noticia el día que le toca (no al crearla).
+     2. Avisar a Supervisión "se envió la noticia programada X".
+   Sin ese trigger, la noticia igual se ve en la app el día correcto,
+   pero nadie recibe el push automático ni el recordatorio. Pedido
+   explícito del usuario, queda anotado para hacerlo con el backend.
+============================================================ */

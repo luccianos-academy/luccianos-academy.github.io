@@ -22,6 +22,24 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { noticiasMock } from "./mock/noticias.mock.js";
 import { HOJAS } from "../config.js";
+import { getSucursales } from "./sucursales.js";
+
+// A quién apunta una noticia (campo "dirigidoA"). News es solo para
+// colaboradores — Supervisión y Admin SIEMPRE reciben copia y ven
+// todo (pedido explícito del usuario: "supervisión debe estar al
+// tanto de todo para no perderse nada", Comunicaciones ya cubre
+// operaciones entre supervisores). Por eso no hay opción de dirigir
+// a supervisor/capacitador/admin como público objetivo.
+//   ""                     → todos los colaboradores de la red
+//   "encargados-propios"   → encargados de locales propios (dinámico, Sucursales.esPropio)
+//   "encargados-franquicias" → encargados de franquicias (por descarte)
+//   "colaboradores-local"  → colaboradores de los locales elegidos (campo "sucursal")
+export const DIRIGIDO_A = [
+    { id: "", nombre: "Todos los colaboradores" },
+    { id: "encargados-propios", nombre: "Encargados — Locales propios" },
+    { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
+    { id: "colaboradores-local", nombre: "Locales específicos" },
+];
 
 export const TIPOS_NOTIFICACION = [
     { id: "noticia", nombre: "Noticia", icono: "noticias" },
@@ -58,47 +76,85 @@ function normalizarNoticia(f) {
         adjuntoLabel: String(f.adjuntoLabel || "").trim(),
         tipo: String(f.tipo || "noticia").trim() || "noticia",
         prioridad: String(f.prioridad || "info").trim() || "info",
-        visiblePara: String(f.visiblePara || "").trim(),
+        // A quién apunta (ver DIRIGIDO_A). Vacío = todos los
+        // colaboradores. Reemplaza al viejo "visiblePara" (por rol) —
+        // las filas viejas con visiblePara se leen igual acá (fallback)
+        // para no romper noticias ya creadas.
+        dirigidoA: String(f.dirigidoA || "").trim(),
+        // Solo se usa cuando dirigidoA === "colaboradores-local":
+        // lista de locales separada por comas (mismo componente que
+        // Manuales). Compat: filas viejas guardaban esto en "sucursal".
         sucursal: String(f.sucursal || "").trim(),
-        // Dirigida a UNA persona puntual, no por rol/local — pisa todo
-        // lo demás cuando está cargada (ver puedeVerNoticia). Pensada
-        // para avisos 1 a 1 (ej. "renueva tu certificado vos") sin
-        // tener que inventar un rol nuevo para un caso de uno solo.
-        destinatarioId: String(f.destinatarioId || "").trim(),
+        // Compat con noticias viejas que dirigían por rol antes de esta
+        // reestructuración — solo se lee, ya no se escribe.
+        visiblePara: String(f.visiblePara || "").trim(),
         leidoPor: String(f.leidoPor || "").trim(),
     };
 }
 
-/** Mismo criterio que puedeVerManual (data/manuales.js), con una
- *  diferencia a propósito: acá vacío = visible para todos. */
-export function puedeVerNoticia(noticia, usuario) {
-    const destinatarioId = String(noticia.destinatarioId || "").trim();
-    if (destinatarioId) return String(usuario.id) === destinatarioId;
+/** Quién ve una noticia. News es SOLO para colaboradores como público
+ *  objetivo — Admin y Supervisor (incluido Capacitador) SIEMPRE la ven
+ *  (copia automática, "supervisión al tanto de todo"). El resto se
+ *  resuelve según dirigidoA. `sucursales` (opcional) solo hace falta
+ *  para los modos propios/franquicias (miran Sucursales.esPropio); si
+ *  no se pasa, esos modos no matchean a nadie (criterio conservador). */
+export function puedeVerNoticia(noticia, usuario, sucursales = []) {
+    if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
 
-    const visiblePara = String(noticia.visiblePara || "").trim();
-    const sucursalNoticia = String(noticia.sucursal || "").trim();
+    // De acá en adelante, usuario es colaborador (encargado o no).
+    const dirigidoA = String(noticia.dirigidoA || "").trim();
 
-    if (!visiblePara && !sucursalNoticia) return true;
-
-    if (sucursalNoticia) {
-        const locales = sucursalNoticia.split(",").map((s) => s.trim()).filter(Boolean);
-        if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
-        if (usuario.rol === "colaborador" && locales.includes(usuario.sucursal)) return true;
-        return false;
+    // Compat: noticias viejas sin dirigidoA pero con visiblePara/sucursal
+    // por el modelo anterior — se respetan como estaban.
+    if (!dirigidoA) {
+        const visiblePara = String(noticia.visiblePara || "").trim();
+        const sucursalVieja = String(noticia.sucursal || "").trim();
+        if (visiblePara || sucursalVieja) {
+            if (sucursalVieja) {
+                const locales = sucursalVieja.split(",").map((s) => s.trim()).filter(Boolean);
+                return locales.includes(usuario.sucursal);
+            }
+            const roles = visiblePara.split(",").map((r) => r.trim()).filter(Boolean);
+            const paraEncargado = roles.includes("encargado") && usuario.encargado;
+            return roles.includes("colaborador") || paraEncargado;
+        }
+        return true; // sin nada = todos los colaboradores
     }
 
-    // "capacitador"/"encargado" no son roles reales (flags sobre
-    // supervisor/colaborador, ver data/usuarios.js) — marcarlos SOLOS
-    // (sin también tildar "supervisor"/"colaborador") dirige el aviso
-    // únicamente a ese subgrupo, no a todo el rol base.
-    const roles = visiblePara.split(",").map((r) => r.trim()).filter(Boolean);
-    const paraCapacitador = roles.includes("capacitador") && usuario.rol === "supervisor" && usuario.capacitador;
-    const paraEncargado = roles.includes("encargado") && usuario.rol === "colaborador" && usuario.encargado;
-    return roles.includes(usuario.rol) || paraCapacitador || paraEncargado;
+    if (dirigidoA === "colaboradores-local") {
+        const locales = String(noticia.sucursal || "").split(",").map((s) => s.trim()).filter(Boolean);
+        return locales.includes(usuario.sucursal);
+    }
+
+    if (dirigidoA === "encargados-propios" || dirigidoA === "encargados-franquicias") {
+        if (!usuario.encargado) return false;
+        const sucursal = sucursales.find((s) => s.nombre === usuario.sucursal);
+        const esPropio = !!(sucursal && sucursal.esPropio);
+        return dirigidoA === "encargados-propios" ? esPropio : !esPropio;
+    }
+
+    return true; // dirigidoA === "" → todos los colaboradores
 }
 
 export function estaLeida(noticia, usuarioId) {
     return String(noticia.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean).includes(String(usuarioId));
+}
+
+/** Una noticia con fecha futura está PROGRAMADA — todavía no se
+ *  publicó. Los destinatarios (colaboradores/supervisión) no la ven
+ *  hasta ese día; solo Admin la ve antes (para gestionarla). Pedido
+ *  del usuario: "armo hoy porque ya tengo la info, le pongo fecha a
+ *  futuro y ese día se envía". OJO: esto es la parte CLIENTE (se
+ *  muestra sola al llegar la fecha, cada vez que se abre la app). El
+ *  push automático en la fecha + el recordatorio a Supervisión
+ *  necesitan un disparador de tiempo en el backend (Apps Script
+ *  time-driven trigger) — no está hecho todavía, ver nota en news.js. */
+export function estaProgramada(noticia) {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const [y, m, d] = String(noticia.fecha || "").split("-").map(Number);
+    if (!y || !m || !d) return false;
+    return new Date(y, m - 1, d) > hoy;
 }
 
 export async function getNoticias() {
@@ -116,17 +172,21 @@ export async function getNoticias() {
 export async function getNoticiasVisibles(usuario) {
     const todas = await getNoticias();
     if (usuario.rol === "admin") return todas;
-    return todas.filter((n) => puedeVerNoticia(n, usuario));
+    // sucursales solo hace falta para los modos propios/franquicias
+    // (miran esPropio); se prefetchea una vez y se pasa a cada chequeo.
+    const sucursales = await getSucursales();
+    // Las programadas (fecha futura) todavía no se muestran a los
+    // destinatarios — recién aparecen el día que les toca.
+    return todas.filter((n) => !estaProgramada(n) && puedeVerNoticia(n, usuario, sucursales));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, visiblePara, sucursal, destinatarioId }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal }) {
     return writeSheet(HOJAS.NOTICIAS, {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
         adjuntoUrl: adjuntoUrl || "", adjuntoLabel: adjuntoLabel || "",
         tipo: tipo || "noticia", prioridad: prioridad || "info",
-        visiblePara: visiblePara || "", sucursal: sucursal || "",
-        destinatarioId: destinatarioId || "",
+        dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         leidoPor: "",
     }, noticiasMock);
 }
