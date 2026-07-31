@@ -8,10 +8,12 @@
 =============================*/
 
 import { Header } from "../components/header.js";
+import { Avatar } from "../components/avatar.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
 import { getTokensDeUsuario } from "../data/tokens.js";
+import { actualizarUsuario } from "../data/usuarios.js";
 import { navigate } from "../router.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
@@ -102,6 +104,17 @@ export async function Perfil() {
         ${Header("Mi perfil")}
 
         <div class="card" style="max-width:420px">
+            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+                <div style="width:60px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0">
+                    ${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "" })}
+                </div>
+                <div>
+                    <p class="text-xs text-muted">Foto de perfil</p>
+                    <input type="text" id="input-foto-perfil" placeholder="URL de tu foto (ej: https://...)" value="${usuario.foto || ""}" style="width:100%;max-width:200px">
+                    <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar</button>
+                </div>
+            </div>
+
             <div class="list">
                 <div class="item"><span>Nombre</span><strong>${usuario.nombre}</strong></div>
                 <div class="item"><span>Email</span><strong style="word-break:break-word;text-align:right">${usuario.email}</strong></div>
@@ -115,6 +128,28 @@ export async function Perfil() {
 }
 
 export function bindPerfil() {
+    const btnGuardarFoto = document.getElementById("btn-guardar-foto");
+    const inputFoto = document.getElementById("input-foto-perfil");
+
+    btnGuardarFoto?.addEventListener("click", async () => {
+        const usuario = getUsuarioActual();
+        const fotoUrl = inputFoto.value.trim();
+
+        btnGuardarFoto.disabled = true;
+        btnGuardarFoto.textContent = "Guardando...";
+
+        try {
+            await actualizarUsuario(usuario.id, { foto: fotoUrl });
+            usuario.foto = fotoUrl;
+            alert("Foto guardada ✓");
+            navigate("perfil");
+        } catch (err) {
+            alert(err.message || "No se pudo guardar.");
+            btnGuardarFoto.disabled = false;
+            btnGuardarFoto.textContent = "Guardar";
+        }
+    });
+
     document.getElementById("btn-activar-push")?.addEventListener("click", async (e) => {
         const btn = e.currentTarget;
         btn.disabled = true;

@@ -48,6 +48,9 @@ function normalizarUsuario(f) {
         // a propósito quedan sin verla marcada — no hay forma de
         // saber si ya la leyeron antes de este cambio).
         historiaVista: String(f.historiaVista || "").trim().toUpperCase() === "SI",
+        // URL de foto de perfil del usuario (opcional). Vacío = solo se
+        // muestran las iniciales. Permite URL externa o ruta local.
+        foto: String(f.foto || "").trim(),
     };
 }
 
