@@ -24,6 +24,7 @@
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { Icon } from "../components/icons.js";
 import { EmptyState } from "../components/emptyState.js";
+import { Avatar } from "../components/avatar.js";
 import {
     getPublicaciones, getPublicacionesDeCanal, crearPublicacion, actualizarPublicacion,
     eliminarPublicacion, toggleLikePublicacion, marcarPublicacionLeida,
@@ -153,7 +154,9 @@ async function vistaCanal(canalId) {
                 ${miembros.map((m) => `
                     <div class="leido-por-item">
                         <span style="display:flex;align-items:center;gap:8px">
-                            <span class="publicacion-avatar publicacion-avatar-sm">${iniciales(m.nombre)}</span>
+                            <span class="publicacion-avatar publicacion-avatar-sm" style="width:28px;height:28px;border-radius:4px;overflow:hidden">
+                                ${Avatar({ nombre: m.nombre, foto: m.foto, size: "sm" })}
+                            </span>
                             ${m.nombre}
                         </span>
                         <span class="text-xs text-muted">${rolLegibleCanal(m)}</span>
@@ -341,7 +344,7 @@ function abrirDetallePublicacion(p) {
                 <div style="margin-top:14px">
                     <div class="leido-avatares">
                         <span class="leido-avatares-pila">
-                            ${supervisoresYAdmin.slice(0, 5).map((u) => `<span class="publicacion-avatar publicacion-avatar-sm" title="${u.nombre}">${iniciales(u.nombre)}</span>`).join("")}
+                            ${supervisoresYAdmin.slice(0, 5).map((u) => `<span class="publicacion-avatar publicacion-avatar-sm" title="${u.nombre}" style="width:28px;height:28px;border-radius:4px;overflow:hidden;display:inline-block">${Avatar({ nombre: u.nombre, foto: u.foto, size: "sm" })}</span>`).join("")}
                         </span>
                         <span class="leido-avatares-texto">${leidoIds.length}/${supervisoresYAdmin.length} leyeron</span>
                     </div>
