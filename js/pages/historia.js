@@ -80,8 +80,8 @@ export async function Historia() {
             <div class="aviso-historia">
                 ${Icon("idea", { size: 20 })}
                 <div>
-                    <strong>Antes de arrancar tu formación</strong>
-                    <p>Te pedimos ver esta página una vez — no hace falta completar nada más acá. Después vas a poder entrar a Academia y rendir tus evaluaciones con normalidad.</p>
+                    <strong>Tu formación comienza con nuestra historia</strong>
+                    <p>Antes de acceder a los cursos, dedicá unos minutos a conocer el origen, la evolución y los valores que hacen único a Lucciano's.</p>
                 </div>
             </div>
         ` : ""}
