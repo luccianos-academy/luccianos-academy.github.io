@@ -267,9 +267,39 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                                     ${opcionesCursos}
                                 </select>
                             </div>
-                            <div>
-                                <label for="input-adjuntos">Enlaces (uno por línea — formato: <code>URL|Etiqueta</code>)</label>
-                                <textarea id="input-adjuntos" rows="3" placeholder="Ej:&#10;https://banco.com/promo|Ir a promo&#10;https://otro.com/mas|Más info">${n.adjuntos?.map(a => `${a.url}|${a.label}`).join("\n") || (n.adjuntoUrl ? `${n.adjuntoUrl}|${n.adjuntoLabel || "Ver adjunto"}` : "")}</textarea>
+                            <div id="container-adjuntos">
+                                <label style="display:block;margin-bottom:12px">Enlaces</label>
+                                <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px">
+                                    ${(n.adjuntos && n.adjuntos.length > 0)
+                                        ? n.adjuntos.map((a, i) => `
+                                            <div class="adjunto-item" style="display:flex;gap:8px;align-items:flex-end">
+                                                <div style="flex:1">
+                                                    <label style="font-size:11px;color:var(--muted)">URL</label>
+                                                    <input type="text" class="input-adjunto-url" placeholder="https://..." value="${a.url}" style="width:100%">
+                                                </div>
+                                                <div style="flex:0.6">
+                                                    <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
+                                                    <input type="text" class="input-adjunto-label" placeholder="Ver enlace" value="${a.label}">
+                                                </div>
+                                                <button type="button" class="btn-eliminar-adjunto" data-index="${i}" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+                                            </div>
+                                        `).join("")
+                                        : (n.adjuntoUrl ? `
+                                            <div class="adjunto-item" style="display:flex;gap:8px;align-items:flex-end">
+                                                <div style="flex:1">
+                                                    <label style="font-size:11px;color:var(--muted)">URL</label>
+                                                    <input type="text" class="input-adjunto-url" placeholder="https://..." value="${n.adjuntoUrl}" style="width:100%">
+                                                </div>
+                                                <div style="flex:0.6">
+                                                    <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
+                                                    <input type="text" class="input-adjunto-label" placeholder="Ver enlace" value="${n.adjuntoLabel || "Ver adjunto"}">
+                                                </div>
+                                                <button type="button" class="btn-eliminar-adjunto" data-index="0" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+                                            </div>
+                                        ` : "")
+                                    }
+                                </div>
+                                <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="width:100%;padding:8px">+ Agregar enlace</button>
                             </div>
                         </div>
 
@@ -300,17 +330,15 @@ function leerCamposNotificacion() {
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
-        // adjuntos múltiples: parsea textarea con formato "URL|Etiqueta" por línea
+        // adjuntos múltiples: lee campos dinámicos
         adjuntos: (() => {
-            const texto = document.getElementById("input-adjuntos")?.value.trim() || "";
-            if (!texto) return [];
-            return texto
-                .split("\n")
-                .map(line => {
-                    const [url, label] = line.split("|").map(s => s.trim());
-                    return url ? { url, label: label || "Ver enlace" } : null;
-                })
-                .filter(Boolean);
+            const adjuntos = [];
+            document.querySelectorAll(".adjunto-item").forEach((item) => {
+                const url = item.querySelector(".input-adjunto-url")?.value.trim() || "";
+                const label = item.querySelector(".input-adjunto-label")?.value.trim() || "Ver enlace";
+                if (url) adjuntos.push({ url, label });
+            });
+            return adjuntos;
         })(),
     };
 }
@@ -659,6 +687,36 @@ export function bindNuevaNews(params = []) {
     // propagación del click deja al picker abrir tranquilo.
     ["input-fecha", "input-hora"].forEach((id) => {
         document.getElementById(id)?.addEventListener("click", (e) => e.stopPropagation());
+    });
+
+    // Adjuntos dinámicos — agregar/eliminar enlaces
+    document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => {
+        const lista = document.getElementById("lista-adjuntos");
+        const index = lista.querySelectorAll(".adjunto-item").length;
+        const nuevoItem = document.createElement("div");
+        nuevoItem.className = "adjunto-item";
+        nuevoItem.style.cssText = "display:flex;gap:8px;align-items:flex-end";
+        nuevoItem.innerHTML = `
+            <div style="flex:1">
+                <label style="font-size:11px;color:var(--muted)">URL</label>
+                <input type="text" class="input-adjunto-url" placeholder="https://..." style="width:100%">
+            </div>
+            <div style="flex:0.6">
+                <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
+                <input type="text" class="input-adjunto-label" placeholder="Ver enlace">
+            </div>
+            <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+        `;
+        lista.appendChild(nuevoItem);
+        nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", (e) => {
+            nuevoItem.remove();
+        });
+    });
+
+    document.querySelectorAll(".btn-eliminar-adjunto").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+            e.currentTarget.closest(".adjunto-item")?.remove();
+        });
     });
 
     document.getElementById("btn-ayuda-news")?.addEventListener("click", () => {
