@@ -1531,12 +1531,13 @@ table.data-table tbody tr:hover{
 }
 
 .kpi-ayuda::after{
-    left:0;
-    transform:translateX(0) translateY(-4px);
+    left:50%;
+    right:auto;
+    transform:translateX(-50%) translateY(-4px);
 }
 
 .kpi-ayuda::before{
-    left:8px;
+    left:50%;
     transform:translateX(-50%) translateY(-1px);
 }
 
