@@ -142,17 +142,24 @@ async function abrirModalNuevoLocal() {
             ${supervisores.map((s) => `<option value="${s.nombre}">${s.nombre}</option>`).join("")}
         </select>
 
-        <label class="toggle-switch" style="margin-top:16px">
-            Local propio (no franquicia)
-            <input type="checkbox" id="input-es-propio">
-        </label>
+        <label style="margin-top:16px;display:block;margin-bottom:8px">Tipo de local</label>
+        <div style="display:flex;gap:16px;margin-bottom:16px">
+            <label style="display:flex;align-items:center;gap:8px">
+                <input type="radio" name="tipo-local" value="propio" id="input-propio">
+                <span>Propio</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px">
+                <input type="radio" name="tipo-local" value="franquicia" id="input-franquicia" checked>
+                <span>Franquicia</span>
+            </label>
+        </div>
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Nuevo local", contenidoHtml, textoConfirmar: "Crear" }), modalId, async () => {
 
         const nombre = document.getElementById("input-nombre").value.trim();
         const supervisor = document.getElementById("input-supervisor").value;
-        const esPropio = document.getElementById("input-es-propio").checked;
+        const esPropio = document.getElementById("input-propio").checked;
 
         if (!nombre) return;
 
