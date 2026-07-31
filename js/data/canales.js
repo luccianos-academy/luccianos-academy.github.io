@@ -18,6 +18,18 @@
    poder moderar cualquiera — mismo criterio que ya usa
    puedeVerManual/puedeVerNoticia con "capacitador" como caso especial
    (no es un rol real, ver data/usuarios.js).
+
+   "sucursal" es el segundo modo de restricción, pensado para
+   Encargados (no un rol propio, ver data/usuarios.js) — lista de
+   locales separada por comas (mismo formato/componente que ya usa
+   Manuales, ver components/multiSelectSucursales.js), sin importar
+   si son propios o franquicia: el Encargado/a de CUALQUIERA de esos
+   locales ve el canal, nadie más de rol colaborador. Pedido explícito
+   del usuario: "un mensaje, una sola vez, llega a toda la red del
+   canal" en vez de mandarlo local por local. Cuando "sucursal" tiene
+   algo cargado, gana por sobre "restringidoA" (mismo criterio "el
+   local gana" que ya usa Manuales) — son modos alternativos, no se
+   combinan.
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
@@ -58,11 +70,19 @@ function normalizarCanal(f) {
         icono: ICONOS_CANAL.some((i) => i.id === f.icono) ? f.icono : "comentario",
         creadoPor: String(f.creadoPor || "").trim(),
         restringidoA: String(f.restringidoA || "").trim(),
+        sucursal: String(f.sucursal || "").trim(),
     };
 }
 
 export function puedeVerCanal(canal, usuario) {
     if (usuario.rol === "admin") return true;
+
+    const locales = String(canal.sucursal || "").trim();
+    if (locales) {
+        const lista = locales.split(",").map((s) => s.trim()).filter(Boolean);
+        return usuario.rol === "colaborador" && !!usuario.encargado && lista.includes(usuario.sucursal);
+    }
+
     const restriccion = String(canal.restringidoA || "").trim();
     if (!restriccion) return true;
     if (restriccion === "admin") return false;
@@ -91,11 +111,11 @@ export async function getCanalesVisibles(usuario) {
 
 export async function canalInfo(canalId) {
     const canales = await getCanales();
-    return canales.find((c) => String(c.id) === String(canalId)) || canales[0] || { id: "", nombre: "Sin canal", icono: "comentario", restringidoA: "" };
+    return canales.find((c) => String(c.id) === String(canalId)) || canales[0] || { id: "", nombre: "Sin canal", icono: "comentario", restringidoA: "", sucursal: "" };
 }
 
-export async function crearCanal({ nombre, icono, creadoPor, restringidoA }) {
-    return writeSheet(HOJAS.CANALES, { nombre, icono: icono || "comentario", creadoPor: creadoPor || "", restringidoA: restringidoA || "" }, canalesMock);
+export async function crearCanal({ nombre, icono, creadoPor, restringidoA, sucursal }) {
+    return writeSheet(HOJAS.CANALES, { nombre, icono: icono || "comentario", creadoPor: creadoPor || "", restringidoA: restringidoA || "", sucursal: sucursal || "" }, canalesMock);
 }
 
 export async function actualizarCanal(id, cambios) {

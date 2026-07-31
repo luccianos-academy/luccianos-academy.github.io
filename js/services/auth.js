@@ -163,11 +163,12 @@ const PERMISOS_PAGINA = {
     configuracion:  ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
-    // "Coordinación Operativa" es Admin ↔ Supervisor (incluye
-    // Capacitador, que es rol "supervisor") — Colaborador no
-    // participa. A diferencia de "news", esto SÍ necesita entrada
-    // acá: sin ella, cualquier autenticado (incluido Colaborador)
-    // podría entrar tipeando el hash.
+    // "Comunicaciones" es Admin ↔ Supervisor (incluye Capacitador,
+    // que es rol "supervisor") por defecto — Encargado suma acceso
+    // acotado más abajo (puedeAccederA), mismo patrón que
+    // "colaboradores"/Mi local: solo ve los canales restringidos a su
+    // propia sucursal (ver puedeVerCanal, data/canales.js), nunca los
+    // de rol supervisor/capacitador.
     coordinacionoperativa: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
@@ -179,6 +180,11 @@ export function puedeAccederA(pagina) {
     // Encargado (colaborador con encargado=true) suma acceso a la
     // pantalla de equipo, acotada a su sucursal — ver pages/colaboradores.js.
     if (pagina === "colaboradores" && usuario.rol === "colaborador" && usuario.encargado) return true;
+    // Mismo criterio para Comunicaciones — entra a la pantalla, pero
+    // getCanalesVisibles/puedeVerCanal (data/canales.js) ya se
+    // encargan de que solo vea los canales restringidos a su propia
+    // sucursal, nunca los de supervisor/capacitador.
+    if (pagina === "coordinacionoperativa" && usuario.rol === "colaborador" && usuario.encargado) return true;
     const rolesPermitidos = PERMISOS_PAGINA[pagina];
     if (!rolesPermitidos) return true;
     return rolesPermitidos.includes(usuario.rol);

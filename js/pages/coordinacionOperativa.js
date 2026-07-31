@@ -34,6 +34,7 @@ import {
     getComentariosDePublicacion, crearComentario, toggleLikeComentario, estaLikeadoComentario,
 } from "../data/comentarios.js";
 import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
+import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
@@ -86,7 +87,7 @@ async function vistaListaCanales() {
     }).join("");
 
     return `
-        ${Header("Coordinación Operativa", "Canales de comunicación")}
+        ${Header("Comunicaciones", "Canales de comunicación")}
 
         <div class="table-toolbar">
             <div></div>
@@ -630,9 +631,14 @@ async function abrirModalEditarPublicacion(p) {
 async function abrirModalGestionarCanales() {
     const modalId = "modal-gestionar-canales";
     const usuario = getUsuarioActual();
+    // Compartida entre contenidoActual() (la llena) y bindAcciones()
+    // (la usa para bindear los selectores de chips) — evita pedir
+    // getCanalesVisibles() dos veces en cada render.
+    let canalesActuales = [];
 
     async function contenidoActual() {
         const canales = await getCanalesVisibles(usuario);
+        canalesActuales = canales;
         return `
             <div class="canal-gestion-lista">
                 ${canales.map((c) => `
@@ -648,6 +654,8 @@ async function abrirModalGestionarCanales() {
                             <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
                             ${usuario.rol === "admin" ? `<button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>` : ""}
                         </div>
+                        <label class="text-xs text-muted" style="margin-top:6px;display:block">O restringir a sucursales puntuales (Encargados de esos locales, propios o franquicia) — vacío usa el desplegable de arriba</label>
+                        ${MultiSelectSucursales(`input-canal-sucursal-${c.id}`, c.sucursal ? c.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
                     </div>
                 `).join("")}
             </div>
@@ -657,12 +665,14 @@ async function abrirModalGestionarCanales() {
                 <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
                     ${ICONOS_CANAL.map((i) => `<option value="${i.id}">${i.nombre}</option>`).join("")}
                 </select>
-                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1 1 140px">
+                <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Franquicias" style="flex:1 1 140px">
                 <select id="input-nuevo-canal-visibilidad" style="flex:0 0 160px">
                     ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}">${v.nombre}</option>`).join("")}
                 </select>
                 <button class="btn btn-primary" id="btn-crear-canal" style="flex:0 0 auto">Crear</button>
             </div>
+            <label class="text-xs text-muted" style="margin-top:6px;display:block">O restringir el nuevo canal a sucursales puntuales (Encargados) — vacío usa el desplegable de arriba</label>
+            ${MultiSelectSucursales("input-nuevo-canal-sucursal")}
         `;
     }
 
@@ -684,18 +694,19 @@ async function abrirModalGestionarCanales() {
     async function reRender() {
         const body = document.getElementById("canales-gestion-body");
         if (body) body.innerHTML = await contenidoActual();
-        bindAcciones();
+        await bindAcciones();
     }
 
-    function bindAcciones() {
+    async function bindAcciones() {
         document.querySelectorAll("[data-guardar-canal]").forEach((btn) => {
             btn.addEventListener("click", async () => {
                 const id = btn.dataset.guardarCanal;
                 const input = document.querySelector(`.input-canal-nombre[data-canal-id="${id}"]`);
                 const selectVisibilidad = document.querySelector(`.input-canal-visibilidad[data-canal-id="${id}"]`);
+                const sucursal = document.getElementById(`input-canal-sucursal-${id}`)?.value || "";
                 const nombre = input.value.trim();
                 if (!nombre) return;
-                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value });
+                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value, sucursal });
                 registrarEvento(usuario.id, "editar_canal", `Canal "${nombre}" actualizado`);
                 await reRender();
             });
@@ -715,12 +726,21 @@ async function abrirModalGestionarCanales() {
             if (!nombre) return;
             const icono = document.getElementById("input-nuevo-canal-icono").value;
             const restringidoA = document.getElementById("input-nuevo-canal-visibilidad").value;
-            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA });
+            const sucursal = document.getElementById("input-nuevo-canal-sucursal")?.value || "";
+            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA, sucursal });
             registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
             await reRender();
         });
+
+        // Un selector de chips por canal (más el del formulario "Nuevo
+        // canal") — cada uno necesita su propio bind, mismo mecanismo
+        // que ya usa Manuales para un solo campo.
+        await Promise.all([
+            ...canalesActuales.map((c) => bindMultiSelectSucursales(`input-canal-sucursal-${c.id}`)),
+            bindMultiSelectSucursales("input-nuevo-canal-sucursal"),
+        ]);
     }
-    bindAcciones();
+    await bindAcciones();
 
     // Al cerrar este modal, la lista de canales de fondo puede haber
     // cambiado (uno nuevo, uno renombrado) — se refresca la pantalla.

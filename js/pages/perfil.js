@@ -89,7 +89,7 @@ async function bloquePush(usuario) {
     return `
         <div class="card" style="max-width:420px;margin-top:16px">
             <div class="item"><span>Notificaciones push</span><button class="btn btn-secondary" id="btn-activar-push" style="width:auto">Activar</button></div>
-            <p class="text-xs text-muted" style="margin-top:8px">Recibí avisos en el celular cuando haya algo nuevo en Coordinación Operativa o News, aunque no tengas la app abierta.</p>
+            <p class="text-xs text-muted" style="margin-top:8px">Recibí avisos en el celular cuando haya algo nuevo en Comunicaciones o News, aunque no tengas la app abierta.</p>
         </div>
     `;
 }
