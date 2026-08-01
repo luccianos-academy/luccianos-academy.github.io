@@ -221,7 +221,7 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
         ? adjuntos
         : (adjuntoUrl ? [{ url: adjuntoUrl, label: adjuntoLabel || "Ver adjunto" }] : []);
 
-    return writeSheet(HOJAS.NOTICIAS, {
+    const datosParaGuardar = {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
         adjuntos: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
@@ -230,7 +230,9 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
         leidoPor: "",
-    }, noticiasMock);
+    };
+    console.log("Guardando noticia:", { titulo, adjuntos: datosParaGuardar.adjuntos });
+    return writeSheet(HOJAS.NOTICIAS, datosParaGuardar, noticiasMock);
 }
 
 export async function actualizarNoticia(id, cambios) {
