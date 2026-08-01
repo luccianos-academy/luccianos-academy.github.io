@@ -182,6 +182,10 @@
     font-weight:700;
     font-size:14.5px;
     color:var(--text);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .notif-dot{
