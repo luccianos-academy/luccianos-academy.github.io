@@ -40,7 +40,7 @@ const CACHE_TTL_MS = 20000;
 const cache = {}; // { [hoja]: { datos, ts } }
 const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes de la misma hoja
 
-function invalidar(hoja) {
+export function invalidar(hoja) {
     delete cache[hoja];
 }
 
