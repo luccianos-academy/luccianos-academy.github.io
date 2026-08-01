@@ -80,19 +80,24 @@ function normalizarNoticia(f) {
         // Sheets (adjuntos) o convertirse desde los antiguos adjuntoUrl/adjuntoLabel.
         adjuntos: (() => {
             try {
-                if (f.adjuntos) {
-                    const parsed = JSON.parse(String(f.adjuntos));
-                    if (Array.isArray(parsed)) return parsed.map(a => ({
-                        url: String(a.url || "").trim(),
-                        label: String(a.label || "Ver adjunto").trim()
-                    })).filter(a => a.url);
+                // Lee de adjuntoUrl (que es donde se guarda ahora como JSON)
+                if (f.adjuntoUrl) {
+                    const adjuntoUrlStr = String(f.adjuntoUrl).trim();
+                    // Si parece un JSON array, parsealo
+                    if (adjuntoUrlStr.startsWith('[')) {
+                        const parsed = JSON.parse(adjuntoUrlStr);
+                        if (Array.isArray(parsed)) return parsed.map(a => ({
+                            url: String(a.url || "").trim(),
+                            label: String(a.label || "Ver adjunto").trim()
+                        })).filter(a => a.url);
+                    }
+                    // Si es una URL plana (viejo formato), devolvela como está
+                    if (adjuntoUrlStr && !adjuntoUrlStr.startsWith('{')) {
+                        return [{ url: adjuntoUrlStr, label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
+                    }
                 }
             } catch (e) {
-                console.error(`Error parseando adjuntos de "${f.titulo}":`, e.message, "valor:", f.adjuntos);
-            }
-            // Fallback: migra desde los campos antiguos individuales
-            if (f.adjuntoUrl) {
-                return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
+                console.error(`Error parseando adjuntos de "${f.titulo}":`, e.message, "valor:", f.adjuntoUrl);
             }
             return [];
         })(),
@@ -224,8 +229,8 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
     const datosParaGuardar = {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
-        adjuntos: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
-        adjuntoUrl: "", adjuntoLabel: "",  // deprecated
+        adjuntoUrl: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
+        adjuntoLabel: "",  // deprecated
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
