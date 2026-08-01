@@ -31,6 +31,7 @@ import { getSucursales } from "../data/sucursales.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getItem, setItem } from "../services/storage.js";
+import { limpiarCacheHoja } from "../services/dataSource.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
@@ -557,6 +558,7 @@ function abrirDetalleNotificacion(noti, usuario) {
         // Ya sabemos que baja en 1 — evita re-pedir "Noticias" solo para
         // confirmar el número (ver dataSource.js: el pedido que sigue,
         // el de la propia lista de News, ya alcanza para eso).
+        limpiarCacheHoja("Noticias");
         decrementarContadorCampana();
         cerrarModal(modalId);
         navigate("news");
