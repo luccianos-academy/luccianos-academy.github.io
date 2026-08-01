@@ -87,7 +87,9 @@ function normalizarNoticia(f) {
                         label: String(a.label || "Ver adjunto").trim()
                     })).filter(a => a.url);
                 }
-            } catch {}
+            } catch (e) {
+                console.error(`Error parseando adjuntos de "${f.titulo}":`, e.message, "valor:", f.adjuntos);
+            }
             // Fallback: migra desde los campos antiguos individuales
             if (f.adjuntoUrl) {
                 return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
