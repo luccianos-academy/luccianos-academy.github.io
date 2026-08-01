@@ -47,7 +47,6 @@ export async function Recursos() {
             <span class="canal-item-icono">${Icon(r.icono, { size: 20 })}</span>
             <span class="canal-item-body">
                 <span class="canal-item-nombre">${r.nombre}</span>
-                <span class="canal-item-detalle">Enlace externo</span>
             </span>
         </a>
     `).join("");
@@ -57,7 +56,6 @@ export async function Recursos() {
             <span class="compose-ico">${Icon("integraciones", { size: 24 })}</span>
             <div>
                 <h1>Recursos</h1>
-                <p>Accesos rápidos a las herramientas operativas del equipo (planillas, formularios, drive).</p>
             </div>
             <button type="button" class="compose-ayuda" id="btn-ayuda-recursos">${Icon("alertas", { size: 16 })} ¿Cómo funciona?</button>
         </div>
@@ -79,10 +77,7 @@ export function bindRecursos() {
     document.getElementById("btn-gestionar-recursos")?.addEventListener("click", () => abrirModalGestionarRecursos());
 
     document.getElementById("btn-ayuda-recursos")?.addEventListener("click", () => {
-        alert(
-            "Recursos\n" +
-            "Accesos rápidos a las herramientas operativas del equipo (planillas, formularios, drive)."
-        );
+        alert("Los recursos son accesos a las herramientas que usamos en el equipo. Tocá cualquiera para abrirlo.");
     });
 }
 

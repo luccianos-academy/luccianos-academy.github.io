@@ -46,7 +46,7 @@ const PERMISOS_ESCRITURA = {
     Lecciones:    { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
     Evaluaciones: { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
     Manuales:     { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
-    Noticias:     { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
+    Noticias:     { crear: ["admin"],                            actualizar: ["admin", "colaborador"],            eliminar: ["admin"] },
     Asignaciones: { crear: ["admin", "colaborador"],             actualizar: ["admin", "supervisor", "colaborador"], eliminar: ["admin"] },
     Resultados:   { crear: ["admin", "colaborador"],             actualizar: [],                                    eliminar: ["admin"] },
     Auditoria:    { crear: ["admin", "supervisor", "colaborador"], actualizar: [],                                  eliminar: [] },
@@ -512,6 +512,16 @@ function actualizar(hoja, id, cambios, usuarioActual) {
     if (hoja === "Usuarios" && usuarioActual.rol !== "admin") {
         delete cambios.rol;
         delete cambios.capacitador;
+    }
+
+    // Noticias: colaborador solo puede tocar leidoPor (para marcar como leído)
+    if (hoja === "Noticias" && usuarioActual.rol === "colaborador") {
+        const cambiosOriginales = Object.keys(cambios);
+        const permitidos = ["leidoPor"];
+        const no_permitidos = cambiosOriginales.filter((c) => !permitidos.includes(c));
+        if (no_permitidos.length > 0) {
+            return { ok: false, error: "No tenés permiso para editar esos campos en Noticias." };
+        }
     }
 
     return _actualizarCrudo(hoja, id, cambios);

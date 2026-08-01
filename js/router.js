@@ -133,22 +133,6 @@ async function handleRoute() {
         return navigate("inicio", { replace: true });
     }
 
-    if (haySesion() && RUTAS_GATEADAS_HISTORIA.includes(path)) {
-        const usuario = getUsuarioActual();
-        if (usuario.rol === "colaborador") {
-            // Fetch fresco (no el de la sesión cacheada en login) — es
-            // la única forma de que el gate se desactive apenas la
-            // persona abre Historia, sin esperar a que vuelva a
-            // loguearse. obtenerMiUsuario ya tiene su propio cache
-            // corto (ver dataSource.js), así que esto no es un pedido
-            // de red extra en cada navegación.
-            const fresco = await obtenerMiUsuario(usuario);
-            if (fresco && !fresco.historiaVista) {
-                return navigate("historia", { replace: true });
-            }
-        }
-    }
-
     return renderRuta(path, ruta, params);
 }
 

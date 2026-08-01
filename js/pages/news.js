@@ -250,7 +250,7 @@ function camposNotificacionHtml(n = {}, cursos = []) {
             </div>
 
             <div class="form-seccion">
-                <details>
+                <details open>
                     <summary>
                         <div class="form-seccion-head" style="margin-bottom:0">
                             <span class="form-seccion-ico">${Icon("configuracion", { size: 18 })}</span>
@@ -268,38 +268,38 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                                 </select>
                             </div>
                             <div id="container-adjuntos">
-                                <label style="display:block;margin-bottom:12px">Enlaces</label>
-                                <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px">
+                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces</label>
+                                <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
                                     ${(n.adjuntos && n.adjuntos.length > 0)
                                         ? n.adjuntos.map((a, i) => `
-                                            <div class="adjunto-item" style="display:flex;gap:8px;align-items:flex-end">
-                                                <div style="flex:1">
-                                                    <label style="font-size:11px;color:var(--muted)">URL</label>
-                                                    <input type="text" class="input-adjunto-url" placeholder="https://..." value="${a.url}" style="width:100%">
+                                            <div class="adjunto-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+                                                <div>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
+                                                    <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${a.url}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
-                                                <div style="flex:0.6">
-                                                    <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
-                                                    <input type="text" class="input-adjunto-label" placeholder="Ver enlace" value="${a.label}">
+                                                <div>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                                                    <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${a.label}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
-                                                <button type="button" class="btn-eliminar-adjunto" data-index="${i}" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+                                                <button type="button" class="btn-eliminar-adjunto" data-index="${i}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
                                             </div>
                                         `).join("")
                                         : (n.adjuntoUrl ? `
-                                            <div class="adjunto-item" style="display:flex;gap:8px;align-items:flex-end">
-                                                <div style="flex:1">
-                                                    <label style="font-size:11px;color:var(--muted)">URL</label>
-                                                    <input type="text" class="input-adjunto-url" placeholder="https://..." value="${n.adjuntoUrl}" style="width:100%">
+                                            <div class="adjunto-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+                                                <div>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
+                                                    <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${n.adjuntoUrl}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
-                                                <div style="flex:0.6">
-                                                    <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
-                                                    <input type="text" class="input-adjunto-label" placeholder="Ver enlace" value="${n.adjuntoLabel || "Ver adjunto"}">
+                                                <div>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                                                    <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${n.adjuntoLabel || "Ver adjunto"}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
-                                                <button type="button" class="btn-eliminar-adjunto" data-index="0" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+                                                <button type="button" class="btn-eliminar-adjunto" data-index="0" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
                                             </div>
                                         ` : "")
                                     }
                                 </div>
-                                <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="width:100%;padding:8px">+ Agregar enlace</button>
+                                <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">+ Agregar otro enlace</button>
                             </div>
                         </div>
 
@@ -351,7 +351,6 @@ function filaNotificacion(n, usuario, leida) {
             <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
             <span class="notif-item-body">
                 <span class="notif-item-titulo">${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
-                <span class="notif-item-resumen">${escaparHtml(n.resumen)}</span>
             </span>
             <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
         </button>
@@ -695,17 +694,17 @@ export function bindNuevaNews(params = []) {
         const index = lista.querySelectorAll(".adjunto-item").length;
         const nuevoItem = document.createElement("div");
         nuevoItem.className = "adjunto-item";
-        nuevoItem.style.cssText = "display:flex;gap:8px;align-items:flex-end";
+        nuevoItem.style.cssText = "display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)";
         nuevoItem.innerHTML = `
-            <div style="flex:1">
-                <label style="font-size:11px;color:var(--muted)">URL</label>
-                <input type="text" class="input-adjunto-url" placeholder="https://..." style="width:100%">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
+                <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
-            <div style="flex:0.6">
-                <label style="font-size:11px;color:var(--muted)">Etiqueta</label>
-                <input type="text" class="input-adjunto-label" placeholder="Ver enlace">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
-            <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:6px 8px;background:none;border:none;color:var(--danger);cursor:pointer;font-size:16px">×</button>
+            <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
         `;
         lista.appendChild(nuevoItem);
         nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", (e) => {
@@ -744,11 +743,17 @@ export function bindNuevaNews(params = []) {
             const programada = estaProgramada(cambios);
             const usuario = getUsuarioActual();
 
+            // Convertir adjuntos a JSON para guardar en la Sheet (igual que en crearNoticia)
+            const cambiosParaGuardar = {
+                ...cambios,
+                adjuntos: cambios.adjuntos && cambios.adjuntos.length > 0 ? JSON.stringify(cambios.adjuntos) : ""
+            };
+
             if (id) {
-                await actualizarNoticia(id, cambios);
+                await actualizarNoticia(id, cambiosParaGuardar);
                 registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);
             } else {
-                await crearNoticia(cambios);
+                await crearNoticia(cambiosParaGuardar);
                 registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
                 // Push solo si se publica AHORA (las programadas las
                 // dispara el backend el día que toca — pendiente, ver pie
