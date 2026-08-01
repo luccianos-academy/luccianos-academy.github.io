@@ -79,25 +79,8 @@ function normalizarNoticia(f) {
         // adjuntos es un array [{url, label}, ...]. Puede venir como JSON desde
         // Sheets (adjuntos) o convertirse desde los antiguos adjuntoUrl/adjuntoLabel.
         adjuntos: (() => {
-            try {
-                // Lee de adjuntoUrl (que es donde se guarda ahora como JSON)
-                if (f.adjuntoUrl) {
-                    const adjuntoUrlStr = String(f.adjuntoUrl).trim();
-                    // Si parece un JSON array, parsealo
-                    if (adjuntoUrlStr.startsWith('[')) {
-                        const parsed = JSON.parse(adjuntoUrlStr);
-                        if (Array.isArray(parsed)) return parsed.map(a => ({
-                            url: String(a.url || "").trim(),
-                            label: String(a.label || "Ver adjunto").trim()
-                        })).filter(a => a.url);
-                    }
-                    // Si es una URL plana (viejo formato), devolvela como está
-                    if (adjuntoUrlStr && !adjuntoUrlStr.startsWith('{')) {
-                        return [{ url: adjuntoUrlStr, label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
-                    }
-                }
-            } catch (e) {
-                console.error(`Error parseando adjuntos de "${f.titulo}":`, e.message, "valor:", f.adjuntoUrl);
+            if (f.adjuntoUrl) {
+                return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
             }
             return [];
         })(),
@@ -229,8 +212,8 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
     const datosParaGuardar = {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
-        adjuntoUrl: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
-        adjuntoLabel: "",  // deprecated
+        adjuntoUrl: adjuntosFinales.length > 0 ? adjuntosFinales[0].url : "",
+        adjuntoLabel: adjuntosFinales.length > 0 ? adjuntosFinales[0].label : "",
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
