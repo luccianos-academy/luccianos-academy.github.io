@@ -135,6 +135,16 @@ function camposNotificacionHtml(n = {}, cursos = []) {
     const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
 
+    // Usuarios específicos — solo visible cuando se selecciona "usuarios"
+    const opcionesUsuarios = (() => {
+        if (!Array.isArray(cursos)) return "";
+        // Por ahora devolvemos HTML vacío, lo llenaremos en bindNuevaNews
+        return `<div id="select-usuarios-especificos" style="display:none;margin-top:12px">
+            <label>Enviar solo a:</label>
+            <div id="usuarios-especificos-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+        </div>`;
+    })();
+
     // Pills de categoría ya usadas — click rellena el input; cada una
     // tiene un × para borrarla de la lista (pedido del usuario).
     const pillsCategoria = categoriasRecordadas().map((c) => `
