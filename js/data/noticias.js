@@ -106,6 +106,7 @@ function normalizarNoticia(f) {
         // reestructuración — solo se lee, ya no se escribe.
         visiblePara: String(f.visiblePara || "").trim(),
         leidoPor: String(f.leidoPor || "").trim(),
+        usuariosEspecificos: String(f.usuariosEspecificos || "").trim(),
     };
 }
 
@@ -116,6 +117,14 @@ function normalizarNoticia(f) {
  *  para los modos propios/franquicias (miran Sucursales.esPropio); si
  *  no se pasa, esos modos no matchean a nadie (criterio conservador). */
 export function puedeVerNoticia(noticia, usuario, sucursales = []) {
+    // Si tiene usuariosEspecificos, SOLO esos usuarios la ven (Admin siempre)
+    const usuariosEspecificos = String(noticia.usuariosEspecificos || "").trim();
+    if (usuariosEspecificos) {
+        if (usuario.rol === "admin") return true;
+        const listaUsuarios = usuariosEspecificos.split(",").map(id => String(id).trim()).filter(Boolean);
+        return listaUsuarios.includes(String(usuario.id));
+    }
+    
     const dirigidoA = String(noticia.dirigidoA || "").trim();
 
     // "Solo Admin (prueba)": NADIE más que Admin — ni siquiera
@@ -202,7 +211,7 @@ export async function getNoticiasVisibles(usuario) {
     return todas.filter((n) => !estaProgramada(n) && puedeVerNoticia(n, usuario, sucursales));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntos, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntos, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora, usuariosEspecificos }) {
     // adjuntos es un array [{url, label}]. Si viene vacío pero hay adjuntoUrl (fallback),
     // lo convierte. Guarda como JSON en la columna "adjuntos".
     const adjuntosFinales = adjuntos && adjuntos.length > 0
@@ -217,6 +226,7 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
         tipo: tipo || "noticia", prioridad: prioridad || "info",
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
+        usuariosEspecificos: usuariosEspecificos || "",
         leidoPor: "",
     };
     console.log("Guardando noticia:", { titulo, adjuntos: datosParaGuardar.adjuntos });

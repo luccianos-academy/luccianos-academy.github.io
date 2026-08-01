@@ -341,6 +341,12 @@ function leerCamposNotificacion() {
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
+        // Usuarios específicos: lista de checkboxes
+        usuariosEspecificos: (() => {
+            const checkboxes = document.querySelectorAll(".checkbox-usuario-especifico:checked");
+            return Array.from(checkboxes).map(cb => cb.value).join(",");
+        })(),
+        
         // adjuntos múltiples: lee campos dinámicos
         adjuntos: (() => {
             const adjuntos = [];
