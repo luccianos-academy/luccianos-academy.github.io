@@ -1,0 +1,79 @@
+═══════════════════════════════════════════════════════════════════
+  LUCCIANO'S ACADEMY — Activar IndexedDB + Sync (3 PASOS RÁPIDOS)
+═══════════════════════════════════════════════════════════════════
+
+✅ PASO 1: Copiar-Pegar UNA LÍNEA en Apps Script Console
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Abre el Sheet: https://docs.google.com/spreadsheets/d/1DjsZ3_x_VCY9vSMdRvNeLp0_voGFFpg1qGPvKMFPM3o/
+
+2. Extensiones → Apps Script
+
+3. En la pestaña "Setup.gs" (lado izquierdo), busca esta función:
+   
+   function setupSyncColumns() { ... }
+
+4. En el selector de funciones (arriba, dice "Select function"), 
+   cambia a "setupSyncColumns"
+
+5. Haz clic en el botón ▶️ (RUN)
+
+6. Espera a que termine (Output panel abajo mostrará ✓)
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASO 2: Verificar en Google Sheets
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Vuelve al Sheet (la pestaña del navegador con el Sheet abierto)
+
+2. Abre cada pestaña:
+   - Usuarios
+   - Cursos
+   - Lecciones
+   - Noticias
+   - etc.
+
+3. Scrollea hasta la ÚLTIMA COLUMNA
+
+4. Verifica que aparezca: "fechaModificacion" con números como "2026-08-03 15:23:45"
+
+═══════════════════════════════════════════════════════════════════
+
+✅ PASO 3: Testear en Branch Deploy de Netlify
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+URL (cuando esté listo, ~1-2 minutos):
+
+🔗 https://feature-indexeddb-sync--luccianos-academy.netlify.app
+
+Checklist:
+☐ Carga la app
+☐ Abre DevTools (F12)
+☐ Vete a Console tab
+☐ Busca mensajes que digan "[IndexedDB]" o "[SYNC]"
+☐ Si ves esos mensajes = ✅ FUNCIONA
+
+═══════════════════════════════════════════════════════════════════
+
+❓ SI ALGO NO FUNCIONA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A) Apps Script tiró error en Paso 1:
+   → Copia el error y muéstramelo
+
+B) No veo "fechaModificacion" en el Sheet (Paso 2):
+   → Verifica que scrollees hasta la ÚLTIMA columna (derecha)
+
+C) Branch deploy no carga:
+   → Abre: https://app.netlify.com/sites/luccianos-academy/deploys
+   → Busca la rama "feature/indexeddb-sync"
+   → Si está en "Building" o "Failed", espera o muéstrame el error
+
+═══════════════════════════════════════════════════════════════════
+
+NADA MÁS. Eso es todo lo que necesitas hacer.
+
+Una vez verificado → hago el merge a producción automáticamente.
+
+═══════════════════════════════════════════════════════════════════
