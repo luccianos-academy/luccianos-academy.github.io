@@ -246,13 +246,13 @@ class SyncManager {
 }
 
 // Global instance
-const syncManager = new SyncManager();
+window.syncManager = new SyncManager();
 
 // Initialize when document is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    syncManager.init().catch(err => console.error('[SYNC] Init failed:', err));
-  });
-} else {
-  syncManager.init().catch(err => console.error('[SYNC] Init failed:', err));
-}
+// if (document.readyState === 'loading') {
+//   document.addEventListener('DOMContentLoaded', () => {
+//     syncManager.init().catch(err => console.error('[SYNC] Init failed:', err));
+//   });
+// } else {
+//   syncManager.init().catch(err => console.error('[SYNC] Init failed:', err));
+// }

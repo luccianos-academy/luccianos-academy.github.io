@@ -5,20 +5,49 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
-import "./services/indexeddb.js";  // IndexedDB manager (auto-init)
-import "./services/syncManager.js"; // Sync manager (auto-init)
+import "./services/indexeddb.js";
+import "./services/syncManager.js";
 
-document.addEventListener("DOMContentLoaded", () => {
-    initRouter();
-    bindTooltips();
-});
+// Wait for idbManager and syncManager to be available in window
+async function waitForServices() {
+    return new Promise(resolve => {
+        const checkInterval = setInterval(() => {
+            if (window.idbManager && window.syncManager) {
+                clearInterval(checkInterval);
+                resolve();
+            }
+        }, 50);
+    });
+}
 
-// Registra el service worker mínimo (ver sw.js) — necesario en Android/
-// Chrome para que dispare beforeinstallprompt (ver services/
-// installPrompt.js), y es quien maneja push (fetch/install/activate/
-// push todos viven ahí — ver sw.js). Si falla (http sin TLS, navegador
-// sin soporte), no rompe nada — el banner de instalar simplemente no
-// aparece, y push queda no disponible.
+async function initApp() {
+    try {
+        // Wait for services to be globally available
+        await waitForServices();
+        
+        console.log('[APP] Initializing IndexedDB...');
+        await window.idbManager.init();
+        
+        console.log('[APP] Initializing Sync Manager...');
+        await window.syncManager.init();
+        
+        console.log('[APP] Initializing Router...');
+        initRouter();
+        bindTooltips();
+        
+        console.log('[APP] ✅ App fully initialized');
+    } catch (err) {
+        console.error('[APP] ❌ Initialization error:', err);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
+
+// Registra el service worker
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
 }
@@ -26,11 +55,11 @@ if ("serviceWorker" in navigator) {
 // Expose debug utilities globally
 window.lucciano = window.lucciano || {};
 window.lucciano.debug = {
-    getIndexedDBSize: () => idbManager?.getDBSize(),
-    forceSyncNow: () => syncManager?.forceSyncNow(),
-    clearLocalDB: () => idbManager?.clearAll(),
-    getSyncStatus: () => syncManager?.getStatus(),
-    exportDB: () => idbManager?.exportDB()
+    getIndexedDBSize: () => window.idbManager?.getDBSize(),
+    forceSyncNow: () => window.syncManager?.forceSyncNow(),
+    clearLocalDB: () => window.idbManager?.clearAll(),
+    getSyncStatus: () => window.syncManager?.getStatus(),
+    exportDB: () => window.idbManager?.exportDB()
 };
 
 console.log('[APP] Debug tools available at window.lucciano.debug');

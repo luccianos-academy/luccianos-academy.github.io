@@ -237,13 +237,7 @@ class IndexedDBManager {
 }
 
 // Global instance
-const idbManager = new IndexedDBManager();
+// Manual init from app.js
 
-// Initialize on load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    idbManager.init().catch(err => console.error('[IndexedDB] Init failed:', err));
-  });
-} else {
-  idbManager.init().catch(err => console.error('[IndexedDB] Init failed:', err));
-}
+// Global instance (must be created, but not auto-init)
+window.idbManager = new IndexedDBManager();
