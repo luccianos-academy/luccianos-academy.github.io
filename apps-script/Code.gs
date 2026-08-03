@@ -123,6 +123,8 @@ function _despachar(body, usuarioActual) {
         case "eliminar":   return eliminar(body.hoja, body.id, usuarioActual);
         case "enviarMail": return enviarMailDesdeApp(body.destinatarios, body.asunto, body.cuerpo, usuarioActual);
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
+        case "sync":       return sync(body.lastSync, usuarioActual);
+
         default:           return { ok: false, error: "Acción desconocida: " + body.accion };
     }
 }
@@ -865,4 +867,46 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
     });
 
     return { ok: true, enviados, fallidos: fallidos.length, destinatarios: tokens.length };
+}
+
+/* ============================================================
+   SINCRONIZACIÓN — delta desde último sync
+   Retorna SOLO los registros que cambiaron desde lastSync
+============================================================ */
+
+function sync(lastSyncTime, usuarioActual) {
+    try {
+        const timestamp = Date.now();
+        const data = {};
+
+        // Hojas que se sincronizan
+        const hojas = ['Usuarios', 'Cursos', 'Lecciones', 'Noticias', 'Comunicaciones', 'Asignaciones', 'Resultados', 'Manuales'];
+
+        for (const hoja of hojas) {
+            try {
+                const registros = leer(hoja, usuarioActual).data || [];
+                
+                // Filtrar solo los que cambiaron desde lastSync
+                // (requiere que cada fila tenga fechaModificacion)
+                data[hoja.toLowerCase()] = registros.filter(r => {
+                    const modificacion = r.fechaModificacion ? parseInt(r.fechaModificacion) : 0;
+                    return modificacion > lastSyncTime || !lastSyncTime;
+                });
+            } catch (err) {
+                console.log(`Sync: error reading ${hoja}:`, err.message);
+                data[hoja.toLowerCase()] = [];
+            }
+        }
+
+        return {
+            ok: true,
+            timestamp: timestamp,
+            data: data
+        };
+    } catch (err) {
+        return {
+            ok: false,
+            error: 'Sync failed: ' + err.message
+        };
+    }
 }

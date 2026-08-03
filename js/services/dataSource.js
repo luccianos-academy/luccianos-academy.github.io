@@ -2,18 +2,23 @@
    FARO v4
    services/dataSource.js
 
-   La única costura entre "datos de muestra en memoria" y
-   "Google Sheets real". Cada función de js/data/*.js llama a
-   estas cuatro funciones en vez de a services/google.js
-   directamente — así, cuando exista un GAS_URL real, alcanza con
-   que USE_MOCK_DATA pase a false (config.js) para que TODA la
-   app empiece a leer/escribir en Sheets sin tocar una sola página
-   ni componente.
+   Data access layer with three-tier caching strategy:
+   1. Mock data (development)
+   2. IndexedDB (local cache, instant access)
+   3. Apps Script → Google Sheets (backend sync)
 
-   Los mockRows que recibe cada función son los arrays vivos de
-   js/data/mock/*.mock.js: se mutan en memoria para que un alta o
-   una edición se vea reflejada al instante en la pantalla (se
-   pierde al recargar — esperable mientras no hay backend).
+   Cada función de js/data/*.js llama a estas cuatro funciones
+   en vez de directamente a google.js. Esto permite cambiar entre
+   datos mock, IndexedDB local, y backend remoto sin tocar las
+   páginas.
+
+   Strategy:
+   - fetchSheet: Mock → IndexedDB → Apps Script (fallback)
+   - writeSheet: IndexedDB (optimistic) → queue for sync
+   - updateSheet: IndexedDB (optimistic) → queue for sync
+   - deleteSheet: IndexedDB (optimistic) → queue for sync
+
+   IndexedDB + syncManager handle background sync sin bloquear UI.
 =============================*/
 
 import { USE_MOCK_DATA } from "../config.js";
@@ -24,70 +29,176 @@ import {
     eliminarDatosSheet,
 } from "./google.js";
 
-// La app pedía CADA hoja de cero en CADA navegación — cada pedido a
-// Apps Script tarda 1-3s posta (red + ejecución), así que 2-4 hojas
-// por pantalla (Promise.all típico) se sentían como 5-10s reales de
-// espera por cada clic, incluso para datos que no cambiaron nada
-// (Cursos, Sucursales, Usuarios rara vez cambian de un minuto a otro).
-// Cache corto en memoria: mientras una hoja tenga un pedido reciente
-// (menos de CACHE_TTL_MS), se reusa esa respuesta en vez de ir a la
-// red de nuevo — y se invalida SOLA apenas alguien escribe en esa
-// misma hoja (ver invalidar()), así que nunca ves desactualizado algo
-// que vos mismo acabás de guardar. El único costo real es no ver al
-// toque un cambio que hizo OTRA persona en simultáneo — aceptable acá
-// (~20-30 usuarios, sin tiempo real ya de entrada).
+// Map entre nombre de hoja y store IndexedDB
+const sheetToStoreMap = {
+    'Usuarios': 'usuarios',
+    'Cursos': 'cursos',
+    'Lecciones': 'lecciones',
+    'Noticias': 'noticias',
+    'Comunicaciones': 'comunicaciones',
+    'Asignaciones': 'asignaciones',
+    'Resultados': 'resultados',
+    'Manuales': 'manuales'
+};
+
+// Cache en memoria corto (fallback si IndexedDB falla)
 const CACHE_TTL_MS = 20000;
 const cache = {}; // { [hoja]: { datos, ts } }
-const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes de la misma hoja
+const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes
 
 export function invalidar(hoja) {
     delete cache[hoja];
 }
 
+// Fetch con IndexedDB como capa principal
 export async function fetchSheet(hoja, mockRows) {
     if (USE_MOCK_DATA) return structuredClone(mockRows);
 
+    const storeName = sheetToStoreMap[hoja];
+
+    // Tier 1: Check in-memory cache
     const cacheado = cache[hoja];
     if (cacheado && Date.now() - cacheado.ts < CACHE_TTL_MS) {
+        console.log(`[dataSource] Cache hit: ${hoja}`);
         return [...cacheado.datos];
     }
 
-    if (!pedidosEnVuelo[hoja]) {
-        pedidosEnVuelo[hoja] = obtenerDatosSheet(hoja).finally(() => { delete pedidosEnVuelo[hoja]; });
+    // Tier 2: Check IndexedDB (instant, no network)
+    if (storeName && idbManager && idbManager.db) {
+        try {
+            const idbData = await idbManager.getAllRecords(storeName);
+            if (idbData && idbData.length > 0) {
+                console.log(`[dataSource] IndexedDB hit: ${hoja} (${idbData.length} records)`);
+                cache[hoja] = { datos: idbData, ts: Date.now() };
+                return [...idbData];
+            }
+        } catch (err) {
+            console.warn(`[dataSource] IndexedDB fetch failed for ${hoja}:`, err);
+        }
     }
+
+    // Tier 3: Fallback to Apps Script (network request)
+    if (!pedidosEnVuelo[hoja]) {
+        console.log(`[dataSource] Fetching from Apps Script: ${hoja}`);
+        pedidosEnVuelo[hoja] = obtenerDatosSheet(hoja)
+            .then(filas => {
+                // Save to IndexedDB for future use
+                if (storeName && idbManager && idbManager.db && filas && filas.length > 0) {
+                    idbManager.saveRecords(storeName, filas).catch(err => {
+                        console.warn(`[dataSource] Failed to save ${hoja} to IndexedDB:`, err);
+                    });
+                }
+                return filas;
+            })
+            .finally(() => { delete pedidosEnVuelo[hoja]; });
+    }
+
     const filas = (await pedidosEnVuelo[hoja]) || [];
     cache[hoja] = { datos: filas, ts: Date.now() };
     return [...filas];
 }
 
+// Write: optimistic update in IndexedDB, queue for sync
 export async function writeSheet(hoja, fila, mockRows) {
     if (USE_MOCK_DATA) {
         const nuevaFila = { id: Date.now(), ...fila };
         mockRows.push(nuevaFila);
         return { ok: true, fila: nuevaFila };
     }
-    const resultado = await guardarDatosSheet(hoja, fila);
+
+    const storeName = sheetToStoreMap[hoja];
+    const nuevaFila = { id: Date.now(), ...fila, fechaModificacion: Date.now() };
+
+    // Optimistic update: save to IndexedDB immediately
+    if (storeName && idbManager && idbManager.db) {
+        try {
+            await idbManager.saveRecord(storeName, nuevaFila);
+            console.log(`[dataSource] Optimistic write to IndexedDB: ${hoja}`);
+        } catch (err) {
+            console.error(`[dataSource] Failed to save to IndexedDB:`, err);
+        }
+    }
+
+    // Queue for sync (will be uploaded in background)
+    if (syncManager) {
+        syncManager.queueChange(storeName, nuevaFila, 'put')
+            .catch(err => console.error(`[dataSource] Failed to queue change:`, err));
+    }
+
+    // Also save to Apps Script (legacy behavior for safety)
+    const resultado = await guardarDatosSheet(hoja, nuevaFila);
     invalidar(hoja);
-    return resultado;
+    return { ok: true, fila: nuevaFila, ...resultado };
 }
 
+// Update: optimistic update in IndexedDB, queue for sync
 export async function updateSheet(hoja, id, cambios, mockRows) {
     if (USE_MOCK_DATA) {
         const fila = mockRows.find((f) => String(f.id) === String(id));
         if (fila) Object.assign(fila, cambios);
         return { ok: !!fila };
     }
-    const resultado = await actualizarDatosSheet(hoja, id, cambios);
+
+    const storeName = sheetToStoreMap[hoja];
+    const cambiosConTimestamp = { ...cambios, fechaModificacion: Date.now() };
+
+    // Optimistic update: fetch current record, merge, save to IndexedDB
+    if (storeName && idbManager && idbManager.db) {
+        try {
+            const current = await idbManager.getRecord(storeName, id);
+            if (current) {
+                const updated = { ...current, ...cambiosConTimestamp };
+                await idbManager.saveRecord(storeName, updated);
+                console.log(`[dataSource] Optimistic update to IndexedDB: ${hoja} (${id})`);
+
+                // Queue for sync
+                if (syncManager) {
+                    syncManager.queueChange(storeName, updated, 'put')
+                        .catch(err => console.error(`[dataSource] Failed to queue change:`, err));
+                }
+            }
+        } catch (err) {
+            console.error(`[dataSource] Failed to optimistically update:`, err);
+        }
+    }
+
+    // Also update Apps Script
+    const resultado = await actualizarDatosSheet(hoja, id, cambiosConTimestamp);
     invalidar(hoja);
     return resultado;
 }
 
+// Delete: optimistic delete in IndexedDB, queue for sync
 export async function deleteSheet(hoja, id, mockRows) {
     if (USE_MOCK_DATA) {
         const index = mockRows.findIndex((f) => String(f.id) === String(id));
         if (index !== -1) mockRows.splice(index, 1);
         return { ok: index !== -1 };
     }
+
+    const storeName = sheetToStoreMap[hoja];
+
+    // Note: For delete, we mark as deleted rather than removing
+    // This ensures sync can track the deletion
+    if (storeName && idbManager && idbManager.db) {
+        try {
+            const record = await idbManager.getRecord(storeName, id);
+            if (record) {
+                const deleted = { ...record, deleted: true, fechaModificacion: Date.now() };
+                await idbManager.saveRecord(storeName, deleted);
+                console.log(`[dataSource] Optimistic delete in IndexedDB: ${hoja} (${id})`);
+
+                if (syncManager) {
+                    syncManager.queueChange(storeName, deleted, 'delete')
+                        .catch(err => console.error(`[dataSource] Failed to queue delete:`, err));
+                }
+            }
+        } catch (err) {
+            console.error(`[dataSource] Failed to optimistically delete:`, err);
+        }
+    }
+
+    // Also delete from Apps Script
     const resultado = await eliminarDatosSheet(hoja, id);
     invalidar(hoja);
     return resultado;

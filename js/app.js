@@ -5,6 +5,8 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
+import "./services/indexeddb.js";  // IndexedDB manager (auto-init)
+import "./services/syncManager.js"; // Sync manager (auto-init)
 
 document.addEventListener("DOMContentLoaded", () => {
     initRouter();
@@ -20,3 +22,15 @@ document.addEventListener("DOMContentLoaded", () => {
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
 }
+
+// Expose debug utilities globally
+window.lucciano = window.lucciano || {};
+window.lucciano.debug = {
+    getIndexedDBSize: () => idbManager?.getDBSize(),
+    forceSyncNow: () => syncManager?.forceSyncNow(),
+    clearLocalDB: () => idbManager?.clearAll(),
+    getSyncStatus: () => syncManager?.getStatus(),
+    exportDB: () => idbManager?.exportDB()
+};
+
+console.log('[APP] Debug tools available at window.lucciano.debug');
