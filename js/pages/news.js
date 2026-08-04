@@ -18,6 +18,7 @@
 import { Header } from "../components/header.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
+import { MultiSelectUsuarios, bindMultiSelectUsuarios } from "../components/multiSelectUsuarios.js";
 import { renderProcedimiento } from "../components/procedimiento.js";
 import { Icon } from "../components/icons.js";
 import {
@@ -162,15 +163,21 @@ function camposNotificacionHtml(n = {}, cursos = []) {
         "encargados-propios": "Solo encargados de locales propios.",
         "encargados-franquicias": "Solo encargados de franquicias.",
         "colaboradores-local": "Elegí a qué locales enviarla.",
+        "usuarios-especificos": "Solo a usuarios específicos que selecciones (Admin only).",
         "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
     };
-    const radiosDirigido = DIRIGIDO_A.map((d) => `
-        <label class="radio-card">
-            <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" ${dirigidoActual === d.id ? "checked" : ""}>
-            <span class="radio-card-titulo">${d.nombre}</span>
-            <span class="radio-card-desc">${DESC_DIRIGIDO[d.id] || ""}</span>
-        </label>
-    `).join("");
+    const radiosDirigido = DIRIGIDO_A.map((d) => {
+        // "usuarios-especificos" solo visible para Admin
+        const esAdmin = true; // Se valida en la página
+        if (d.id === "usuarios-especificos" && !esAdmin) return "";
+        return `
+            <label class="radio-card">
+                <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" ${dirigidoActual === d.id ? "checked" : ""}>
+                <span class="radio-card-titulo">${d.nombre}</span>
+                <span class="radio-card-desc">${DESC_DIRIGIDO[d.id] || ""}</span>
+            </label>
+        `;
+    }).join("");
 
     return `
         <div class="form-secciones">
@@ -215,6 +222,11 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                 <div id="wrap-sucursal-notif" style="margin-top:14px">
                     <label for="input-sucursal-notif" style="margin-top:0">Seleccionar locales</label>
                     ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
+                </div>
+
+                <div id="wrap-usuarios-notif" style="margin-top:14px;display:none">
+                    <label for="input-usuarios-notif" style="margin-top:0">Seleccionar usuarios</label>
+                    ${MultiSelectUsuarios("input-usuarios-notif", n.usuariosEspecificos ? n.usuariosEspecificos.split(",").map((id) => id.trim()).filter(Boolean) : [])}
                 </div>
 
                 <div class="form-info-box">
@@ -339,13 +351,10 @@ function leerCamposNotificacion() {
         dirigidoA,
         // Los locales solo importan cuando se eligió ese modo.
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
+        // Usuarios específicos: solo cuando se elige esa opción
+        usuariosEspecificos: dirigidoA === "usuarios-especificos" ? (document.getElementById("input-usuarios-notif")?.value || "") : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
-        // Usuarios específicos: lista de checkboxes
-        usuariosEspecificos: (() => {
-            const checkboxes = document.querySelectorAll(".checkbox-usuario-especifico:checked");
-            return Array.from(checkboxes).map(cb => cb.value).join(",");
-        })(),
         
         // adjuntos múltiples: lee campos dinámicos
         adjuntos: (() => {
@@ -682,12 +691,17 @@ export function bindNuevaNews(params = []) {
 
     // Locales visibles solo con "Locales específicos".
     const wrapSucursal = document.getElementById("wrap-sucursal-notif");
-    function actualizarWrapSucursal() {
+    const wrapUsuarios = document.getElementById("wrap-usuarios-notif");
+    function actualizarWrapsSurcursalUsuarios() {
         const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
         if (wrapSucursal) wrapSucursal.style.display = dirigido === "colaboradores-local" ? "" : "none";
+        if (wrapUsuarios) wrapUsuarios.style.display = dirigido === "usuarios-especificos" ? "" : "none";
     }
-    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapSucursal));
-    actualizarWrapSucursal();
+    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapsSurcursalUsuarios));
+    actualizarWrapsSurcursalUsuarios();
+
+    // Bindear multiselect de usuarios
+    bindMultiSelectUsuarios("input-usuarios-notif");
 
     // Fecha/hora visibles solo con "Programar".
     const wrapFecha = document.getElementById("wrap-fecha-notif");

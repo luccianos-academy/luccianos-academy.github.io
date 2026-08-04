@@ -42,6 +42,7 @@ export const DIRIGIDO_A = [
     { id: "encargados-propios", nombre: "Encargados — Locales propios" },
     { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
     { id: "colaboradores-local", nombre: "Locales específicos" },
+    { id: "usuarios-especificos", nombre: "Usuarios específicos (Admin only)" },
     { id: "solo-admin", nombre: "Solo Admin (prueba)" },
 ];
 
@@ -79,6 +80,14 @@ function normalizarNoticia(f) {
         // adjuntos es un array [{url, label}, ...]. Puede venir como JSON desde
         // Sheets (adjuntos) o convertirse desde los antiguos adjuntoUrl/adjuntoLabel.
         adjuntos: (() => {
+            try {
+                if (f.adjuntos && String(f.adjuntos).trim()) {
+                    const parsed = JSON.parse(f.adjuntos);
+                    if (Array.isArray(parsed)) return parsed;
+                }
+            } catch (e) {
+                // JSON inválido, fallback a adjuntoUrl
+            }
             if (f.adjuntoUrl) {
                 return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];
             }
@@ -221,6 +230,7 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
     const datosParaGuardar = {
         titulo, fecha, resumen,
         detalle: detalle || "", enlace: enlace || "",
+        adjuntos: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
         adjuntoUrl: adjuntosFinales.length > 0 ? adjuntosFinales[0].url : "",
         adjuntoLabel: adjuntosFinales.length > 0 ? adjuntosFinales[0].label : "",
         tipo: tipo || "noticia", prioridad: prioridad || "info",
