@@ -129,22 +129,13 @@ function etiquetaGrupo(fecha) {
     return formatearFecha(fecha);
 }
 
-function camposNotificacionHtml(n = {}, cursos = []) {
+function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
     const dirigidoActual = n.dirigidoA || "";
     const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
-
-    // Usuarios específicos — solo visible cuando se selecciona "usuarios"
-    const opcionesUsuarios = (() => {
-        if (!Array.isArray(cursos)) return "";
-        // Por ahora devolvemos HTML vacío, lo llenaremos en bindNuevaNews
-        return `<div id="select-usuarios-especificos" style="display:none;margin-top:12px">
-            <label>Enviar solo a:</label>
-            <div id="usuarios-especificos-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
-        </div>`;
-    })();
+    const esAdmin = usuario.rol === "admin";
 
     // Pills de categoría ya usadas — click rellena el input; cada una
     // tiene un × para borrarla de la lista (pedido del usuario).
@@ -168,7 +159,6 @@ function camposNotificacionHtml(n = {}, cursos = []) {
     };
     const radiosDirigido = DIRIGIDO_A.map((d) => {
         // "usuarios-especificos" solo visible para Admin
-        const esAdmin = true; // Se valida en la página
         if (d.id === "usuarios-especificos" && !esAdmin) return "";
         return `
             <label class="radio-card">
@@ -647,7 +637,7 @@ export async function NuevaNews(params = []) {
             <button type="button" class="compose-ayuda" id="btn-ayuda-news">${Icon("alertas", { size: 16 })} ¿Cómo funciona News?</button>
         </div>
 
-        ${camposNotificacionHtml(noti || {}, cursos)}
+        ${camposNotificacionHtml(noti || {}, cursos, usuario)}
 
         <div class="compose-footer">
             <button class="btn btn-secondary" id="btn-cancelar-news">Cancelar</button>
