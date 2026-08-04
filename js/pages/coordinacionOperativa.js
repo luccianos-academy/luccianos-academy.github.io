@@ -513,19 +513,24 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
                     <label>Adjunto (opcional)</label>
-                    <div class="adjunto-tipos">
-                        ${adjuntoTipoBtnHtml("documento", "PDF")}
-                        ${adjuntoTipoBtnHtml("imagen", "Imagen")}
-                        ${adjuntoTipoBtnHtml("video", "Video")}
-                        ${adjuntoTipoBtnHtml("enlace", "Link", true)}
-                        <button type="button" class="adjunto-tipo-btn" id="btn-subir-archivo-comun" data-tipo="documento" style="background:var(--success-soft);color:var(--success)">${Icon("subir", { size: 18 })}<span>Subir</span></button>
+                    <div class="adjunto-tipos" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="video">🎬<span>Video</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="enlace" style="border:2px solid var(--accent);color:var(--accent)">🔗<span>Link</span></button>
                     </div>
-                    <div class="input-adjunto-chip">
-                        <span id="icono-adjunto-pub">${Icon("enlace", { size: 16 })}</span>
-                        <input type="text" id="input-adjunto-url-pub" placeholder="Pegar link de Drive u otro">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:flex-start;margin-bottom:12px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL/Enlace</label>
+                            <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                            <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                        </div>
                     </div>
                     <input type="file" id="input-archivo-comun" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
-                    <input type="text" id="input-adjunto-pub" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
+                    <button type="button" id="btn-subir-archivo-comun" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">📤 Subir archivo</button>
 
                     <label class="toggle-switch" style="margin-top:16px">
                         Marcar como destacado
@@ -570,6 +575,14 @@ async function abrirModalNuevaPublicacion(canalId) {
     mensajeInput.addEventListener("input", () => { contador.textContent = mensajeInput.value.length; });
     bindAdjuntoTipos("icono-adjunto-pub");
 
+    // Botones de tipo de adjunto para Comunicaciones
+    document.querySelectorAll(".adjunto-tipo-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".adjunto-tipo-btn").forEach((b) => b.style.borderColor = "var(--line)");
+            btn.style.borderColor = "var(--accent)";
+        });
+    });
+
     // File upload para Comunicaciones
     const inputArchivoCom = document.getElementById("input-archivo-comun");
     const btnSubirArchivoCom = document.getElementById("btn-subir-archivo-comun");
@@ -611,7 +624,7 @@ async function abrirModalNuevaPublicacion(canalId) {
                 alert(`Error: ${err.message}`);
             } finally {
                 btnSubirArchivoCom.disabled = false;
-                btnSubirArchivoCom.innerHTML = `${Icon("subir", { size: 18 })}<span>Subir</span>`;
+                btnSubirArchivoCom.textContent = textoOriginal;
             }
         });
     }
