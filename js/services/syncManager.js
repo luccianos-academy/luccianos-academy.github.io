@@ -13,6 +13,12 @@ class SyncManager {
 
   // Initialize sync manager
   async init() {
+    // Desactivar sync si GAS_URL no está configurado (modo desarrollo)
+    if (typeof window.GAS_URL === 'undefined' || !window.GAS_URL) {
+      console.log('[SYNC] GAS_URL no configurada - sync desactivado');
+      return;
+    }
+
     if (!idbManager.db) {
       await idbManager.init();
     }
