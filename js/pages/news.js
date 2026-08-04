@@ -310,7 +310,29 @@ function camposNotificacionHtml(n = {}, cursos = []) {
                                         ` : "")
                                     }
                                 </div>
-                                <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">+ Agregar otro enlace</button>
+                                <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+                                    <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
+                                    <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
+                                    <button type="button" class="adjunto-tipo-btn" data-tipo="video">🎬<span>Video</span></button>
+                                    <button type="button" class="adjunto-tipo-btn" data-tipo="enlace" style="border:2px solid var(--accent);color:var(--accent)">🔗<span>Link</span></button>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:flex-start;margin-bottom:12px">
+                                    <div>
+                                        <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL/Enlace</label>
+                                        <input type="text" id="input-adjunto-nueva-url" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                                    </div>
+                                    <div>
+                                        <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                                        <input type="text" id="input-adjunto-nueva-label" placeholder="Ej: Menú Kosher" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                                    </div>
+                                </div>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                                    <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="padding:12px;font-weight:600">+ Agregar enlace</button>
+                                    <div>
+                                        <input type="file" id="input-archivo-adjunto" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
+                                        <button type="button" id="btn-subir-archivo" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">📤 Subir archivo</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -708,6 +730,14 @@ export function bindNuevaNews(params = []) {
 
     // Adjuntos dinámicos — agregar/eliminar enlaces
     document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => {
+        const url = document.getElementById("input-adjunto-nueva-url")?.value.trim() || "";
+        const label = document.getElementById("input-adjunto-nueva-label")?.value.trim() || "";
+
+        if (!url) {
+            alert("Completá la URL del enlace");
+            return;
+        }
+
         const lista = document.getElementById("lista-adjuntos");
         const index = lista.querySelectorAll(".adjunto-item").length;
         const nuevoItem = document.createElement("div");
@@ -716,16 +746,21 @@ export function bindNuevaNews(params = []) {
         nuevoItem.innerHTML = `
             <div>
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
-                <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                <input type="text" class="input-adjunto-url" value="${url}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <div>
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
-                <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                <input type="text" class="input-adjunto-label" value="${label || "Ver enlace"}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
         `;
         lista.appendChild(nuevoItem);
-        nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", (e) => {
+
+        // Limpiar inputs
+        document.getElementById("input-adjunto-nueva-url").value = "";
+        document.getElementById("input-adjunto-nueva-label").value = "";
+
+        nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", () => {
             nuevoItem.remove();
         });
     });
@@ -735,6 +770,70 @@ export function bindNuevaNews(params = []) {
             e.currentTarget.closest(".adjunto-item")?.remove();
         });
     });
+
+    // Botones de tipo de adjunto
+    document.querySelectorAll(".adjunto-tipo-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".adjunto-tipo-btn").forEach((b) => b.style.borderColor = "var(--line)");
+            btn.style.borderColor = "var(--accent)";
+        });
+    });
+
+    // File upload para archivos (PDF, Excel, etc.)
+    const inputArchivo = document.getElementById("input-archivo-adjunto");
+    const btnSubirArchivo = document.getElementById("btn-subir-archivo");
+
+    if (btnSubirArchivo) {
+        btnSubirArchivo.addEventListener("click", () => inputArchivo?.click());
+
+        inputArchivo?.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const textoOriginal = btnSubirArchivo.textContent;
+            btnSubirArchivo.disabled = true;
+            btnSubirArchivo.textContent = `Subiendo...`;
+
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                    reader.readAsDataURL(file);
+                });
+
+                const usuario = getUsuarioActual();
+                const extension = file.name.split(".").pop() || "bin";
+
+                const response = await fetch("https://script.google.com/macros/d/AKfycbz1oKL5yGSVFLFvnvEDVzCvQhXaOBH-x8v3AqZngREgNVVqV9IfhX8OJLk0NXV4N5Oo/usercache", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({
+                        action: "subirArchivo",
+                        usuarioId: usuario.id,
+                        nombreArchivo: file.name,
+                        extension,
+                        archivoBase64: base64,
+                    }),
+                });
+
+                const resultado = await response.json();
+                if (resultado.ok) {
+                    // Llenar inputs automáticamente
+                    document.getElementById("input-adjunto-nueva-url").value = resultado.url;
+                    document.getElementById("input-adjunto-nueva-label").value = file.name;
+                    inputArchivo.value = "";
+                } else {
+                    throw new Error(resultado.error || "Error al subir archivo");
+                }
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            } finally {
+                btnSubirArchivo.disabled = false;
+                btnSubirArchivo.textContent = textoOriginal;
+            }
+        });
+    }
 
     document.getElementById("btn-ayuda-news")?.addEventListener("click", () => {
         alert("News son avisos para tu equipo. Elegí el público, escribí el mensaje y publicá ahora o programá una fecha. Supervisión siempre recibe copia.");

@@ -518,11 +518,13 @@ async function abrirModalNuevaPublicacion(canalId) {
                         ${adjuntoTipoBtnHtml("imagen", "Imagen")}
                         ${adjuntoTipoBtnHtml("video", "Video")}
                         ${adjuntoTipoBtnHtml("enlace", "Link", true)}
+                        <button type="button" class="adjunto-tipo-btn" id="btn-subir-archivo-comun" data-tipo="documento" style="background:var(--success-soft);color:var(--success)">${Icon("subir", { size: 18 })}<span>Subir</span></button>
                     </div>
                     <div class="input-adjunto-chip">
                         <span id="icono-adjunto-pub">${Icon("enlace", { size: 16 })}</span>
                         <input type="text" id="input-adjunto-url-pub" placeholder="Pegar link de Drive u otro">
                     </div>
+                    <input type="file" id="input-archivo-comun" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
                     <input type="text" id="input-adjunto-pub" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
 
                     <label class="toggle-switch" style="margin-top:16px">
@@ -567,6 +569,52 @@ async function abrirModalNuevaPublicacion(canalId) {
     const contador = document.getElementById("contador-mensaje-pub");
     mensajeInput.addEventListener("input", () => { contador.textContent = mensajeInput.value.length; });
     bindAdjuntoTipos("icono-adjunto-pub");
+
+    // File upload para Comunicaciones
+    const inputArchivoCom = document.getElementById("input-archivo-comun");
+    const btnSubirArchivoCom = document.getElementById("btn-subir-archivo-comun");
+    if (btnSubirArchivoCom) {
+        btnSubirArchivoCom.addEventListener("click", () => inputArchivoCom?.click());
+        inputArchivoCom?.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const textoOriginal = btnSubirArchivoCom.textContent;
+            btnSubirArchivoCom.disabled = true;
+            btnSubirArchivoCom.textContent = `Subiendo...`;
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                    reader.readAsDataURL(file);
+                });
+                const usuario = getUsuarioActual();
+                const extension = file.name.split(".").pop() || "bin";
+                const response = await fetch("https://script.google.com/macros/d/AKfycbz1oKL5yGSVFLFvnvEDVzCvQhXaOBH-x8v3AqZngREgNVVqV9IfhX8OJLk0NXV4N5Oo/usercache", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({
+                        action: "subirArchivo",
+                        usuarioId: usuario.id,
+                        nombreArchivo: file.name,
+                        extension,
+                        archivoBase64: base64,
+                    }),
+                });
+                const resultado = await response.json();
+                if (resultado.ok) {
+                    document.getElementById("input-adjunto-url-pub").value = resultado.url;
+                    document.getElementById("input-adjunto-pub").value = file.name;
+                    inputArchivoCom.value = "";
+                } else throw new Error(resultado.error || "Error al subir");
+            } catch (err) {
+                alert(`Error: ${err.message}`);
+            } finally {
+                btnSubirArchivoCom.disabled = false;
+                btnSubirArchivoCom.innerHTML = `${Icon("subir", { size: 18 })}<span>Subir</span>`;
+            }
+        });
+    }
 }
 
 /** Botón de tipo de adjunto (PDF/Imagen/Video/Link) — puramente
