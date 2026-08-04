@@ -910,3 +910,101 @@ function sync(lastSyncTime, usuarioActual) {
         };
     }
 }
+
+/* ============================================================
+   NOTIFICACIONES PROGRAMADAS — Trigger time-driven diario
+   Se ejecuta cada día a las 00:05 UTC para procesar noticias
+   programadas cuya fecha/hora ya llegó.
+============================================================ */
+
+function procesarNoticiasProgamadas() {
+    try {
+        const ahora = new Date();
+        const hoyISO = ahora.toISOString().split('T')[0]; // YYYY-MM-DD
+        const horaActual = ("0" + ahora.getHours()).slice(-2) + ":" + ("0" + ahora.getMinutes()).slice(-2); // HH:MM
+
+        const noticias = _leerCrudo("Noticias");
+        const usuarios = _leerCrudo("Usuarios");
+        const sucursales = _leerCrudo("Sucursales");
+
+        let procesadas = 0;
+        let errores = [];
+
+        noticias.forEach((noticia) => {
+            // Solo procesar noticias que tengan fecha = HOY y hora <= AHORA
+            const fecha = String(noticia.fecha || "").trim();
+            const hora = String(noticia.hora || "").trim();
+
+            if (fecha !== hoyISO || !hora) return; // No es para enviar hoy
+            if (hora > horaActual) return; // Aún no llegó la hora
+
+            try {
+                // Determinar destinatarios según dirigidoA
+                const dirigidoA = String(noticia.dirigidoA || "").trim();
+                let destinatarios = [];
+
+                if (dirigidoA === "usuarios-especificos") {
+                    // Usuarios específicos (Admin only)
+                    const idsStr = String(noticia.usuariosEspecificos || "").trim();
+                    if (idsStr) {
+                        const ids = idsStr.split(",").map(id => String(id).trim()).filter(Boolean);
+                        destinatarios = usuarios.filter(u => ids.includes(String(u.id))).map(u => u.id);
+                    }
+                } else if (dirigidoA === "colaboradores-local") {
+                    // Colaboradores de locales específicos
+                    const localesStr = String(noticia.sucursal || "").trim();
+                    if (localesStr) {
+                        const locales = localesStr.split(",").map(s => s.trim()).filter(Boolean);
+                        destinatarios = usuarios.filter(u => locales.includes(u.sucursal) && u.rol === "colaborador").map(u => u.id);
+                    }
+                } else if (dirigidoA === "encargados-propios" || dirigidoA === "encargados-franquicias") {
+                    // Encargados según si local es propio o franquicia
+                    const esPropio = dirigidoA === "encargados-propios";
+                    destinatarios = usuarios.filter(u => {
+                        if (!u.encargado) return false;
+                        const sucursal = sucursales.find(s => s.nombre === u.sucursal);
+                        const esLocalPropio = sucursal && sucursal.esPropio;
+                        return esPropio ? esLocalPropio : !esLocalPropio;
+                    }).map(u => u.id);
+                } else if (!dirigidoA) {
+                    // Todos los colaboradores (por defecto)
+                    destinatarios = usuarios.filter(u => u.rol === "colaborador").map(u => u.id);
+                }
+
+                // Supervisores siempre reciben copia
+                const supervisores = usuarios.filter(u => u.rol === "supervisor" || u.rol === "admin").map(u => u.id);
+                destinatarios = [...new Set([...destinatarios, ...supervisores])];
+
+                if (destinatarios.length > 0) {
+                    // Enviar push
+                    const resultado = enviarPush(destinatarios, noticia.titulo, noticia.resumen, "#/news", { rol: "admin" });
+                    if (resultado.ok) {
+                        procesadas++;
+                        Logger.log("[NOTICIAS PROGRAMADAS] Enviada: " + noticia.titulo + " a " + destinatarios.length + " usuarios");
+                    } else {
+                        errores.push(noticia.titulo + ": " + resultado.error);
+                    }
+                }
+            } catch (err) {
+                errores.push(noticia.titulo + ": " + err.message);
+            }
+        });
+
+        // Registrar en Auditoria
+        const admin = usuarios.find(u => u.rol === "admin");
+        if (admin) {
+            _escribirCrudo("Auditoria", {
+                usuarioId: admin.id,
+                accion: "procesar_noticias_programadas",
+                detalles: "Procesadas " + procesadas + " noticias programadas. Errores: " + errores.length,
+                timestamp: Date.now()
+            });
+        }
+
+        Logger.log("[NOTICIAS PROGRAMADAS] Completado: " + procesadas + " procesadas, " + errores.length + " errores");
+        return { ok: true, procesadas, errores };
+    } catch (err) {
+        Logger.error("[NOTICIAS PROGRAMADAS] Error: " + err.message);
+        return { ok: false, error: err.message };
+    }
+}
