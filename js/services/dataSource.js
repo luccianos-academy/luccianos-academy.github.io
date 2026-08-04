@@ -28,6 +28,8 @@ import {
     actualizarDatosSheet,
     eliminarDatosSheet,
 } from "./google.js";
+import { idbManager } from "./indexeddb.js";
+import { syncManager } from "./syncManager.js";
 
 // Map entre nombre de hoja y store IndexedDB
 const sheetToStoreMap = {

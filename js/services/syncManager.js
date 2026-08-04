@@ -2,6 +2,7 @@
 // Handles intelligent synchronization between IndexedDB (local) and Apps Script (backend)
 
 import { gasRequest } from "./google.js";
+import { idbManager } from "./indexeddb.js";
 
 class SyncManager {
   constructor() {
@@ -177,7 +178,7 @@ class SyncManager {
 }
 
 // Global instance
-const syncManager = new SyncManager();
+export const syncManager = new SyncManager();
 
 // Initialize when document is ready
 if (document.readyState === 'loading') {

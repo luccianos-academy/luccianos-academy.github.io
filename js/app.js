@@ -5,8 +5,8 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
-import "./services/indexeddb.js";  // IndexedDB manager (auto-init)
-import "./services/syncManager.js"; // Sync manager (auto-init)
+import { idbManager } from "./services/indexeddb.js";  // IndexedDB manager (auto-init)
+import { syncManager } from "./services/syncManager.js"; // Sync manager (auto-init)
 
 document.addEventListener("DOMContentLoaded", () => {
     initRouter();

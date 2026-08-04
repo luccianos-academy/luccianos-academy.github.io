@@ -237,7 +237,7 @@ class IndexedDBManager {
 }
 
 // Global instance
-const idbManager = new IndexedDBManager();
+export const idbManager = new IndexedDBManager();
 
 // Initialize on load
 if (document.readyState === 'loading') {
