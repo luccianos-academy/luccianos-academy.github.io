@@ -1177,6 +1177,24 @@
     margin-top:1px;
 }
 
+/* Contenedor que se oculta/muestra sin layout shift (transición suave) */
+.form-section-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transition: max-height 0.25s ease, opacity 0.25s ease, visibility 0.25s ease;
+    pointer-events: none;
+}
+
+.form-section-collapsible:not(.hidden) {
+    max-height: 1000px;
+    overflow: visible;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
 .form-info-box p{
     margin:0;
     font-size:12.5px;

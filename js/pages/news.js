@@ -209,12 +209,12 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
 
                 <div class="radio-cards">${radiosDirigido}</div>
 
-                <div id="wrap-sucursal-notif" style="margin-top:14px">
+                <div id="wrap-sucursal-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-sucursal-notif" style="margin-top:0">Seleccionar locales</label>
                     ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
                 </div>
 
-                <div id="wrap-usuarios-notif" style="margin-top:14px;display:none">
+                <div id="wrap-usuarios-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-usuarios-notif" style="margin-top:0">Seleccionar usuarios</label>
                     ${MultiSelectUsuarios("input-usuarios-notif", n.usuariosEspecificos ? n.usuariosEspecificos.split(",").map((id) => id.trim()).filter(Boolean) : [])}
                 </div>
@@ -243,7 +243,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                         <span class="radio-card-radio"></span>
                         <span class="radio-card-titulo">Programar publicación <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></span>
                         <span class="radio-card-desc">Elegí fecha y hora para que se envíe sola.</span>
-                        <span id="wrap-fecha-notif" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;display:${estaProgramada(n) ? "grid" : "none"}">
+                        <span id="wrap-fecha-notif" class="form-section-collapsible${estaProgramada(n) ? "" : " hidden"}" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;display:grid">
                             <span>
                                 <label for="input-fecha" style="margin-top:0;pointer-events:none">Fecha</label>
                                 <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}" min="${fechaHoyISO()}">
@@ -679,13 +679,25 @@ export function bindNuevaNews(params = []) {
         });
     });
 
-    // Locales visibles solo con "Locales específicos".
+    // Locales visibles solo con "Locales específicos" — transición suave sin layout shift.
     const wrapSucursal = document.getElementById("wrap-sucursal-notif");
     const wrapUsuarios = document.getElementById("wrap-usuarios-notif");
     function actualizarWrapsSurcursalUsuarios() {
         const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
-        if (wrapSucursal) wrapSucursal.style.display = dirigido === "colaboradores-local" ? "" : "none";
-        if (wrapUsuarios) wrapUsuarios.style.display = dirigido === "usuarios-especificos" ? "" : "none";
+        if (wrapSucursal) {
+            if (dirigido === "colaboradores-local") {
+                wrapSucursal.classList.remove("hidden");
+            } else {
+                wrapSucursal.classList.add("hidden");
+            }
+        }
+        if (wrapUsuarios) {
+            if (dirigido === "usuarios-especificos") {
+                wrapUsuarios.classList.remove("hidden");
+            } else {
+                wrapUsuarios.classList.add("hidden");
+            }
+        }
     }
     document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapsSurcursalUsuarios));
     actualizarWrapsSurcursalUsuarios();
@@ -693,11 +705,17 @@ export function bindNuevaNews(params = []) {
     // Bindear multiselect de usuarios
     bindMultiSelectUsuarios("input-usuarios-notif");
 
-    // Fecha/hora visibles solo con "Programar".
+    // Fecha/hora visibles solo con "Programar" — transición suave sin layout shift.
     const wrapFecha = document.getElementById("wrap-fecha-notif");
     function actualizarWrapFecha() {
         const cuando = document.querySelector(".input-cuando:checked")?.value;
-        if (wrapFecha) wrapFecha.style.display = cuando === "programar" ? "grid" : "none";
+        if (wrapFecha) {
+            if (cuando === "programar") {
+                wrapFecha.classList.remove("hidden");
+            } else {
+                wrapFecha.classList.add("hidden");
+            }
+        }
     }
     document.querySelectorAll(".input-cuando").forEach((r) => r.addEventListener("change", actualizarWrapFecha));
     actualizarWrapFecha();

@@ -43,7 +43,7 @@ function manejarSesionInvalida() {
 // botón), en vez de colgar indefinidamente.
 const TIMEOUT_REQUEST_MS = 20000;
 
-async function gasRequest(accion, payload = {}) {
+export async function gasRequest(accion, payload = {}) {
 
     if (!GAS_URL) {
         console.warn(`[services/google] GAS_URL no configurada. Acción solicitada: ${accion}`);

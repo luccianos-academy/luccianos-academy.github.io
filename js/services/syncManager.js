@@ -1,6 +1,8 @@
 // Sync Manager for Lucciano's Academy
 // Handles intelligent synchronization between IndexedDB (local) and Apps Script (backend)
 
+import { gasRequest } from "./google.js";
+
 class SyncManager {
   constructor() {
     this.isSyncing = false;
