@@ -681,39 +681,6 @@ function enviarMailDesdeApp(destinatarios, asunto, cuerpo, usuarioActual) {
     return { ok: true, enviados, fallidos };
 }
 
-/**
- * Aviso por mail del vencimiento de la beta a todos los Colaboradores
- * (incluye Encargados; NO Supervisores/Admins).
- *
- * A propósito NO está conectada a doPost — no se puede disparar desde
- * el cliente ni por accidente. Se corre una sola vez a mano desde el
- * editor de Apps Script: elegí "enviarAvisoBetaColaboradores" en el
- * desplegable de funciones y tocá "Ejecutar".
- */
-function enviarAvisoBetaColaboradores() {
-    const URL_APP = "https://luccianos-academy.netlify.app";
-    const usuarios = _filasComoObjetos(_sheet("Usuarios"));
-    const colaboradores = usuarios.filter((f) => String(f.rol || "").trim().toLowerCase() === "colaborador" && REGEX_EMAIL.test(String(f.email || "").trim()));
-
-    const asunto = "Tu acceso a la beta de Lucciano's Academy vence el 31/7";
-    let enviados = 0;
-
-    colaboradores.forEach((c) => {
-        const nombre = String(c.nombre || "").trim().split(" ")[0] || "";
-        const cuerpo =
-            "Hola " + nombre + ",\n\n" +
-            "Estás participando de la primera etapa (beta) de Lucciano's Academy, la nueva plataforma de capacitación de Lucciano's.\n\n" +
-            "Tu acceso está disponible hasta el 31/7 a las 23:59. Te recomendamos completar tus cursos asignados antes de esa fecha.\n\n" +
-            "Podés ingresar acá: " + URL_APP + "\n\n" +
-            "Gracias por ser parte de la prueba.\n" +
-            "Equipo Lucciano's";
-
-        if (_enviarUnMail(c.email, asunto, cuerpo)) enviados++;
-    });
-
-    return "Enviados: " + enviados + " de " + colaboradores.length;
-}
-
 /* ============================================================
    PUSH REAL — Firebase Cloud Messaging (Fase B de Coordinación
    Operativa / News)

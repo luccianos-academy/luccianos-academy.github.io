@@ -12,7 +12,6 @@ import { estaViendoComo, getUsuarioActual } from "./services/auth.js";
 import { getItem, setItem } from "./services/storage.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "./services/push.js";
 
-const CLAVE_BETA_CERRADO = "banner_beta_cerrado";
 const CLAVE_PUSH_CERRADO = "banner_push_cerrado";
 
 /**
@@ -38,7 +37,6 @@ export function renderLayout(rutaActiva) {
                 <button class="btn btn-secondary" id="btn-volver-admin">Volver a mi cuenta</button>
             </div>
         ` : ""}
-        ${BannerBeta(usuario)}
         ${BannerPush(usuario)}
         ${TopBar()}
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
@@ -49,36 +47,9 @@ export function renderLayout(rutaActiva) {
         ${BottomNav(rutaActiva)}
     `;
 
-    bindBannerBeta();
     bindBannerPush(usuario);
 
     return document.querySelector("#content");
-}
-
-/**
- * Aviso de acceso beta (hasta 31/7 23:59) para Colaboradores —
- * incluye Encargados, no Supervisores/Admins (así lo pidió el
- * cliente). Se puede cerrar, pero solo por el día de hoy: vuelve a
- * aparecer al otro día para que nadie se olvide del vencimiento.
- */
-function BannerBeta(usuario) {
-    if (!usuario || usuario.rol !== "colaborador") return "";
-    if (getItem(CLAVE_BETA_CERRADO, "") === new Date().toISOString().slice(0, 10)) return "";
-
-    return `
-        <div class="banner-beta" data-beta-banner>
-            <span>Estás en la <strong>versión beta</strong> de Lucciano's Academy — tu acceso vence el <strong>31/7 a las 23:59</strong>. Aprovechá para completar tus cursos antes de esa fecha.</span>
-            <button class="banner-beta-cerrar" data-beta-cerrar aria-label="Cerrar">${Icon("cerrar", { size: 14 })}</button>
-        </div>
-    `;
-}
-
-function bindBannerBeta() {
-    const banner = document.querySelector("[data-beta-banner]");
-    banner?.querySelector("[data-beta-cerrar]")?.addEventListener("click", () => {
-        setItem(CLAVE_BETA_CERRADO, new Date().toISOString().slice(0, 10));
-        banner.remove();
-    });
 }
 
 /**
@@ -91,7 +62,7 @@ function bindBannerBeta() {
  * — "denied"/"granted" son decisiones ya tomadas, no hay nada que
  * este banner pueda ofrecer ahí (mismo criterio que pages/perfil.js).
  * Se puede cerrar, pero solo por hoy — reaparece mañana si sigue sin
- * activarse, mismo patrón que el banner de beta.
+ * activarse.
  */
 function BannerPush(usuario) {
     if (!usuario) return "";
