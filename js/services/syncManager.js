@@ -85,7 +85,7 @@ class SyncManager {
   // Fetch delta from Apps Script (only changes since lastSync)
   async fetchDelta(lastSyncTime) {
     try {
-      const response = await gasRequest('sync', {
+      const response = await window.gasRequest('sync', {
         lastSync: lastSyncTime,
         action: 'syncDelta'
       });
@@ -166,7 +166,7 @@ class SyncManager {
 
       for (const change of changes) {
         try {
-          await gasRequest('write', {
+          await window.gasRequest('write', {
             hoja: this.mapStoreToSheet(change.storeName),
             data: change.data,
             operation: change.operation
