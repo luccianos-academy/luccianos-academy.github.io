@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(python *)",
+      "Bash(python3 *)",
+      "Bash(node *)",
+      "Read",
+      "Edit",
+      "Write"
+    ],
+    "defaultMode": "dontAsk"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | grep -qE '^git commit' && echo '{\"systemMessage\":\"🔒 Running security review before commit...\"}' || echo '{}' ",
+            "if": "Bash(git commit *)",
+            "statusMessage": "Security scan...",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | grep -qE '^git push' && echo '{\"systemMessage\":\"✨ Code optimization running on changed files...\"}' || echo '{}' ",
+            "if": "Bash(git push *)",
+            "statusMessage": "Simplifying code...",
+            "async": true,
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  },
+  "attributions": {
+    "commit": "Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+  }
+}

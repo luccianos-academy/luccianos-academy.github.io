@@ -39,6 +39,7 @@ import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { mandarPush } from "../services/push.js";
+import { gasRequest } from "../services/google.js";
 
 function formatearFechaHora(iso) {
     const d = new Date(iso);
@@ -512,27 +513,36 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-                    <label>Adjunto (opcional)</label>
-                    <div class="adjunto-tipos">
-                        ${adjuntoTipoBtnHtml("documento", "PDF")}
-                        ${adjuntoTipoBtnHtml("imagen", "Imagen")}
-                        ${adjuntoTipoBtnHtml("video", "Video")}
-                        ${adjuntoTipoBtnHtml("enlace", "Link", true)}
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
+                    <div class="adjunto-tipos" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="video">🎬<span>Video</span></button>
+                        <button type="button" class="adjunto-tipo-btn" data-tipo="enlace" style="border:2px solid var(--accent);color:var(--accent)">🔗<span>Link</span></button>
                     </div>
-                    <div class="input-adjunto-chip">
-                        <span id="icono-adjunto-pub">${Icon("enlace", { size: 16 })}</span>
-                        <input type="text" id="input-adjunto-url-pub" placeholder="Pegar link de Drive u otro">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:flex-start;margin-bottom:12px">
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL/Enlace</label>
+                            <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
+                        </div>
+                        <div>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                            <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
+                        </div>
                     </div>
-                    <input type="text" id="input-adjunto-pub" placeholder="Texto del botón (ej: Manual de Uniforme)" style="margin-top:8px">
+                    <input type="file" id="input-archivo-comun" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
+                    <button type="button" id="btn-subir-archivo-comun" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">📤 Subir archivo</button>
 
                     <label class="toggle-switch" style="margin-top:16px">
                         Marcar como destacado
                         <input type="checkbox" id="input-destacado-pub">
                     </label>
+                    ${usuario.rol === "admin" ? `
                     <label class="toggle-switch">
                         Requiere confirmación de lectura
                         <input type="checkbox" id="input-confirmacion-pub">
                     </label>
+                    ` : ""}
                 </div>
             </div>
         </div>
@@ -545,7 +555,7 @@ async function abrirModalNuevaPublicacion(canalId) {
         const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
         const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim();
         const destacado = document.getElementById("input-destacado-pub").checked;
-        const requiereConfirmacion = document.getElementById("input-confirmacion-pub").checked;
+        const requiereConfirmacion = document.getElementById("input-confirmacion-pub")?.checked || false;
 
         await crearPublicacion({
             canal, autorId: usuario.id, autorNombre: usuario.nombre, autorRol: usuario.rol,
@@ -567,6 +577,52 @@ async function abrirModalNuevaPublicacion(canalId) {
     const contador = document.getElementById("contador-mensaje-pub");
     mensajeInput.addEventListener("input", () => { contador.textContent = mensajeInput.value.length; });
     bindAdjuntoTipos("icono-adjunto-pub");
+
+    // Botones de tipo de adjunto para Comunicaciones
+    document.querySelectorAll(".adjunto-tipo-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".adjunto-tipo-btn").forEach((b) => b.style.borderColor = "var(--line)");
+            btn.style.borderColor = "var(--accent)";
+        });
+    });
+
+    // File upload para Comunicaciones
+    const inputArchivoCom = document.getElementById("input-archivo-comun");
+    const btnSubirArchivoCom = document.getElementById("btn-subir-archivo-comun");
+    if (btnSubirArchivoCom) {
+        btnSubirArchivoCom.addEventListener("click", () => inputArchivoCom?.click());
+        inputArchivoCom?.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const textoOriginal = btnSubirArchivoCom.textContent;
+            btnSubirArchivoCom.disabled = true;
+            btnSubirArchivoCom.textContent = `Subiendo...`;
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                    reader.readAsDataURL(file);
+                });
+                const resultado = await gasRequest("subirArchivo", {
+                    nombreArchivo: file.name,
+                    extension: file.name.split(".").pop() || "bin",
+                    archivoBase64: base64,
+                });
+                if (!resultado || !resultado.ok) {
+                    throw new Error(resultado?.error || "No se pudo subir el archivo.");
+                }
+                document.getElementById("input-adjunto-url-pub").value = resultado.url;
+                document.getElementById("input-adjunto-pub").value = file.name;
+            } catch (err) {
+                alert(err.message || "No se pudo subir el archivo.");
+            } finally {
+                inputArchivoCom.value = "";
+                btnSubirArchivoCom.disabled = false;
+                btnSubirArchivoCom.textContent = textoOriginal;
+            }
+        });
+    }
 }
 
 /** Botón de tipo de adjunto (PDF/Imagen/Video/Link) — puramente
@@ -611,7 +667,7 @@ async function abrirModalEditarPublicacion(p) {
                     <label for="input-mensaje-editar-pub">Mensaje</label>
                     <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-                    <label>Adjunto (opcional)</label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
                     <div class="adjunto-tipos">
                         ${adjuntoTipoBtnHtml("documento", "PDF")}
                         ${adjuntoTipoBtnHtml("imagen", "Imagen")}
@@ -628,10 +684,12 @@ async function abrirModalEditarPublicacion(p) {
                         Marcar como destacado
                         <input type="checkbox" id="input-destacado-editar-pub"${p.destacado ? " checked" : ""}>
                     </label>
+                    ${usuario.rol === "admin" ? `
                     <label class="toggle-switch">
                         Requiere confirmación de lectura
                         <input type="checkbox" id="input-confirmacion-editar-pub"${p.requiereConfirmacion ? " checked" : ""}>
                     </label>
+                    ` : ""}
                 </div>
             </div>
         </div>
@@ -645,9 +703,12 @@ async function abrirModalEditarPublicacion(p) {
         // destacado/requiereConfirmacion viajan como "SI"/"NO" en la
         // Sheet (mismo formato que escribe crearPublicacion) — mandar
         // el boolean crudo del checkbox rompe normalizarPublicacion,
-        // que compara contra el string "SI".
+        // que compara contra el string "SI". Si no es admin, el toggle
+        // ni se renderiza — se conserva el valor que ya tenía la
+        // publicación en vez de forzarlo a "NO".
         const destacado = document.getElementById("input-destacado-editar-pub").checked ? "SI" : "NO";
-        const requiereConfirmacion = document.getElementById("input-confirmacion-editar-pub").checked ? "SI" : "NO";
+        const inputConfirmacion = document.getElementById("input-confirmacion-editar-pub");
+        const requiereConfirmacion = inputConfirmacion ? (inputConfirmacion.checked ? "SI" : "NO") : (p.requiereConfirmacion ? "SI" : "NO");
 
         await actualizarPublicacion(p.id, { titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion });
         registrarEvento(usuario.id, "editar_publicacion", `Publicación "${titulo}" editada`);

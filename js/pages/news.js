@@ -33,6 +33,7 @@ import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getItem, setItem } from "../services/storage.js";
 import { invalidar } from "../services/dataSource.js";
+import { gasRequest } from "../services/google.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
@@ -312,7 +313,11 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                                         ` : "")
                                     }
                                 </div>
-                                <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="width:100%;padding:12px;font-weight:600">+ Agregar otro enlace</button>
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                                    <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="padding:12px;font-weight:600">+ Agregar otro enlace</button>
+                                    <input type="file" id="input-archivo-adjunto" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
+                                    <button type="button" id="btn-subir-archivo" class="btn btn-secondary" style="padding:12px;font-weight:600">📤 Subir archivo</button>
+                                </div>
                             </div>
                         </div>
 
@@ -728,8 +733,9 @@ export function bindNuevaNews(params = []) {
         document.getElementById(id)?.addEventListener("click", (e) => e.stopPropagation());
     });
 
-    // Adjuntos dinámicos — agregar/eliminar enlaces
-    document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => {
+    // Adjuntos dinámicos — agregar/eliminar enlaces. Devuelve la fila
+    // creada para que el upload de archivo también pueda usarla.
+    function agregarFilaAdjunto({ url = "", label = "" } = {}) {
         const lista = document.getElementById("lista-adjuntos");
         const index = lista.querySelectorAll(".adjunto-item").length;
         const nuevoItem = document.createElement("div");
@@ -738,18 +744,66 @@ export function bindNuevaNews(params = []) {
         nuevoItem.innerHTML = `
             <div>
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
-                <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${escaparHtml(url)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <div>
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
-                <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${escaparHtml(label)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
         `;
         lista.appendChild(nuevoItem);
-        nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", (e) => {
+        nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", () => {
             nuevoItem.remove();
         });
+        return nuevoItem;
+    }
+
+    document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => agregarFilaAdjunto());
+
+    // Subir un archivo (PDF, Excel, Word, imagen…) directo a Drive: el
+    // backend lo guarda en Recursos/Tipo/Año/Mes y devuelve el link
+    // público, que se carga solo como un enlace más de la noticia. Así
+    // no hace falta subirlo a mano a Drive y copiar la URL.
+    const inputArchivo = document.getElementById("input-archivo-adjunto");
+    const btnSubirArchivo = document.getElementById("btn-subir-archivo");
+
+    btnSubirArchivo?.addEventListener("click", () => inputArchivo?.click());
+
+    inputArchivo?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const textoOriginal = btnSubirArchivo.textContent;
+        btnSubirArchivo.disabled = true;
+        btnSubirArchivo.textContent = "Subiendo...";
+
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                reader.readAsDataURL(file);
+            });
+
+            const resultado = await gasRequest("subirArchivo", {
+                nombreArchivo: file.name,
+                extension: file.name.split(".").pop() || "bin",
+                archivoBase64: base64,
+            });
+
+            if (!resultado || !resultado.ok) {
+                throw new Error(resultado?.error || "No se pudo subir el archivo.");
+            }
+
+            agregarFilaAdjunto({ url: resultado.url, label: file.name });
+        } catch (err) {
+            alert(err.message || "No se pudo subir el archivo.");
+        } finally {
+            inputArchivo.value = "";
+            btnSubirArchivo.disabled = false;
+            btnSubirArchivo.textContent = textoOriginal;
+        }
     });
 
     document.querySelectorAll(".btn-eliminar-adjunto").forEach((btn) => {

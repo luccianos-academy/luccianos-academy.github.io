@@ -123,6 +123,8 @@ function _despachar(body, usuarioActual) {
         case "eliminar":   return eliminar(body.hoja, body.id, usuarioActual);
         case "enviarMail": return enviarMailDesdeApp(body.destinatarios, body.asunto, body.cuerpo, usuarioActual);
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
+        case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
+        case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "sync":       return sync(body.lastSync, usuarioActual);
 
         default:           return { ok: false, error: "Acción desconocida: " + body.accion };
@@ -836,6 +838,42 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
     return { ok: true, enviados, fallidos: fallidos.length, destinatarios: tokens.length };
 }
 
+function enviarPushPrueba(usuarioActual) {
+    if (!usuarioActual || !usuarioActual.id) {
+        return { ok: false, error: "Usuario no identificado." };
+    }
+
+    const projectId = _propFCM("FCM_PROJECT_ID");
+    const accessToken = _obtenerAccessTokenFCM();
+
+    const tokens = _leerCrudo("Tokens").filter((t) => String(t.usuarioId) === String(usuarioActual.id));
+
+    if (!tokens.length) {
+        return { ok: false, error: "No tienes tokens de push registrados. Activa las notificaciones en tu perfil." };
+    }
+
+    let enviados = 0;
+    const fallidos = [];
+    tokens.forEach((t) => {
+        const resultado = _enviarUnPush(
+            t.token,
+            "¡Funcionan! 🎉",
+            "Recibiste un mensaje de prueba desde tu perfil.",
+            null,
+            accessToken,
+            projectId
+        );
+        if (resultado.ok) {
+            enviados++;
+        } else {
+            fallidos.push(t.token);
+            if (resultado.invalido) _eliminarCrudo("Tokens", t.id);
+        }
+    });
+
+    return { ok: enviados > 0, enviados, fallidos: fallidos.length };
+}
+
 /* ============================================================
    SINCRONIZACIÓN — delta desde último sync
    Retorna SOLO los registros que cambiaron desde lastSync
@@ -974,4 +1012,91 @@ function procesarNoticiasProgamadas() {
         Logger.error("[NOTICIAS PROGRAMADAS] Error: " + err.message);
         return { ok: false, error: err.message };
     }
+}
+
+/* ============================================================
+   SUBIDA DE ARCHIVOS A DRIVE
+   Guarda el archivo en Recursos/Tipo/Año/Mes y devuelve el link
+   público, para adjuntarlo a una News o Comunicación sin tener
+   que subirlo a mano a Drive y copiar la URL.
+============================================================ */
+
+/** Devuelve la subcarpeta con ese nombre dentro de `padre`, creándola
+ *  si no existe. Drive permite varias carpetas con el mismo nombre en
+ *  el mismo lugar, así que si ya hay una se reusa la primera en vez de
+ *  crear duplicados en cada subida. */
+function _obtenerOCrearFolder(nombre, padre) {
+    const existentes = padre.getFoldersByName(nombre);
+    return existentes.hasNext() ? existentes.next() : padre.createFolder(nombre);
+}
+
+function subirArchivo(nombreArchivo, extension, archivoBase64) {
+    try {
+        if (!nombreArchivo || !extension || !archivoBase64) {
+            return { ok: false, error: "Parámetros faltantes" };
+        }
+
+        // Estructura de carpetas: Recursos/Tipo/YYYY/Mes/
+        const hoy = new Date();
+        const year = hoy.getFullYear();
+        const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+        const nomMes = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][hoy.getMonth()];
+
+        // Determinar tipo de carpeta según extensión
+        let tipo = "Archivos";
+        if (["pdf"].includes(extension.toLowerCase())) tipo = "PDFs";
+        else if (["xlsx", "xls", "csv"].includes(extension.toLowerCase())) tipo = "Excel";
+        else if (["doc", "docx", "txt"].includes(extension.toLowerCase())) tipo = "Documentos";
+        else if (["jpg", "jpeg", "png", "gif"].includes(extension.toLowerCase())) tipo = "Imagenes";
+        else if (["mp4", "webm", "mov", "avi"].includes(extension.toLowerCase())) tipo = "Videos";
+        else if (["ppt", "pptx"].includes(extension.toLowerCase())) tipo = "Presentaciones";
+
+        // Crear estructura de carpetas
+        const carpetaRecursos = _obtenerOCrearFolder("Recursos", DriveApp.getRootFolder());
+        const carpetaTipo = _obtenerOCrearFolder(tipo, carpetaRecursos);
+        const carpetaYear = _obtenerOCrearFolder(String(year), carpetaTipo);
+        const carpetaMes = _obtenerOCrearFolder(nomMes, carpetaYear);
+
+        // Decodificar y guardar archivo
+        const buffer = Utilities.base64Decode(archivoBase64.split(",")[1] || archivoBase64);
+        const mimeType = _getMimeType(extension) || "application/octet-stream";
+        const blob = Utilities.newBlob(buffer, mimeType, nombreArchivo);
+
+        const archivo = carpetaMes.createFile(blob);
+        archivo.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+
+        return {
+            ok: true,
+            url: archivo.getUrl(),
+            archivoId: archivo.getId(),
+            nombre: nombreArchivo
+        };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+function _getMimeType(extension) {
+    const tipos = {
+        pdf: "application/pdf",
+        doc: "application/msword",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xls: "application/vnd.ms-excel",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ppt: "application/vnd.ms-powerpoint",
+        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        csv: "text/csv",
+        txt: "text/plain",
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        gif: "image/gif",
+        mp4: "video/mp4",
+        webm: "video/webm",
+        mov: "video/quicktime",
+        avi: "video/x-msvideo",
+        zip: "application/zip"
+    };
+    return tipos[extension.toLowerCase()] || null;
 }
