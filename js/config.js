@@ -7,32 +7,50 @@
 =============================*/
 
 /**
- * Entorno de EXPERIMENTACIÓN vs PRODUCCIÓN, decidido por el dominio:
- *   - GitHub Pages (*.github.io) → entorno de prueba: sin login real
- *     de Google ni backend, corre en modo demo con datos de muestra.
- *     Sirve para experimentar features/UI sin tocar datos reales.
+ * Entorno de STAGING (REPO) vs PRODUCCIÓN, decidido por el dominio:
+ *   - GitHub Pages (*.github.io) → REPO: usa el backend de STAGING de
+ *     abajo (Sheet + Apps Script propios, separados de producción) —
+ *     así se puede probar push/upload/sync de verdad sin tocar datos
+ *     reales. Mientras STAGING_GAS_URL esté vacío (todavía no se creó
+ *     ese backend), cae solo a modo demo con datos de muestra.
  *   - Cualquier otro dominio (Netlify de producción, o localhost) →
- *     config real de abajo (login Google + backend Apps Script).
+ *     backend real de PRODUCCIÓN.
  * Así el MISMO código se comporta distinto según dónde esté servido,
  * sin mantener dos versiones.
  */
-const ES_EXPERIMENTAL = typeof location !== "undefined" && (
-    /\.github\.io$/.test(location.hostname) ||
-    // localhost/127.0.0.1 → modo demo también, para poder desarrollar la
-    // UI local sin login real ni tocar datos de producción (Netlify usa
-    // otro dominio, así que esto nunca afecta producción).
-    /^(localhost|127\.0\.0\.1)$/.test(location.hostname)
-);
+const ES_STAGING = typeof location !== "undefined" && /\.github\.io$/.test(location.hostname);
 
-export const GOOGLE_CLIENT_ID = ES_EXPERIMENTAL ? "" : "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
+// localhost/127.0.0.1 → modo demo puro (mock, sin backend), para poder
+// desarrollar la UI local sin pegarle a ningún backend real por
+// accidente. Ni STAGING ni PRODUCCIÓN.
+const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
-export const GAS_URL = ES_EXPERIMENTAL ? "" : "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
+// Backend de staging — Sheet + Apps Script separados de producción
+// (ver apps-script/README.md, sección "Backend de staging para REPO").
+// Pegar acá la URL del deploy una vez creado. Vacío = REPO cae a modo
+// demo (mock) automáticamente, sin romper nada mientras tanto.
+const STAGING_GAS_URL = "";
+const STAGING_GOOGLE_CLIENT_ID = "";
+
+const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
+const PROD_GOOGLE_CLIENT_ID = "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
+
+export const GAS_URL = ES_LOCAL_DEV ? "" : ES_STAGING ? STAGING_GAS_URL : PROD_GAS_URL;
+
+// El Client ID de Google Sign-In real está autorizado para el dominio
+// de producción (y localhost) en Google Cloud Console — usarlo desde
+// github.io fallaría (origen no autorizado) hasta agregar ese dominio
+// ahí también. Mientras STAGING_GOOGLE_CLIENT_ID esté vacío, REPO sigue
+// con el selector de roles de muestra aunque el backend ya esté
+// conectado — son dos interruptores independientes (ver login.js).
+export const GOOGLE_CLIENT_ID = ES_LOCAL_DEV ? "" : ES_STAGING ? STAGING_GOOGLE_CLIENT_ID : PROD_GOOGLE_CLIENT_ID;
 
 /**
- * Con GAS_URL vacío (entorno experimental), la app corre contra los
- * datos de muestra en memoria (js/data/mock/*). Con GAS_URL seteado
- * (producción), lee/escribe en Sheets vía el backend, sin tocar
- * páginas ni componentes.
+ * Con GAS_URL vacío (todavía no hay backend conectado en este
+ * entorno), la app corre contra los datos de muestra en memoria
+ * (js/data/mock/*). Con GAS_URL seteado (staging o producción), lee/
+ * escribe en la Sheet real vía el backend, sin tocar páginas ni
+ * componentes.
  */
 export const USE_MOCK_DATA = !GAS_URL;
 
