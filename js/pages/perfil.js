@@ -73,6 +73,7 @@ async function bloquePush(usuario) {
             return `
                 <div class="card" style="max-width:420px;margin-top:16px">
                     <div class="item"><span>Notificaciones push</span><strong class="text-sm" style="color:var(--success)">Activadas ✓</strong></div>
+                    <button type="button" id="btn-probar-push" class="btn btn-secondary" style="width:auto;margin-top:8px">Enviar prueba</button>
                 </div>
             `;
         }
@@ -166,5 +167,31 @@ export function bindPerfil() {
         btn.textContent = "Activar";
         if (resultado.motivo === "denegado") alert("No diste el permiso de notificaciones — podés activarlo más tarde desde la configuración del navegador.");
         else alert("No se pudo activar. Probá de nuevo en un momento." + (resultado.detalle ? `\n\nDetalle: ${resultado.detalle}` : ""));
+    });
+
+    document.getElementById("btn-probar-push")?.addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const textoOriginal = btn.textContent;
+        btn.textContent = "Enviando...";
+
+        try {
+            const resultado = await gasRequest("enviarPushPrueba", {});
+            if (resultado.ok) {
+                btn.textContent = "¡Enviado!";
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = textoOriginal;
+                }, 2000);
+            } else {
+                alert("No se pudo enviar: " + (resultado.error || "Error desconocido"));
+                btn.disabled = false;
+                btn.textContent = textoOriginal;
+            }
+        } catch (err) {
+            alert("Error: " + err.message);
+            btn.disabled = false;
+            btn.textContent = textoOriginal;
+        }
     });
 }

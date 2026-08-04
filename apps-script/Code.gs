@@ -123,6 +123,7 @@ function _despachar(body, usuarioActual) {
         case "eliminar":   return eliminar(body.hoja, body.id, usuarioActual);
         case "enviarMail": return enviarMailDesdeApp(body.destinatarios, body.asunto, body.cuerpo, usuarioActual);
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
+        case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "sync":       return sync(body.lastSync, usuarioActual);
 
@@ -868,6 +869,42 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
     });
 
     return { ok: true, enviados, fallidos: fallidos.length, destinatarios: tokens.length };
+}
+
+function enviarPushPrueba(usuarioActual) {
+    if (!usuarioActual || !usuarioActual.id) {
+        return { ok: false, error: "Usuario no identificado." };
+    }
+
+    const projectId = _propFCM("FCM_PROJECT_ID");
+    const accessToken = _obtenerAccessTokenFCM();
+
+    const tokens = _leerCrudo("Tokens").filter((t) => String(t.usuarioId) === String(usuarioActual.id));
+
+    if (!tokens.length) {
+        return { ok: false, error: "No tienes tokens de push registrados. Activa las notificaciones en tu perfil." };
+    }
+
+    let enviados = 0;
+    const fallidos = [];
+    tokens.forEach((t) => {
+        const resultado = _enviarUnPush(
+            t.token,
+            "¡Funcionan! 🎉",
+            "Recibiste un mensaje de prueba desde tu perfil.",
+            null,
+            accessToken,
+            projectId
+        );
+        if (resultado.ok) {
+            enviados++;
+        } else {
+            fallidos.push(t.token);
+            if (resultado.invalido) _eliminarCrudo("Tokens", t.id);
+        }
+    });
+
+    return { ok: enviados > 0, enviados, fallidos: fallidos.length };
 }
 
 /* ============================================================
