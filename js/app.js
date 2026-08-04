@@ -5,6 +5,7 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
+import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
 
