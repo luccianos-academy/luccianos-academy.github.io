@@ -42,6 +42,7 @@ export const DIRIGIDO_A = [
     { id: "encargados-propios", nombre: "Encargados — Locales propios" },
     { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
     { id: "colaboradores-local", nombre: "Locales específicos" },
+    { id: "usuarios-especificos", nombre: "Usuarios específicos" },
     { id: "solo-admin", nombre: "Solo Admin (prueba)" },
 ];
 

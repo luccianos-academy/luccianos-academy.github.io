@@ -135,15 +135,20 @@ function camposNotificacionHtml(n = {}, cursos = []) {
     const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
 
-    // Usuarios específicos — solo visible cuando se selecciona "usuarios"
-    const opcionesUsuarios = (() => {
-        if (!Array.isArray(cursos)) return "";
-        // Por ahora devolvemos HTML vacío, lo llenaremos en bindNuevaNews
-        return `<div id="select-usuarios-especificos" style="display:none;margin-top:12px">
-            <label>Enviar solo a:</label>
-            <div id="usuarios-especificos-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
-        </div>`;
-    })();
+    // Usuarios específicos — renderizar checkboxes de usuarios
+    const usuariosSeleccionados = (n.usuariosEspecificos || "").split(",").filter(Boolean);
+    const usuariosCheckboxes = (cursos.length > 0 ? cursos : []).map((usuario) => {
+        const checked = usuariosSeleccionados.includes(String(usuario.id));
+        return `<label style="display:flex;align-items:center;gap:8px;padding:8px;background:var(--card);border-radius:6px;border:1px solid var(--line)">
+            <input type="checkbox" class="checkbox-usuario-especifico" value="${usuario.id}" ${checked ? "checked" : ""}>
+            <span>${usuario.nombre || "Colaborador"}</span>
+        </label>`;
+    }).join("");
+
+    const opcionesUsuarios = `<div id="select-usuarios-especificos" style="display:none;margin-top:12px">
+        <label style="display:block;margin-bottom:12px;font-weight:600;color:var(--text)">Enviar solo a:</label>
+        <div id="usuarios-especificos-list" style="display:flex;flex-direction:column;gap:8px">${usuariosCheckboxes}</div>
+    </div>`;
 
     // Pills de categoría ya usadas — click rellena el input; cada una
     // tiene un × para borrarla de la lista (pedido del usuario).
@@ -162,6 +167,7 @@ function camposNotificacionHtml(n = {}, cursos = []) {
         "encargados-propios": "Solo encargados de locales propios.",
         "encargados-franquicias": "Solo encargados de franquicias.",
         "colaboradores-local": "Elegí a qué locales enviarla.",
+        "usuarios-especificos": "Selecciona usuarios individuales.",
         "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
     };
     const radiosDirigido = DIRIGIDO_A.map((d) => `
@@ -212,10 +218,12 @@ function camposNotificacionHtml(n = {}, cursos = []) {
 
                 <div class="radio-cards">${radiosDirigido}</div>
 
-                <div id="wrap-sucursal-notif" style="margin-top:14px">
+                <div id="wrap-sucursal-notif" style="margin-top:14px;display:${dirigidoActual === "colaboradores-local" ? "block" : "none"}">
                     <label for="input-sucursal-notif" style="margin-top:0">Seleccionar locales</label>
                     ${MultiSelectSucursales("input-sucursal-notif", n.sucursal ? n.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
                 </div>
+
+                ${opcionesUsuarios}
 
                 <div class="form-info-box">
                     ${Icon("check", { size: 16 })}
@@ -710,6 +718,15 @@ export function bindNuevaNews(params = []) {
     }
     document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapSucursal));
     actualizarWrapSucursal();
+
+    // Usuarios específicos visibles solo con "Usuarios específicos".
+    const wrapUsuarios = document.getElementById("select-usuarios-especificos");
+    function actualizarWrapUsuarios() {
+        const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
+        if (wrapUsuarios) wrapUsuarios.style.display = dirigido === "usuarios-especificos" ? "" : "none";
+    }
+    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapUsuarios));
+    actualizarWrapUsuarios();
 
     // Fecha/hora visibles solo con "Programar".
     const wrapFecha = document.getElementById("wrap-fecha-notif");
