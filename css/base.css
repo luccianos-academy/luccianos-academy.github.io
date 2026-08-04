@@ -20,10 +20,23 @@
     box-sizing:border-box;
 }
 
+/* Sin esto, cualquier elemento que se pase del ancho del viewport por
+   apenas unos píxeles (una tabla ancha sin wrapper, un tooltip, el
+   sidebar) vuelve TODA la página scrolleable de costado — en celular
+   eso se siente como que la app entera "se corre" al tocar/scrollear,
+   en vez de quedar fija. Los que sí necesitan scroll horizontal propio
+   (ej. .table-wrapper) lo declaran ellos mismos y siguen funcionando:
+   esto solo bloquea el desborde a nivel de página. */
+html{
+    overflow-x:hidden;
+}
+
 body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     background:var(--bg);
     color:var(--text);
+    overflow-x:hidden;
+    width:100%;
 }
 
 button{

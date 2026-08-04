@@ -921,7 +921,7 @@
     margin-top:0;
 }
 
-.modal-body input,
+.modal-body input:not([type="radio"]):not([type="checkbox"]),
 .modal-body select,
 .modal-body textarea{
     width:100%;
@@ -935,6 +935,15 @@
        original. Con el theme oscuro (2026-07-25) hay que fijarlos. */
     background:var(--card);
     color:var(--text);
+}
+/* Sin este :not() de arriba, un radio/checkbox dentro de un modal
+   hereda width:100% + padding + border de los inputs de texto y se
+   infla a una caja rectangular gigante en vez del círculo/tilde nativo
+   — el punto de elección quedaba "mal puesto" respecto a su label
+   (reportado en el modal de "Nuevo local"). */
+.modal-body input[type="radio"],
+.modal-body input[type="checkbox"]{
+    width:auto;
 }
 
 .modal-body input::placeholder,
