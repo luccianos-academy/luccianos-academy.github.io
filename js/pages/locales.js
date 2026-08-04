@@ -33,13 +33,14 @@ function badgeTipo(local) {
 }
 
 function filaAcciones(local) {
+    const editarBtn = `<button class="btn btn-primary" data-editar="${local.id}">Editar</button>`;
     const estadoBtn = local.estado === "Activa"
         ? `<button class="btn btn-secondary" data-desactivar="${local.id}">Desactivar</button>`
         : `<button class="btn btn-primary" data-activar="${local.id}">Activar</button>`;
     const tipoBtn = local.esPropio
         ? `<button class="btn btn-secondary" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
         : `<button class="btn btn-secondary" data-marcar-propio="${local.id}">Marcar propio</button>`;
-    return `<span style="display:flex;gap:8px;flex-wrap:wrap">${estadoBtn}${tipoBtn}</span>`;
+    return `<span style="display:flex;gap:8px;flex-wrap:wrap">${editarBtn}${estadoBtn}${tipoBtn}</span>`;
 }
 
 export async function Locales() {
@@ -121,6 +122,14 @@ export function bindLocales() {
         });
     });
 
+    document.querySelectorAll("[data-editar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const locales = await getSucursales();
+            const local = locales.find((l) => String(l.id) === String(btn.dataset.editar));
+            if (local) abrirModalEditarLocal(local);
+        });
+    });
+
     const btnNuevo = document.getElementById("btn-nuevo-local");
     if (btnNuevo) btnNuevo.addEventListener("click", abrirModalNuevoLocal);
 }
@@ -135,6 +144,7 @@ async function abrirModalNuevoLocal() {
     const contenidoHtml = `
         <label for="input-nombre">Nombre del local</label>
         <input type="text" id="input-nombre" placeholder="Lucciano's ...">
+        <p class="text-xs text-muted" style="margin-top:4px">Debe empezar con "Lucciano's"</p>
 
         <label for="input-supervisor">Supervisor</label>
         <select id="input-supervisor">
@@ -161,10 +171,58 @@ async function abrirModalNuevoLocal() {
         const supervisor = document.getElementById("input-supervisor").value;
         const esPropio = document.getElementById("input-propio").checked;
 
-        if (!nombre) return;
+        if (!nombre) {
+            alert("El nombre es requerido.");
+            return;
+        }
+        if (!nombre.startsWith("Lucciano")) {
+            alert("El nombre debe empezar con \"Lucciano's\"");
+            return;
+        }
 
         await crearSucursal({ nombre, supervisor, estado: "Activa", esPropio });
         registrarEvento(getUsuarioActual().id, "crear_local", `Alta de local ${nombre}`);
+
+        cerrarModal(modalId);
+        navigate("locales");
+    });
+}
+
+async function abrirModalEditarLocal(local) {
+
+    const usuarios = await getUsuarios();
+    const supervisores = usuarios.filter((u) => u.rol === "supervisor");
+
+    const modalId = "modal-editar-local";
+
+    const contenidoHtml = `
+        <label for="input-nombre">Nombre del local</label>
+        <input type="text" id="input-nombre" placeholder="Lucciano's ..." value="${local.nombre || ""}">
+        <p class="text-xs text-muted" style="margin-top:4px">Debe empezar con "Lucciano's"</p>
+
+        <label for="input-supervisor">Supervisor</label>
+        <select id="input-supervisor">
+            <option value="">Sin asignar</option>
+            ${supervisores.map((s) => `<option value="${s.nombre}" ${local.supervisor === s.nombre ? "selected" : ""}>${s.nombre}</option>`).join("")}
+        </select>
+    `;
+
+    abrirModal(Modal({ id: modalId, titulo: "Editar local: " + local.nombre, contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
+
+        const nombre = document.getElementById("input-nombre").value.trim();
+        const supervisor = document.getElementById("input-supervisor").value;
+
+        if (!nombre) {
+            alert("El nombre es requerido.");
+            return;
+        }
+        if (!nombre.startsWith("Lucciano")) {
+            alert("El nombre debe empezar con \"Lucciano's\"");
+            return;
+        }
+
+        await actualizarSucursal(local.id, { nombre, supervisor });
+        registrarEvento(getUsuarioActual().id, "editar_local", `Edición de local ${nombre}`);
 
         cerrarModal(modalId);
         navigate("locales");
