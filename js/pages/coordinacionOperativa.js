@@ -536,10 +536,12 @@ async function abrirModalNuevaPublicacion(canalId) {
                         Marcar como destacado
                         <input type="checkbox" id="input-destacado-pub">
                     </label>
+                    ${usuario.rol === "admin" ? `
                     <label class="toggle-switch">
                         Requiere confirmación de lectura
                         <input type="checkbox" id="input-confirmacion-pub">
                     </label>
+                    ` : ""}
                 </div>
             </div>
         </div>
@@ -552,7 +554,7 @@ async function abrirModalNuevaPublicacion(canalId) {
         const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
         const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim();
         const destacado = document.getElementById("input-destacado-pub").checked;
-        const requiereConfirmacion = document.getElementById("input-confirmacion-pub").checked;
+        const requiereConfirmacion = document.getElementById("input-confirmacion-pub")?.checked || false;
 
         await crearPublicacion({
             canal, autorId: usuario.id, autorNombre: usuario.nombre, autorRol: usuario.rol,
@@ -689,10 +691,12 @@ async function abrirModalEditarPublicacion(p) {
                         Marcar como destacado
                         <input type="checkbox" id="input-destacado-editar-pub"${p.destacado ? " checked" : ""}>
                     </label>
+                    ${usuario.rol === "admin" ? `
                     <label class="toggle-switch">
                         Requiere confirmación de lectura
                         <input type="checkbox" id="input-confirmacion-editar-pub"${p.requiereConfirmacion ? " checked" : ""}>
                     </label>
+                    ` : ""}
                 </div>
             </div>
         </div>
@@ -706,9 +710,12 @@ async function abrirModalEditarPublicacion(p) {
         // destacado/requiereConfirmacion viajan como "SI"/"NO" en la
         // Sheet (mismo formato que escribe crearPublicacion) — mandar
         // el boolean crudo del checkbox rompe normalizarPublicacion,
-        // que compara contra el string "SI".
+        // que compara contra el string "SI". Si no es admin, el toggle
+        // ni se renderiza — se conserva el valor que ya tenía la
+        // publicación en vez de forzarlo a "NO".
         const destacado = document.getElementById("input-destacado-editar-pub").checked ? "SI" : "NO";
-        const requiereConfirmacion = document.getElementById("input-confirmacion-editar-pub").checked ? "SI" : "NO";
+        const inputConfirmacion = document.getElementById("input-confirmacion-editar-pub");
+        const requiereConfirmacion = inputConfirmacion ? (inputConfirmacion.checked ? "SI" : "NO") : (p.requiereConfirmacion ? "SI" : "NO");
 
         await actualizarPublicacion(p.id, { titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion });
         registrarEvento(usuario.id, "editar_publicacion", `Publicación "${titulo}" editada`);
