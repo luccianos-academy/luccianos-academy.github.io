@@ -765,17 +765,12 @@ export function bindNuevaNews(params = []) {
             const programada = estaProgramada(cambios);
             const usuario = getUsuarioActual();
 
-            // Convertir adjuntos a JSON para guardar en la Sheet (igual que en crearNoticia)
-            const cambiosParaGuardar = {
-                ...cambios,
-                adjuntos: cambios.adjuntos && cambios.adjuntos.length > 0 ? JSON.stringify(cambios.adjuntos) : ""
-            };
-
+            // crearNoticia() se encarga de convertir adjuntos a JSON
             if (id) {
-                await actualizarNoticia(id, cambiosParaGuardar);
+                await actualizarNoticia(id, cambios);
                 registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);
             } else {
-                await crearNoticia(cambiosParaGuardar);
+                await crearNoticia(cambios);
                 registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
                 // Push solo si se publica AHORA (las programadas las
                 // dispara el backend el día que toca — pendiente, ver pie
