@@ -512,7 +512,7 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-                    <label>Adjunto (opcional)</label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
                     <div class="adjunto-tipos" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
                         <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
                         <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
@@ -522,11 +522,11 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:flex-start;margin-bottom:12px">
                         <div>
                             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL/Enlace</label>
-                            <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                            <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
                         </div>
                         <div>
                             <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
-                            <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+                            <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
                         </div>
                     </div>
                     <input type="file" id="input-archivo-comun" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
@@ -672,7 +672,7 @@ async function abrirModalEditarPublicacion(p) {
                     <label for="input-mensaje-editar-pub">Mensaje</label>
                     <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-                    <label>Adjunto (opcional)</label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
                     <div class="adjunto-tipos">
                         ${adjuntoTipoBtnHtml("documento", "PDF")}
                         ${adjuntoTipoBtnHtml("imagen", "Imagen")}
