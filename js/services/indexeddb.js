@@ -17,6 +17,12 @@ class IndexedDBManager {
       'manuales',
       'evaluaciones',
       'sucursales',
+      'canales',
+      'publicaciones',
+      'comentarios',
+      'recursos',
+      'tokens',
+      'auditoria',
       'syncMetadata'
     ];
   }
@@ -101,6 +107,41 @@ class IndexedDBManager {
           const sucursalesStore = db.createObjectStore('sucursales', { keyPath: 'id' });
           sucursalesStore.createIndex('estado', 'estado', { unique: false });
           sucursalesStore.createIndex('nombre', 'nombre', { unique: false });
+        }
+
+        // Canales store
+        if (!db.objectStoreNames.contains('canales')) {
+          db.createObjectStore('canales', { keyPath: 'id' });
+        }
+
+        // Publicaciones store
+        if (!db.objectStoreNames.contains('publicaciones')) {
+          const publicacionesStore = db.createObjectStore('publicaciones', { keyPath: 'id' });
+          publicacionesStore.createIndex('canal', 'canal', { unique: false });
+        }
+
+        // Comentarios store
+        if (!db.objectStoreNames.contains('comentarios')) {
+          const comentariosStore = db.createObjectStore('comentarios', { keyPath: 'id' });
+          comentariosStore.createIndex('publicacion', 'publicacion', { unique: false });
+        }
+
+        // Recursos store
+        if (!db.objectStoreNames.contains('recursos')) {
+          db.createObjectStore('recursos', { keyPath: 'id' });
+        }
+
+        // Tokens store
+        if (!db.objectStoreNames.contains('tokens')) {
+          const tokensStore = db.createObjectStore('tokens', { keyPath: 'id' });
+          tokensStore.createIndex('usuarioId', 'usuarioId', { unique: false });
+        }
+
+        // Auditoria store
+        if (!db.objectStoreNames.contains('auditoria')) {
+          const auditoriaStore = db.createObjectStore('auditoria', { keyPath: 'id' });
+          auditoriaStore.createIndex('usuarioId', 'usuarioId', { unique: false });
+          auditoriaStore.createIndex('timestamp', 'timestamp', { unique: false });
         }
 
         // SyncMetadata store (stores last sync timestamp, etc)

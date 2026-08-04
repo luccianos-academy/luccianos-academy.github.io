@@ -115,7 +115,13 @@ class SyncManager {
       resultados: delta.resultados || [],
       manuales: delta.manuales || [],
       evaluaciones: delta.evaluaciones || [],
-      sucursales: delta.sucursales || []
+      sucursales: delta.sucursales || [],
+      canales: delta.canales || [],
+      publicaciones: delta.publicaciones || [],
+      comentarios: delta.comentarios || [],
+      recursos: delta.recursos || [],
+      tokens: delta.tokens || [],
+      auditoria: delta.auditoria || []
     };
 
     for (const [storeName, records] of Object.entries(updates)) {
@@ -199,7 +205,13 @@ class SyncManager {
       resultados: 'Resultados',
       manuales: 'Manuales',
       evaluaciones: 'Evaluaciones',
-      sucursales: 'Sucursales'
+      sucursales: 'Sucursales',
+      canales: 'Canales',
+      publicaciones: 'Publicaciones',
+      comentarios: 'Comentarios',
+      recursos: 'Recursos',
+      tokens: 'Tokens',
+      auditoria: 'Auditoria'
     };
     return mapping[storeName] || storeName;
   }
