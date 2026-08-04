@@ -1,6 +1,8 @@
 // Sync Manager for Lucciano's Academy
 // Handles intelligent synchronization between IndexedDB (local) and Apps Script (backend)
 
+import { gasRequest } from "./google.js";
+
 class SyncManager {
   constructor() {
     this.isSyncing = false;
@@ -70,9 +72,6 @@ class SyncManager {
         console.log('[SYNC] No changes since last sync');
       }
 
-      // Upload pending changes
-      await this.uploadPendingChanges();
-
       this.lastSyncError = null;
     } catch (error) {
       this.lastSyncError = error;
@@ -124,92 +123,24 @@ class SyncManager {
     }
   }
 
-  // Queue a change for upload
+  // Queue a change for upload — hoy solo actualiza el cache local
+  // (IndexedDB). La escritura real al backend la hace dataSource.js de
+  // forma síncrona por el camino legacy (guardarDatosSheet/actualizar/
+  // eliminar), que sí distingue crear vs actualizar. Este endpoint
+  // "write" genérico no existe en Apps Script (que separa escribir/
+  // actualizar/eliminar) y "put" no alcanza para saber cuál de los dos
+  // es — subir esto duplicaría filas si se implementara mal. Se deja
+  // como no-op de upload hasta diseñar esa distinción correctamente.
   async queueChange(storeName, data, operation = 'put') {
     console.log(`[SYNC] Queued change: ${storeName} - ${operation}`);
-
-    // Save to IndexedDB immediately (optimistic update)
     await idbManager.saveRecord(storeName, data);
-
-    // Add to pending queue for upload
-    this.pendingChanges.push({
-      storeName,
-      data,
-      operation,
-      timestamp: Date.now()
-    });
-
-    // Try to upload immediately if online
-    if (!this.offlineMode) {
-      this.uploadPendingChanges().catch(err => {
-        console.error('[SYNC] Failed to upload pending changes:', err);
-      });
-    }
-  }
-
-  // Upload pending changes to backend
-  async uploadPendingChanges() {
-    if (this.pendingChanges.length === 0) return;
-
-    console.log(`[SYNC] Uploading ${this.pendingChanges.length} pending changes...`);
-
-    try {
-      const changes = [...this.pendingChanges];
-
-      for (const change of changes) {
-        try {
-          await gasRequest('write', {
-            hoja: this.mapStoreToSheet(change.storeName),
-            data: change.data,
-            operation: change.operation
-          });
-
-          // Remove from pending if successful
-          const index = this.pendingChanges.indexOf(change);
-          if (index > -1) {
-            this.pendingChanges.splice(index, 1);
-          }
-
-          console.log(`[SYNC] Uploaded: ${change.storeName} - ${change.operation}`);
-        } catch (error) {
-          console.error(`[SYNC] Failed to upload ${change.storeName}:`, error);
-          // Keep in pending queue for retry
-        }
-      }
-
-      if (this.pendingChanges.length > 0) {
-        console.log(`[SYNC] ${this.pendingChanges.length} changes still pending (will retry)`);
-      }
-    } catch (error) {
-      console.error('[SYNC] Upload batch failed:', error);
-    }
-  }
-
-  // Map store name to Sheet name
-  mapStoreToSheet(storeName) {
-    const mapping = {
-      usuarios: 'Usuarios',
-      cursos: 'Cursos',
-      lecciones: 'Lecciones',
-      noticias: 'Noticias',
-      comunicaciones: 'Comunicaciones',
-      asignaciones: 'Asignaciones',
-      resultados: 'Resultados',
-      manuales: 'Manuales'
-    };
-    return mapping[storeName] || storeName;
   }
 
   // Handle coming online
   async handleOnline() {
     console.log('[SYNC] Device came online');
     this.offlineMode = false;
-
-    // Immediate sync
     await this.syncWithBackend();
-
-    // Upload pending changes
-    await this.uploadPendingChanges();
   }
 
   // Handle going offline
