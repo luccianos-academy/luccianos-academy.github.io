@@ -82,9 +82,28 @@ class SyncManager {
     }
   }
 
+  // Esperar a que window.gasRequest esté disponible
+  async waitForGasRequest() {
+    return new Promise(resolve => {
+      const check = () => {
+        if (typeof window.gasRequest === 'function') {
+          resolve();
+        } else {
+          setTimeout(check, 100);
+        }
+      };
+      check();
+    });
+  }
+
   // Fetch delta from Apps Script (only changes since lastSync)
   async fetchDelta(lastSyncTime) {
     try {
+      // Esperar a que gasRequest esté disponible
+      if (typeof window.gasRequest !== 'function') {
+        await this.waitForGasRequest();
+      }
+
       const response = await window.gasRequest('sync', {
         lastSync: lastSyncTime,
         action: 'syncDelta'
