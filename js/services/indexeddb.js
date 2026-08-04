@@ -15,6 +15,8 @@ class IndexedDBManager {
       'asignaciones',
       'resultados',
       'manuales',
+      'evaluaciones',
+      'sucursales',
       'syncMetadata'
     ];
   }
@@ -85,6 +87,20 @@ class IndexedDBManager {
         if (!db.objectStoreNames.contains('manuales')) {
           const manualesStore = db.createObjectStore('manuales', { keyPath: 'id' });
           manualesStore.createIndex('rolesPermitidos', 'rolesPermitidos', { unique: false });
+        }
+
+        // Evaluaciones store
+        if (!db.objectStoreNames.contains('evaluaciones')) {
+          const evaluacionesStore = db.createObjectStore('evaluaciones', { keyPath: 'id' });
+          evaluacionesStore.createIndex('usuarioId', 'usuarioId', { unique: false });
+          evaluacionesStore.createIndex('estado', 'estado', { unique: false });
+        }
+
+        // Sucursales store
+        if (!db.objectStoreNames.contains('sucursales')) {
+          const sucursalesStore = db.createObjectStore('sucursales', { keyPath: 'id' });
+          sucursalesStore.createIndex('estado', 'estado', { unique: false });
+          sucursalesStore.createIndex('nombre', 'nombre', { unique: false });
         }
 
         // SyncMetadata store (stores last sync timestamp, etc)

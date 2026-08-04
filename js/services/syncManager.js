@@ -113,7 +113,9 @@ class SyncManager {
       comunicaciones: delta.comunicaciones || [],
       asignaciones: delta.asignaciones || [],
       resultados: delta.resultados || [],
-      manuales: delta.manuales || []
+      manuales: delta.manuales || [],
+      evaluaciones: delta.evaluaciones || [],
+      sucursales: delta.sucursales || []
     };
 
     for (const [storeName, records] of Object.entries(updates)) {
@@ -195,7 +197,9 @@ class SyncManager {
       comunicaciones: 'Comunicaciones',
       asignaciones: 'Asignaciones',
       resultados: 'Resultados',
-      manuales: 'Manuales'
+      manuales: 'Manuales',
+      evaluaciones: 'Evaluaciones',
+      sucursales: 'Sucursales'
     };
     return mapping[storeName] || storeName;
   }

@@ -38,7 +38,9 @@ const sheetToStoreMap = {
     'Comunicaciones': 'comunicaciones',
     'Asignaciones': 'asignaciones',
     'Resultados': 'resultados',
-    'Manuales': 'manuales'
+    'Manuales': 'manuales',
+    'Evaluaciones': 'evaluaciones',
+    'Sucursales': 'sucursales'
 };
 
 // Cache en memoria corto (fallback si IndexedDB falla)
