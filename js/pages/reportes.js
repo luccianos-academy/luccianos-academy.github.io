@@ -33,6 +33,7 @@ import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getLecciones } from "../data/lecciones.js";
+import { getEvaluaciones } from "../data/evaluaciones.js";
 
 const TIPOS = [
     { id: "semaforo",     titulo: "Semáforo",       descripcion: "Quién está bien y quién necesita refuerzo, con ranking.", icono: "alertas" },
@@ -146,7 +147,8 @@ export function celdaPct(pct) {
  *  (cursos completos sobre el total que le corresponden) como
  *  "Lecciones vistas" (lecciones individuales sobre el total real de
  *  todos sus cursos) — dos señales de "cuánto vio", separadas de la
- *  nota real de evaluación (ver celdaEvaluacion). */
+ *  nota real de evaluación (ver estadoEvaluacion, debajo de cada
+ *  módulo puntual). */
 export function barraProgreso(hechos, total) {
     if (!total) return `<span class="text-xs text-muted">Sin datos</span>`;
     const pct = Math.round((hechos / total) * 100);
@@ -186,15 +188,22 @@ export function leccionesDePersona(persona, cursosAplicables, asignaciones, mapa
     return { vistas, total };
 }
 
-/** Puntaje real de evaluación (sobre 10, mismo criterio de promedio
- *  que ya usan dashboardEjecutivo.js/inicioColaborador.js) — "—" si
- *  todavía no rindió ninguna. Señal distinta de la barra de módulos
- *  vistos: una cosa es haber visto las lecciones, otra haber
- *  demostrado que las aprendió (pedido explícito del usuario). */
-export function celdaEvaluacion(misResultados) {
-    if (!misResultados.length) return `<span class="text-xs text-muted">—</span>`;
-    const promedio = Math.round((misResultados.reduce((s, r) => s + r.nota, 0) / misResultados.length) * 10) / 10;
-    return `<span class="badge badge-muted">${promedio}/10</span>`;
+/** Debajo del % de progreso (que solo mide si vio las lecciones), el
+ *  resultado REAL de la evaluación de ESE módulo puntual — pedido
+ *  explícito del usuario: un promedio global ("7.5/10") no dice CUÁL
+ *  módulo rindió, así que la nota va junto a su módulo, no aparte.
+ *  "Sin rendir" queda atenuado pero visible junto al 100% — es
+ *  exactamente el caso a detectar (vio todo, nunca demostró que
+ *  aprendió). Cursos sin evaluación cargada todavía (ver
+ *  cursosConEvaluacion) no muestran nada acá, no hay nada que
+ *  rindiera. */
+export function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
+    if (!cursosConEvaluacion.has(String(curso.id))) return "";
+    const r = resultados.find((x) => String(x.colaboradorId) === String(colaborador.id) && String(x.cursoId) === String(curso.id));
+    if (!r) return `<span class="text-xs text-muted">Sin rendir</span>`;
+    const tono = r.aprobado ? "success" : "danger";
+    const icono = r.aprobado ? "✓" : "✗";
+    return `<span class="text-xs progreso-mini-texto-${tono}">${icono} ${r.nota}</span>`;
 }
 
 /** La tabla principal del Semáforo: una fila por colaborador, con
@@ -208,7 +217,7 @@ export function celdaEvaluacion(misResultados) {
  *  curso ya cuenta esa historia, columna por columna). "No aplica"
  *  (cursos de Gestión para quien no es encargado) se muestra en gris,
  *  sin contar en Total. */
-export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados = [], lecciones = []) {
+export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados = [], lecciones = [], cursosConEvaluacion = new Set()) {
     const mapa = mapaLecciones(lecciones);
     const filas = colaboradores
         .map((c) => {
@@ -219,7 +228,6 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resulta
                 ? Math.round(cursosAplicables.reduce((s, cur) => s + progresoCursoDePersona(c, cur, asignaciones), 0) / total)
                 : 0;
             const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapa);
-            const misResultados = resultados.filter((r) => String(r.colaboradorId) === String(c.id));
 
             const fila = {
                 _promedio: promedio,
@@ -235,12 +243,11 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resulta
                 sucursal: c.sucursal || "—",
                 modulosVistos: barraProgreso(hechos, total),
                 leccionesVistas: barraProgreso(leccionesVistas, leccionesTotal),
-                evaluacion: celdaEvaluacion(misResultados),
             };
             cursos.forEach((cur) => {
                 const aplica = cur.categoria !== "Gestión" || c.encargado;
                 fila[`curso_${cur.id}`] = aplica
-                    ? celdaPct(progresoCursoDePersona(c, cur, asignaciones))
+                    ? `<div class="celda-curso">${celdaPct(progresoCursoDePersona(c, cur, asignaciones))}${estadoEvaluacion(c, cur, resultados, cursosConEvaluacion)}</div>`
                     : `<span class="text-xs text-muted">No aplica</span>`;
             });
             return fila;
@@ -252,7 +259,6 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resulta
         { key: "sucursal", label: "Sucursal" },
         { key: "modulosVistos", label: "Módulos vistos" },
         { key: "leccionesVistas", label: "Lecciones vistas" },
-        { key: "evaluacion", label: "Evaluación" },
         ...cursos.map((cur) => ({ key: `curso_${cur.id}`, label: cur.nombre })),
     ];
     return Table(columnas, filas);
@@ -289,7 +295,8 @@ async function actualizarSemaforo() {
     const filtros = document.getElementById("semaforo-filtros");
     if (!contenedor || !filtros) return;
 
-    const [usuarios, asignaciones, cursos, resultados, lecciones] = await Promise.all([getUsuarios(), getAsignaciones(), getCursos(), getResultados(), getLecciones()]);
+    const [usuarios, asignaciones, cursos, resultados, lecciones, evaluaciones] = await Promise.all([getUsuarios(), getAsignaciones(), getCursos(), getResultados(), getLecciones(), getEvaluaciones()]);
+    const cursosConEvaluacion = new Set(evaluaciones.map((p) => String(p.cursoId)));
     let colaboradores = usuarios.filter((u) => u.rol === "colaborador");
 
     // Vacío (sin chips elegidos) = todas las sucursales, mismo
@@ -311,7 +318,7 @@ async function actualizarSemaforo() {
         nivel && nivel !== "todos" ? `Nivel ${nivel}` : null,
     ].filter(Boolean).join(" · ");
 
-    contenedor.innerHTML = membreteHtml("Semáforo de desempeño", alcance) + vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones);
+    contenedor.innerHTML = membreteHtml("Semáforo de desempeño", alcance) + vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones, cursosConEvaluacion);
     bindTabsSemaforo();
 }
 
@@ -441,8 +448,8 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
             const equipo = colaboradores.filter((c) => c.sucursal === nombreSucursal);
             const promedio = promedioDeGrupo(equipo, asignaciones, cursos) ?? 0;
             const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || equipo.some((c) => c.encargado));
-            const avatares = equipo.slice(0, 4).map((c) => Avatar({ nombre: c.nombre, foto: c.foto, size: "sm" })).join("");
-            const extra = equipo.length > 4 ? `<span class="pila-mas">+${equipo.length - 4}</span>` : "";
+            const avatares = equipo.slice(0, 3).map((c) => Avatar({ nombre: c.nombre, foto: c.foto, size: "sm" })).join("");
+            const extra = equipo.length > 3 ? `<span class="pila-mas">+${equipo.length - 3}</span>` : "";
 
             const fila = {
                 _promedio: promedio,
@@ -478,7 +485,7 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
  *  explícito del cliente (referencia visual). Los dos paneles se
  *  arman siempre (no bajo demanda): son tablas, no fetches nuevos,
  *  así que alternar es instantáneo, sin spinner. */
-function vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones) {
+function vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones, cursosConEvaluacion) {
     return `
         ${kpisSemaforo(colaboradores, asignaciones, cursos, resultados)}
         <div class="card">
@@ -486,7 +493,7 @@ function vistaSemaforo(colaboradores, asignaciones, cursos, resultados, leccione
                 <button class="tab-semaforo activa" data-vista-semaforo="colaboradores">Vista por colaboradores</button>
                 <button class="tab-semaforo" data-vista-semaforo="sucursal">Vista por sucursal</button>
             </div>
-            <div data-panel-semaforo="colaboradores">${tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados, lecciones)}</div>
+            <div data-panel-semaforo="colaboradores">${tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados, lecciones, cursosConEvaluacion)}</div>
             <div data-panel-semaforo="sucursal" style="display:none">${tablaPorSucursal(colaboradores, cursos, asignaciones)}</div>
         </div>
     `;
@@ -554,17 +561,18 @@ function tendenciaSemanal(resultados) {
 }
 
 async function renderPreview(tipoId) {
-    const [usuarios, sucursales, asignaciones, resultados, cursos, lecciones] = await Promise.all([
-        getUsuarios(), getSucursales(), getAsignaciones(), getResultados(), getCursos(), getLecciones(),
+    const [usuarios, sucursales, asignaciones, resultados, cursos, lecciones, evaluaciones] = await Promise.all([
+        getUsuarios(), getSucursales(), getAsignaciones(), getResultados(), getCursos(), getLecciones(), getEvaluaciones(),
     ]);
 
     if (tipoId === "semaforo") {
         const colaboradores = usuarios.filter((u) => u.rol === "colaborador");
+        const cursosConEvaluacion = new Set(evaluaciones.map((p) => String(p.cursoId)));
         return `
             <div id="semaforo-filtros">${filtrosSemaforoHtml()}</div>
             <div id="semaforo-contenido" class="imprimible">
                 ${membreteHtml("Semáforo de desempeño", "Toda la red")}
-                ${vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones)}
+                ${vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones, cursosConEvaluacion)}
             </div>
         `;
     }

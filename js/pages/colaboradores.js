@@ -45,7 +45,7 @@ import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 import { Avatar } from "../components/avatar.js";
-import { celdaPct, celdaEvaluacion, progresoCursoDePersona, barraProgreso, mapaLecciones, leccionesDePersona, kpisSemaforo } from "./reportes.js";
+import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, mapaLecciones, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 
 const DIAS_ACCESO_INICIAL = 30;
@@ -490,7 +490,7 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, pu
         ${membreteHtml("Estado del equipo")}
         <div class="section">
             <div class="header" style="margin-bottom:0">
-                <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Módulos/Lecciones vistas miden cuánto avanzó (no si aprobó). La Evaluación, en cada fila y en cada módulo (M1, M2...), es el resultado real: nota si rindió, '—'/'Sin rendir' si todavía no.">ⓘ</span></h3>
+                <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Módulos/Lecciones vistas miden cuánto avanzó (no si aprobó). Debajo de cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
                 ${puedeExportar ? `<button class="btn btn-secondary" id="btn-exportar-equipo">🖨 Exportar PDF</button>` : ""}
             </div>
             <div style="margin:14px 0">
@@ -502,20 +502,20 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, pu
 
 /** Columnas de la tabla de gestión para Supervisor/Capacitador/
  *  Encargado — la de siempre (Nombre/Email/Rol/Estado/Acceso/
- *  Acciones) MÁS el detalle del Semáforo (Módulos vistos/Evaluación +
+ *  Acciones) MÁS el detalle del Semáforo (Módulos/Lecciones vistas +
  *  una columna por curso), todo en una sola tabla en vez de dos
- *  separadas. "Módulos vistos" (cuánto vio) y "Evaluación" (si rindió
- *  y con qué nota) van separadas a propósito — pedido explícito del
- *  usuario: son dos señales distintas, no una combinada. Admin sigue
- *  viendo la versión simple (COLUMNAS_BASE) — no se pidió este
- *  detalle ahí, y ya maneja 3 pestañas de rol. */
+ *  separadas. Sin columna de "Evaluación" aparte: un promedio global
+ *  no dice CUÁL módulo rindió — la nota real va debajo del % de cada
+ *  módulo puntual (ver estadoEvaluacion, reportes.js), pedido
+ *  explícito del usuario. Admin sigue viendo la versión simple
+ *  (COLUMNAS_BASE) — no se pidió este detalle ahí, y ya maneja 3
+ *  pestañas de rol. */
 const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     { key: "nombre", label: "Nombre" },
     { key: "email", label: "Email" },
     { key: "rolLabel", label: "Rol" },
     { key: "modulosVistos", label: "Módulos vistos" },
     { key: "leccionesVistas", label: "Lecciones vistas" },
-    { key: "evaluacion", label: "Evaluación" },
     // "M1".."Mn" en vez del nombre completo del curso — con 6-8 cursos
     // reales, la columna con el nombre entero (ej. "Atención al
     // Cliente") volvía la tabla enorme. El nombre real aparece en un
@@ -527,28 +527,10 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     { key: "acciones", label: "" },
 ];
 
-/** Debajo del % de progreso (que solo mide si vio las lecciones), el
- *  resultado REAL de la evaluación de ese curso — pedido explícito
- *  del usuario: "si vio todo pero no rindió, cualquiera puede dar
- *  todo como marcado y figura 100%", sin que se note que en realidad
- *  nunca demostró que aprendió. "Sin rendir" queda atenuado pero
- *  visible junto al 100% — es exactamente el caso a detectar. Cursos
- *  sin evaluación cargada todavía (ver cursosConEvaluacion) no
- *  muestran nada acá, no hay nada que rindiera. */
-function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
-    if (!cursosConEvaluacion.has(String(curso.id))) return "";
-    const r = resultados.find((x) => String(x.colaboradorId) === String(colaborador.id) && String(x.cursoId) === String(curso.id));
-    if (!r) return `<span class="text-xs text-muted">Sin rendir</span>`;
-    const tono = r.aprobado ? "success" : "danger";
-    const icono = r.aprobado ? "✓" : "✗";
-    return `<span class="text-xs progreso-mini-texto-${tono}">${icono} ${r.nota}</span>`;
-}
-
 function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
     const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
     const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapaLeccionesPorCurso);
-    const misResultados = resultados.filter((r) => String(r.colaboradorId) === String(c.id));
     const fila = {
         ...c,
         nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
@@ -556,7 +538,6 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
         progreso: progreso.pct,
         modulosVistos: barraProgreso(progreso.hechos, progreso.total),
         leccionesVistas: barraProgreso(leccionesVistas, leccionesTotal),
-        evaluacion: celdaEvaluacion(misResultados),
         estadoBadge: badgeAcceso(c),
         accesoBadge: badgeVencimiento(c),
         acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),
