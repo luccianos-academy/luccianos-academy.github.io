@@ -173,7 +173,15 @@ export function puedeVerNoticia(noticia, usuario, sucursales = []) {
         return dirigidoA === "encargados-propios" ? esPropio : !esPropio;
     }
 
-    return true; // dirigidoA === "" → todos los colaboradores
+    // A esta altura dirigidoA ya no puede ser "" (esa rama devolvió
+    // arriba) ni ninguno de los modos conocidos — incluye el caso
+    // "usuarios-especificos" con la lista de usuariosEspecificos vacía
+    // (por un guardado incompleto, por ejemplo). Antes esto devolvía
+    // true y la noticia terminaba visible para TODOS los colaboradores
+    // — exactamente el bug reportado en producción ("a quienes no le
+    // corresponde lo ven de todas maneras"). Sin un match explícito,
+    // por defecto no se muestra.
+    return false;
 }
 
 export function estaLeida(noticia, usuarioId) {

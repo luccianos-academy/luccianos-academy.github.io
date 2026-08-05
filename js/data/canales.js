@@ -75,7 +75,15 @@ export function puedeVerCanal(canal, usuario) {
     if (restriccion === "admin") return false;
     if (restriccion === "capacitador") return usuario.rol === "supervisor" && !!usuario.capacitador;
     if (restriccion === "supervisor") return usuario.rol === "supervisor" && !usuario.capacitador;
-    return true;
+    // Cualquier valor de restringidoA que no sea uno de los de arriba
+    // (ej. "sucursal"/"encargados-propios" de un modo viejo ya
+    // revertido, ver comentario de cabecera) NO debe filtrar a "todos
+    // lo ven" — eso fue justo el bug reportado en producción: un canal
+    // pensado para un grupo acotado quedaba visible para cualquiera
+    // apenas su restricción no calzaba con ninguno de los casos
+    // conocidos. Por defecto, oculto — solo se muestra ante un match
+    // explícito.
+    return false;
 }
 
 export async function getCanales() {
