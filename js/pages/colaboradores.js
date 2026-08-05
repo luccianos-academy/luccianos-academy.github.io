@@ -38,14 +38,14 @@ import { getAsignaciones, getAsignacionesPorColaborador, eliminarAsignacion } fr
 import { getResultados, getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getEvaluaciones } from "../data/evaluaciones.js";
+import { getLecciones } from "../data/lecciones.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
-import { KpiCard } from "../components/kpiCard.js";
 import { Avatar } from "../components/avatar.js";
-import { resumenSemaforo, celdaPct, celdaEvaluacion, progresoCursoDePersona } from "./reportes.js";
+import { celdaPct, celdaEvaluacion, progresoCursoDePersona, barraProgreso, mapaLecciones, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 
 const DIAS_ACCESO_INICIAL = 30;
@@ -343,15 +343,19 @@ function progresoColaborador(colaborador, asignaciones, cursos) {
 }
 
 /** Avatar circular (foto o iniciales, ver components/avatar.js) +
- *  nombre, para la columna "Nombre" de las 3 tablas de Colaboradores
- *  (Admin, Supervisor/Semáforo, y la matriz de reportes.js) — pedido
- *  de rediseño visual del usuario, referencia a un dashboard externo
- *  con foto de perfil junto al nombre en vez de texto plano. */
-function nombreConAvatar(nombre, foto) {
+ *  nombre + subtítulo de rol, para la columna "Nombre" de las 3 tablas
+ *  de Colaboradores (Admin, Supervisor/Semáforo, y la matriz de
+ *  reportes.js) — pedido de rediseño visual del usuario, fiel a la
+ *  referencia (foto de perfil grande junto al nombre, con el cargo
+ *  debajo, no texto plano). */
+function nombreConAvatar(nombre, foto, subtitulo) {
     return `
         <div class="fila-avatar-nombre">
-            ${Avatar({ nombre, foto, size: "sm" })}
-            <span>${nombre}</span>
+            ${Avatar({ nombre, foto, size: "" })}
+            <div>
+                <div class="fila-avatar-nombre-txt">${nombre}</div>
+                ${subtitulo ? `<div class="fila-avatar-nombre-sub">${subtitulo}</div>` : ""}
+            </div>
         </div>
     `;
 }
@@ -372,7 +376,7 @@ function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, curs
     const progreso = progresoColaborador(c, asignaciones, cursos);
     return {
         ...c,
-        nombre: nombreConAvatar(c.nombre, c.foto),
+        nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
         seleccion: checkboxMail(c.email, c.nombre),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
@@ -481,20 +485,16 @@ const ROL_TABS = [
  *  sección — el detalle por colaborador/curso vive DENTRO de la misma
  *  tabla de gestión de siempre (ver COLUMNAS_SEMAFORO_GESTION /
  *  filaSemaforoGestion más abajo), no repetido. */
-function resumenSemaforoHtml(colaboradores, asignaciones, cursos, puedeExportar) {
-    const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
+function resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, puedeExportar) {
     return `
         ${membreteHtml("Estado del equipo")}
         <div class="section">
             <div class="header" style="margin-bottom:0">
-                <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Promedio y Nivel se calculan sobre cuánto vieron de las lecciones (no si aprobaron). Más abajo, en cada módulo (M1, M2...) vas a encontrar además el resultado real de la evaluación: ✓ y la nota si aprobó, ✗ y la nota si rindió y no aprobó, 'Sin rendir' si nunca la rindió.">ⓘ</span></h3>
+                <h3 style="margin:0">Semáforo de desempeño<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Módulos/Lecciones vistas miden cuánto avanzó (no si aprobó). La Evaluación, en cada fila y en cada módulo (M1, M2...), es el resultado real: nota si rindió, '—'/'Sin rendir' si todavía no.">ⓘ</span></h3>
                 ${puedeExportar ? `<button class="btn btn-secondary" id="btn-exportar-equipo">🖨 Exportar PDF</button>` : ""}
             </div>
-            <div class="cards" style="margin:14px 0">
-                ${KpiCard("Promedio", `${resumen.promedioGeneral}%`, { ayuda: "Promedio de lecciones vistas — no de evaluaciones aprobadas." })}
-                ${KpiCard("Verde", resumen.VERDE, { icono: "check", tono: "success", ayuda: "Colaboradores con 85% o más de las lecciones vistas." })}
-                ${KpiCard("Amarillo", resumen.AMARILLO, { icono: "warning", tono: "warning", ayuda: "Colaboradores entre 60% y 84% de las lecciones vistas." })}
-                ${KpiCard("Rojo", resumen.ROJO, { icono: "warning", tono: "danger", ayuda: "Colaboradores por debajo del 60% de las lecciones vistas." })}
+            <div style="margin:14px 0">
+                ${kpisSemaforo(colaboradores, asignaciones, cursos, resultados)}
             </div>
         </div>
     `;
@@ -514,6 +514,7 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     { key: "email", label: "Email" },
     { key: "rolLabel", label: "Rol" },
     { key: "modulosVistos", label: "Módulos vistos" },
+    { key: "leccionesVistas", label: "Lecciones vistas" },
     { key: "evaluacion", label: "Evaluación" },
     // "M1".."Mn" en vez del nombre completo del curso — con 6-8 cursos
     // reales, la columna con el nombre entero (ej. "Atención al
@@ -543,15 +544,18 @@ function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
     return `<span class="text-xs progreso-mini-texto-${tono}">${icono} ${r.nota}</span>`;
 }
 
-function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion) {
+function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
+    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
+    const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapaLeccionesPorCurso);
     const misResultados = resultados.filter((r) => String(r.colaboradorId) === String(c.id));
     const fila = {
         ...c,
-        nombre: nombreConAvatar(c.nombre, c.foto),
+        nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
-        modulosVistos: badgeProgreso(progreso),
+        modulosVistos: barraProgreso(progreso.hechos, progreso.total),
+        leccionesVistas: barraProgreso(leccionesVistas, leccionesTotal),
         evaluacion: celdaEvaluacion(misResultados),
         estadoBadge: badgeAcceso(c),
         accesoBadge: badgeVencimiento(c),
@@ -644,19 +648,22 @@ export async function Colaboradores() {
         }
     }
 
-    // Los 4 pedidos son independientes entre sí — en paralelo (en vez
+    // Los 5 pedidos son independientes entre sí — en paralelo (en vez
     // de un await atrás del otro) para no pagar 1-3s reales de red
-    // por CADA uno en serie. Resultados/Evaluaciones solo hacen falta
-    // para Supervisor/Capacitador/Encargado (el detalle de evaluación
-    // real, ver estadoEvaluacion) — Admin usa filaDeColaborador, que
-    // no los toca, así que ni se piden.
-    const [asignaciones, cursos, resultados, evaluaciones] = await Promise.all([
+    // por CADA uno en serie. Resultados/Evaluaciones/Lecciones solo
+    // hacen falta para Supervisor/Capacitador/Encargado (el detalle de
+    // evaluación real y la barra de Lecciones vistas, ver
+    // estadoEvaluacion/filaSemaforoGestion) — Admin usa
+    // filaDeColaborador, que no los toca, así que ni se piden.
+    const [asignaciones, cursos, resultados, evaluaciones, lecciones] = await Promise.all([
         getAsignaciones(),
         getCursos(),
         esAdmin ? [] : getResultados(),
         esAdmin ? [] : getEvaluaciones(),
+        esAdmin ? [] : getLecciones(),
     ]);
     const cursosConEvaluacion = esAdmin ? new Set() : new Set(evaluaciones.map((p) => String(p.cursoId)));
+    const mapaLeccionesPorCurso = esAdmin ? null : mapaLecciones(lecciones);
 
     // Chequeo + desactivación de accesos vencidos — se corre cada vez
     // que se abre esta pantalla (ver nota arriba sobre por qué acá).
@@ -684,7 +691,7 @@ export async function Colaboradores() {
     // simple (columnas de siempre) — ese detalle ya lo tiene en Reportes.
     const armarFila = esAdmin
         ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
-        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion);
+        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso);
     const columnasTabla = esAdmin ? COLUMNAS_BASE(false, esAdmin) : COLUMNAS_SEMAFORO_GESTION(cursos);
 
     let cuerpoHtml;
@@ -739,7 +746,7 @@ export async function Colaboradores() {
 
         ${!esAdmin ? '<div class="imprimible" id="equipo-imprimible">' : ""}
 
-        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, usuario.rol === "supervisor") : ""}
+        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, usuario.rol === "supervisor") : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
