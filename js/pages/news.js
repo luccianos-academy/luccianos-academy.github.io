@@ -24,6 +24,7 @@ import { Icon } from "../components/icons.js";
 import {
     getNoticias, getNoticiasVisibles, crearNoticia, actualizarNoticia, eliminarNoticia,
     marcarNotificacionLeida, marcarNotificacionNoLeida, estaLeida, puedeVerNoticia, estaProgramada,
+    estaFijadaPersonal, toggleFijadaPersonal,
     TIPOS_NOTIFICACION, PRIORIDADES, DIRIGIDO_A,
 } from "../data/noticias.js";
 import { getCursos } from "../data/cursos.js";
@@ -375,34 +376,55 @@ function filaNotificacion(n, usuario, leida) {
     const info = tipoInfo(n.tipo);
     const prio = prioridadInfo(n.prioridad);
     const esAdmin = usuario.rol === "admin";
-    // Swipe estilo Gmail: deslizar la fila hacia la izquierda revela
-    // "Leída"/"No leída" para cualquiera y, solo para Admin, "Eliminar"
-    // — ver bindSwipeNotif() más abajo. .notif-swipe-content es la
-    // misma fila de siempre; .notif-swipe-actions queda oculta detrás
-    // hasta que se desliza.
+    const fijadaPersonal = estaFijadaPersonal(n, usuario.id);
+    // Swipe estilo Gmail, bidireccional — cada lado UNA acción, como en
+    // la app real (no las dos juntas de un mismo lado):
+    //   → deslizar a la DERECHA revela "Leída"/"No leída" (para
+    //     cualquiera), panel celeste con ✓, queda pegado al borde
+    //     izquierdo mientras se desliza.
+    //   → deslizar a la IZQUIERDA revela "Eliminar" (solo Admin — nadie
+    //     más puede borrar una News), panel rojo con 🗑, pegado al
+    //     borde derecho.
+    // Ver bindSwipeNotif() más abajo. .notif-swipe-content es la fila
+    // real; los ".notif-swipe-actions-*" quedan ocultos detrás hasta
+    // que se desliza en su dirección correspondiente.
+    //
+    // El pin personal (Icon "pin") es un toggle aparte, de un toque
+    // directo — no hace falta deslizar para fijar/desfijar algo que se
+    // usa seguido. Vive DENTRO de .notif-swipe-content pero es un
+    // <button> real (no anidado dentro de otro <button> — por eso
+    // .notif-swipe-content pasó de <button> a <div rol="button">).
     return `
         <div class="notif-swipe-row" data-swipe-id="${n.id}">
-            <div class="notif-swipe-actions">
-                <button type="button" class="notif-swipe-btn notif-swipe-toggle" data-swipe-toggle-leida="${n.id}">${leida ? "No leída" : "Leída"}</button>
-                ${esAdmin ? `<button type="button" class="notif-swipe-btn notif-swipe-delete" data-swipe-eliminar="${n.id}">Eliminar</button>` : ""}
+            <div class="notif-swipe-actions notif-swipe-actions-izq">
+                <button type="button" class="notif-swipe-btn notif-swipe-toggle" data-swipe-toggle-leida="${n.id}">${Icon("check", { size: 18 })}<span>${leida ? "No leída" : "Leída"}</span></button>
             </div>
-            <button class="notif-item notif-swipe-content${leida ? "" : " no-leida"}" data-ver-notif="${n.id}">
+            ${esAdmin ? `
+            <div class="notif-swipe-actions notif-swipe-actions-der">
+                <button type="button" class="notif-swipe-btn notif-swipe-delete" data-swipe-eliminar="${n.id}">${Icon("tacho", { size: 18 })}<span>Eliminar</span></button>
+            </div>
+            ` : ""}
+            <div class="notif-item notif-swipe-content${leida ? "" : " no-leida"}" role="button" tabindex="0" data-ver-notif="${n.id}">
                 <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
                 <span class="notif-item-body">
-                    <span class="notif-item-titulo">${n.destacado ? `<span class="notif-item-fijada" title="Fijada">${Icon("trofeo", { size: 13 })}</span>` : ""}${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
+                    <span class="notif-item-titulo">${n.destacado ? `<span class="notif-item-fijada" title="Fijada por Administración">${Icon("trofeo", { size: 13 })}</span>` : ""}${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
                 </span>
+                <button type="button" class="notif-item-pin-btn${fijadaPersonal ? " fijado" : ""}" data-toggle-pin="${n.id}" title="${fijadaPersonal ? "Desfijar" : "Fijar para mí"}" aria-label="${fijadaPersonal ? "Desfijar" : "Fijar para mí"}">${Icon("pin", { size: 16 })}</button>
                 <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
-            </button>
+            </div>
         </div>
     `;
 }
 
-/** Swipe estilo Gmail sobre cada fila de News: deslizar hacia la
- *  izquierda revela "Leída"/"No leída" (y, para Admin, "Eliminar")
- *  detrás de la fila (ver .notif-swipe-* en css/components.css y la
- *  estructura armada en filaNotificacion()). Sin librería — un simple
- *  seguimiento de touch con transform, suficiente para un gesto de
- *  una sola fila a la vez (nunca hace falta animar más de una).
+/** Swipe estilo Gmail sobre cada fila de News, bidireccional — cada
+ *  lado revela UNA sola acción (no las dos juntas de un mismo lado):
+ *  deslizar a la DERECHA revela "Leída"/"No leída" (para cualquiera,
+ *  panel a la izquierda); deslizar a la IZQUIERDA revela "Eliminar"
+ *  (solo Admin, panel a la derecha — si no hay panel de ese lado,
+ *  directamente no se puede arrastrar hacia ahí). Ver .notif-swipe-*
+ *  en css/components.css y la estructura armada en filaNotificacion().
+ *  Sin librería — seguimiento de touch con transform, para una sola
+ *  fila a la vez (nunca hace falta animar más de una).
  *
  *  Los flags _arrastrando/_swipeAbierta viven directo en el elemento
  *  (no en una variable del módulo) para que el handler de
@@ -413,8 +435,9 @@ function filaNotificacion(n, usuario, leida) {
 function bindSwipeNotif() {
     document.querySelectorAll(".notif-swipe-row").forEach((fila) => {
         const contenido = fila.querySelector(".notif-swipe-content");
-        const acciones = fila.querySelector(".notif-swipe-actions");
-        if (!contenido || !acciones) return;
+        const accionesIzq = fila.querySelector(".notif-swipe-actions-izq"); // revelado deslizando a la derecha
+        const accionesDer = fila.querySelector(".notif-swipe-actions-der"); // revelado deslizando a la izquierda
+        if (!contenido) return;
 
         let startX = 0;
         let startY = 0;
@@ -422,55 +445,76 @@ function bindSwipeNotif() {
         contenido._swipeAbierta = false;
         contenido._arrastrando = false;
 
-        const maxOffset = () => Math.min(acciones.scrollWidth || 90, 220);
+        const maxDer = () => accionesIzq ? Math.min(accionesIzq.scrollWidth || 90, 160) : 0; // cuánto puede correrse hacia la derecha
+        const maxIzq = () => accionesDer ? Math.min(accionesDer.scrollWidth || 90, 160) : 0; // cuánto puede correrse hacia la izquierda
 
         function cerrar() {
             contenido.style.transform = "";
             contenido._swipeAbierta = false;
         }
 
-        function abrir() {
-            contenido.style.transform = `translateX(-${maxOffset()}px)`;
-            contenido._swipeAbierta = true;
+        function abrirDer() {
+            contenido.style.transform = `translateX(${maxDer()}px)`;
+            contenido._swipeAbierta = "der"; // el panel IZQUIERDO quedó a la vista
         }
 
-        contenido.addEventListener("touchstart", (e) => {
+        function abrirIzq() {
+            contenido.style.transform = `translateX(-${maxIzq()}px)`;
+            contenido._swipeAbierta = "izq"; // el panel DERECHO quedó a la vista
+        }
+
+        // Pointer Events (no Touch Events): una sola API cubre dedo,
+        // mouse y trackpad — así el swipe se puede probar arrastrando
+        // con el mouse en Mac/desktop, no solo en un celular real.
+        let pointerId = null;
+
+        contenido.addEventListener("pointerdown", (e) => {
+            if (e.button !== undefined && e.button !== 0) return; // solo click izquierdo / touch / pen
             // Cerrar cualquier otra fila que haya quedado abierta antes
             // de empezar un gesto nuevo — solo una a la vez.
             document.querySelectorAll(".notif-swipe-content").forEach((c) => {
                 if (c !== contenido && c._swipeAbierta) { c.style.transform = ""; c._swipeAbierta = false; }
             });
-            startX = e.touches[0].clientX;
-            startY = e.touches[0].clientY;
+            pointerId = e.pointerId;
+            contenido.setPointerCapture(pointerId);
+            startX = e.clientX;
+            startY = e.clientY;
             esHorizontal = null;
             contenido._arrastrando = false;
-        }, { passive: true });
+        });
 
-        contenido.addEventListener("touchmove", (e) => {
-            const dx = e.touches[0].clientX - startX;
-            const dy = e.touches[0].clientY - startY;
+        contenido.addEventListener("pointermove", (e) => {
+            if (e.pointerId !== pointerId) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
             if (esHorizontal === null) esHorizontal = Math.abs(dx) > Math.abs(dy) + 4;
             if (!esHorizontal) return;
-            e.preventDefault(); // el gesto es horizontal — no dejar que la página scrollee vertical mientras tanto
+            e.preventDefault(); // el gesto es horizontal — no dejar que la página scrollee vertical mientras tanto (touch) ni seleccionar texto (mouse)
             contenido._arrastrando = true;
             contenido.classList.add("notif-swipe-arrastrando");
-            const base = contenido._swipeAbierta ? -maxOffset() : 0;
-            const x = Math.max(-maxOffset(), Math.min(0, base + dx));
+            const base = contenido._swipeAbierta === "der" ? maxDer() : contenido._swipeAbierta === "izq" ? -maxIzq() : 0;
+            const x = Math.max(-maxIzq(), Math.min(maxDer(), base + dx));
             contenido.style.transform = `translateX(${x}px)`;
-        }, { passive: false });
+        });
 
-        contenido.addEventListener("touchend", () => {
+        const soltar = (e) => {
+            if (e.pointerId !== pointerId) return;
+            pointerId = null;
             contenido.classList.remove("notif-swipe-arrastrando");
             if (!esHorizontal) return;
             const actual = new DOMMatrix(getComputedStyle(contenido).transform).m41;
-            if (actual < -maxOffset() / 3) abrir(); else cerrar();
-            // El click sintético que dispara el navegador tras el
-            // touchend todavía ve _arrastrando en true en ese instante
-            // (el handler de [data-ver-notif] lo chequea) — recién se
+            if (actual > maxDer() / 3 && maxDer() > 0) abrirDer();
+            else if (actual < -maxIzq() / 3 && maxIzq() > 0) abrirIzq();
+            else cerrar();
+            // El click sintético que dispara el navegador tras soltar
+            // todavía ve _arrastrando en true en ese instante (el
+            // handler de [data-ver-notif] lo chequea) — recién se
             // limpia después, para no reabrir el detalle por el mismo
             // gesto que acaba de abrir/cerrar las acciones.
             setTimeout(() => { contenido._arrastrando = false; }, 50);
-        });
+        };
+        contenido.addEventListener("pointerup", soltar);
+        contenido.addEventListener("pointercancel", soltar);
     });
 
     document.querySelectorAll("[data-swipe-toggle-leida]").forEach((btn) => {
@@ -493,6 +537,20 @@ function bindSwipeNotif() {
         btn.addEventListener("click", async () => {
             if (!confirm("¿Eliminar esta News? No se puede deshacer.")) return;
             await eliminarNoticia(btn.dataset.swipeEliminar);
+            navigate("news");
+        });
+    });
+
+    // Pin personal — toque directo, sin deslizar (a diferencia de las
+    // acciones de arriba, esto se usa seguido y no ameritaba un gesto).
+    document.querySelectorAll("[data-toggle-pin]").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+            e.stopPropagation(); // está dentro de .notif-swipe-content — no abrir el detalle al tocar el pin
+            const usuario = getUsuarioActual();
+            const items = await getNoticias();
+            const noti = items.find((n) => String(n.id) === String(btn.dataset.togglePin));
+            if (!noti) return;
+            await toggleFijadaPersonal(noti, usuario.id);
             navigate("news");
         });
     });
@@ -527,8 +585,12 @@ export async function News() {
     // agrupar por fecha (esa es justo la idea de fijar: no perderse
     // entre el resto por antigua que sea) — el resto sigue el
     // agrupado Hoy/Ayer/fecha de siempre.
+    // Una News queda en "Fijadas" si Administración la marcó como
+    // destacada (global, la ven todos ahí) O si el usuario la fijó
+    // para sí mismo (personal, solo él la ve en esa sección).
     function separarFijadas(lista) {
-        return { fijadas: lista.filter((n) => n.destacado), resto: lista.filter((n) => !n.destacado) };
+        const esFijada = (n) => n.destacado || estaFijadaPersonal(n, usuario.id);
+        return { fijadas: lista.filter(esFijada), resto: lista.filter((n) => !esFijada(n)) };
     }
 
     const { fijadas: fijadasTodas, resto: restoTodas } = separarFijadas(items);
@@ -567,6 +629,11 @@ export async function News() {
             </span>
         </div>
 
+        <div class="form-info-box" style="margin-top:14px">
+            ${Icon("idea", { size: 16 })}
+            <p>Deslizá una noticia hacia un lado para marcarla leída${esAdmin ? " o eliminarla" : ""}. Tocá el pin <span class="notif-item-pin-btn fijado" style="display:inline-flex;width:20px;height:20px;vertical-align:middle;pointer-events:none">${Icon("pin", { size: 11 })}</span> para fijarla en tu lista personal, sin afectar lo que ven los demás.</p>
+        </div>
+
         <div class="section" data-panel="todas">${listaHtml(gruposTodas, fijadasTodas)}</div>
         <div class="section" data-panel="no-leidas" hidden>${listaHtml(gruposNoLeidas, fijadasNoLeidas)}</div>
     `;
@@ -590,7 +657,7 @@ export function bindNews() {
     });
 
     document.querySelectorAll("[data-ver-notif]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
+        const abrir = async () => {
             // Si el toque fue en realidad un gesto de deslizar (swipe,
             // ver bindSwipeNotif() más abajo) o la fila ya estaba abierta
             // mostrando sus acciones, ese mismo toque la cierra en vez de
@@ -600,6 +667,13 @@ export function bindNews() {
             const items = await getNoticias();
             const noti = items.find((n) => String(n.id) === String(btn.dataset.verNotif));
             if (noti) abrirDetalleNotificacion(noti, usuario);
+        };
+        btn.addEventListener("click", abrir);
+        // .notif-swipe-content pasó de <button> a <div rol="button"> (un
+        // <button> real no puede contener el <button> del pin adentro) —
+        // sin esto, Enter/Espacio con teclado dejaban de abrir el detalle.
+        btn.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrir(); }
         });
     });
 

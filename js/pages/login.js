@@ -35,7 +35,7 @@ import { login, ROLES } from "../services/auth.js";
 import { verificarLoginGoogle } from "../services/google.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
-import { GOOGLE_CLIENT_ID, ES_STAGING } from "../config.js";
+import { GOOGLE_CLIENT_ID, ES_ENTORNO_PRUEBA } from "../config.js";
 import { navigate } from "../router.js";
 import { Icon } from "../components/icons.js";
 import { existe as vistoAntes, setItem } from "../services/storage.js";
@@ -48,7 +48,12 @@ const CLAVE_BIENVENIDA_VISTA = "vio_bienvenida_personajes";
  * injusto). Si ya se vio, navega directo a "inicio" como antes.
  */
 function mostrarBienvenidaPersonajes() {
-    if (vistoAntes(CLAVE_BIENVENIDA_VISTA)) {
+    // En entorno de prueba (local o REPO) este video (~1min, "el
+    // Maestro") solo agrega pasos muertos entre loguearse y poder
+    // probar algo — pedido explícito del usuario: "eso se va, queda
+    // solamente el bienvenido y luego login sin más". En producción
+    // sigue intacto.
+    if (ES_ENTORNO_PRUEBA || vistoAntes(CLAVE_BIENVENIDA_VISTA)) {
         navigate("inicio", { replace: true });
         return;
     }
@@ -150,14 +155,15 @@ export async function Login() {
 
     const content = renderFullScreen();
 
-    // En STAGING (REPO) se salta el video del Torreón + toda la
-    // coreografía de revelación (línea dorada, wordmark, espera de 10s
-    // antes de reiniciar el ciclo) — es una experiencia pensada para la
-    // portada real, pero acá solo agrega segundos muertos entre abrir
-    // la app y poder tocar "Ingresar" para probar algo. Reusa el mismo
-    // fondo (login-gate-bg) de la portada real, con el texto de marca
-    // escrito en vez de depender de que se lea en la imagen.
-    content.innerHTML = ES_STAGING
+    // En entorno de prueba (local o REPO) se salta el video del
+    // Torreón + toda la coreografía de revelación (línea dorada,
+    // wordmark, espera de 10s antes de reiniciar el ciclo) — es una
+    // experiencia pensada para la portada real, pero acá solo agrega
+    // segundos muertos entre abrir la app y poder tocar "Ingresar"
+    // para probar algo. Reusa el mismo fondo (login-gate-bg) de la
+    // portada real, con el texto de marca escrito en vez de depender
+    // de que se lea en la imagen.
+    content.innerHTML = ES_ENTORNO_PRUEBA
         ? `
             <div class="login-gate login-gate-staging" id="login-gate">
                 <div class="login-gate-staging-marca">
@@ -175,7 +181,7 @@ export async function Login() {
 
     document.getElementById("btn-login-gate").addEventListener("click", () => {
         document.getElementById("login-gate")?.remove();
-        if (ES_STAGING) {
+        if (ES_ENTORNO_PRUEBA) {
             abrirModalLogin();
         } else {
             renderPortada(content);

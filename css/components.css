@@ -132,12 +132,15 @@
     gap:10px;
 }
 
-/* Swipe estilo Gmail (ver bindSwipeNotif() en pages/news.js): las
-   acciones ("Leída"/"Eliminar") viven en .notif-swipe-actions, fijas
-   detrás de la fila — .notif-swipe-content es la fila real
-   (.notif-item de siempre) y se desliza por encima con transform,
-   revelándolas. overflow:hidden en el wrapper recorta lo que asoma de
-   más mientras no se deslizó nada. */
+/* Swipe estilo Gmail, bidireccional (ver bindSwipeNotif() en
+   pages/news.js): cada lado revela UNA sola acción propia, con color
+   e ícono — deslizar a la derecha muestra "Leída"/"No leída" (celeste,
+   panel pegado al borde izquierdo); deslizar a la izquierda muestra
+   "Eliminar", solo Admin (rojo, panel pegado al borde derecho).
+   .notif-swipe-content es la fila real (.notif-item de siempre) y se
+   desliza por encima con transform, revelando el panel del lado
+   correspondiente. overflow:hidden en el wrapper recorta lo que asoma
+   de más mientras no se deslizó nada. */
 .notif-swipe-row{
     position:relative;
     overflow:hidden;
@@ -148,16 +151,25 @@
     position:absolute;
     inset:0;
     display:flex;
-    justify-content:flex-end;
     align-items:stretch;
+}
+
+.notif-swipe-actions-izq{
+    justify-content:flex-start;
+}
+
+.notif-swipe-actions-der{
+    justify-content:flex-end;
 }
 
 .notif-swipe-btn{
     display:flex;
+    flex-direction:column;
     align-items:center;
     justify-content:center;
-    padding:0 20px;
-    font-size:13px;
+    gap:3px;
+    padding:0 22px;
+    font-size:11px;
     font-weight:700;
     font-family:inherit;
     color:#fff;
@@ -166,8 +178,11 @@
     white-space:nowrap;
 }
 
+/* Mismo celeste que usa Gmail para "leído" — semánticamente distinto
+   del dorado de marca (--gold), que ya significa "no leída"/destacado
+   en otras partes de esta misma pantalla. */
 .notif-swipe-toggle{
-    background:var(--muted);
+    background:#4a7fd6;
 }
 
 .notif-swipe-delete{
@@ -177,12 +192,63 @@
 .notif-swipe-content{
     position:relative;
     z-index:1;
-    transition:transform .2s ease;
+    /* easing con un poco de rebote al final — se siente más "táctil"
+       que un ease lineal, más parecido al swipe nativo de Gmail. */
+    transition:transform .28s cubic-bezier(.34,1.15,.4,1);
     touch-action:pan-y;
+    cursor:grab;
 }
 
 .notif-swipe-content.notif-swipe-arrastrando{
     transition:none;
+    cursor:grabbing;
+    /* Arrastrando con mouse (no solo dedo) — sin esto, el drag
+       seleccionaba el texto de la fila en vez de solo deslizarla. */
+    user-select:none;
+}
+
+/* Pin personal — toque directo (no hace falta deslizar), vive dentro
+   de la fila misma. Gris cuando no está fijada, dorado y relleno
+   cuando sí — mismo dorado que .notif-item-fijada, para que quede
+   claro que ambos son variantes del mismo concepto ("esto importa"),
+   solo que uno es de Administración y el otro personal. */
+.notif-item-pin-btn{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:28px;
+    height:28px;
+    padding:0;
+    background:none;
+    border:none;
+    border-radius:50%;
+    color:var(--line);
+    cursor:pointer;
+    transition:color .15s ease, background-color .15s ease;
+}
+
+.notif-item-pin-btn:hover{
+    background:var(--gold-soft);
+    color:var(--muted);
+}
+
+/* Insignia con fondo sólido (no solo el trazo coloreado) — sin esto,
+   un pin dorado se perdía contra fondos que también son dorados (fila
+   "no leída", el cuadro de ayuda arriba de la lista). El fondo sólido
+   + ícono blanco garantiza contraste sin importar dónde aparezca. */
+.notif-item-pin-btn.fijado{
+    background:var(--gold-deep);
+    color:#fff;
+}
+
+.notif-item-pin-btn.fijado svg{
+    fill:#fff;
+}
+
+.notif-item-pin-btn.fijado:hover{
+    background:var(--gold-deep);
+    color:#fff;
 }
 
 .notif-item{
@@ -1560,13 +1626,14 @@ table.data-table tbody tr:hover{
     position:absolute;
     top:calc(100% + 8px);
     left:50%;
-    transform:translateX(-50%) translateY(-4px);
     opacity:0;
     pointer-events:none;
     transition:opacity .15s ease, transform .15s ease;
     z-index:20;
 }
 
+/* La flechita SIEMPRE queda centrada sobre el ícono — es la que marca
+   de dónde sale el tooltip, nunca se corre. */
 .mod-tooltip::before{
     content:"";
     border:5px solid transparent;
@@ -1575,6 +1642,11 @@ table.data-table tbody tr:hover{
     transform:translateX(-50%) translateY(-1px);
 }
 
+/* El cuadro de texto sí puede correrse (--tooltip-nudge, calculado en
+   services/tooltips.js) para no salirse de la pantalla cuando el
+   ícono está cerca de un borde — sin esto, un tooltip centrado sobre
+   un ícono a la izquierda quedaba cortado contra el borde de la
+   pantalla en vez de reacomodarse. */
 .mod-tooltip::after{
     content:attr(data-tooltip-texto);
     background:var(--card);
@@ -1596,14 +1668,19 @@ table.data-table tbody tr:hover{
     max-width:220px;
     text-align:left;
     box-shadow:var(--shadow);
+    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px)));
 }
 
 .mod-tooltip:hover::before,
-.mod-tooltip:hover::after,
-.mod-tooltip.mostrar-tooltip::before,
-.mod-tooltip.mostrar-tooltip::after{
+.mod-tooltip.mostrar-tooltip::before{
     opacity:1;
     transform:translateX(-50%) translateY(0);
+}
+
+.mod-tooltip:hover::after,
+.mod-tooltip.mostrar-tooltip::after{
+    opacity:1;
+    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px))) translateY(0);
 }
 
 /* Variante ⓘ para explicar qué significa una tarjeta/sección

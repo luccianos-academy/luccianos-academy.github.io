@@ -23,7 +23,15 @@ export const ES_STAGING = typeof location !== "undefined" && /\.github\.io$/.tes
 // localhost/127.0.0.1 → modo demo puro (mock, sin backend), para poder
 // desarrollar la UI local sin pegarle a ningún backend real por
 // accidente. Ni STAGING ni PRODUCCIÓN.
-const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+export const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+
+// Para decisiones de UX que deben ser iguales en CUALQUIER entorno de
+// prueba (local o REPO) y solo distintas en producción — ej. saltar el
+// video institucional del login, que tiene sentido en la portada real
+// pero solo agrega pasos muertos mientras se prueba algo. ES_STAGING y
+// ES_LOCAL_DEV siguen existiendo por separado para lo que sí debe
+// diferenciarse entre ellos (backend real de staging vs. mock puro).
+export const ES_ENTORNO_PRUEBA = ES_STAGING || ES_LOCAL_DEV;
 
 // Backend de staging — Sheet + Apps Script separados de producción
 // (ver apps-script/README.md, sección "Backend de staging para REPO").

@@ -78,6 +78,12 @@ const PATHS = {
 
     trofeo: `<path d="M8 4.5h8v5a4 4 0 0 1-8 0v-5Z"/><path d="M8 6H5.5a1 1 0 0 0-1 1.3l.6 1.7A3 3 0 0 0 8 11"/><path d="M16 6h2.5a1 1 0 0 1 1 1.3l-.6 1.7A3 3 0 0 1 16 11"/><path d="M12 13.5V17M9 20.5h6M10 20.5v-2h4v2"/>`,
 
+    // Pin de mapa — para "fijar" una News a gusto de cada usuario
+    // (independiente del "destacado" global que pone quien la crea).
+    pin: `<path d="M12 21s7-7.5 7-12.5A7 7 0 0 0 5 8.5C5 13.5 12 21 12 21Z"/><circle cx="12" cy="8.5" r="2.3"/>`,
+
+    tacho: `<path d="M5 7h14"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h5a1.5 1.5 0 0 0 1.5-1.5L17 7"/><path d="M10 11v6M14 11v6"/>`,
+
     menu: `<path d="M4 6.5h16"/><path d="M4 12h16"/><path d="M4 17.5h16"/>`,
 
     cerrar: `<path d="M6 6l12 12"/><path d="M18 6 6 18"/>`,

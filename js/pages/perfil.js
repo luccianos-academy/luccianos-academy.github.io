@@ -74,7 +74,7 @@ async function bloquePush(usuario) {
             return `
                 <div class="card" style="max-width:420px;margin-top:16px">
                     <div class="item"><span>Notificaciones push</span><strong class="text-sm" style="color:var(--success)">Activadas ✓</strong></div>
-                    <button type="button" id="btn-probar-push" class="btn btn-secondary" style="width:auto;margin-top:8px">Enviar prueba</button>
+                    ${usuario.rol === "admin" ? `<button type="button" id="btn-probar-push" class="btn btn-secondary" style="width:auto;margin-top:8px">Enviar prueba</button>` : ""}
                 </div>
             `;
         }

@@ -120,6 +120,13 @@ function normalizarNoticia(f) {
         // pedido explícito del usuario para avisos muy importantes que
         // no deberían perderse entre las demás News del día.
         destacado: String(f.destacado || "").trim().toUpperCase() === "SI",
+        // Fijado PERSONAL — a diferencia de "destacado" (lo decide quien
+        // crea la News, vale para todos los que la ven), esto es a
+        // gusto de cada persona: cualquiera puede fijar/desfijar
+        // cualquier News que le interese, sin afectar lo que ven los
+        // demás. Mismo patrón que "leidoPor" — lista de ids separada
+        // por comas en la misma fila.
+        fijadoPor: String(f.fijadoPor || "").trim(),
     };
 }
 
@@ -277,6 +284,25 @@ export async function marcarNotificacionNoLeida(noticia, usuarioId) {
     const actuales = String(noticia.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
     const restantes = actuales.filter((id) => id !== String(usuarioId));
     await actualizarNoticia(noticia.id, { leidoPor: restantes.join(",") });
+}
+
+/** Fijado personal — a diferencia de "destacado" (lo decide quien crea
+ *  la News, se aplica igual para todos), cualquiera puede fijar/
+ *  desfijar cualquier News que le resulte relevante A ÉL, sin afectar
+ *  lo que ven los demás. Pedido explícito del usuario: "que el usuario
+ *  también pueda fijar a gusto las News que sean relevantes para ellos
+ *  independiente de que si yo lo hago". */
+export function estaFijadaPersonal(noticia, usuarioId) {
+    return String(noticia.fijadoPor || "").split(",").map((s) => s.trim()).filter(Boolean).includes(String(usuarioId));
+}
+
+export async function toggleFijadaPersonal(noticia, usuarioId) {
+    const actuales = String(noticia.fijadoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const yaFijada = actuales.includes(String(usuarioId));
+    const nuevos = yaFijada
+        ? actuales.filter((id) => id !== String(usuarioId))
+        : [...actuales, String(usuarioId)];
+    await actualizarNoticia(noticia.id, { fijadoPor: nuevos.join(",") });
 }
 
 export async function eliminarNoticia(id) {
