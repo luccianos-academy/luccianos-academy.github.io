@@ -16,7 +16,6 @@ import { Header } from "../components/header.js";
 import { Icon } from "../components/icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { marcarHistoriaVista } from "../data/usuarios.js";
-import { navigate } from "../router.js";
 import { setItem } from "../services/storage.js";
 
 const PROPOSITO = [
@@ -43,15 +42,19 @@ const PRINCIPIOS_TONIO = [
 
 export async function Historia() {
 
-    // Ya NO se marca como vista con solo abrir la página — pedido
-    // explícito del usuario: que haya un botón "Visto" que la persona
-    // toca cuando quiere, para que no se sienta ni una obligación ni
-    // una ambigüedad de "cuánto tengo que quedarme acá". El router
-    // sigue redirigiendo a un Colaborador sin historiaVista para que
-    // pase por acá primero (ver RUTAS_GATEADAS_HISTORIA), pero recién
-    // el botón de abajo desactiva ese gate. Ver bindHistoria.
+    // Sin gate ni botón "Visto" — pedido explícito del usuario: nada
+    // de obligar ni de una acción para "desbloquear" lo siguiente.
+    // A un Colaborador/Encargado que todavía no la vio, el login lo
+    // trae acá primero como bienvenida (ver login.js, destinoPostLogin)
+    // — un empujoncito de tono invitador, no una condición. Se marca
+    // como vista sola al abrir la página (mismo criterio original,
+    // antes del botón explícito) — ya no hace falta un gesto aparte
+    // porque no hay nada que desbloquear.
     const usuario = getUsuarioActual();
-    const faltaMarcar = usuario && usuario.rol === "colaborador" && !usuario.historiaVista;
+    const esBienvenida = usuario && usuario.rol === "colaborador" && !usuario.historiaVista;
+    if (esBienvenida) {
+        marcarHistoriaVista(usuario.id).then(() => { usuario.historiaVista = true; setItem("sesion", usuario); }).catch(() => {});
+    }
 
     const propositoHtml = PROPOSITO.map((p) => `
         <div class="card">
@@ -70,17 +73,17 @@ export async function Historia() {
     `).join("");
 
     return `
-        ${Header("Nuestra Historia", "Lucciano's es una empresa familiar que nace a partir del deseo de atender al segmento de consumidores más exigentes de helado artesanal de Argentina.")}
-
-        ${faltaMarcar ? `
-            <div class="aviso-historia">
+        ${esBienvenida ? `
+            <div class="historia-toast" id="historia-toast">
                 ${Icon("idea", { size: 20 })}
                 <div>
-                    <strong>Tu formación comienza con nuestra historia</strong>
-                    <p>Tomate unos minutos para conocer el origen, la evolución y los valores que hacen único a Lucciano's. Cuando termines de leer, tocá "Marcá como visto" al final para continuar con tus cursos.</p>
+                    <strong>¡Bienvenido/a a Lucciano's!</strong>
+                    <p>Antes de arrancar tu formación, te invitamos a conocer nuestro origen, nuestros valores y qué nos hace únicos.</p>
                 </div>
             </div>
         ` : ""}
+
+        ${Header("Nuestra Historia", "Lucciano's es una empresa familiar que nace a partir del deseo de atender al segmento de consumidores más exigentes de helado artesanal de Argentina.")}
 
         <div class="section">
             <div class="grid-2-1">
@@ -139,33 +142,19 @@ export async function Historia() {
             <div class="cards">${principiosHtml}</div>
         </div>
 
-        ${faltaMarcar ? `
-            <div class="section historia-cierre">
-                <p class="text-sm text-muted" style="margin-bottom:14px">¿Terminaste de leer? Marcalo como visto para continuar con tus cursos.</p>
-                <button class="btn btn-primary" id="btn-historia-visto">${Icon("check", { size: 18 })} Marcá como visto y continuar</button>
-            </div>
-        ` : ""}
     `;
 }
 
-export function bindHistoria() {
-    const btn = document.getElementById("btn-historia-visto");
-    if (!btn) return;
+// Único gesto que queda: el toast de bienvenida se desvanece solo — no
+// hay botón que lo cierre a mano (sería otra vez un "gesto para
+// continuar", justo lo que se sacó). Aparece, se lee, desaparece.
+const DURACION_TOAST_MS = 12000;
 
-    btn.addEventListener("click", async () => {
-        if (btn.disabled) return;
-        btn.disabled = true;
-        btn.textContent = "Guardando...";
-        const usuario = getUsuarioActual();
-        try {
-            await marcarHistoriaVista(usuario.id);
-            usuario.historiaVista = true;
-            setItem("sesion", usuario);
-            navigate("cursos");
-        } catch (err) {
-            btn.disabled = false;
-            btn.textContent = "Marcá como visto y continuar";
-            alert(err.message || "No se pudo guardar. Probá de nuevo en un momento.");
-        }
-    });
+export function bindHistoria() {
+    const toast = document.getElementById("historia-toast");
+    if (!toast) return;
+    setTimeout(() => {
+        toast.classList.add("historia-toast-oculto");
+        setTimeout(() => toast.remove(), 400); // después de la transición de salida
+    }, DURACION_TOAST_MS);
 }

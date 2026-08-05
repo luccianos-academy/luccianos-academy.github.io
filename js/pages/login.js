@@ -42,19 +42,31 @@ import { existe as vistoAntes, setItem } from "../services/storage.js";
 
 const CLAVE_BIENVENIDA_VISTA = "vio_bienvenida_personajes";
 
+/** A qué pantalla va cada quien apenas entra — para un Colaborador/
+ *  Encargado que todavía no vio "Nuestra Historia", esa es la primera
+ *  pantalla (bienvenida de tono invitador, ver pages/historia.js — no
+ *  es un gate, solo el lugar donde aterriza la primera vez). El resto
+ *  entra directo a "inicio" como siempre — Supervisor/Admin no rinden
+ *  cursos, no tiene sentido para ellos. */
+function destinoPostLogin(usuario) {
+    return usuario.rol === "colaborador" && !usuario.historiaVista ? "historia" : "inicio";
+}
+
 /**
  * Paso extra tras un login exitoso, una sola vez por dispositivo (no
  * en cada login — el video dura ~1min, sería un impuesto diario
- * injusto). Si ya se vio, navega directo a "inicio" como antes.
+ * injusto). Si ya se vio, navega directo al destino de siempre.
  */
-function mostrarBienvenidaPersonajes() {
+function mostrarBienvenidaPersonajes(usuario) {
+    const destino = destinoPostLogin(usuario);
+
     // En entorno de prueba (local o REPO) este video (~1min, "el
     // Maestro") solo agrega pasos muertos entre loguearse y poder
     // probar algo — pedido explícito del usuario: "eso se va, queda
     // solamente el bienvenido y luego login sin más". En producción
     // sigue intacto.
     if (ES_ENTORNO_PRUEBA || vistoAntes(CLAVE_BIENVENIDA_VISTA)) {
-        navigate("inicio", { replace: true });
+        navigate(destino, { replace: true });
         return;
     }
 
@@ -62,7 +74,7 @@ function mostrarBienvenidaPersonajes() {
 
     const continuar = () => {
         overlay.remove();
-        navigate("inicio", { replace: true });
+        navigate(destino, { replace: true });
     };
 
     document.body.insertAdjacentHTML("beforeend", `
@@ -415,7 +427,7 @@ async function entrarComo(rol, usuarios) {
 
     login(usuario);
     registrarEvento(usuario.id, "login", `Ingreso de ${usuario.nombre}`);
-    mostrarBienvenidaPersonajes();
+    mostrarBienvenidaPersonajes(usuario);
 }
 
 function inicializarGoogleSignIn() {
@@ -461,7 +473,7 @@ async function onGoogleCredential(response) {
         login(resultado.usuario, resultado.sessionToken);
         registrarEvento(resultado.usuario.id, "login", `Ingreso de ${resultado.usuario.nombre}`);
         cerrarModal(MODAL_ID);
-        mostrarBienvenidaPersonajes();
+        mostrarBienvenidaPersonajes(resultado.usuario);
 
     } catch (err) {
         slot.innerHTML = `<div class="login-error">No se pudo verificar el login (${err.message}). Probá de nuevo.</div>`;

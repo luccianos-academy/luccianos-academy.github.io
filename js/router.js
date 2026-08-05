@@ -75,17 +75,6 @@ const RUTAS = {
 
 const RUTAS_PUBLICAS = ["login"];
 
-// "Ver Nuestra Historia antes de empezar" — pedido explícito del
-// usuario. Solo Colaborador/Encargado (son quienes realmente
-// "empiezan" la formación; Supervisor/Admin no rinden cursos). Con
-// que hayan ABIERTO Historia una vez alcanza (ver pages/historia.js,
-// marcarHistoriaVista) — no hace falta leerla entera. Se chequea acá
-// (no en PERMISOS_PAGINA/puedeAccederA) porque es dinámico por
-// persona, no una regla fija por rol, y porque el destino del
-// redirect es una pantalla puntual (Historia), no "inicio" como el
-// resto de los rechazos de acceso.
-const RUTAS_GATEADAS_HISTORIA = ["cursos", "examen", "misevaluaciones"];
-
 /** "#/cursos/12" → { path:"cursos", params:["12"] }. Un solo segmento de
  *  parámetro alcanza para este incremento; Sprint 5+ (detalle de curso/
  *  lección) puede sumar más sin tocar este parser. */

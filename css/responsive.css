@@ -61,6 +61,13 @@
         display:flex;
     }
 
+    /* El toast de bienvenida de Historia es position:fixed (no vive en
+       el flujo, la topbar sticky no lo corre solo) — sin este ajuste
+       quedaba tapado detrás de la topbar en celular. */
+    .historia-toast{
+        top:70px;
+    }
+
     /* Tabs inferiores (bottomNav.js) — mobile-only, mismo breakpoint
        que la topbar. El componente ya devuelve "" para Admin, así que
        este display:flex no le agrega una barra vacía a nadie más. */
