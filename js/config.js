@@ -30,10 +30,15 @@ const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\.0\.0\.
 // Pegar acá la URL del deploy una vez creado. Vacío = REPO cae a modo
 // demo (mock) automáticamente, sin romper nada mientras tanto.
 const STAGING_GAS_URL = "https://script.google.com/macros/s/AKfycby_ipbo57tWd9k9TTALUTDrfF0uY--ULh2n-3pVngOxAYVJEhmL_pPe6_Z9LNLERHQI/exec";
-const STAGING_GOOGLE_CLIENT_ID = "";
 
 const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
 const PROD_GOOGLE_CLIENT_ID = "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
+
+// Mismo Client ID que producción — el origen de GitHub Pages
+// (https://siscap-luccianos.github.io) ya está agregado como "Origen
+// autorizado de JavaScript" en ese mismo Client ID de Google Cloud, así
+// que no hace falta uno separado para staging.
+const STAGING_GOOGLE_CLIENT_ID = PROD_GOOGLE_CLIENT_ID;
 
 export const GAS_URL = ES_LOCAL_DEV ? "" : ES_STAGING ? STAGING_GAS_URL : PROD_GAS_URL;
 
