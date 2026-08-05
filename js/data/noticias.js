@@ -116,6 +116,10 @@ function normalizarNoticia(f) {
         visiblePara: String(f.visiblePara || "").trim(),
         leidoPor: String(f.leidoPor || "").trim(),
         usuariosEspecificos: String(f.usuariosEspecificos || "").trim(),
+        // Fijada arriba de todo, antes que el agrupado por fecha —
+        // pedido explícito del usuario para avisos muy importantes que
+        // no deberían perderse entre las demás News del día.
+        destacado: String(f.destacado || "").trim().toUpperCase() === "SI",
     };
 }
 
@@ -228,7 +232,7 @@ export async function getNoticiasVisibles(usuario) {
     return todas.filter((n) => !estaProgramada(n) && puedeVerNoticia(n, usuario, sucursales));
 }
 
-export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntos, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora, usuariosEspecificos }) {
+export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, adjuntos, adjuntoUrl, adjuntoLabel, tipo, prioridad, dirigidoA, sucursal, hora, usuariosEspecificos, destacado }) {
     // adjuntos es un array [{url, label}]. Si viene vacío pero hay adjuntoUrl (fallback),
     // lo convierte. Guarda como JSON en la columna "adjuntos".
     const adjuntosFinales = adjuntos && adjuntos.length > 0
@@ -245,6 +249,7 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
         dirigidoA: dirigidoA || "", sucursal: sucursal || "",
         hora: hora || "",
         usuariosEspecificos: usuariosEspecificos || "",
+        destacado: destacado ? "SI" : "NO",
         leidoPor: "",
     };
     console.log("Guardando noticia:", { titulo, adjuntos: datosParaGuardar.adjuntos });
@@ -261,6 +266,17 @@ export async function marcarNotificacionLeida(noticia, usuarioId) {
     const actuales = String(noticia.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
     actuales.push(String(usuarioId));
     await actualizarNoticia(noticia.id, { leidoPor: actuales.join(",") });
+}
+
+/** Inverso de marcarNotificacionLeida — saca al usuario de "leidoPor".
+ *  Para el gesto de swipe (deslizar y "marcar como no leída", mismo
+ *  patrón que Gmail): a diferencia de marcar como leída, esto sí puede
+ *  deshacerse desde la lista sin abrir el detalle. */
+export async function marcarNotificacionNoLeida(noticia, usuarioId) {
+    if (!estaLeida(noticia, usuarioId)) return;
+    const actuales = String(noticia.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const restantes = actuales.filter((id) => id !== String(usuarioId));
+    await actualizarNoticia(noticia.id, { leidoPor: restantes.join(",") });
 }
 
 export async function eliminarNoticia(id) {

@@ -23,7 +23,7 @@ import { renderProcedimiento } from "../components/procedimiento.js";
 import { Icon } from "../components/icons.js";
 import {
     getNoticias, getNoticiasVisibles, crearNoticia, actualizarNoticia, eliminarNoticia,
-    marcarNotificacionLeida, estaLeida, puedeVerNoticia, estaProgramada,
+    marcarNotificacionLeida, marcarNotificacionNoLeida, estaLeida, puedeVerNoticia, estaProgramada,
     TIPOS_NOTIFICACION, PRIORIDADES, DIRIGIDO_A,
 } from "../data/noticias.js";
 import { getCursos } from "../data/cursos.js";
@@ -280,9 +280,15 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                                     <option value="">Ninguno</option>
                                     ${opcionesCursos}
                                 </select>
+
+                                <label class="toggle-switch" style="margin-top:16px">
+                                    Fijar como importante
+                                    <input type="checkbox" id="input-destacado-news" ${n.destacado ? "checked" : ""}>
+                                </label>
+                                <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Queda arriba de todo, antes de las demás News, hasta que la desfijes.</p>
                             </div>
                             <div id="container-adjuntos">
-                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces</label>
+                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces <span class="mod-tooltip" data-tooltip-texto="Antes de subir un archivo, renombralo con algo identificable (ej. 'menu-kosher-agosto.pdf'). Con muchos archivos subidos, 'imagen392.jpg' obliga a abrir uno por uno para encontrar el que buscás.">ⓘ</span></label>
                                 <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
                                     ${(n.adjuntos && n.adjuntos.length > 0)
                                         ? n.adjuntos.map((a, i) => `
@@ -350,7 +356,8 @@ function leerCamposNotificacion() {
         usuariosEspecificos: dirigidoA === "usuarios-especificos" ? (document.getElementById("input-usuarios-notif")?.value || "") : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
-        
+        destacado: document.getElementById("input-destacado-news")?.checked || false,
+
         // adjuntos múltiples: lee campos dinámicos
         adjuntos: (() => {
             const adjuntos = [];
@@ -367,15 +374,128 @@ function leerCamposNotificacion() {
 function filaNotificacion(n, usuario, leida) {
     const info = tipoInfo(n.tipo);
     const prio = prioridadInfo(n.prioridad);
+    const esAdmin = usuario.rol === "admin";
+    // Swipe estilo Gmail: deslizar la fila hacia la izquierda revela
+    // "Leída"/"No leída" para cualquiera y, solo para Admin, "Eliminar"
+    // — ver bindSwipeNotif() más abajo. .notif-swipe-content es la
+    // misma fila de siempre; .notif-swipe-actions queda oculta detrás
+    // hasta que se desliza.
     return `
-        <button class="notif-item${leida ? "" : " no-leida"}" data-ver-notif="${n.id}">
-            <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
-            <span class="notif-item-body">
-                <span class="notif-item-titulo">${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
-            </span>
-            <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
-        </button>
+        <div class="notif-swipe-row" data-swipe-id="${n.id}">
+            <div class="notif-swipe-actions">
+                <button type="button" class="notif-swipe-btn notif-swipe-toggle" data-swipe-toggle-leida="${n.id}">${leida ? "No leída" : "Leída"}</button>
+                ${esAdmin ? `<button type="button" class="notif-swipe-btn notif-swipe-delete" data-swipe-eliminar="${n.id}">Eliminar</button>` : ""}
+            </div>
+            <button class="notif-item notif-swipe-content${leida ? "" : " no-leida"}" data-ver-notif="${n.id}">
+                <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
+                <span class="notif-item-body">
+                    <span class="notif-item-titulo">${n.destacado ? `<span class="notif-item-fijada" title="Fijada">${Icon("trofeo", { size: 13 })}</span>` : ""}${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
+                </span>
+                <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
+            </button>
+        </div>
     `;
+}
+
+/** Swipe estilo Gmail sobre cada fila de News: deslizar hacia la
+ *  izquierda revela "Leída"/"No leída" (y, para Admin, "Eliminar")
+ *  detrás de la fila (ver .notif-swipe-* en css/components.css y la
+ *  estructura armada en filaNotificacion()). Sin librería — un simple
+ *  seguimiento de touch con transform, suficiente para un gesto de
+ *  una sola fila a la vez (nunca hace falta animar más de una).
+ *
+ *  Los flags _arrastrando/_swipeAbierta viven directo en el elemento
+ *  (no en una variable del módulo) para que el handler de
+ *  "[data-ver-notif]" — ya registrado antes, en bindNews() — pueda
+ *  chequearlos y saber si el click que le llegó fue en realidad el
+ *  final de un gesto de swipe, sin competir por el mismo evento con
+ *  un segundo listener aparte. */
+function bindSwipeNotif() {
+    document.querySelectorAll(".notif-swipe-row").forEach((fila) => {
+        const contenido = fila.querySelector(".notif-swipe-content");
+        const acciones = fila.querySelector(".notif-swipe-actions");
+        if (!contenido || !acciones) return;
+
+        let startX = 0;
+        let startY = 0;
+        let esHorizontal = null;
+        contenido._swipeAbierta = false;
+        contenido._arrastrando = false;
+
+        const maxOffset = () => Math.min(acciones.scrollWidth || 90, 220);
+
+        function cerrar() {
+            contenido.style.transform = "";
+            contenido._swipeAbierta = false;
+        }
+
+        function abrir() {
+            contenido.style.transform = `translateX(-${maxOffset()}px)`;
+            contenido._swipeAbierta = true;
+        }
+
+        contenido.addEventListener("touchstart", (e) => {
+            // Cerrar cualquier otra fila que haya quedado abierta antes
+            // de empezar un gesto nuevo — solo una a la vez.
+            document.querySelectorAll(".notif-swipe-content").forEach((c) => {
+                if (c !== contenido && c._swipeAbierta) { c.style.transform = ""; c._swipeAbierta = false; }
+            });
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            esHorizontal = null;
+            contenido._arrastrando = false;
+        }, { passive: true });
+
+        contenido.addEventListener("touchmove", (e) => {
+            const dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
+            if (esHorizontal === null) esHorizontal = Math.abs(dx) > Math.abs(dy) + 4;
+            if (!esHorizontal) return;
+            e.preventDefault(); // el gesto es horizontal — no dejar que la página scrollee vertical mientras tanto
+            contenido._arrastrando = true;
+            contenido.classList.add("notif-swipe-arrastrando");
+            const base = contenido._swipeAbierta ? -maxOffset() : 0;
+            const x = Math.max(-maxOffset(), Math.min(0, base + dx));
+            contenido.style.transform = `translateX(${x}px)`;
+        }, { passive: false });
+
+        contenido.addEventListener("touchend", () => {
+            contenido.classList.remove("notif-swipe-arrastrando");
+            if (!esHorizontal) return;
+            const actual = new DOMMatrix(getComputedStyle(contenido).transform).m41;
+            if (actual < -maxOffset() / 3) abrir(); else cerrar();
+            // El click sintético que dispara el navegador tras el
+            // touchend todavía ve _arrastrando en true en ese instante
+            // (el handler de [data-ver-notif] lo chequea) — recién se
+            // limpia después, para no reabrir el detalle por el mismo
+            // gesto que acaba de abrir/cerrar las acciones.
+            setTimeout(() => { contenido._arrastrando = false; }, 50);
+        });
+    });
+
+    document.querySelectorAll("[data-swipe-toggle-leida]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const usuario = getUsuarioActual();
+            const items = await getNoticias();
+            const noti = items.find((n) => String(n.id) === String(btn.dataset.swipeToggleLeida));
+            if (!noti) return;
+            if (estaLeida(noti, usuario.id)) {
+                await marcarNotificacionNoLeida(noti, usuario.id);
+            } else {
+                await marcarNotificacionLeida(noti, usuario.id);
+                decrementarContadorCampana(1);
+            }
+            navigate("news");
+        });
+    });
+
+    document.querySelectorAll("[data-swipe-eliminar]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            if (!confirm("¿Eliminar esta News? No se puede deshacer.")) return;
+            await eliminarNoticia(btn.dataset.swipeEliminar);
+            navigate("news");
+        });
+    });
 }
 
 export async function News() {
@@ -403,11 +523,29 @@ export async function News() {
         return grupos;
     }
 
-    const gruposTodas = agrupar(items);
-    const gruposNoLeidas = agrupar(noLeidas);
+    // Las fijadas van en su propia sección arriba de todo, sin
+    // agrupar por fecha (esa es justo la idea de fijar: no perderse
+    // entre el resto por antigua que sea) — el resto sigue el
+    // agrupado Hoy/Ayer/fecha de siempre.
+    function separarFijadas(lista) {
+        return { fijadas: lista.filter((n) => n.destacado), resto: lista.filter((n) => !n.destacado) };
+    }
 
-    const listaHtml = (grupos) => grupos.length
-        ? grupos.map((g) => `
+    const { fijadas: fijadasTodas, resto: restoTodas } = separarFijadas(items);
+    const { fijadas: fijadasNoLeidas, resto: restoNoLeidas } = separarFijadas(noLeidas);
+
+    const gruposTodas = agrupar(restoTodas);
+    const gruposNoLeidas = agrupar(restoNoLeidas);
+
+    const fijadasHtml = (lista) => lista.length ? `
+        <div class="notif-grupo">
+            <h4>📌 Fijadas</h4>
+            <div class="notif-lista">${lista.map((n) => filaNotificacion(n, usuario, estaLeida(n, usuario.id))).join("")}</div>
+        </div>
+    ` : "";
+
+    const listaHtml = (grupos, fijadas) => (fijadas.length || grupos.length)
+        ? fijadasHtml(fijadas) + grupos.map((g) => `
             <div class="notif-grupo">
                 <h4>${g.etiqueta}</h4>
                 <div class="notif-lista">${g.items.map((n) => filaNotificacion(n, usuario, estaLeida(n, usuario.id))).join("")}</div>
@@ -429,8 +567,8 @@ export async function News() {
             </span>
         </div>
 
-        <div class="section" data-panel="todas">${listaHtml(gruposTodas)}</div>
-        <div class="section" data-panel="no-leidas" hidden>${listaHtml(gruposNoLeidas)}</div>
+        <div class="section" data-panel="todas">${listaHtml(gruposTodas, fijadasTodas)}</div>
+        <div class="section" data-panel="no-leidas" hidden>${listaHtml(gruposNoLeidas, fijadasNoLeidas)}</div>
     `;
 }
 
@@ -453,11 +591,19 @@ export function bindNews() {
 
     document.querySelectorAll("[data-ver-notif]").forEach((btn) => {
         btn.addEventListener("click", async () => {
+            // Si el toque fue en realidad un gesto de deslizar (swipe,
+            // ver bindSwipeNotif() más abajo) o la fila ya estaba abierta
+            // mostrando sus acciones, ese mismo toque la cierra en vez de
+            // abrir el detalle — evita que "cerrar el swipe" y "abrir la
+            // notificación" compitan por el mismo click.
+            if (btn._arrastrando || btn._swipeAbierta) return;
             const items = await getNoticias();
             const noti = items.find((n) => String(n.id) === String(btn.dataset.verNotif));
             if (noti) abrirDetalleNotificacion(noti, usuario);
         });
     });
+
+    bindSwipeNotif();
 
     const btnMarcarTodas = document.getElementById("btn-marcar-todas");
     if (btnMarcarTodas) {
@@ -837,9 +983,17 @@ export function bindNuevaNews(params = []) {
             const programada = estaProgramada(cambios);
             const usuario = getUsuarioActual();
 
-            // crearNoticia() se encarga de convertir adjuntos a JSON
+            // crearNoticia() se encarga de convertir adjuntos a JSON.
+            // actualizarNoticia() no hace ninguna conversión propia (manda
+            // "cambios" tal cual a la Sheet) — "destacado" viaja como
+            // booleano crudo desde el checkbox, y la Sheet lo necesita
+            // como "SI"/"NO" (mismo formato que escribe crearNoticia,
+            // que normalizarNoticia espera al leer). Se convierte acá,
+            // en un objeto aparte, para no tocar el "cambios" que
+            // también usa la rama de creación de abajo (esa sí necesita
+            // el booleano crudo — su propio ternario ya lo convierte).
             if (id) {
-                await actualizarNoticia(id, cambios);
+                await actualizarNoticia(id, { ...cambios, destacado: cambios.destacado ? "SI" : "NO" });
                 registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);
             } else {
                 await crearNoticia(cambios);

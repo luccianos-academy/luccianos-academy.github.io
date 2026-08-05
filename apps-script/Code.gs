@@ -1043,6 +1043,18 @@ function subirArchivo(nombreArchivo, extension, archivoBase64) {
         const nomMes = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][hoy.getMonth()];
 
+        // Prefijo fecha+hora al nombre real del archivo — así con muchos
+        // archivos subidos (celulares suelen nombrarlos "IMG_0392.jpg")
+        // quedan ordenados cronológicamente y son rastreables sin abrir
+        // uno por uno. A propósito SIN el nombre de quién lo subió: el
+        // archivo queda con link público (cualquiera que lo reciba puede
+        // verlo), y exponer ahí el nombre de la persona sería filtrar su
+        // identidad a quien sea que termine con el link. Quién lo subió
+        // ya queda registrado aparte, en el campo autorNombre de la
+        // News/Comunicación — no hace falta repetirlo acá.
+        const marcaTiempo = Utilities.formatDate(hoy, Session.getScriptTimeZone() || "GMT-3", "yyyy-MM-dd_HH-mm");
+        nombreArchivo = marcaTiempo + "_" + nombreArchivo;
+
         // Determinar tipo de carpeta según extensión
         let tipo = "Archivos";
         if (["pdf"].includes(extension.toLowerCase())) tipo = "PDFs";

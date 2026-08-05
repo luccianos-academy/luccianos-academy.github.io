@@ -513,7 +513,7 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se le agrega fecha/hora automáticamente al nombre — si además le ponés algo descriptivo antes de subirlo (ej. &quot;menu-kosher.pdf&quot;), después es más fácil de encontrar en Drive.">ⓘ</span></label>
                     <div class="adjunto-tipos" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
                         <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
                         <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
@@ -667,7 +667,7 @@ async function abrirModalEditarPublicacion(p) {
                     <label for="input-mensaje-editar-pub">Mensaje</label>
                     <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se comprimirá automáticamente.">ⓘ</span></label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se le agrega fecha/hora automáticamente al nombre — si además le ponés algo descriptivo antes de subirlo (ej. &quot;menu-kosher.pdf&quot;), después es más fácil de encontrar en Drive.">ⓘ</span></label>
                     <div class="adjunto-tipos">
                         ${adjuntoTipoBtnHtml("documento", "PDF")}
                         ${adjuntoTipoBtnHtml("imagen", "Imagen")}

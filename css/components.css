@@ -132,6 +132,59 @@
     gap:10px;
 }
 
+/* Swipe estilo Gmail (ver bindSwipeNotif() en pages/news.js): las
+   acciones ("Leída"/"Eliminar") viven en .notif-swipe-actions, fijas
+   detrás de la fila — .notif-swipe-content es la fila real
+   (.notif-item de siempre) y se desliza por encima con transform,
+   revelándolas. overflow:hidden en el wrapper recorta lo que asoma de
+   más mientras no se deslizó nada. */
+.notif-swipe-row{
+    position:relative;
+    overflow:hidden;
+    border-radius:var(--radius-sm);
+}
+
+.notif-swipe-actions{
+    position:absolute;
+    inset:0;
+    display:flex;
+    justify-content:flex-end;
+    align-items:stretch;
+}
+
+.notif-swipe-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 20px;
+    font-size:13px;
+    font-weight:700;
+    font-family:inherit;
+    color:#fff;
+    border:none;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.notif-swipe-toggle{
+    background:var(--muted);
+}
+
+.notif-swipe-delete{
+    background:var(--danger);
+}
+
+.notif-swipe-content{
+    position:relative;
+    z-index:1;
+    transition:transform .2s ease;
+    touch-action:pan-y;
+}
+
+.notif-swipe-content.notif-swipe-arrastrando{
+    transition:none;
+}
+
 .notif-item{
     display:flex;
     align-items:flex-start;
@@ -227,6 +280,13 @@
 .canal-item-destacado{
     color:var(--gold-deep);
     flex-shrink:0;
+}
+
+.notif-item-fijada{
+    color:var(--gold-deep);
+    display:inline-flex;
+    vertical-align:middle;
+    margin-right:6px;
 }
 
 .canal-header-nav{
