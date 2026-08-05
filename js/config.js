@@ -18,7 +18,7 @@
  * Así el MISMO código se comporta distinto según dónde esté servido,
  * sin mantener dos versiones.
  */
-const ES_STAGING = typeof location !== "undefined" && /\.github\.io$/.test(location.hostname);
+export const ES_STAGING = typeof location !== "undefined" && /\.github\.io$/.test(location.hostname);
 
 // localhost/127.0.0.1 → modo demo puro (mock, sin backend), para poder
 // desarrollar la UI local sin pegarle a ningún backend real por

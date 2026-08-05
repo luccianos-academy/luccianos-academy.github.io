@@ -35,7 +35,7 @@ import { login, ROLES } from "../services/auth.js";
 import { verificarLoginGoogle } from "../services/google.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
-import { GOOGLE_CLIENT_ID } from "../config.js";
+import { GOOGLE_CLIENT_ID, ES_STAGING } from "../config.js";
 import { navigate } from "../router.js";
 import { Icon } from "../components/icons.js";
 import { existe as vistoAntes, setItem } from "../services/storage.js";
@@ -150,15 +150,36 @@ export async function Login() {
 
     const content = renderFullScreen();
 
-    content.innerHTML = `
-        <div class="login-gate" id="login-gate">
-            <button class="btn btn-primary login-gate-btn" id="btn-login-gate" type="button">Bienvenido/a</button>
-        </div>
-    `;
+    // En STAGING (REPO) se salta el video del Torreón + toda la
+    // coreografía de revelación (línea dorada, wordmark, espera de 10s
+    // antes de reiniciar el ciclo) — es una experiencia pensada para la
+    // portada real, pero acá solo agrega segundos muertos entre abrir
+    // la app y poder tocar "Ingresar" para probar algo. Reusa el mismo
+    // fondo (login-gate-bg) de la portada real, con el texto de marca
+    // escrito en vez de depender de que se lea en la imagen.
+    content.innerHTML = ES_STAGING
+        ? `
+            <div class="login-gate login-gate-staging" id="login-gate">
+                <div class="login-gate-staging-marca">
+                    <span>Bienvenido/a a</span>
+                    <strong>Lucciano's Academy</strong>
+                </div>
+                <button class="btn btn-primary login-gate-btn" id="btn-login-gate" type="button">Ingresar</button>
+            </div>
+        `
+        : `
+            <div class="login-gate" id="login-gate">
+                <button class="btn btn-primary login-gate-btn" id="btn-login-gate" type="button">Bienvenido/a</button>
+            </div>
+        `;
 
     document.getElementById("btn-login-gate").addEventListener("click", () => {
         document.getElementById("login-gate")?.remove();
-        renderPortada(content);
+        if (ES_STAGING) {
+            abrirModalLogin();
+        } else {
+            renderPortada(content);
+        }
     }, { once: true });
 
     // Esta página maneja su propio DOM (sin sidebar) mediante renderFullScreen().

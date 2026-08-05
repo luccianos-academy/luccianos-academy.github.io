@@ -76,6 +76,33 @@
     .login-gate-btn{ animation:none; }
 }
 
+/* Portada simplificada de STAGING (ver login.js, ES_STAGING) — mismo
+   fondo que la portada real, pero sin el video/audio del Torreón ni la
+   coreografía de revelado: solo el texto de marca arriba (evita pisar
+   el isologo dorado, que ocupa la franja central de la imagen de
+   fondo) y el botón de siempre más abajo. */
+.login-gate-staging-marca{
+    position:absolute;
+    top:12%;
+    left:50%;
+    transform:translateX(-50%);
+    text-align:center;
+    color:#fff;
+    text-shadow:0 2px 12px rgba(0,0,0,.6);
+}
+.login-gate-staging-marca span{
+    display:block;
+    font-size:15px;
+    color:rgba(255,255,255,.75);
+    letter-spacing:.5px;
+    margin-bottom:4px;
+}
+.login-gate-staging-marca strong{
+    display:block;
+    font-size:22px;
+    font-weight:800;
+}
+
 /* El video arranca muteado (ver login.js) — este botón deja el audio
    real del Torreón a un toque de distancia, sin arriesgar que el
    autoplay se bloquee de entrada por pedir sonido sin gesto previo.
