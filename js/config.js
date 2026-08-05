@@ -29,7 +29,7 @@ const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\.0\.0\.
 // (ver apps-script/README.md, sección "Backend de staging para REPO").
 // Pegar acá la URL del deploy una vez creado. Vacío = REPO cae a modo
 // demo (mock) automáticamente, sin romper nada mientras tanto.
-const STAGING_GAS_URL = "";
+const STAGING_GAS_URL = "https://script.google.com/macros/s/AKfycby_ipbo57tWd9k9TTALUTDrfF0uY--ULh2n-3pVngOxAYVJEhmL_pPe6_Z9LNLERHQI/exec";
 const STAGING_GOOGLE_CLIENT_ID = "";
 
 const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
