@@ -125,6 +125,7 @@ function _despachar(body, usuarioActual) {
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
+        case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
         case "sync":       return sync(body.lastSync, usuarioActual);
 
         default:           return { ok: false, error: "Acción desconocida: " + body.accion };
@@ -1087,6 +1088,50 @@ function subirArchivo(nombreArchivo, extension, archivoBase64) {
             url: archivo.getUrl(),
             archivoId: archivo.getId(),
             nombre: nombreArchivo
+        };
+    } catch (err) {
+        return { ok: false, error: err.message };
+    }
+}
+
+/** Foto de perfil — carpeta propia por usuario (Colaboradores/{id}/),
+ *  no el balde genérico Recursos/Imagenes/Año/Mes que usa subirArchivo:
+ *  acá interesa PISAR la foto anterior (si no, cada cambio de foto
+ *  deja basura acumulada en Drive para siempre) y tener un lugar fijo
+ *  y predecible por persona. usuarioActual sale del token de sesión,
+ *  no de un id que mande el cliente — así nadie puede pisar la foto de
+ *  otro pasando otro id a mano. La URL que se guarda es la de
+ *  thumbnail (no archivo.getUrl(), que abre el visor de Drive) —
+ *  esa sí sirve directo como src de una <img>. */
+function subirFotoPerfil(usuarioActual, extension, archivoBase64) {
+    try {
+        if (!usuarioActual || !extension || !archivoBase64) {
+            return { ok: false, error: "Parámetros faltantes" };
+        }
+
+        const carpetaRecursos = _obtenerOCrearFolder("Lucciano's Academy — Recursos", DriveApp.getRootFolder());
+        const carpetaColaboradores = _obtenerOCrearFolder("Colaboradores", carpetaRecursos);
+        const carpetaUsuario = _obtenerOCrearFolder(String(usuarioActual.id), carpetaColaboradores);
+
+        // Cualquier "perfil.*" anterior en esa carpeta se manda a la
+        // papelera antes de subir la nueva — sin esto, re-subir la foto
+        // varias veces deja copias viejas dando vueltas.
+        const iter = carpetaUsuario.getFiles();
+        while (iter.hasNext()) {
+            const f = iter.next();
+            if (f.getName().indexOf("perfil.") === 0) f.setTrashed(true);
+        }
+
+        const buffer = Utilities.base64Decode(archivoBase64.split(",")[1] || archivoBase64);
+        const mimeType = _getMimeType(extension) || "image/jpeg";
+        const blob = Utilities.newBlob(buffer, mimeType, "perfil." + extension);
+        const archivo = carpetaUsuario.createFile(blob);
+        archivo.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
+
+        return {
+            ok: true,
+            url: "https://drive.google.com/thumbnail?id=" + archivo.getId() + "&sz=w400",
+            archivoId: archivo.getId()
         };
     } catch (err) {
         return { ok: false, error: err.message };

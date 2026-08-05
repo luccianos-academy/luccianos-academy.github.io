@@ -16,6 +16,7 @@ import { getTokensDeUsuario } from "../data/tokens.js";
 import { actualizarUsuario } from "../data/usuarios.js";
 import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
+import { setItem } from "../services/storage.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
 
@@ -98,6 +99,30 @@ async function bloquePush(usuario) {
     `;
 }
 
+/** Redimensiona y comprime la imagen en el navegador antes de
+ *  subirla — una foto de celular sin tocar puede pesar varios MB; acá
+ *  no hace falta más que ~400px de lado para un avatar circular.
+ *  Devuelve un data URL JPEG, listo para mandar a subirFotoPerfil. */
+function comprimirImagenPerfil(file, ladoMax = 400, calidad = 0.82) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            const escala = Math.min(1, ladoMax / Math.max(img.width, img.height));
+            const w = Math.round(img.width * escala) || 1;
+            const h = Math.round(img.height * escala) || 1;
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL("image/jpeg", calidad));
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen.")); };
+        img.src = url;
+    });
+}
+
 export async function Perfil() {
 
     const usuario = getUsuarioActual();
@@ -112,10 +137,15 @@ export async function Perfil() {
                 </div>
                 <div>
                     <p class="text-xs text-muted">Foto de perfil
-                        <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Recomendación: foto cuadrada (1:1) mínimo 200x200px. Se recortará automáticamente para ajustarse. Próximamente: opción de subir archivo directamente.">ⓘ</span>
+                        <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Subí una foto cuadrada (1:1) — se ajusta y comprime sola antes de subirla.">ⓘ</span>
                     </p>
-                    <input type="text" id="input-foto-perfil" placeholder="URL de tu foto (ej: https://...)" value="${usuario.foto || ""}" style="width:100%;max-width:200px">
-                    <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar</button>
+                    <input type="file" id="input-archivo-foto" accept="image/*" style="display:none">
+                    <button type="button" class="btn btn-secondary" id="btn-subir-foto" style="padding:6px 12px;font-size:12px">Subir foto</button>
+                    <details style="margin-top:8px">
+                        <summary class="text-xs text-muted" style="cursor:pointer">O pegar una URL</summary>
+                        <input type="text" id="input-foto-perfil" placeholder="https://..." value="${usuario.foto || ""}" style="width:100%;max-width:200px;margin-top:6px">
+                        <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar URL</button>
+                    </details>
                 </div>
             </div>
 
@@ -145,12 +175,53 @@ export function bindPerfil() {
         try {
             await actualizarUsuario(usuario.id, { foto: fotoUrl });
             usuario.foto = fotoUrl;
+            setItem("sesion", usuario);
             alert("Foto guardada ✓");
             navigate("perfil");
         } catch (err) {
             alert(err.message || "No se pudo guardar.");
             btnGuardarFoto.disabled = false;
             btnGuardarFoto.textContent = "Guardar";
+        }
+    });
+
+    const btnSubirFoto = document.getElementById("btn-subir-foto");
+    const inputArchivoFoto = document.getElementById("input-archivo-foto");
+
+    btnSubirFoto?.addEventListener("click", () => inputArchivoFoto?.click());
+
+    inputArchivoFoto?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            alert("Elegí un archivo de imagen.");
+            inputArchivoFoto.value = "";
+            return;
+        }
+
+        const textoOriginal = btnSubirFoto.textContent;
+        btnSubirFoto.disabled = true;
+        btnSubirFoto.textContent = "Subiendo...";
+
+        try {
+            const base64 = await comprimirImagenPerfil(file);
+            const resultado = await gasRequest("subirFotoPerfil", { extension: "jpg", archivoBase64: base64 });
+
+            if (!resultado || !resultado.ok) {
+                throw new Error(resultado?.error || "No se pudo subir la foto.");
+            }
+
+            const usuario = getUsuarioActual();
+            await actualizarUsuario(usuario.id, { foto: resultado.url });
+            usuario.foto = resultado.url;
+            setItem("sesion", usuario);
+            navigate("perfil");
+        } catch (err) {
+            alert(err.message || "No se pudo subir la foto.");
+            btnSubirFoto.disabled = false;
+            btnSubirFoto.textContent = textoOriginal;
+        } finally {
+            inputArchivoFoto.value = "";
         }
     });
 
