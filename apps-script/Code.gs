@@ -1052,8 +1052,12 @@ function subirArchivo(nombreArchivo, extension, archivoBase64) {
         else if (["mp4", "webm", "mov", "avi"].includes(extension.toLowerCase())) tipo = "Videos";
         else if (["ppt", "pptx"].includes(extension.toLowerCase())) tipo = "Presentaciones";
 
-        // Crear estructura de carpetas
-        const carpetaRecursos = _obtenerOCrearFolder("Recursos", DriveApp.getRootFolder());
+        // Crear estructura de carpetas. Nombre distintivo (no solo
+        // "Recursos") a propósito: mientras Drive siga siendo la cuenta
+        // personal compartida con archivos ajenos al proyecto, así se
+        // identifica de un vistazo sin abrir la carpeta. Cuando se migre
+        // a la cuenta dedicada, se puede volver a "Recursos" a secas.
+        const carpetaRecursos = _obtenerOCrearFolder("Lucciano's Academy — Recursos", DriveApp.getRootFolder());
         const carpetaTipo = _obtenerOCrearFolder(tipo, carpetaRecursos);
         const carpetaYear = _obtenerOCrearFolder(String(year), carpetaTipo);
         const carpetaMes = _obtenerOCrearFolder(nomMes, carpetaYear);
