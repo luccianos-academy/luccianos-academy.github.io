@@ -44,7 +44,8 @@ import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 import { KpiCard } from "../components/kpiCard.js";
-import { resumenSemaforo, nivelDe, badgeNivel, celdaPct, progresoCursoDePersona } from "./reportes.js";
+import { Avatar } from "../components/avatar.js";
+import { resumenSemaforo, celdaPct, celdaEvaluacion, progresoCursoDePersona } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 
 const DIAS_ACCESO_INICIAL = 30;
@@ -341,6 +342,20 @@ function progresoColaborador(colaborador, asignaciones, cursos) {
     return { pct: Math.round(suma / cursosAplicables.length), hechos, total: cursosAplicables.length };
 }
 
+/** Avatar circular (foto o iniciales, ver components/avatar.js) +
+ *  nombre, para la columna "Nombre" de las 3 tablas de Colaboradores
+ *  (Admin, Supervisor/Semáforo, y la matriz de reportes.js) — pedido
+ *  de rediseño visual del usuario, referencia a un dashboard externo
+ *  con foto de perfil junto al nombre en vez de texto plano. */
+function nombreConAvatar(nombre, foto) {
+    return `
+        <div class="fila-avatar-nombre">
+            ${Avatar({ nombre, foto, size: "sm" })}
+            <span>${nombre}</span>
+        </div>
+    `;
+}
+
 function badgeProgreso({ pct, hechos, total }) {
     if (pct === null) return `<span class="text-xs text-muted">Sin datos</span>`;
     const tono = pct < 30 ? "danger" : pct < 60 ? "warning" : "success";
@@ -357,6 +372,7 @@ function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, curs
     const progreso = progresoColaborador(c, asignaciones, cursos);
     return {
         ...c,
+        nombre: nombreConAvatar(c.nombre, c.foto),
         seleccion: checkboxMail(c.email, c.nombre),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
@@ -486,17 +502,19 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos, puedeExportar)
 
 /** Columnas de la tabla de gestión para Supervisor/Capacitador/
  *  Encargado — la de siempre (Nombre/Email/Rol/Estado/Acceso/
- *  Acciones) MÁS el detalle del Semáforo (Total/Resultado/Nivel +
+ *  Acciones) MÁS el detalle del Semáforo (Módulos vistos/Evaluación +
  *  una columna por curso), todo en una sola tabla en vez de dos
- *  separadas. Admin sigue viendo la versión simple (COLUMNAS_BASE) —
- *  no se pidió este detalle ahí, y ya maneja 3 pestañas de rol. */
+ *  separadas. "Módulos vistos" (cuánto vio) y "Evaluación" (si rindió
+ *  y con qué nota) van separadas a propósito — pedido explícito del
+ *  usuario: son dos señales distintas, no una combinada. Admin sigue
+ *  viendo la versión simple (COLUMNAS_BASE) — no se pidió este
+ *  detalle ahí, y ya maneja 3 pestañas de rol. */
 const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     { key: "nombre", label: "Nombre" },
     { key: "email", label: "Email" },
     { key: "rolLabel", label: "Rol" },
-    { key: "total", label: "Total módulos" },
-    { key: "resultado", label: "Resultado" },
-    { key: "nivel", label: "Nivel" },
+    { key: "modulosVistos", label: "Módulos vistos" },
+    { key: "evaluacion", label: "Evaluación" },
     // "M1".."Mn" en vez del nombre completo del curso — con 6-8 cursos
     // reales, la columna con el nombre entero (ej. "Atención al
     // Cliente") volvía la tabla enorme. El nombre real aparece en un
@@ -527,13 +545,14 @@ function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
 
 function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
+    const misResultados = resultados.filter((r) => String(r.colaboradorId) === String(c.id));
     const fila = {
         ...c,
+        nombre: nombreConAvatar(c.nombre, c.foto),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
-        total: String(progreso.total),
-        resultado: progreso.pct === null ? "—" : `${progreso.pct}%`,
-        nivel: progreso.pct === null ? "" : badgeNivel(nivelDe(progreso.pct)),
+        modulosVistos: badgeProgreso(progreso),
+        evaluacion: celdaEvaluacion(misResultados),
         estadoBadge: badgeAcceso(c),
         accesoBadge: badgeVencimiento(c),
         acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),

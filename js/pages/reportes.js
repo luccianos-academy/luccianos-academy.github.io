@@ -25,6 +25,7 @@ import { ReportCard } from "../components/reportCard.js";
 import { RankingCard } from "../components/rankingCard.js";
 import { Table } from "../components/table.js";
 import { KpiCard } from "../components/kpiCard.js";
+import { Avatar } from "../components/avatar.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { getUsuarios } from "../data/usuarios.js";
@@ -140,6 +141,34 @@ export function celdaPct(pct) {
     return `<span class="badge badge-${tono}">${pct}%</span>`;
 }
 
+/** Barra "Módulos vistos" — mismo lenguaje visual que badgeProgreso
+ *  (colaboradores.js): % de progreso + cuántos cursos completó sobre
+ *  el total que le corresponden. Pedido explícito del usuario: separar
+ *  esta señal ("cuánto vio") de la nota real de evaluación (ver
+ *  celdaEvaluacion) — son dos cosas distintas, no una combinada. */
+function barraModulos(pct, hechos, total) {
+    if (pct === null) return `<span class="text-xs text-muted">Sin datos</span>`;
+    const tono = pct < UMBRAL_AMARILLO ? "danger" : pct < UMBRAL_VERDE ? "warning" : "success";
+    return `
+        <div class="progreso-mini">
+            <div class="progreso-mini-barra"><i class="progreso-mini-${tono}" style="width:${pct}%"></i></div>
+            <span class="progreso-mini-valor progreso-mini-texto-${tono}">${pct}%</span>
+            <span class="text-xs text-muted">(${hechos}/${total})</span>
+        </div>
+    `;
+}
+
+/** Puntaje real de evaluación (sobre 10, mismo criterio de promedio
+ *  que ya usan dashboardEjecutivo.js/inicioColaborador.js) — "—" si
+ *  todavía no rindió ninguna. Señal distinta de la barra de módulos
+ *  vistos: una cosa es haber visto las lecciones, otra haber
+ *  demostrado que las aprendió (pedido explícito del usuario). */
+export function celdaEvaluacion(misResultados) {
+    if (!misResultados.length) return `<span class="text-xs text-muted">—</span>`;
+    const promedio = Math.round((misResultados.reduce((s, r) => s + r.nota, 0) / misResultados.length) * 10) / 10;
+    return `<span class="badge badge-muted">${promedio}/10</span>`;
+}
+
 /** La tabla principal del Semáforo: una fila por colaborador, con
  *  Sucursal (para identificar el local de un vistazo, pedido del
  *  usuario), quién es Encargado, Total/Resultado/Nivel, y DESPUÉS una
@@ -151,22 +180,28 @@ export function celdaPct(pct) {
  *  curso ya cuenta esa historia, columna por columna). "No aplica"
  *  (cursos de Gestión para quien no es encargado) se muestra en gris,
  *  sin contar en Total. */
-export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
+export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados = []) {
     const filas = colaboradores
         .map((c) => {
             const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
             const total = cursosAplicables.length;
+            const hechos = cursosAplicables.filter((cur) => progresoCursoDePersona(c, cur, asignaciones) === 100).length;
             const promedio = total
                 ? Math.round(cursosAplicables.reduce((s, cur) => s + progresoCursoDePersona(c, cur, asignaciones), 0) / total)
                 : 0;
+            const misResultados = resultados.filter((r) => String(r.colaboradorId) === String(c.id));
 
             const fila = {
                 _promedio: promedio,
-                colaborador: c.encargado ? `${c.nombre} <span class="badge badge-muted">Encargado</span>` : c.nombre,
+                colaborador: `
+                    <div class="fila-avatar-nombre">
+                        ${Avatar({ nombre: c.nombre, foto: c.foto, size: "sm" })}
+                        <span>${c.nombre}${c.encargado ? ` <span class="badge badge-muted">Encargado</span>` : ""}</span>
+                    </div>
+                `,
                 sucursal: c.sucursal || "—",
-                total: String(total),
-                resultado: `${promedio}%`,
-                nivel: badgeNivel(nivelDe(promedio)),
+                modulosVistos: barraModulos(total ? promedio : null, hechos, total),
+                evaluacion: celdaEvaluacion(misResultados),
             };
             cursos.forEach((cur) => {
                 const aplica = cur.categoria !== "Gestión" || c.encargado;
@@ -181,9 +216,8 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones) {
     const columnas = [
         { key: "colaborador", label: "Colaborador" },
         { key: "sucursal", label: "Sucursal" },
-        { key: "total", label: "Total módulos" },
-        { key: "resultado", label: "Resultado" },
-        { key: "nivel", label: "Nivel" },
+        { key: "modulosVistos", label: "Módulos vistos" },
+        { key: "evaluacion", label: "Evaluación" },
         ...cursos.map((cur) => ({ key: `curso_${cur.id}`, label: cur.nombre })),
     ];
     return Table(columnas, filas);
@@ -220,7 +254,7 @@ async function actualizarSemaforo() {
     const filtros = document.getElementById("semaforo-filtros");
     if (!contenedor || !filtros) return;
 
-    const [usuarios, asignaciones, cursos] = await Promise.all([getUsuarios(), getAsignaciones(), getCursos()]);
+    const [usuarios, asignaciones, cursos, resultados] = await Promise.all([getUsuarios(), getAsignaciones(), getCursos(), getResultados()]);
     let colaboradores = usuarios.filter((u) => u.rol === "colaborador");
 
     // Vacío (sin chips elegidos) = todas las sucursales, mismo
@@ -242,7 +276,7 @@ async function actualizarSemaforo() {
         nivel && nivel !== "todos" ? `Nivel ${nivel}` : null,
     ].filter(Boolean).join(" · ");
 
-    contenedor.innerHTML = membreteHtml("Semáforo de desempeño", alcance) + vistaSemaforo(colaboradores, asignaciones, cursos);
+    contenedor.innerHTML = membreteHtml("Semáforo de desempeño", alcance) + vistaSemaforo(colaboradores, asignaciones, cursos, resultados);
 }
 
 /** Conecta los filtros de la vista Semáforo — no-op si esa vista no
@@ -265,7 +299,7 @@ function bindSemaforo() {
     document.getElementById("semaforo-filtro-sucursal")?.addEventListener("change", actualizarSemaforo);
 }
 
-function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
+function vistaSemaforo(colaboradores, asignaciones, cursos, resultados, tituloGrupo) {
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
 
     return `
@@ -278,7 +312,7 @@ function vistaSemaforo(colaboradores, asignaciones, cursos, tituloGrupo) {
         </div>
         <div class="card">
             <h3>Desempeño por colaborador y por módulo</h3>
-            ${tablaMatrizSemaforo(colaboradores, cursos, asignaciones)}
+            ${tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados)}
         </div>
     `;
 }
@@ -355,7 +389,7 @@ async function renderPreview(tipoId) {
             <div id="semaforo-filtros">${filtrosSemaforoHtml()}</div>
             <div id="semaforo-contenido" class="imprimible">
                 ${membreteHtml("Semáforo de desempeño", "Toda la red")}
-                ${vistaSemaforo(colaboradores, asignaciones, cursos)}
+                ${vistaSemaforo(colaboradores, asignaciones, cursos, resultados)}
             </div>
         `;
     }

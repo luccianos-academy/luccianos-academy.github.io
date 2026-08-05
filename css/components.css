@@ -4080,3 +4080,13 @@ table.data-table tbody tr:hover{
 .progreso-mini-texto-danger{ color:var(--danger); }
 .progreso-mini-texto-warning{ color:var(--warning); }
 .progreso-mini-texto-success{ color:var(--success); }
+
+/* Avatar + nombre en la columna "Colaborador" de las 3 tablas del
+   Semáforo (colaboradores.js y reportes.js) — rediseño visual, sin
+   tocar el cálculo debajo. */
+.fila-avatar-nombre{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
