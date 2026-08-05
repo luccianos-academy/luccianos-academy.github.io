@@ -510,6 +510,52 @@
     margin-top:4px;
 }
 
+/* Pie del modal de publicación (Editar/Eliminar/Cerrar) — antes eran
+   4 .btn.btn-secondary en fila, pesados y se desbordaban del modal en
+   celular. Mismo espíritu liviano que .publicacion-accion de arriba
+   (ícono + texto, sin caja): íconos circulares para Editar/Eliminar
+   (poco frecuentes, no necesitan rótulo) y texto simple para Cerrar —
+   la única acción con peso visual real es "Comentar" (btn-primary). */
+.publicacion-accion-icono{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:36px;
+    height:36px;
+    background:none;
+    border:none;
+    border-radius:50%;
+    color:var(--muted);
+    cursor:pointer;
+    transition:var(--transition);
+    flex-shrink:0;
+}
+
+.publicacion-accion-icono:hover{
+    background:var(--bg);
+    color:var(--text);
+}
+
+.publicacion-accion-icono-danger:hover{
+    background:var(--danger-soft);
+    color:var(--danger);
+}
+
+.publicacion-accion-texto{
+    background:none;
+    border:none;
+    color:var(--muted);
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    padding:8px 4px;
+    white-space:nowrap;
+}
+
+.publicacion-accion-texto:hover{
+    color:var(--text);
+}
+
 .comentarios-lista{
     display:flex;
     flex-direction:column;
@@ -1700,7 +1746,7 @@ table.data-table tbody tr:hover{
 .kpi-ayuda::after{
     left:50%;
     right:auto;
-    transform:translateX(-50%) translateY(-4px);
+    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px))) translateY(-4px);
 }
 
 .kpi-ayuda::before{
@@ -1708,9 +1754,14 @@ table.data-table tbody tr:hover{
     transform:translateX(-50%) translateY(-1px);
 }
 
+/* Antes esto ponía transform:translateX(0) a secas — pisaba el nudge
+   calculado en tooltips.js (misma especificidad que la regla genérica
+   de .mod-tooltip, pero definida después = gana). Por eso el tooltip
+   de "Mi equipo" (Inicio Supervisor) seguía cortándose contra el borde
+   pese al fix general. */
 .kpi-ayuda:hover::after,
 .kpi-ayuda.mostrar-tooltip::after{
-    transform:translateX(0) translateY(0);
+    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px))) translateY(0);
 }
 
 .celda-truncada{

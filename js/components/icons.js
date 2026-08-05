@@ -84,6 +84,8 @@ const PATHS = {
 
     tacho: `<path d="M5 7h14"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h5a1.5 1.5 0 0 0 1.5-1.5L17 7"/><path d="M10 11v6M14 11v6"/>`,
 
+    lapiz: `<path d="M14.5 5.5 18.5 9.5 8 20H4v-4Z"/><path d="m13 7 4 4"/>`,
+
     menu: `<path d="M4 6.5h16"/><path d="M4 12h16"/><path d="M4 17.5h16"/>`,
 
     cerrar: `<path d="M6 6l12 12"/><path d="M18 6 6 18"/>`,

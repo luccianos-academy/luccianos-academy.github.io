@@ -402,16 +402,16 @@ function abrirDetallePublicacion(p) {
                 </div>
                 <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
                     <textarea id="input-nuevo-comentario" rows="2" placeholder="Escribí un comentario..." style="width:100%"></textarea>
-                    <span style="display:flex;justify-content:space-between;gap:8px">
+                    <span style="display:flex;justify-content:space-between;align-items:center;gap:8px">
                         ${puedeEliminar ? `
-                            <span style="display:flex;gap:8px">
-                                <button class="btn btn-secondary" id="btn-editar-publicacion">Editar</button>
-                                <button class="btn btn-secondary" id="btn-eliminar-publicacion">Eliminar publicación</button>
+                            <span style="display:flex;gap:2px">
+                                <button class="publicacion-accion-icono" id="btn-editar-publicacion" title="Editar" aria-label="Editar publicación">${Icon("lapiz", { size: 17 })}</button>
+                                <button class="publicacion-accion-icono publicacion-accion-icono-danger" id="btn-eliminar-publicacion" title="Eliminar" aria-label="Eliminar publicación">${Icon("tacho", { size: 17 })}</button>
                             </span>
                         ` : "<span></span>"}
-                        <span style="display:flex;gap:8px">
-                            <button class="btn btn-secondary" data-close="${modalId}">Cerrar</button>
-                            <button class="btn btn-primary" id="btn-comentar">Comentar</button>
+                        <span style="display:flex;align-items:center;gap:10px">
+                            <button class="publicacion-accion-texto" data-close="${modalId}">Cerrar</button>
+                            <button class="btn btn-primary" id="btn-comentar" style="width:auto;padding:10px 20px">Comentar</button>
                         </span>
                     </span>
                 </div>
