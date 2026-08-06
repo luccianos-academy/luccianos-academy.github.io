@@ -59,3 +59,58 @@ a{
 .text-sm{ font-size:13px; }
 .text-xs{ font-size:12px; }
 .text-muted{ color:var(--muted); }
+
+/* Campos de texto — pedido explícito del usuario, mismo criterio
+   visual que el cuadro de texto de Claude: fondo oscuro de la página,
+   la CAJA un gris suave apenas más claro (no blanco, no negro puro),
+   borde blanco muy fino. Antes no había una regla base: cualquier
+   input/textarea/select sin una clase propia (ej. la caja de
+   comentario en Comunicaciones) quedaba con el estilo blanco por
+   defecto del navegador, un choque fuerte contra el tema oscuro.
+   Reglas más específicas (.form-seccion textarea, etc.) siguen
+   ganando donde ya existen — esto solo cubre el piso común. */
+input[type="text"],
+input[type="email"],
+input[type="search"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="url"],
+input[type="tel"],
+textarea,
+select{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:var(--radius-sm);
+    color:var(--text);
+    font-family:inherit;
+    font-size:14px;
+    padding:10px 14px;
+    transition:border-color var(--transition), background var(--transition);
+}
+
+input[type="text"]::placeholder,
+input[type="email"]::placeholder,
+input[type="search"]::placeholder,
+input[type="password"]::placeholder,
+input[type="number"]::placeholder,
+input[type="url"]::placeholder,
+input[type="tel"]::placeholder,
+textarea::placeholder{
+    color:var(--muted);
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="url"]:focus,
+input[type="tel"]:focus,
+textarea:focus,
+select:focus{
+    outline:none;
+    border-color:var(--gold);
+    background:rgba(255,255,255,.07);
+}

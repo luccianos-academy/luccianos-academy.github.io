@@ -427,7 +427,7 @@ function abrirDetallePublicacion(p) {
                         ` : "<span></span>"}
                         <span style="display:flex;align-items:center;gap:10px">
                             <button class="publicacion-accion-texto" data-close="${modalId}">Cerrar</button>
-                            <button class="btn btn-primary" id="btn-comentar" style="width:auto;padding:10px 20px">Comentar</button>
+                            <button class="btn btn-primary" id="btn-comentar" style="width:auto;height:38px;padding:0 22px;border-radius:19px;display:flex;align-items:center">Comentar</button>
                         </span>
                     </span>
                 </div>

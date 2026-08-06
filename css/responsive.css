@@ -9,6 +9,20 @@
         grid-template-columns:1fr;
     }
 
+    /* El botón "¿Cómo funciona...?" (compose-page-header, News/
+       Comunicaciones/Recursos) se corría del todo del viewport en
+       celular — la fila entera es un solo flex sin wrap, y con un
+       título largo no le quedaba lugar. Reportado por el usuario
+       probando en un iPhone real. flex-wrap baja el botón a su
+       propia línea en vez de recortarlo. */
+    .compose-page-header{
+        flex-wrap:wrap;
+    }
+
+    .compose-page-header .compose-ayuda{
+        margin-left:0;
+    }
+
     .mascota-carga video{
         width:110px;
         height:110px;
@@ -144,6 +158,21 @@
 }
 
 @media (max-width:600px){
+
+    /* Fila etiqueta/valor (Mi perfil, etc.) — en vez de wrapear
+       apretado y right-aligned al lado de la etiqueta (.list .item
+       arriba ya evita que se corte, pero en 2 líneas cortas queda
+       feo), en celular angosto se apila: etiqueta arriba, valor
+       abajo a la izquierda. Mismo bug real del iPhone (fila "Email"). */
+    .list .item{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:4px;
+    }
+
+    .list .item > strong{
+        text-align:left;
+    }
 
     /* El banner de curso usa height:480px fijo (components.css) pensado
        para el ancho de un panel de escritorio — en una pantalla angosta
