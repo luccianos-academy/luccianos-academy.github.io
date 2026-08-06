@@ -896,7 +896,14 @@
     font-weight:600;
 }
 
-.cards .card span{
+/* Hijo DIRECTO a propósito (no ".cards .card span" a secas) — ese
+   selector genérico también agarraba el ícono "ⓘ" del tooltip de
+   ayuda (otro <span>, pero anidado adentro del <h3>, no hijo directo
+   de .card) y lo ponía en 34px de fuente ocupando toda una línea
+   aparte — cada tarjeta KPI se veía "gigante", sobre todo en celular
+   (una sola columna, sin nada al lado que disimulara el alto extra).
+   Bug real reportado por el usuario en el Inicio de Supervisor. */
+.cards .card > span{
     display:block;
     margin-top:14px;
     font-size:34px;
