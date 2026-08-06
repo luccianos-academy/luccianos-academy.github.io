@@ -152,10 +152,10 @@ export async function InicioSupervisor() {
         ${Header(`Bienvenido/a, ${usuario.nombre}`, usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : (misLocales.join(", ") || "Sin local asignado"), { saludo: true })}
 
         <div class="cards">
-            ${KpiCard("Mi equipo", equipo.length, { icono: "usuarios", ayuda: "Cantidad total de colaboradores en tus locales." })}
-            ${KpiCard("Con acceso", conAcceso, { icono: "check", tono: "success", ayuda: "Colaboradores que hoy pueden entrar a la app — su acceso está activo y no venció." })}
-            ${KpiCard("Sin acceso", sinAcceso, { icono: "warning", tono: sinAcceso > 0 ? "danger" : "neutral", ayuda: "Colaboradores cuyo acceso venció o fue desactivado — no pueden entrar hasta que se lo renueven." })}
-            ${KpiCard("Promedio del equipo", promedioEquipo === null ? "Sin datos" : `${promedioEquipo}%`, { icono: "dashboard", tono: promedioEquipo === null ? "neutral" : promedioEquipo < 30 ? "danger" : promedioEquipo < 60 ? "warning" : "success", ayuda: "Promedio de lecciones vistas en los cursos asignados a todo tu equipo. Mide avance, no si aprobaron las evaluaciones — para eso, mirá el detalle en Mi equipo." })}
+            ${KpiCard("Mi equipo", equipo.length, { ayuda: "Cantidad total de colaboradores en tus locales." })}
+            ${KpiCard("Con acceso", conAcceso, { tono: "success", ayuda: "Colaboradores que hoy pueden entrar a la app — su acceso está activo y no venció." })}
+            ${KpiCard("Sin acceso", sinAcceso, { tono: sinAcceso > 0 ? "danger" : "neutral", ayuda: "Colaboradores cuyo acceso venció o fue desactivado — no pueden entrar hasta que se lo renueven." })}
+            ${KpiCard("Promedio del equipo", promedioEquipo === null ? "Sin datos" : `${promedioEquipo}%`, { tono: promedioEquipo === null ? "neutral" : promedioEquipo < 30 ? "danger" : promedioEquipo < 60 ? "warning" : "success", ayuda: "Promedio de lecciones vistas en los cursos asignados a todo tu equipo. Mide avance, no si aprobaron las evaluaciones — para eso, mirá el detalle en Mi equipo." })}
         </div>
 
         <div class="section">

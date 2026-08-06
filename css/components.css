@@ -911,6 +911,15 @@
     font-weight:800;
 }
 
+/* KpiCard sin ícono con tono (ver components/kpiCard.js) — el color
+   de estado (ej. "Sin acceso" en rojo si hay alguno) pasa al valor
+   en vez de perderse al sacar el ícono. Selector con .tono-* extra a
+   propósito, para ganarle en especificidad a la regla de arriba
+   (mismo color:var(--gold) por defecto) sin tocarle tamaño/peso. */
+.cards .card > span.tono-success{ color:var(--success); }
+.cards .card > span.tono-warning{ color:var(--warning); }
+.cards .card > span.tono-danger{ color:var(--danger); }
+
 .grid-2-1{
     display:grid;
     grid-template-columns:2fr 1fr;
