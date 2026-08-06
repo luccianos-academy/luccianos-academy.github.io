@@ -9,6 +9,7 @@
 
 import { Header } from "../components/header.js";
 import { Avatar } from "../components/avatar.js";
+import { Icon } from "../components/icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
@@ -131,17 +132,17 @@ export async function Perfil() {
         ${Header("Mi perfil")}
 
         <div class="card" style="max-width:420px">
-            <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
-                <div style="width:60px;height:60px;border-radius:8px;overflow:hidden;flex-shrink:0">
-                    ${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "" })}
+            <div style="display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:20px">
+                <div class="avatar-perfil-wrap">
+                    ${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "lg" })}
+                    <input type="file" id="input-archivo-foto" accept="image/*" style="display:none">
+                    <button type="button" class="avatar-perfil-camara" id="btn-subir-foto" title="Subir foto" aria-label="Subir foto">${Icon("camara", { size: 16 })}</button>
                 </div>
-                <div>
+                <div style="text-align:center">
                     <p class="text-xs text-muted">Foto de perfil
                         <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Subí una foto cuadrada (1:1) — se ajusta y comprime sola antes de subirla.">ⓘ</span>
                     </p>
-                    <input type="file" id="input-archivo-foto" accept="image/*" style="display:none">
-                    <button type="button" class="btn btn-secondary" id="btn-subir-foto" style="padding:6px 12px;font-size:12px">Subir foto</button>
-                    <details style="margin-top:8px">
+                    <details style="margin-top:4px">
                         <summary class="text-xs text-muted" style="cursor:pointer">O pegar una URL</summary>
                         <input type="text" id="input-foto-perfil" placeholder="https://..." value="${usuario.foto || ""}" style="width:100%;max-width:200px;margin-top:6px">
                         <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar URL</button>

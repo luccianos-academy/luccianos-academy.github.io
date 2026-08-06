@@ -59,6 +59,13 @@ const ESTILOS_IMPRESION = `
 
     .celda-curso { display: flex; flex-direction: column; gap: 3px; }
 
+    /* Esta ventana no carga css/components.css — sin esto, la foto de
+       perfil (que en la app toma su tamaño de .publicacion-avatar) no
+       tiene NINGÚN límite acá y se ve a tamaño natural completo (bug
+       real encontrado por el usuario exportando el Semáforo). */
+    .fila-avatar-nombre { display: flex; align-items: center; gap: 8px; }
+    .publicacion-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; border: 1px solid currentColor; background: #fff; white-space: nowrap; }
     .badge-success { color: #1a7a3c; }
     .badge-warning { color: #a06a00; }

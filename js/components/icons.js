@@ -38,6 +38,9 @@ const PATHS = {
 
     configuracion: `<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.8 6.2l-1.6 1.6M7.8 16.2l-1.6 1.6M17.8 17.8l-1.6-1.6M7.8 7.8 6.2 6.2"/>`,
 
+    // Cámara — botón flotante de "subir foto" (Mi perfil).
+    camara: `<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5Z"/><circle cx="12" cy="13" r="3.3"/>`,
+
     integraciones: `<path d="M9 15 15 9"/><path d="M10.5 6.5 12 5a3 3 0 0 1 4.2 4.2l-1.5 1.5"/><path d="M13.5 17.5 12 19a3 3 0 0 1-4.2-4.2l1.5-1.5"/>`,
 
     perfil: `<circle cx="12" cy="8.5" r="3.5"/><path d="M4.8 20c.8-4.2 3.5-6.5 7.2-6.5s6.4 2.3 7.2 6.5"/>`,

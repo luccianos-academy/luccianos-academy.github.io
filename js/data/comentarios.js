@@ -18,6 +18,7 @@ function normalizarComentario(f) {
         publicacionId: f.publicacionId,
         autorId: f.autorId,
         autorNombre: String(f.autorNombre || "").trim(),
+        autorFoto: String(f.autorFoto || "").trim(),
         texto: String(f.texto || "").trim(),
         fecha: String(f.fecha || "").trim(),
         likesDe: String(f.likesDe || "").trim(),
@@ -43,9 +44,9 @@ export async function getComentariosDePublicacion(publicacionId) {
     return todos.filter((c) => String(c.publicacionId) === String(publicacionId));
 }
 
-export async function crearComentario({ publicacionId, autorId, autorNombre, texto }) {
+export async function crearComentario({ publicacionId, autorId, autorNombre, autorFoto, texto }) {
     return writeSheet(HOJAS.COMENTARIOS, {
-        publicacionId, autorId, autorNombre, texto,
+        publicacionId, autorId, autorNombre, autorFoto: autorFoto || "", texto,
         fecha: new Date().toISOString(), likesDe: "",
     }, comentariosMock);
 }

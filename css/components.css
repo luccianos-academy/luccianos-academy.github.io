@@ -406,15 +406,15 @@
 
 .publicacion-avatar{
     flex-shrink:0;
-    width:36px;
-    height:36px;
+    width:44px;
+    height:44px;
     border-radius:50%;
     background:var(--black);
     color:var(--gold);
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:13px;
+    font-size:15px;
     font-weight:800;
 }
 
@@ -422,6 +422,48 @@
     width:28px;
     height:28px;
     font-size:11px;
+}
+
+/* Foto grande de "Mi perfil" (140px, pedido explícito del usuario) —
+   sin esta clase, el círculo de iniciales (sin foto todavía) se
+   quedaba en los 36px de .publicacion-avatar de siempre, perdido
+   adentro de un contenedor más grande. Borde + sombra suave: mismo
+   criterio "premium" pedido por el usuario. */
+.publicacion-avatar-lg{
+    width:140px;
+    height:140px;
+    font-size:48px;
+    border:3px solid var(--text);
+    box-shadow:0 4px 16px rgba(0,0,0,.35);
+}
+
+/* Wrapper del avatar de Mi perfil + botón flotante de cámara. */
+.avatar-perfil-wrap{
+    position:relative;
+    width:140px;
+    height:140px;
+}
+
+.avatar-perfil-camara{
+    position:absolute;
+    bottom:-4px;
+    right:-4px;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    background:var(--gold);
+    color:var(--black);
+    border:3px solid var(--card);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+    transition:var(--transition);
+}
+
+.avatar-perfil-camara:hover{
+    background:var(--gold-deep);
 }
 
 /* Tarjeta de adjunto tipo archivo — ícono en un cuadrado + nombre +

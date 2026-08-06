@@ -27,6 +27,7 @@ function normalizarPublicacion(f) {
         canal: String(f.canal || "").trim(),
         autorId: f.autorId,
         autorNombre: String(f.autorNombre || "").trim(),
+        autorFoto: String(f.autorFoto || "").trim(),
         autorRol: String(f.autorRol || "").trim(),
         titulo: String(f.titulo || "").trim(),
         mensaje: String(f.mensaje || "").trim(),
@@ -67,9 +68,9 @@ export async function getPublicacionesDeCanal(canalId) {
     return todas.filter((p) => String(p.canal) === String(canalId));
 }
 
-export async function crearPublicacion({ canal, autorId, autorNombre, autorRol, titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion }) {
+export async function crearPublicacion({ canal, autorId, autorNombre, autorFoto, autorRol, titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion }) {
     return writeSheet(HOJAS.PUBLICACIONES, {
-        canal, autorId, autorNombre, autorRol, titulo, mensaje,
+        canal, autorId, autorNombre, autorFoto: autorFoto || "", autorRol, titulo, mensaje,
         adjuntoUrl: adjuntoUrl || "", adjuntoLabel: adjuntoLabel || "",
         destacado: destacado ? "SI" : "NO",
         requiereConfirmacion: requiereConfirmacion ? "SI" : "NO",

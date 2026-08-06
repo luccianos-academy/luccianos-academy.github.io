@@ -237,7 +237,7 @@ function filaPublicacion(p, usuario) {
         <div class="card publicacion-card">
             ${p.destacado ? `<span class="publicacion-destacado">${Icon("trofeo", { size: 13 })} Destacado</span>` : ""}
             <div class="publicacion-autor">
-                <span class="publicacion-avatar">${iniciales(p.autorNombre)}</span>
+                ${Avatar({ nombre: p.autorNombre, foto: p.autorFoto, size: "" })}
                 <div>
                     <strong>${p.autorNombre}</strong>
                     <div class="text-xs text-muted">${p.autorRol === "admin" ? "Administración" : "Supervisor"} · ${formatearFechaHora(p.fecha)}</div>
@@ -348,7 +348,7 @@ function abrirDetallePublicacion(p) {
 
         return `
             <div class="publicacion-autor">
-                <span class="publicacion-avatar">${iniciales(p.autorNombre)}</span>
+                ${Avatar({ nombre: p.autorNombre, foto: p.autorFoto, size: "" })}
                 <div>
                     <strong>${p.autorNombre}</strong>
                     <div class="text-xs text-muted">${p.autorRol === "admin" ? "Administración" : "Supervisor"} · ${formatearFechaHora(p.fecha)}</div>
@@ -383,7 +383,7 @@ function abrirDetallePublicacion(p) {
             <div class="comentarios-lista">
                 ${comentarios.length ? comentarios.map((c) => `
                     <div class="comentario-item">
-                        <span class="publicacion-avatar publicacion-avatar-sm">${iniciales(c.autorNombre)}</span>
+                        ${Avatar({ nombre: c.autorNombre, foto: c.autorFoto, size: "sm" })}
                         <div>
                             <div><strong>${c.autorNombre}</strong> <span class="text-xs text-muted">${formatearFechaHora(c.fecha)}</span></div>
                             <p class="text-sm">${c.texto}</p>
