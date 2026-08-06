@@ -41,6 +41,22 @@ import { navigate } from "../router.js";
 import { mandarPush } from "../services/push.js";
 import { gasRequest } from "../services/google.js";
 
+/** Etiqueta por defecto del adjunto cuando no se escribe una a mano —
+ *  mismo criterio que news.js (etiquetaAdjuntoPorDefecto): fecha y
+ *  hora, sin quién lo subió (eso es referencia propia al buscar en
+ *  Drive, no algo para mostrarle a quien lee la publicación). */
+function etiquetaAdjuntoPorDefecto() {
+    // Formateo manual (no toLocaleDateString) — en algunos navegadores
+    // "es-AR" con day/month "2-digit" no rellena con cero (ej. "6/8" en
+    // vez de "06/08"); esto es consistente en cualquier dispositivo.
+    const ahora = new Date();
+    const dd = String(ahora.getDate()).padStart(2, "0");
+    const mm = String(ahora.getMonth() + 1).padStart(2, "0");
+    const hh = String(ahora.getHours()).padStart(2, "0");
+    const min = String(ahora.getMinutes()).padStart(2, "0");
+    return `Adjunto ${dd}/${mm} · ${hh}:${min}`;
+}
+
 function formatearFechaHora(iso) {
     const d = new Date(iso);
     if (isNaN(d)) return iso;
@@ -513,7 +529,7 @@ async function abrirModalNuevaPublicacion(canalId) {
                     <textarea id="input-mensaje-pub" rows="4" maxlength="1000" placeholder="Escribí tu mensaje..."></textarea>
                     <div class="compose-contador"><span id="contador-mensaje-pub">0</span>/1000</div>
 
-                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se le agrega fecha/hora automáticamente al nombre — si además le ponés algo descriptivo antes de subirlo (ej. &quot;menu-kosher.pdf&quot;), después es más fácil de encontrar en Drive.">ⓘ</span></label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Si dejás la Etiqueta vacía, se guarda con fecha y hora — el archivo en Drive también queda ordenado por fecha, fácil de ubicar después.">ⓘ</span></label>
                     <div class="adjunto-tipos" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
                         <button type="button" class="adjunto-tipo-btn" data-tipo="documento">📄<span>PDF</span></button>
                         <button type="button" class="adjunto-tipo-btn" data-tipo="imagen">🖼️<span>Imagen</span></button>
@@ -526,7 +542,7 @@ async function abrirModalNuevaPublicacion(canalId) {
                             <input type="text" id="input-adjunto-url-pub" placeholder="https://drive.google.com/..." style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
                         </div>
                         <div>
-                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                            <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la publicación. Ej: 'Descargar Manual de Uniforme'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
                             <input type="text" id="input-adjunto-pub" placeholder="Ej: Manual de Uniforme" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:16px">
                         </div>
                     </div>
@@ -553,7 +569,7 @@ async function abrirModalNuevaPublicacion(canalId) {
 
         const canal = document.getElementById("input-canal-pub").value;
         const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
-        const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim();
+        const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim() || (adjuntoUrl ? etiquetaAdjuntoPorDefecto() : "");
         const destacado = document.getElementById("input-destacado-pub").checked;
         const requiereConfirmacion = document.getElementById("input-confirmacion-pub")?.checked || false;
 
@@ -667,7 +683,7 @@ async function abrirModalEditarPublicacion(p) {
                     <label for="input-mensaje-editar-pub">Mensaje</label>
                     <textarea id="input-mensaje-editar-pub" rows="4" maxlength="1000">${p.mensaje}</textarea>
 
-                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Se le agrega fecha/hora automáticamente al nombre — si además le ponés algo descriptivo antes de subirlo (ej. &quot;menu-kosher.pdf&quot;), después es más fácil de encontrar en Drive.">ⓘ</span></label>
+                    <label>Adjunto (opcional) <span class="mod-tooltip" data-tooltip-texto="Sube un archivo (PDF, Excel, Word) o pega un link de Drive. Si dejás la Etiqueta vacía, se guarda con fecha y hora — el archivo en Drive también queda ordenado por fecha, fácil de ubicar después.">ⓘ</span></label>
                     <div class="adjunto-tipos">
                         ${adjuntoTipoBtnHtml("documento", "PDF")}
                         ${adjuntoTipoBtnHtml("imagen", "Imagen")}
@@ -699,7 +715,7 @@ async function abrirModalEditarPublicacion(p) {
         if (!titulo || !mensaje) return;
 
         const adjuntoUrl = document.getElementById("input-adjunto-url-editar-pub").value.trim();
-        const adjuntoLabel = document.getElementById("input-adjunto-editar-pub").value.trim();
+        const adjuntoLabel = document.getElementById("input-adjunto-editar-pub").value.trim() || (adjuntoUrl ? etiquetaAdjuntoPorDefecto() : "");
         // destacado/requiereConfirmacion viajan como "SI"/"NO" en la
         // Sheet (mismo formato que escribe crearPublicacion) — mandar
         // el boolean crudo del checkbox rompe normalizarPublicacion,

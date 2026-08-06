@@ -119,6 +119,24 @@ function fechaHoyISO() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Etiqueta por defecto de un adjunto cuando no se escribe una a mano
+ *  — pedido explícito del usuario: en vez de un genérico "Ver enlace",
+ *  mejor fecha y hora, así es más fácil de ubicar después. SIN quién
+ *  lo subió — ese dato es una referencia para el propio usuario al
+ *  buscar en Drive (privado), no algo para mostrarle a quien lee la
+ *  News. */
+function etiquetaAdjuntoPorDefecto() {
+    // Formateo manual (no toLocaleDateString) — en algunos navegadores
+    // "es-AR" con day/month "2-digit" no rellena con cero (ej. "6/8" en
+    // vez de "06/08"); esto es consistente en cualquier dispositivo.
+    const ahora = new Date();
+    const dd = String(ahora.getDate()).padStart(2, "0");
+    const mm = String(ahora.getMonth() + 1).padStart(2, "0");
+    const hh = String(ahora.getHours()).padStart(2, "0");
+    const min = String(ahora.getMinutes()).padStart(2, "0");
+    return `Adjunto ${dd}/${mm} · ${hh}:${min}`;
+}
+
 /** "Hoy" / "Ayer" / la fecha larga — mismo criterio de agrupado del mockup. */
 function etiquetaGrupo(fecha) {
     const d = fechaLocal(fecha);
@@ -292,7 +310,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                                 <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Queda arriba de todo, antes de las demás News, hasta que la desfijes.</p>
                             </div>
                             <div id="container-adjuntos">
-                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces <span class="mod-tooltip" data-tooltip-texto="Antes de subir un archivo, renombralo con algo identificable (ej. 'menu-kosher-agosto.pdf'). Con muchos archivos subidos, 'imagen392.jpg' obliga a abrir uno por uno para encontrar el que buscás.">ⓘ</span></label>
+                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces <span class="mod-tooltip" data-tooltip-texto="Si dejás la Etiqueta vacía, se guarda con fecha y hora. El archivo en Drive (privado, solo accede la cuenta del proyecto) también queda ordenado por fecha, así es fácil de ubicar después.">ⓘ</span></label>
                                 <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
                                     ${(n.adjuntos && n.adjuntos.length > 0)
                                         ? n.adjuntos.map((a, i) => `
@@ -302,7 +320,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                                                     <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${a.url}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
                                                 <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
                                                     <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${a.label}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
                                                 <button type="button" class="btn-eliminar-adjunto" data-index="${i}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
@@ -315,7 +333,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                                                     <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${n.adjuntoUrl}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
                                                 <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
                                                     <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${n.adjuntoLabel || "Ver adjunto"}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
                                                 </div>
                                                 <button type="button" class="btn-eliminar-adjunto" data-index="0" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
@@ -367,7 +385,7 @@ function leerCamposNotificacion() {
             const adjuntos = [];
             document.querySelectorAll(".adjunto-item").forEach((item) => {
                 const url = item.querySelector(".input-adjunto-url")?.value.trim() || "";
-                const label = item.querySelector(".input-adjunto-label")?.value.trim() || "Ver enlace";
+                const label = item.querySelector(".input-adjunto-label")?.value.trim() || etiquetaAdjuntoPorDefecto();
                 if (url) adjuntos.push({ url, label });
             });
             return adjuntos;
@@ -967,7 +985,7 @@ export function bindNuevaNews(params = []) {
                 <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${escaparHtml(url)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <div>
-                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
                 <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${escaparHtml(label)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
             </div>
             <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
