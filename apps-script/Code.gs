@@ -607,6 +607,7 @@ function _usuarioDeSesion(email) {
         encargado: String(fila.encargado || "").trim().toUpperCase() === "SI",
         capacitador: String(fila.capacitador || "").trim().toUpperCase() === "SI",
         sucursal: String(fila.sucursal || "").trim(),
+        foto: String(fila.foto || "").trim(),
         activo: activo,
     };
 }
