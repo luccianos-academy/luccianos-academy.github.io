@@ -475,7 +475,7 @@ function abrirDetallePublicacion(p) {
         const input = document.getElementById("input-nuevo-comentario");
         const texto = input.value.trim();
         if (!texto) return;
-        await crearComentario({ publicacionId: p.id, autorId: usuario.id, autorNombre: usuario.nombre, texto });
+        await crearComentario({ publicacionId: p.id, autorId: usuario.id, autorNombre: usuario.nombre, autorFoto: usuario.foto, texto });
         registrarEvento(usuario.id, "comentario_publicacion", `Comentario en "${p.titulo}"`);
         input.value = "";
         await reRenderDetalle();
@@ -574,7 +574,7 @@ async function abrirModalNuevaPublicacion(canalId) {
         const requiereConfirmacion = document.getElementById("input-confirmacion-pub")?.checked || false;
 
         await crearPublicacion({
-            canal, autorId: usuario.id, autorNombre: usuario.nombre, autorRol: usuario.rol,
+            canal, autorId: usuario.id, autorNombre: usuario.nombre, autorFoto: usuario.foto, autorRol: usuario.rol,
             titulo, mensaje, adjuntoUrl, adjuntoLabel, destacado, requiereConfirmacion,
         });
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);

@@ -4,7 +4,7 @@
 =============================*/
 
 import { Sidebar } from "./components/sidebar.js";
-import { TopBar } from "./components/topbar.js";
+import { TopBar, AvatarHeaderBoton } from "./components/topbar.js";
 import { BottomNav } from "./components/bottomNav.js";
 import { EmptyState } from "./components/emptyState.js";
 import { Icon } from "./components/icons.js";
@@ -43,6 +43,7 @@ export function renderLayout(rutaActiva) {
         <div class="layout">
             ${Sidebar(rutaActiva)}
             <main class="content" id="content"></main>
+            <div class="avatar-header-desktop">${AvatarHeaderBoton()}</div>
         </div>
         ${BottomNav(rutaActiva)}
     `;

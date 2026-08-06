@@ -19,6 +19,7 @@
 
 import { EMPRESA } from "../config.js";
 import { Icon } from "./icons.js";
+import { Avatar } from "./avatar.js";
 import { getNoticiasVisibles, estaLeida } from "../data/noticias.js";
 import { getUsuarioActual } from "../services/auth.js";
 
@@ -76,6 +77,16 @@ export function CampanaBoton(variant = "topbar") {
     return `<a class="campana-btn campana-btn-${variant}" href="#/news" aria-label="News">${Icon("campana", { size: variant === "topbar" ? 22 : 19 })}</a>`;
 }
 
+/** Avatar de 48px junto a la campana (topbar mobile / sidebar
+ *  desktop) — pedido explícito del usuario, "arriba a la derecha, le
+ *  da valor". Lleva a Mi perfil, mismo criterio que la campana lleva
+ *  a News. */
+export function AvatarHeaderBoton() {
+    const usuario = getUsuarioActual();
+    if (!usuario) return "";
+    return `<a class="avatar-header-btn" href="#/perfil" aria-label="Mi perfil">${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "xl" })}</a>`;
+}
+
 export function TopBar() {
     const logo = EMPRESA.logoUrl
         ? `<img src="${EMPRESA.logoUrl}" alt="${EMPRESA.nombre}">`
@@ -91,6 +102,7 @@ export function TopBar() {
             <button class="topbar-btn" id="btn-hamburger" aria-label="Abrir menú">${Icon("menu", { size: 22 })}</button>
             <a class="topbar-logo" href="#/inicio" aria-label="Inicio">${logo}</a>
             ${CampanaBoton("topbar")}
+            ${AvatarHeaderBoton()}
         </header>
     `;
 }

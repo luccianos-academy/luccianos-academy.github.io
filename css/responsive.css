@@ -61,6 +61,13 @@
         display:flex;
     }
 
+    /* En mobile el mismo avatar ya vive adentro de la topbar de
+       arriba (ver components/topbar.js) — mostrar los dos sería
+       redundante. */
+    .avatar-header-desktop{
+        display:none;
+    }
+
     /* El toast de bienvenida de Historia es position:fixed (no vive en
        el flujo, la topbar sticky no lo corre solo) — sin este ajuste
        quedaba tapado detrás de la topbar en celular. */

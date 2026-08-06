@@ -12,7 +12,7 @@ import { getUsuarioActual, MENU_POR_ROL } from "../services/auth.js";
 import { Icon } from "./icons.js";
 import { obtenerMiUsuario } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
-import { CampanaBoton } from "./topbar.js";
+import { CampanaBoton, AvatarHeaderBoton } from "./topbar.js";
 
 const DIAS_AVISO_VENCIMIENTO_ACCESO = 7;
 

@@ -7,6 +7,7 @@
     display:grid;
     grid-template-columns:260px 1fr;
     min-height:100vh;
+    position:relative;
 }
 
 /* FULLSCREEN (Login, 404) */
@@ -537,7 +538,21 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:12px;
+    gap:10px;
+}
+
+/* El logo tiene que poder achicarse acá (no en otros usos de .logo,
+   ej. login) — sin min-width:0 un hijo de flex nunca se achica por
+   debajo de su tamaño natural, y con campana + avatar (48px, ver
+   AvatarHeaderBoton) los 260px del sidebar no alcanzaban: el avatar
+   quedaba cortado contra el borde. */
+.logo-con-campana > span:first-child{
+    min-width:0;
+    flex-shrink:1;
+}
+
+.logo-con-campana img{
+    max-width:110px;
 }
 
 .logo img{
@@ -556,6 +571,27 @@
 
 .hamburger-btn{
     display:none;
+}
+
+/* ── Avatar arriba a la derecha del contenido (solo desktop) ─────
+   Pedido explícito del usuario: "en PC la foto debe estar a la
+   derecha, no en el sidebar" — probamos meterlo en la fila del logo
+   del sidebar primero y no entraba (los 260px del sidebar no
+   alcanzan para logo + campana + avatar de 48px, quedaba cortado).
+   position:absolute (no fixed) a propósito — pedido explícito:
+   "arriba de la tarjeta de alerta activa", o sea que tiene que
+   scrollear CON el contenido, alineado a su borde derecho, no quedar
+   flotando fijo sobre la pantalla. Ancla en .layout (nunca se
+   reemplaza al navegar, a diferencia de #content) — right:0 más el
+   padding real del .content lo deja pegado al borde derecho del
+   área de contenido, no del viewport entero (que también incluye el
+   ancho del sidebar). Se oculta a ≤900px (responsive.css) porque ahí
+   ya está el mismo avatar dentro de la topbar mobile. */
+.avatar-header-desktop{
+    position:absolute;
+    top:32px;
+    right:32px;
+    z-index:5;
 }
 
 /* ── Barra superior (topbar.js) ─────────────────────────────────

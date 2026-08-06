@@ -424,6 +424,25 @@
     font-size:11px;
 }
 
+/* Avatar de la topbar/sidebar (48px, junto a la campana) — pedido
+   explícito del usuario, mismo criterio "premium" del resto. */
+.publicacion-avatar-xl{
+    width:48px;
+    height:48px;
+    font-size:16px;
+}
+
+.avatar-header-btn{
+    display:block;
+    flex-shrink:0;
+    line-height:0;
+    transition:var(--transition);
+}
+
+.avatar-header-btn:hover{
+    opacity:.85;
+}
+
 /* Foto grande de "Mi perfil" (140px, pedido explícito del usuario) —
    sin esta clase, el círculo de iniciales (sin foto todavía) se
    quedaba en los 36px de .publicacion-avatar de siempre, perdido
