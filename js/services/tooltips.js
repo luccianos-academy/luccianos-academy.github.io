@@ -28,7 +28,13 @@
  *  ::after ya renderizado — no hace falta exactitud pixel-perfect,
  *  solo garantizar que nunca se pase del borde. */
 function corregirPosicionTooltip(el) {
-    const ANCHO_MAX = 220;
+    // 220 es el max-width del CSS (.mod-tooltip::after), pero box-sizing
+    // ahí es content-box (default) — el padding (8px 12px) y el borde
+    // (1px) se SUMAN a esos 220px en vez de recortarse de adentro. Sin
+    // contar ese margen extra (~26px), un tooltip pegado al borde de la
+    // pantalla (ej. la columna "Acceso", la última de la tabla) se
+    // pasaba igual pese al cálculo de --tooltip-nudge.
+    const ANCHO_MAX = 246;
     const PADDING = 10;
     const rect = el.getBoundingClientRect();
     const centroX = rect.left + rect.width / 2;
