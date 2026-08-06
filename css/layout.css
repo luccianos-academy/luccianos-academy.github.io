@@ -840,6 +840,19 @@
     min-width:0;
 }
 
+/* El avatar flotante (.avatar-header-desktop, arriba a la derecha)
+   se superponía con botones propios de cada pantalla que también
+   viven arriba a la derecha (ej. "¿Cómo funciona?" en News/
+   Comunicaciones, "Exportar PDF" en Colaboradores/Reportes) — un
+   colaborador real lo encontró probando. En vez de parchar cada
+   pantalla una por una, se reserva una franja fija arriba SOLO en
+   desktop (en mobile el avatar ya vive en la topbar, sin conflicto). */
+@media (min-width:901px){
+    .content{
+        padding-top:calc(var(--content-pad) + 56px);
+    }
+}
+
 .header{
     display:flex;
     justify-content:space-between;
