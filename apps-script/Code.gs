@@ -1113,18 +1113,28 @@ function subirFotoPerfil(usuarioActual, extension, archivoBase64) {
         const carpetaColaboradores = _obtenerOCrearFolder("Colaboradores", carpetaRecursos);
         const carpetaUsuario = _obtenerOCrearFolder(String(usuarioActual.id), carpetaColaboradores);
 
-        // Cualquier "perfil.*" anterior en esa carpeta se manda a la
+        // Cualquier "perfil*" anterior en esa carpeta se manda a la
         // papelera antes de subir la nueva — sin esto, re-subir la foto
         // varias veces deja copias viejas dando vueltas.
         const iter = carpetaUsuario.getFiles();
         while (iter.hasNext()) {
             const f = iter.next();
-            if (f.getName().indexOf("perfil.") === 0) f.setTrashed(true);
+            if (f.getName().indexOf("perfil") === 0) f.setTrashed(true);
         }
 
+        // Nombre con la persona (pedido explícito del usuario, para
+        // identificar de quién es sin tener que abrir cada archivo) —
+        // esto es distinto del criterio de subirArchivo (que a propósito
+        // NO incluye el nombre): ahí el archivo tiene link público que
+        // puede circular fuera de la app; acá la carpeta ya está
+        // organizada por id de colaborador y es la propia foto de esa
+        // persona, no hay nada nuevo que "filtrar".
+        const nombreLimpio = String(usuarioActual.nombre || "")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // saca acentos
+            .replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
         const buffer = Utilities.base64Decode(archivoBase64.split(",")[1] || archivoBase64);
         const mimeType = _getMimeType(extension) || "image/jpeg";
-        const blob = Utilities.newBlob(buffer, mimeType, "perfil." + extension);
+        const blob = Utilities.newBlob(buffer, mimeType, "perfil_" + nombreLimpio + "." + extension);
         const archivo = carpetaUsuario.createFile(blob);
         archivo.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
 
