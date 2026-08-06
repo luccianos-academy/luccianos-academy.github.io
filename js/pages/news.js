@@ -160,8 +160,11 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
         "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
     };
     const radiosDirigido = DIRIGIDO_A.map((d) => {
-        // "usuarios-especificos" solo visible para Admin
-        if (d.id === "usuarios-especificos" && !esAdmin) return "";
+        // "usuarios-especificos" y "solo-admin" (prueba personal) solo
+        // visibles para Admin — pedido explícito del usuario: Supervisor
+        // solo debe ver Colaboradores/Encargados propios/Encargados
+        // franquicias/Locales específicos.
+        if ((d.id === "usuarios-especificos" || d.id === "solo-admin") && !esAdmin) return "";
         return `
             <label class="radio-card">
                 <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" ${dirigidoActual === d.id ? "checked" : ""}>
@@ -855,10 +858,7 @@ export async function NuevaNews(params = []) {
     return `
         <div class="compose-page-header">
             <span class="compose-ico">${Icon("noticias", { size: 24 })}</span>
-            <div>
-                <h1>${noti ? "Editar News" : "Nueva News"}</h1>
-                <p>Informá novedades importantes a colaboradores y encargados.</p>
-            </div>
+            <h1>${noti ? "Editar News" : "Nueva News"}</h1>
             <button type="button" class="compose-ayuda" id="btn-ayuda-news">${Icon("alertas", { size: 16 })} ¿Cómo funciona News?</button>
         </div>
 
