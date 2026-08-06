@@ -1130,7 +1130,7 @@ function subirFotoPerfil(usuarioActual, extension, archivoBase64) {
 
         return {
             ok: true,
-            url: "https://drive.google.com/thumbnail?id=" + archivo.getId() + "&sz=w400",
+            url: "https://drive.google.com/thumbnail?id=" + archivo.getId() + "&sz=w640",
             archivoId: archivo.getId()
         };
     } catch (err) {

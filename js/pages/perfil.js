@@ -103,7 +103,7 @@ async function bloquePush(usuario) {
  *  subirla — una foto de celular sin tocar puede pesar varios MB; acá
  *  no hace falta más que ~400px de lado para un avatar circular.
  *  Devuelve un data URL JPEG, listo para mandar a subirFotoPerfil. */
-function comprimirImagenPerfil(file, ladoMax = 400, calidad = 0.82) {
+function comprimirImagenPerfil(file, ladoMax = 640, calidad = 0.85) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);
