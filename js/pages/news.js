@@ -23,7 +23,7 @@ import { renderProcedimiento } from "../components/procedimiento.js";
 import { Icon } from "../components/icons.js";
 import {
     getNoticias, getNoticiasVisibles, crearNoticia, actualizarNoticia, eliminarNoticia,
-    marcarNotificacionLeida, marcarNotificacionNoLeida, estaLeida, puedeVerNoticia, estaProgramada,
+    marcarNotificacionLeida, marcarNotificacionNoLeida, estaLeida, puedeVerNoticia,
     estaFijadaPersonal, toggleFijadaPersonal,
     TIPOS_NOTIFICACION, PRIORIDADES, DIRIGIDO_A,
 } from "../data/noticias.js";
@@ -254,34 +254,9 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                     <h3>3. Publicación</h3>
                 </div>
 
-                <div class="radio-cards">
-                    <label class="radio-card">
-                        <input type="radio" name="cuando-publicar" class="input-cuando" value="ahora" ${estaProgramada(n) ? "" : "checked"}>
-                        <span class="radio-card-radio"></span>
-                        <span class="radio-card-titulo">Publicar ahora</span>
-                        <span class="radio-card-desc">La noticia se enviará inmediatamente.</span>
-                    </label>
-                    <label class="radio-card">
-                        <input type="radio" name="cuando-publicar" class="input-cuando" value="programar" ${estaProgramada(n) ? "checked" : ""}>
-                        <span class="radio-card-radio"></span>
-                        <span class="radio-card-titulo">Programar publicación <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></span>
-                        <span class="radio-card-desc">Elegí fecha y hora para que se envíe sola.</span>
-                        <span id="wrap-fecha-notif" class="form-section-collapsible${estaProgramada(n) ? "" : " hidden"}" style="grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;display:grid">
-                            <span>
-                                <label for="input-fecha" style="margin-top:0;pointer-events:none">Fecha</label>
-                                <input type="date" id="input-fecha" value="${n.fecha || fechaHoyISO()}" min="${fechaHoyISO()}">
-                            </span>
-                            <span>
-                                <label for="input-hora" style="margin-top:0;pointer-events:none">Hora</label>
-                                <input type="time" id="input-hora" value="${n.hora || "09:00"}">
-                            </span>
-                        </span>
-                    </label>
-                </div>
-
                 <div class="form-info-box">
-                    ${Icon("campana", { size: 16 })}
-                    <p>Si la programás, se publica sola ese día y Supervisión recibe un aviso cuando se envía.</p>
+                    ${Icon("check", { size: 16 })}
+                    <p>Se publica de inmediato al guardar.</p>
                 </div>
             </div>
 
@@ -359,18 +334,18 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
 
 function leerCamposNotificacion() {
     const dirigidoA = document.querySelector(".input-dirigido-a:checked")?.value || "";
-    const publicarAhora = document.querySelector(".input-cuando:checked")?.value !== "programar";
     const tipo = document.getElementById("input-tipo").value.trim() || "noticia";
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         resumen: document.getElementById("input-mensaje").value.trim(),
         tipo,
         prioridad: document.getElementById("input-prioridad").value,
-        // Publicar ahora = hoy; programar = la fecha elegida.
-        fecha: publicarAhora ? fechaHoyISO() : document.getElementById("input-fecha").value,
-        // Hora solo aplica a programadas — la usará el trigger de backend
-        // (pendiente) para el envío automático. Hoy es informativa.
-        hora: publicarAhora ? "" : (document.getElementById("input-hora")?.value || ""),
+        // "Programar publicación" se sacó (pedido explícito del
+        // usuario) — sin un trigger de backend que mande el push ni
+        // avise cuando se publica sola, quedaba una fecha futura
+        // "muda": la noticia aparecía igual ese día, pero nadie se
+        // enteraba. Todo se publica al momento, siempre hoy.
+        fecha: fechaHoyISO(),
         dirigidoA,
         // Los locales solo importan cuando se eligió ese modo.
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
@@ -948,29 +923,6 @@ export function bindNuevaNews(params = []) {
     // Bindear multiselect de usuarios
     bindMultiSelectUsuarios("input-usuarios-notif");
 
-    // Fecha/hora visibles solo con "Programar" — transición suave sin layout shift.
-    const wrapFecha = document.getElementById("wrap-fecha-notif");
-    function actualizarWrapFecha() {
-        const cuando = document.querySelector(".input-cuando:checked")?.value;
-        if (wrapFecha) {
-            if (cuando === "programar") {
-                wrapFecha.classList.remove("hidden");
-            } else {
-                wrapFecha.classList.add("hidden");
-            }
-        }
-    }
-    document.querySelectorAll(".input-cuando").forEach((r) => r.addEventListener("change", actualizarWrapFecha));
-    actualizarWrapFecha();
-
-    // El date/hora viven dentro del <label> de la card "Programar" — un
-    // click en ellos activaría el radio (ya seleccionado, inofensivo)
-    // pero además el label puede robar el foco del picker. Frenar la
-    // propagación del click deja al picker abrir tranquilo.
-    ["input-fecha", "input-hora"].forEach((id) => {
-        document.getElementById(id)?.addEventListener("click", (e) => e.stopPropagation());
-    });
-
     // Adjuntos dinámicos — agregar/eliminar enlaces. Devuelve la fila
     // creada para que el upload de archivo también pueda usarla.
     function agregarFilaAdjunto({ url = "", label = "" } = {}) {
@@ -1072,7 +1024,6 @@ export function bindNuevaNews(params = []) {
 
         try {
             recordarCategoria(cambios.tipo);
-            const programada = estaProgramada(cambios);
             const usuario = getUsuarioActual();
 
             // crearNoticia() se encarga de convertir adjuntos a JSON.
@@ -1090,14 +1041,10 @@ export function bindNuevaNews(params = []) {
             } else {
                 await crearNoticia(cambios);
                 registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
-                // Push solo si se publica AHORA (las programadas las
-                // dispara el backend el día que toca — pendiente, ver pie
-                // del archivo). Sin await: no bloquea la navegación.
-                if (!programada) {
-                    Promise.all([getUsuarios(), getSucursales()])
-                        .then(([usuarios, sucursales]) => mandarPushDeNoticia(cambios, usuarios, sucursales))
-                        .catch(() => {});
-                }
+                // Sin await: no bloquea la navegación.
+                Promise.all([getUsuarios(), getSucursales()])
+                    .then(([usuarios, sucursales]) => mandarPushDeNoticia(cambios, usuarios, sucursales))
+                    .catch(() => {});
             }
             actualizarContadorCampana();
             navigate("news");
@@ -1109,17 +1056,3 @@ export function bindNuevaNews(params = []) {
     });
 }
 
-/* ============================================================
-   PENDIENTE (backend): envío automático de noticias PROGRAMADAS.
-
-   Hoy una noticia con fecha futura se OCULTA a los destinatarios hasta
-   ese día (estaProgramada, data/noticias.js) y aparece sola cuando
-   alguien abre la app en/después de la fecha — eso funciona 100% del
-   lado cliente. Lo que FALTA y necesita un disparador de tiempo en
-   Apps Script (ScriptApp time-driven trigger, corriendo 1x/día):
-     1. Mandar el push de la noticia el día que le toca (no al crearla).
-     2. Avisar a Supervisión "se envió la noticia programada X".
-   Sin ese trigger, la noticia igual se ve en la app el día correcto,
-   pero nadie recibe el push automático ni el recordatorio. Pedido
-   explícito del usuario, queda anotado para hacerlo con el backend.
-============================================================ */
