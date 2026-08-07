@@ -238,7 +238,17 @@ export function bindPerfil() {
             }
 
             const usuario = getUsuarioActual();
-            await actualizarUsuario(usuario.id, { foto: resultado.url });
+            // No alcanza con esperar la promesa — si el backend rechaza el
+            // guardado (fila no encontrada, permiso, etc.) devuelve
+            // {ok:false} sin tirar excepción, y seguir de largo acá daba
+            // sensación de éxito (sesión local actualizada, navega a
+            // perfil) aunque el Sheet real nunca se tocara. Reportado en
+            // vivo: la foto subió bien a Drive pero nunca llegó al Sheet,
+            // sin ningún aviso.
+            const resultadoGuardado = await actualizarUsuario(usuario.id, { foto: resultado.url });
+            if (!resultadoGuardado || resultadoGuardado.ok === false) {
+                throw new Error(resultadoGuardado?.error || "La foto se subió pero no se pudo guardar en tu perfil. Probá de nuevo.");
+            }
             usuario.foto = resultado.url;
             setItem("sesion", usuario);
             navigate("perfil");
