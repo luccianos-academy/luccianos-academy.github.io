@@ -7,18 +7,26 @@
 =============================*/
 
 /**
- * Entorno de STAGING (REPO) vs PRODUCCIÓN, decidido por el dominio:
- *   - GitHub Pages (*.github.io) → REPO: usa el backend de STAGING de
- *     abajo (Sheet + Apps Script propios, separados de producción) —
- *     así se puede probar push/upload/sync de verdad sin tocar datos
- *     reales. Mientras STAGING_GAS_URL esté vacío (todavía no se creó
- *     ese backend), cae solo a modo demo con datos de muestra.
- *   - Cualquier otro dominio (Netlify de producción, o localhost) →
- *     backend real de PRODUCCIÓN.
+ * Entorno de STAGING (REPO) vs PRODUCCIÓN, decidido por el dominio
+ * EXACTO de REPO (no por sufijo *.github.io) — porque producción
+ * también pasó a vivir en GitHub Pages, bajo una cuenta distinta
+ * (luccianos.academy@gmail.com), y ambos dominios terminan en
+ * ".github.io". Si detectáramos por sufijo, producción caería en
+ * modo STAGING por error.
+ *   - REPO_HOSTNAME (siscap-luccianos.github.io) → REPO: usa el
+ *     backend de STAGING de abajo (Sheet + Apps Script propios,
+ *     separados de producción) — así se puede probar push/upload/
+ *     sync de verdad sin tocar datos reales. Mientras STAGING_GAS_URL
+ *     esté vacío (todavía no se creó ese backend), cae solo a modo
+ *     demo con datos de muestra.
+ *   - Cualquier otro dominio (producción en GitHub Pages, o
+ *     localhost) → backend real de PRODUCCIÓN.
  * Así el MISMO código se comporta distinto según dónde esté servido,
  * sin mantener dos versiones.
  */
-export const ES_STAGING = typeof location !== "undefined" && /\.github\.io$/.test(location.hostname);
+const REPO_HOSTNAME = "siscap-luccianos.github.io";
+
+export const ES_STAGING = typeof location !== "undefined" && location.hostname === REPO_HOSTNAME;
 
 // localhost/127.0.0.1 → modo demo puro (mock, sin backend), para poder
 // desarrollar la UI local sin pegarle a ningún backend real por
@@ -39,7 +47,7 @@ export const ES_ENTORNO_PRUEBA = ES_STAGING || ES_LOCAL_DEV;
 // demo (mock) automáticamente, sin romper nada mientras tanto.
 const STAGING_GAS_URL = "https://script.google.com/macros/s/AKfycbyNZfjy9jR-SQ6F1iW02ePvv6otWBZs7rkf7GKnuZiM_XqcQvEDMVlAyfVLPGldEMg/exec";
 
-const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
+const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbzffwKoe6Jgpc5wABvrRBei2gpnUfqTHN4kr5AMP5ghNpHw7kJWVZCfobr8B1261Vjm/exec";
 const PROD_GOOGLE_CLIENT_ID = "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
 
 // Mismo Client ID que producción — el origen de GitHub Pages
