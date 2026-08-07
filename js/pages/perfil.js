@@ -10,17 +10,30 @@
 import { Header } from "../components/header.js";
 import { Avatar } from "../components/avatar.js";
 import { Icon } from "../components/icons.js";
-import { getUsuarioActual } from "../services/auth.js";
+import { getUsuarioActual, verComo } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
 import { getTokensDeUsuario } from "../data/tokens.js";
-import { actualizarUsuario } from "../data/usuarios.js";
+import { actualizarUsuario, getUsuarios } from "../data/usuarios.js";
+import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
 import { VERSION, ES_STAGING } from "../config.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
+
+/** Acceso rápido a "Ver como" por TIPO de rol (no por persona puntual)
+ *  — pedido explícito: buscar uno por uno en Colaboradores era
+ *  incómodo, esto elige directo un usuario real representativo de
+ *  cada tipo. Reusa toda la infba ya probada de verComo() (banner +
+ *  "Volver a mi cuenta"), solo cambia de dónde se dispara. */
+const ROLES_VISTA_RAPIDA = [
+    { id: "colaborador", label: "Colaborador", match: (u) => u.rol === "colaborador" && !u.encargado },
+    { id: "encargado", label: "Encargado", match: (u) => u.rol === "colaborador" && u.encargado },
+    { id: "supervisor", label: "Supervisor", match: (u) => u.rol === "supervisor" && !u.capacitador },
+    { id: "capacitador", label: "Capacitador", match: (u) => u.rol === "supervisor" && u.capacitador },
+];
 
 /** Estado del permiso → qué mostrar. "granted"/"denied" son
  *  decisiones del navegador que un botón nuestro no puede revertir
@@ -125,9 +138,28 @@ function comprimirImagenPerfil(file, ladoMax = 640, calidad = 0.85) {
     });
 }
 
+function bloqueVistaRapida(candidatos) {
+    const botonesHtml = ROLES_VISTA_RAPIDA.map((r) => {
+        const objetivo = candidatos.find(r.match);
+        return `<button type="button" class="btn btn-secondary" data-ver-como-rol="${r.id}" data-ver-como-usuario-id="${objetivo?.id || ""}" ${objetivo ? "" : "disabled"}>${r.label}</button>`;
+    }).join("");
+
+    return `
+        <div class="card" style="max-width:420px;margin-top:20px">
+            <h3 style="margin-top:0">Ver como</h3>
+            <p class="text-xs text-muted" style="margin-top:4px;margin-bottom:14px">
+                Previsualizá la app como cada tipo de rol, sin tener que buscar una persona puntual.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">${botonesHtml}</div>
+        </div>
+    `;
+}
+
 export async function Perfil() {
 
     const usuario = getUsuarioActual();
+    const esAdmin = usuario.rol === "admin";
+    const candidatos = esAdmin ? (await getUsuarios()).filter((u) => u.activo === "SI") : [];
 
     return `
         ${Header("Mi perfil")}
@@ -156,6 +188,8 @@ export async function Perfil() {
 
         ${await bloquePush(usuario)}
 
+        ${esAdmin ? bloqueVistaRapida(candidatos) : ""}
+
         <p class="text-xs text-muted" style="text-align:center;margin-top:20px">
             Versión ${VERSION}${ES_STAGING ? ` · <strong style="color:var(--danger)">PRUEBA</strong>` : ""}
         </p>
@@ -167,6 +201,20 @@ export function bindPerfil() {
     const inputArchivoFoto = document.getElementById("input-archivo-foto");
 
     btnSubirFoto?.addEventListener("click", () => inputArchivoFoto?.click());
+
+    document.querySelectorAll("[data-ver-como-rol]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const id = btn.dataset.verComoUsuarioId;
+            if (!id) return;
+            const admin = getUsuarioActual();
+            const usuarios = await getUsuarios();
+            const objetivo = usuarios.find((u) => String(u.id) === String(id));
+            if (!objetivo) return;
+            registrarEvento(admin.id, "ver_como", `${admin.nombre} activó la vista como ${objetivo.nombre} (acceso rápido por rol: ${btn.dataset.verComoRol})`);
+            verComo(objetivo);
+            navigate("inicio", { replace: true });
+        });
+    });
 
     inputArchivoFoto?.addEventListener("change", async (e) => {
         const file = e.target.files?.[0];
