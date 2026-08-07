@@ -87,8 +87,9 @@ export async function gasRequest(accion, payload = {}) {
     return data;
 }
 
-// Hacer gasRequest global para que SyncManager pueda usarla
+// Hacer gasRequest y GAS_URL globales para que SyncManager pueda usarlos
 window.gasRequest = gasRequest;
+window.GAS_URL = GAS_URL;
 
 export function obtenerDatosSheet(hoja) {
     return gasRequest("leer", { hoja });
