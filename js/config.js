@@ -37,7 +37,7 @@ export const ES_ENTORNO_PRUEBA = ES_STAGING || ES_LOCAL_DEV;
 // (ver apps-script/README.md, sección "Backend de staging para REPO").
 // Pegar acá la URL del deploy una vez creado. Vacío = REPO cae a modo
 // demo (mock) automáticamente, sin romper nada mientras tanto.
-const STAGING_GAS_URL = "https://script.google.com/macros/s/AKfycby_ipbo57tWd9k9TTALUTDrfF0uY--ULh2n-3pVngOxAYVJEhmL_pPe6_Z9LNLERHQI/exec";
+const STAGING_GAS_URL = "https://script.google.com/macros/s/AKfycbyNZfjy9jR-SQ6F1iW02ePvv6otWBZs7rkf7GKnuZiM_XqcQvEDMVlAyfVLPGldEMg/exec";
 
 const PROD_GAS_URL = "https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec";
 const PROD_GOOGLE_CLIENT_ID = "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.googleusercontent.com";
