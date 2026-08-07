@@ -476,7 +476,21 @@ function bindSwipeNotif() {
             if (e.pointerId !== pointerId) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            if (esHorizontal === null) esHorizontal = Math.abs(dx) > Math.abs(dy) + 4;
+            // Antes esto se decidía con el primerísimo evento de
+            // pointermove, sin importar cuán chico fuera el movimiento —
+            // un arrastre real (mouse o dedo) casi siempre arranca con
+            // algo de "temblor" vertical de un par de píxeles antes de
+            // asentarse en la dirección real, y esos primeros píxeles
+            // bastaban para trabar esHorizontal en false para todo el
+            // gesto (reportado: "lo detecta como click" — nunca llegaba
+            // a abrirse el panel). Ahora espera a que el movimiento total
+            // supere un mínimo (8px) antes de decidir, usando la
+            // proporción acumulada hasta ese punto en vez de la del
+            // primer instante.
+            if (esHorizontal === null) {
+                if (Math.hypot(dx, dy) < 8) return;
+                esHorizontal = Math.abs(dx) > Math.abs(dy);
+            }
             if (!esHorizontal) return;
             e.preventDefault(); // el gesto es horizontal — no dejar que la página scrollee vertical mientras tanto (touch) ni seleccionar texto (mouse)
             contenido._arrastrando = true;
@@ -746,10 +760,10 @@ function abrirDetalleNotificacion(noti, usuario) {
         <p class="text-sm" style="margin-top:0;margin-bottom:16px;white-space:pre-wrap;line-height:1.6">${escaparHtml(noti.resumen)}</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
-            ${noti.adjuntos?.map(a => `<a class="btn btn-secondary" href="${a.url}">${a.label}</a>`).join("") || (noti.adjuntoUrl ? `<a class="btn btn-secondary" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : "")}
+            ${noti.adjuntos?.map(a => `<a class="btn btn-sutil" href="${a.url}">${a.label}</a>`).join("") || (noti.adjuntoUrl ? `<a class="btn btn-sutil" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : "")}
             ${esAdmin ? `
-                <button class="btn btn-secondary" data-editar-notif="${noti.id}">Editar</button>
-                <button class="btn btn-secondary" data-eliminar-notif="${noti.id}">Eliminar</button>
+                <button class="btn btn-sutil" data-editar-notif="${noti.id}">Editar</button>
+                <button class="btn btn-sutil-danger" data-eliminar-notif="${noti.id}">Eliminar</button>
             ` : ""}
         </div>
     `;
@@ -763,7 +777,7 @@ function abrirDetalleNotificacion(noti, usuario) {
                 </div>
                 <div class="modal-body">${contenidoHtml}</div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-close="${modalId}">Cerrar</button>
+                    <button class="btn btn-sutil" data-close="${modalId}">Cerrar</button>
                     ${leida ? "" : `<button class="btn btn-primary" data-confirm="${modalId}">Marcar como leída</button>`}
                 </div>
             </div>

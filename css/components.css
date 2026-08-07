@@ -1015,6 +1015,32 @@
     background:#332c1f;
 }
 
+/* Sin relleno, solo texto — para acciones secundarias que no deben
+   competir visualmente con la acción principal del modal (ej. el
+   detalle de una News: "Ir al curso"/"Marcar como leída" quedan
+   como btn-primary, mientras Cerrar/Editar/Eliminar/adjuntos pasan
+   a esto). Mismo padding que .btn para no saltar de tamaño al lado
+   de un btn-primary/btn-secondary en la misma fila. */
+.btn-sutil{
+    background:none;
+    color:var(--muted);
+}
+
+.btn-sutil:hover{
+    background:var(--secondary-bg);
+    color:var(--text);
+}
+
+.btn-sutil-danger{
+    background:none;
+    color:var(--danger);
+}
+
+.btn-sutil-danger:hover{
+    background:var(--danger-soft);
+    color:var(--danger);
+}
+
 /* COURSE CARD + PROGRESS BAR */
 
 .course{
