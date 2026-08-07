@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    multiSelectSucursales.js
 
    Igual idea que autocompleteSucursal.js (buscador en vivo sobre

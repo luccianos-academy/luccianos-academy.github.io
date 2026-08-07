@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/auditoria.js — Tabla "Auditoria"
    Registro de acciones (login, altas, cambios de acceso).
 =============================*/

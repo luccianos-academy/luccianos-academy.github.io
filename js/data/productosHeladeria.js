@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/productosHeladeria.js — Catálogo de sabores de Heladería
 
    Datos de presentación (no de negocio, no hay hoja "Sabores" en el

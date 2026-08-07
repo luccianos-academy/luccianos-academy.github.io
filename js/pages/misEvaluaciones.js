@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/misEvaluaciones.js — "Evaluaciones" del Colaborador
 
    No confundir con pages/evaluaciones.js (banco de preguntas, Admin,

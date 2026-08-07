@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/storage.js
 
    Wrapper sobre localStorage para la sesión y preferencias

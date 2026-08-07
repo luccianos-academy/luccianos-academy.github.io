@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    mascotaCarga.js — Loader animado entre pantallas
 
    Reusa los videos "Meet Our Friends" de Icepops (Tonio/Enzo/Minion,

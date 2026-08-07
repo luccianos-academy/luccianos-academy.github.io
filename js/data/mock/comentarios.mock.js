@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/comentarios.mock.js — Tabla "Comentarios" (Comunicaciones)
 =============================*/
 

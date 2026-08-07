@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/inicioAdmin.js — Home del Administrador
 
    Resumen liviano de uso diario — NO es una copia de Dashboard

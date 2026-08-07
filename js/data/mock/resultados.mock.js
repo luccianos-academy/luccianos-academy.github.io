@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos de muestra
+   Lucciano's Academy — datos de muestra
    Tabla "Resultados" (colaboradorId, cursoId, nota, aprobado, fechaFinalizacion)
 
    LIMPIADO 1/8/2026 - Fin de mes. Reset para nuevo período.

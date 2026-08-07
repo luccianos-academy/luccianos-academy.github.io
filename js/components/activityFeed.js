@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    activityFeed.js — lista compacta de actividad reciente
 
    Distinto de Timeline: sin puntos/línea, pensado para ir dentro

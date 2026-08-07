@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Lecciones" — contenido real de Lucciano's, extraído del
    sistema SisCap en producción.
 

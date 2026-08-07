@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/evaluaciones.js — Banco de preguntas (Admin)
 
    CRUD sobre data/evaluaciones.js (ya existía la capa de datos,

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/inicioSupervisor.js — Home del Supervisor
 
    Todo acotado a los locales del supervisor en sesión — nunca ve

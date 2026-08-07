@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/supervisores.js — Vista de Supervisores (Admin)
 
    Para cada supervisor: sus locales asignados (getMisLocales, mismo

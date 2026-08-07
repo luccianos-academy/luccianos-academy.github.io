@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    progressRing.js — Anillo de progreso (home del Colaborador)
 
    Conic-gradient puro, sin librería ni SVG externo.

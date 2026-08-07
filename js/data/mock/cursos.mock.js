@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Cursos" — los 8 módulos reales de capacitación de
    Lucciano's (extraídos del sistema SisCap en producción).
 =============================*/

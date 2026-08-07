@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/colaboradores.js — Gestión de personas (Colaboradores,
    Supervisores y Admins)
 

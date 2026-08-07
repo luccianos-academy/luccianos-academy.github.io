@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    modal.js — Componente Modal
 
    Genera el HTML de un modal; no se auto-inserta. La página que lo

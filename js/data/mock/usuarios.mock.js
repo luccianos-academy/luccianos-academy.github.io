@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Usuarios" (id, nombre, email, rol, encargado, sucursal, activo)
 
    Los primeros 9 usuarios (ids 1-9) son personas reales del equipo

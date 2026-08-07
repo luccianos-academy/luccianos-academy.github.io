@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/publicaciones.mock.js — Tabla "Publicaciones" (Comunicaciones)
 =============================*/
 

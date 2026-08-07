@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/locales.js — Gestión de Locales (Sucursales)
 
    "Locales" es el término que usa la nueva navegación; internamente

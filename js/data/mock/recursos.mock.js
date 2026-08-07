@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/recursos.mock.js — Seed de "Recursos" para modo demo
 
    Un solo acceso ("Enlaces operaciones") que apunta al Google Sites

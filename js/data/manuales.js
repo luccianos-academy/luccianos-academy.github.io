@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/manuales.js — Tabla "Manuales"
 
    Links a manuales/PDFs reales (Drive u otro), no archivos subidos al

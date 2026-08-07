@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/inicioColaborador.js — Home del Colaborador
 
    Rediseño orientado a "seguí formándote": la tarjeta más grande de

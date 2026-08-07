@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/asignaciones.js — Tabla "Asignaciones"
    (acceso de un colaborador a un curso: alta, vencimiento, progreso)
 =============================*/

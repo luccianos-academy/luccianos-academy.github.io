@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/auth.js
 
    Sesión y permisos según el organigrama del blueprint:

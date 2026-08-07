@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/cursos.js
 
    Admin: catálogo simple (nombre/categoría/obligatorio) — la

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/news.js — Centro de avisos (campana)
 
    Reemplaza a la vieja "Noticias" (lista plana, sin destinatarios ni

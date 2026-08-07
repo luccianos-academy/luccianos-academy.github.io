@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/examen.js — Rendir examen (Colaborador)
 
    No hay un "examen fijo" en el esquema (Evaluaciones es un banco

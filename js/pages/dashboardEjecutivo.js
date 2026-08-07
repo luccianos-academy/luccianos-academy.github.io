@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/dashboardEjecutivo.js — Dashboard Ejecutivo (Admin)
 
    La analítica profunda: KPIs completos, rankings, evolución

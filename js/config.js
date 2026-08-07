@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    config.js — Configuración centralizada
 
    Todo lo que cambia entre entornos vive acá. Ningún otro

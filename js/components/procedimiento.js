@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    components/procedimiento.js
 
    Formateador de texto plano tipo "1) ... 2) ... 3) ..." o

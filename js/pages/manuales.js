@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/manuales.js — Manuales (PDFs)
 
    Repositorio de links a los manuales vigentes (Drive u otro link

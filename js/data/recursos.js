@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/recursos.js — Tabla "Recursos" (accesos operativos externos)
 
    Directorio de links a herramientas que hoy viven fuera de la app

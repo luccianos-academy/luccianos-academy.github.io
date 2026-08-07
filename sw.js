@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    sw.js — Service worker mínimo
 
    No cachea nada a propósito (los datos vienen de Google Sheets vía

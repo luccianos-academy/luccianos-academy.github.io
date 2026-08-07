@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    bottomNav.js — Tabs inferiores (mobile)
 
    Directo del mockup: 4 accesos fijos abajo para no tener que abrir

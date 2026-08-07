@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/coordinacionOperativa.js — Coordinación Operativa (Admin ↔ Supervisores)
 
    Espacio de conversación por canales — distinto del centro de avisos

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    autocompleteSucursal.js
 
    Con ~95 locales reales, un <select> deja de ser usable — este

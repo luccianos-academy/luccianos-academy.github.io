@@ -1,4 +1,4 @@
-# FARO v4
+# Lucciano's Academy
 
 Plataforma de formación de Lucciano's. Sprint 1 "Infraestructura" +
 shells de Administrador/Supervisor/Colaborador.

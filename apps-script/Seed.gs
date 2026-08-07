@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — Seed.gs
+   Lucciano's Academy — Seed.gs
 
    Función de una sola vez para poblar las 8 hojas con los datos
    reales que ya usa el cliente (mismos que js/data/mock/*.mock.js
@@ -13,7 +13,7 @@
 =============================*/
 
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Sucursales" — los 99 locales reales de Lucciano's
    (Argentina, Uruguay, Paraguay, Chile, EEUU), extraídos del
    sistema SisCap ya en producción.
@@ -128,7 +128,7 @@ const sucursalesMock = [
 ];
 
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Usuarios" (id, nombre, email, rol, encargado, sucursal, activo)
 
    Los primeros 9 usuarios (ids 1-9) son personas reales del equipo
@@ -174,7 +174,7 @@ const usuariosMock = [
 ];
 
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Cursos" — los 8 módulos reales de capacitación de
    Lucciano's (extraídos del sistema SisCap en producción).
 =============================*/
@@ -191,7 +191,7 @@ const cursosMock = [
 ];
 
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Lecciones" — Cafetería (curso 1) tiene las 26 lecciones
    reales completas con el esquema ampliado (procedimiento, errores
    frecuentes, buenas prácticas y consejo en columnas separadas). El
@@ -307,7 +307,7 @@ const leccionesMock = [
 ];
 
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Evaluaciones" — 210 preguntas reales extraídas del banco
    de mini-evaluaciones de SisCap en producción (7 módulos x 30
    preguntas). El módulo 8 (Encargados) no tiene preguntas todavía
@@ -681,7 +681,7 @@ const evaluacionesMock = [
 ];
 
 /* ============================
-   FARO v4 — datos de muestra
+   Lucciano's Academy — datos de muestra
    Tabla "Asignaciones" (colaboradorId, cursoId, fechaAlta, fechaVencimiento, estado, progreso)
 
    Repartidas entre enero y julio 2026, con estados mixtos, para que
@@ -729,7 +729,7 @@ const asignacionesMock = [
 ];
 
 /* ============================
-   FARO v4 — datos de muestra
+   Lucciano's Academy — datos de muestra
    Tabla "Resultados" (colaboradorId, cursoId, nota, aprobado, fechaFinalizacion)
 
    Un resultado por cada asignación "completado" en asignaciones.mock.js,
@@ -756,7 +756,7 @@ const resultadosMock = [
 ];
 
 /* ============================
-   FARO v4 — datos de muestra
+   Lucciano's Academy — datos de muestra
    Tabla "Auditoria" (fecha, usuarioId, accion, detalle)
 
    A propósito, ningún evento tiene usuarioId 9, 20 o 21 (Barbara

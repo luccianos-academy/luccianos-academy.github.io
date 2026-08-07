@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/google.js
 
    Capa de integración con Google Apps Script + Sheets.

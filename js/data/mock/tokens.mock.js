@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/tokens.mock.js — Seed de "Tokens" para modo demo
 
    Vacío a propósito: un token de push es siempre real (lo entrega

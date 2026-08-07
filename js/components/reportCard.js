@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    reportCard.js — tarjeta seleccionable del Centro de Reportes
 =============================*/
 

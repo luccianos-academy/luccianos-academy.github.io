@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    login.js — Pantalla de Login
 
    Portada a pantalla completa con una secuencia de revelación

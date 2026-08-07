@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    icons.js — Set de íconos SVG propios (sin librería externa)
 
    Un solo dispatcher Icon(nombre) en vez de una función por ícono:

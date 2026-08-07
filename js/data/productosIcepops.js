@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/productosIcepops.js — Catálogo de Icepops
 
    Datos de presentación (no de negocio, no hay hoja "Icepops" en el

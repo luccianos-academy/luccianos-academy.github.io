@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/preferenciasLocales.js — Locales elegidos por un Capacitador
 
    Un Capacitador VE toda la red (data/sucursales.js: getLocalesVisibles)

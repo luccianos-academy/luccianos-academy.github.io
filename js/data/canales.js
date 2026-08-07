@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/canales.js — Tabla "Canales" (Comunicaciones)
 
    Antes eran una lista fija en el código; ahora es una hoja más, que

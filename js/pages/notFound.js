@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/notFound.js — Ruta desconocida (#/algo-que-no-existe)
 
    A propósito NO redirige en silencio: si un Admin escribió mal

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/comentarios.js — Tabla "Comentarios" (Comunicaciones)
 
    Hijos de una fila de Publicaciones (mismo criterio que Asignaciones/

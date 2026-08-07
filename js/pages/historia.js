@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/historia.js — Historia de Lucciano's
 
    Contenido real extraído del "Manual de Experiencia" oficial de

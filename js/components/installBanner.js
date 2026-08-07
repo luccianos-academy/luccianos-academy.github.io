@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    components/installBanner.js
 
    Banner en el sidebar para "Agregar a inicio" en el celular. Solo

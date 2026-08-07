@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    table.js — Componente Tabla
 
    columnas: [{ key:"nombre", label:"Nombre" }, ...]

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    components/maestro.js
 
    El Maestro (foto real del Maestro Heladero, ver assets/img/login/

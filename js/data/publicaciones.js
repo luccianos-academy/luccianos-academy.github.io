@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/publicaciones.js — Tabla "Publicaciones" (Comunicaciones)
 
    Espacio de conversación entre Admin y Supervisores (incluye

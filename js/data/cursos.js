@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/cursos.js — Tabla "Cursos"
 =============================*/
 

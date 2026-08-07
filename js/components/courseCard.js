@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    courseCard.js
 
    Es un <a> real (mismo criterio que Sidebar/QuickAction) — si no

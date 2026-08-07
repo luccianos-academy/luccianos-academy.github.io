@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Evaluaciones" — 210 preguntas reales extraídas del banco
    de mini-evaluaciones de SisCap en producción (7 módulos x 30
    preguntas). El módulo 8 (Encargados) no tiene preguntas todavía

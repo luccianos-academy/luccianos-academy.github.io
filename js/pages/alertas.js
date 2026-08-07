@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/alertas.js — Centro de Alertas
 
    Cada categoría se deriva de datos reales (data/*.js). Dos

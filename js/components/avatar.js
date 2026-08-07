@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    components/avatar.js — Avatar del usuario (foto o iniciales)
 ============================*/
 

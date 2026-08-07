@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    badgeChip.js — Insignia de logro (home del Colaborador)
 
    Los logros se derivan de datos reales (cursos completados,

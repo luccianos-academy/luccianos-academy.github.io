@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/evaluaciones.js — Tabla "Evaluaciones"
 
    La hoja guarda las opciones en 3 columnas planas (opcion1/2/3 +

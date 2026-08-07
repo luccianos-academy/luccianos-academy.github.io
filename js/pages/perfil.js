@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/perfil.js — Mi perfil (solo lectura por ahora)
 
    Sprint 9 le suma edición de datos y foto; acá alcanza con

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/integraciones.js — Integraciones (Admin)
 
    Pantalla de solo lectura: muestra el estado real de la conexión

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    ui.js — Helpers de interfaz
 =============================*/
 

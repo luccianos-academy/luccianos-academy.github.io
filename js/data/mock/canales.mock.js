@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/canales.mock.js — Tabla "Canales" (Comunicaciones)
 
    5 canales núcleo para arrancar (el resto queda a criterio de

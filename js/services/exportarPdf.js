@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/exportarPdf.js — Exportar un bloque de la pantalla a PDF
 
    Pedido explícito del usuario, y el fix de un bug real que encontró

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/usuarios.js — Tabla "Usuarios"
 
    Un colaborador ES un usuario con rol="colaborador"; "encargado"

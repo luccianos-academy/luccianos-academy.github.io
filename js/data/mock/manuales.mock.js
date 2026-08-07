@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/manuales.mock.js — Tabla "Manuales"
 
    Vacío a propósito: todavía no hay links reales cargados (ver

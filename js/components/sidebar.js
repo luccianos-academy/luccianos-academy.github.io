@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    sidebar.js
 
    Los links son <a href="#/..."> reales (no botones + JS): así el

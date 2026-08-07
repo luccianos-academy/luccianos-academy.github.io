@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/productosPasteleria.js — Catálogo de Pastelería
 
    Datos de presentación (no de negocio, no hay hoja "Pastelería" en

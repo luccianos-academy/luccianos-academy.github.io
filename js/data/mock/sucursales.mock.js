@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos reales
+   Lucciano's Academy — datos reales
    Tabla "Sucursales" — los locales reales de Lucciano's
    (Argentina, Uruguay, Paraguay, Chile, EEUU, España)
 

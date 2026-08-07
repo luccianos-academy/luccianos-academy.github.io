@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    kpiCard.js
 
    Firma de 2 argumentos original intacta (KpiCard(titulo, valor)) —

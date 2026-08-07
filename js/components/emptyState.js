@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    emptyState.js — Estado vacío reutilizable
 
    Reemplaza los bloques ".placeholder" que antes se escribían a

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4 — datos de muestra
+   Lucciano's Academy — datos de muestra
    Tabla "Auditoria" (fecha, usuarioId, accion, detalle)
 
    A propósito, ningún evento tiene usuarioId 9, 20 o 21 (Barbara

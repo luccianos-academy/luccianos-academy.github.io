@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/noticias.js — Tabla "Noticias" (centro de notificaciones)
 
    Base del centro de notificaciones (campana, ver components/topbar.js

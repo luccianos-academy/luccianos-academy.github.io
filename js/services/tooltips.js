@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/tooltips.js — Tooltip propio (no el "title" nativo del
    navegador) para textos abreviados (ej. "M1" en vez del nombre real
    del curso, ver pages/colaboradores.js) o para explicar brevemente

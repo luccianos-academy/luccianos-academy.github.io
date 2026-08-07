@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/recursos.js — Recursos (accesos operativos externos)
 
    Reemplaza el Google Sites que armó el equipo de Operaciones a mano

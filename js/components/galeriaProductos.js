@@ -1,12 +1,12 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    galeriaProductos.js — Galería de productos con pills de categoría
 
    Inspirada en la web pública de Lucciano's (luccianos.net/productos):
    pills de filtro arriba + grilla de fotos abajo. Se usa como forma
    más linda de navegar dentro de un curso (ej. Chocolatería,
    Heladería) — no reemplaza el contenido de las lecciones, solo
-   ayuda a saltar a la que corresponde. Colores propios de FARO, no
+   ayuda a saltar a la que corresponde. Colores propios de la app, no
    los del sitio público.
 
    Un producto puede pertenecer a más de una categoría (ej. Sorbete

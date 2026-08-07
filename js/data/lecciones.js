@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/lecciones.js — Tabla "Lecciones"
 
    Esquema ampliado (vs. la v1, que tenía un solo campo "contenido"):

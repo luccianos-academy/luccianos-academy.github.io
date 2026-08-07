@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/mail.js — Envío de mail desde la app
 
    Sin costura de mock data a propósito (a diferencia de dataSource.js):

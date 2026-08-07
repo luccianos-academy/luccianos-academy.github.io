@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/mock/noticias.mock.js — Tabla "Noticias"
 
    Desde que el admin puede cargar novedades sin depender de un

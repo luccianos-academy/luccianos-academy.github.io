@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/tokens.js — Tabla "Tokens" (push real, Firebase Cloud Messaging)
 
    Un dispositivo/navegador que aceptó notificaciones se identifica

@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    quickAction.js — tile de acceso rápido (mismo criterio que
    Sidebar: un <a> real, no un botón + JS)
 =============================*/

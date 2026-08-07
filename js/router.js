@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    router.js — Router basado en hash (#/ruta)
 
    window.location.hash es la única fuente de verdad: a diferencia

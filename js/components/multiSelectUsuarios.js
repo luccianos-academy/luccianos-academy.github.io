@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    multiSelectUsuarios.js — Multiselect de usuarios para News (Admin only)
 
    Similar a multiSelectSucursales pero para seleccionar usuarios específicos

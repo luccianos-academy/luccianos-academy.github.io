@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    topbar.js — Barra superior (mobile) + botón de campana compartido
 
    La barra reemplaza al botón hamburguesa suelto: agrupa hamburguesa

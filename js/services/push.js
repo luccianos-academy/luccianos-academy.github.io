@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/push.js — Suscripción a notificaciones push (Firebase)
 
    Tres pasos, en orden: (1) el navegador tiene que soportar

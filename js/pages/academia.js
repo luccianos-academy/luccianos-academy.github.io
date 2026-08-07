@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/academia.js — Gestión de Academia (Admin)
 
    Gestión de cursos + lecciones. La experiencia de "Academia" para

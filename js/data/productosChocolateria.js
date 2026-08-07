@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    data/productosChocolateria.js — Galería de productos de Chocolatería
 
    Contenido presentacional, curado a mano (fotos reales + nombres) —

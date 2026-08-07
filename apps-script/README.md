@@ -1,7 +1,7 @@
-# Conectar FARO a un Google Sheet real
+# Conectar Lucciano's Academy a un Google Sheet real
 
 Esta carpeta no es parte de la app cliente (esa sigue siendo todo lo que
-está en `faro v4/js`, `faro v4/css`, etc.) — son los dos archivos que hay
+está en `js/`, `css/`, etc.) — son los dos archivos que hay
 que copiar a un proyecto de **Google Apps Script**, más los pasos para
 dejarlo anduviendo. Nada de esto se puede hacer desde acá (Claude Code no
 tiene acceso a tu cuenta de Google) — son pasos manuales en
@@ -9,7 +9,7 @@ tiene acceso a tu cuenta de Google) — son pasos manuales en
 
 ## 1. Crear la planilla y las 9 hojas
 
-1. Andá a [sheets.google.com](https://sheets.google.com) y creá una planilla nueva. Nombrala como quieras (ej. "FARO — Base de datos").
+1. Andá a [sheets.google.com](https://sheets.google.com) y creá una planilla nueva. Nombrala como quieras (ej. "Lucciano's Academy — Base de datos").
 2. Creá 9 hojas (pestañas) con **estos nombres exactos** (mayúsculas incluidas) y, en la fila 1 de cada una, estos encabezados exactos, en este orden:
 
 | Hoja | Encabezados (fila 1) |
@@ -57,7 +57,7 @@ No hace falta cargar filas de datos a mano — el paso 3 las completa solo.
 3. "Ejecutar como": tu cuenta. "Quién tiene acceso": **Cualquier usuario** (así el cliente puede hacer `fetch` sin pedir login de Google en cada request — el control de acceso real ya lo hace `verificarLogin` adentro del script).
 4. Tocá **Implementar** y copiá la URL que termina en https://script.google.com/macros/s/AKfycbwnod6RG4knjPpZRJn2Zl4M_AWpLKspKdX68emaE-2M0vwxAvuX1nISPW3WUVH0V1c7CA/exec `/exec`.
 
-## 5. Conectar FARO
+## 5. Conectar Lucciano's Academy
 
 Abrí `js/config.js` y pegá esa URL en `GAS_URL`:
 
@@ -71,8 +71,8 @@ Si además querés que el login sea con Google Sign-In real (en vez del selector
 
 ## Cómo probar que quedó bien conectado
 
-1. Abrí la URL del deploy (`.../exec`) directo en el navegador — debería devolver `{"ok":true,"mensaje":"FARO backend activo"}`.
-2. Con `GAS_URL` pegado en `config.js`, abrí FARO, entrá como Administrador y andá a **Integraciones** (`#/integraciones`) — la tarjeta "Google Sheets / Apps Script" debería decir **Conectado**, no "Modo demo".
+1. Abrí la URL del deploy (`.../exec`) directo en el navegador — debería devolver `{"ok":true,"mensaje":"Lucciano's Academy backend activo"}`.
+2. Con `GAS_URL` pegado en `config.js`, abrí la app, entrá como Administrador y andá a **Integraciones** (`#/integraciones`) — la tarjeta "Google Sheets / Apps Script" debería decir **Conectado**, no "Modo demo".
 3. Probá crear un colaborador nuevo desde **Usuarios** o **Colaboradores** y confirmá que aparece la fila nueva en la hoja `Usuarios` de tu planilla.
 
 ## Cargar las 210 preguntas reales en "Evaluaciones" (o migrar el esquema viejo)

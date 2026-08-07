@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/configuracion.js — Configuración (Admin)
 
    Hub de accesos secundarios: Integraciones, Nuestra Historia,

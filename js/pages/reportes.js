@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    pages/reportes.js — Centro de Reportes (Admin)
 
    Selector de tipo de reporte + vista previa con datos reales.

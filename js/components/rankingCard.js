@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    rankingCard.js
 
    items ya vienen ordenados/rankeados por quien llama — este

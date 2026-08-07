@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    timeline.js — línea de tiempo vertical (actividad/historial)
 
    eventos ya vienen ordenados por quien llama.

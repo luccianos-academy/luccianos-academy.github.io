@@ -1,5 +1,5 @@
 /* ============================
-   FARO v4
+   Lucciano's Academy
    services/installPrompt.js
 
    "Agregar a inicio" del celular. Android/Chrome tiene un evento real
