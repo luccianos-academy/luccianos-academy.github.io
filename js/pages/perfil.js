@@ -18,6 +18,7 @@ import { actualizarUsuario } from "../data/usuarios.js";
 import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
+import { VERSION, ES_STAGING } from "../config.js";
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
 
@@ -154,6 +155,10 @@ export async function Perfil() {
         </div>
 
         ${await bloquePush(usuario)}
+
+        <p class="text-xs text-muted" style="text-align:center;margin-top:20px">
+            Versión ${VERSION}${ES_STAGING ? ` · <strong style="color:var(--danger)">PRUEBA</strong>` : ""}
+        </p>
     `;
 }
 

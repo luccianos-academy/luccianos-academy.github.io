@@ -101,7 +101,11 @@ export const FIREBASE_VAPID_KEY = "BJetjOQPNUxWAkC9HwSbCtp9W15Ya3ebbj8VB41kng-j5
  *  en consola) mientras el proyecto Firebase no exista todavía. */
 export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey;
 
-export const VERSION = "4.0.0-sprint2";
+/** Se muestra en Mi perfil (junto con un "PRUEBA" si ES_STAGING) para
+ *  saber de un vistazo qué versión corre en cada entorno y no
+ *  confundir REPO con producción. Se sube a mano cada vez que se
+ *  pushea un cambio — no hay build step que lo automatice. */
+export const VERSION = "1.0.0";
 
 export const EMPRESA = {
     nombre: "Lucciano's",
