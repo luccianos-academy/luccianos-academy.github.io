@@ -255,8 +255,16 @@ function menuAcciones(grupos) {
 function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
     const grupos = [];
 
-    if (puedeEditar) {
-        grupos.push({ items: [`<button class="menu-acciones-item" data-editar="${colaborador.id}">Editar</button>`] });
+    // "Ver como" — igual criterio que filaAccionesGenerico (tabla de
+    // Supervisores/Admins): no aplica a otro Admin, y antes solo vivía
+    // ahí, sin forma de probar el flujo como un Colaborador puntual
+    // desde "Mi equipo". Admin-only, mismo alcance que ya tenía.
+    const verComoBtn = esAdmin && colaborador.rol !== "admin"
+        ? `<button class="menu-acciones-item" data-ver-como-usuario="${colaborador.id}">Ver como</button>`
+        : "";
+
+    if (puedeEditar || verComoBtn) {
+        grupos.push({ items: [puedeEditar ? `<button class="menu-acciones-item" data-editar="${colaborador.id}">Editar</button>` : "", verComoBtn].filter(Boolean) });
     }
 
     // Todo lo demás (renovar/deshabilitar/extender/permanente) es
