@@ -147,11 +147,22 @@
     border-radius:var(--radius-sm);
 }
 
+/* inset:0 hace que este contenedor cubra la fila ENTERA (no solo su
+   mitad), aunque sus botones queden alineados a un lado por flexbox
+   — sin position:relative + su propio stacking, el que va último en
+   el HTML (notif-swipe-actions-der) pinta encima del otro y se come
+   los clicks en TODA la fila, incluida la zona donde visualmente está
+   el botón del otro lado (bug real: tocar "Leída" no hacía nada,
+   el click caía en el área vacía de -der, que no tiene handler propio).
+   pointer-events:none acá + auto en los botones deja pasar el click
+   a lo que esté debajo en las zonas vacías, y solo los botones reales
+   lo capturan. */
 .notif-swipe-actions{
     position:absolute;
     inset:0;
     display:flex;
     align-items:stretch;
+    pointer-events:none;
 }
 
 .notif-swipe-actions-izq{
@@ -163,6 +174,7 @@
 }
 
 .notif-swipe-btn{
+    pointer-events:auto;
     display:flex;
     flex-direction:column;
     align-items:center;

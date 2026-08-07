@@ -515,6 +515,18 @@ function bindSwipeNotif() {
             // limpia después, para no reabrir el detalle por el mismo
             // gesto que acaba de abrir/cerrar las acciones.
             setTimeout(() => { contenido._arrastrando = false; }, 50);
+
+            // Si el arrastre terminó justo sobre uno de los botones recién
+            // revelados (un solo gesto continuo: deslizar y soltar ahí
+            // mismo, sin un segundo toque separado) el navegador NO
+            // dispara "click" — hubo demasiado movimiento para contar
+            // como toque. Reportado en vivo: el panel se abría bien pero
+            // la acción nunca corría, en silencio total. Si soltás sobre
+            // un botón, se ejecuta directo acá, sin depender de ese click
+            // sintético que nunca llega.
+            const objetivo = document.elementFromPoint(e.clientX, e.clientY);
+            const btnAccion = objetivo?.closest(".notif-swipe-btn");
+            if (btnAccion) btnAccion.click();
         };
         contenido.addEventListener("pointerup", soltar);
         contenido.addEventListener("pointercancel", soltar);
