@@ -74,8 +74,16 @@ export async function fetchSheet(hoja, mockRows) {
     // Tier 2: Check IndexedDB (instant, no network)
     if (storeName && idbManager && idbManager.db) {
         try {
-            const idbData = await idbManager.getAllRecords(storeName);
-            if (idbData && idbData.length > 0) {
+            const idbDataCruda = await idbManager.getAllRecords(storeName);
+            if (idbDataCruda && idbDataCruda.length > 0) {
+                // deleteSheet() marca los borrados con deleted:true en vez
+                // de sacarlos (así el sync en background puede propagar la
+                // baja) — pero nada filtraba ese flag en la lectura, así
+                // que un ítem "eliminado" seguía apareciendo en la app
+                // para siempre en ese mismo dispositivo, aunque el borrado
+                // real en el Sheet sí había funcionado. Bug reportado en
+                // vivo: "¿Eliminar en News realmente elimina?".
+                const idbData = idbDataCruda.filter((r) => !r.deleted);
                 console.log(`[dataSource] IndexedDB hit: ${hoja} (${idbData.length} records)`);
                 cache[hoja] = { datos: idbData, ts: Date.now() };
                 return [...idbData];
