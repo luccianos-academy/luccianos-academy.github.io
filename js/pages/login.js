@@ -21,6 +21,12 @@
       tipo McDonald's/KFC: portada + botón que abre el modal de
       login).
 
+   Todo esto (1-3) es solo para la PRIMERA vez que se entra desde un
+   dispositivo (ver CLAVE_PORTADA_VISTA) — repetirlo en cada login
+   sería un impuesto diario injusto. De ahí en más, el gate usa el
+   mismo camino liviano que el entorno de prueba: sin video, directo
+   al botón "Ingresar".
+
    Mientras no hay un Client ID de Google configurado (config.js), el
    modal muestra un picker de roles de muestra en vez del botón real
    de Google — así el resto de la app (roles, sesión, router) se
@@ -40,8 +46,6 @@ import { navigate } from "../router.js";
 import { Icon } from "../components/icons.js";
 import { existe as vistoAntes, setItem } from "../services/storage.js";
 
-const CLAVE_BIENVENIDA_VISTA = "vio_bienvenida_personajes";
-
 /** A qué pantalla va cada quien apenas entra — para un Colaborador/
  *  Encargado que todavía no vio "Nuestra Historia", esa es la primera
  *  pantalla (bienvenida de tono invitador, ver pages/historia.js — no
@@ -50,86 +54,6 @@ const CLAVE_BIENVENIDA_VISTA = "vio_bienvenida_personajes";
  *  cursos, no tiene sentido para ellos. */
 function destinoPostLogin(usuario) {
     return usuario.rol === "colaborador" && !usuario.historiaVista ? "historia" : "inicio";
-}
-
-/**
- * Paso extra tras un login exitoso, una sola vez por dispositivo (no
- * en cada login — el video dura ~1min, sería un impuesto diario
- * injusto). Si ya se vio, navega directo al destino de siempre.
- */
-function mostrarBienvenidaPersonajes(usuario) {
-    const destino = destinoPostLogin(usuario);
-
-    // En entorno de prueba (local o REPO) este video (~1min, "el
-    // Maestro") solo agrega pasos muertos entre loguearse y poder
-    // probar algo — pedido explícito del usuario: "eso se va, queda
-    // solamente el bienvenido y luego login sin más". En producción
-    // sigue intacto.
-    if (ES_ENTORNO_PRUEBA || vistoAntes(CLAVE_BIENVENIDA_VISTA)) {
-        navigate(destino, { replace: true });
-        return;
-    }
-
-    setItem(CLAVE_BIENVENIDA_VISTA, true);
-
-    const continuar = () => {
-        overlay.remove();
-        navigate(destino, { replace: true });
-    };
-
-    document.body.insertAdjacentHTML("beforeend", `
-        <div class="bienvenida-overlay" id="bienvenida-personajes-overlay">
-            <div class="bienvenida-video-wrap">
-                <video class="bienvenida-video" id="bienvenida-personajes-video"
-                       src="assets/video/bienvenida-personajes.mp4" autoplay playsinline></video>
-                <div class="bienvenida-texto" id="bienvenida-personajes-texto">
-                    <p class="bienvenida-texto-burbuja">¡Bienvenido! Soy el Maestro y voy a acompañarte en este recorrido.</p>
-                </div>
-            </div>
-            <button class="bienvenida-sonido" id="bienvenida-personajes-sonido" aria-label="Silenciar">
-                ${Icon("sonido", { size: 18 })}
-            </button>
-            <button class="bienvenida-saltar" id="bienvenida-personajes-saltar">Saltar</button>
-        </div>
-    `);
-
-    const overlay = document.getElementById("bienvenida-personajes-overlay");
-    const video = document.getElementById("bienvenida-personajes-video");
-    const textoMaestro = document.getElementById("bienvenida-personajes-texto");
-    const btnSonido = document.getElementById("bienvenida-personajes-sonido");
-    const btnSaltar = document.getElementById("bienvenida-personajes-saltar");
-
-    // La burbuja de texto del Maestro reemplaza al diálogo que antes
-    // venía incrustado en el video (recortado — ver bienvenida-personajes-
-    // original.mp4): aparece una vez que el personaje termina de
-    // revelarse solo en pantalla y se mantiene hasta el final del clip
-    // (el último frame queda congelado unos segundos para dar tiempo
-    // a leerla — ver el filtro tpad usado al recortar el video).
-    video.addEventListener("timeupdate", () => {
-        textoMaestro.classList.toggle("visible", video.currentTime >= 6.5);
-    });
-
-    const actualizarIconoSonido = () => {
-        btnSonido.innerHTML = Icon(video.muted ? "sonido-off" : "sonido", { size: 18 });
-        btnSonido.setAttribute("aria-label", video.muted ? "Activar sonido" : "Silenciar");
-    };
-
-    // Arranca con sonido (pidieron que el primer video suene solo).
-    // Si el navegador bloquea el autoplay con audio — pasa si el login
-    // vino de un callback async de Google, no de un clic directo —
-    // reintenta muteado en vez de dejar el video sin arrancar.
-    video.play().catch(() => {
-        video.muted = true;
-        actualizarIconoSonido();
-        video.play();
-    });
-
-    video.addEventListener("ended", continuar);
-    btnSaltar.addEventListener("click", continuar);
-    btnSonido.addEventListener("click", () => {
-        video.muted = !video.muted;
-        actualizarIconoSonido();
-    });
 }
 
 const MODAL_ID = "modal-login";
@@ -163,9 +87,18 @@ let timeoutReinicioPortada = null;
  * revelación es la sorpresa que arma toda la secuencia de abajo, y
  * mostrarla ya en este primer toque le sacaba la magia.
  */
+const CLAVE_PORTADA_VISTA = "vio_portada_torreon";
+
 export async function Login() {
 
     const content = renderFullScreen();
+
+    // El video del Torreón se reserva para la PRIMERA vez que alguien
+    // entra desde este dispositivo — a partir de ahí ya vio la
+    // presentación, así que cada login siguiente usa el mismo gate
+    // liviano que el entorno de prueba (sin video ni espera), en vez
+    // de repetir ~20s de cinemática cada vez que abre la app.
+    const yaVioPortada = vistoAntes(CLAVE_PORTADA_VISTA);
 
     // En entorno de prueba (local o REPO) se salta el video del
     // Torreón + toda la coreografía de revelación (línea dorada,
@@ -175,7 +108,7 @@ export async function Login() {
     // para probar algo. Reusa el mismo fondo (login-gate-bg) de la
     // portada real, con el texto de marca escrito en vez de depender
     // de que se lea en la imagen.
-    content.innerHTML = ES_ENTORNO_PRUEBA
+    content.innerHTML = (ES_ENTORNO_PRUEBA || yaVioPortada)
         ? `
             <div class="login-gate login-gate-staging" id="login-gate">
                 <div class="login-gate-staging-marca">
@@ -193,9 +126,10 @@ export async function Login() {
 
     document.getElementById("btn-login-gate").addEventListener("click", () => {
         document.getElementById("login-gate")?.remove();
-        if (ES_ENTORNO_PRUEBA) {
+        if (ES_ENTORNO_PRUEBA || yaVioPortada) {
             abrirModalLogin();
         } else {
+            setItem(CLAVE_PORTADA_VISTA, true);
             renderPortada(content);
         }
     }, { once: true });
@@ -427,7 +361,7 @@ async function entrarComo(rol, usuarios) {
 
     login(usuario);
     registrarEvento(usuario.id, "login", `Ingreso de ${usuario.nombre}`);
-    mostrarBienvenidaPersonajes(usuario);
+    navigate(destinoPostLogin(usuario), { replace: true });
 }
 
 function inicializarGoogleSignIn() {
@@ -473,7 +407,7 @@ async function onGoogleCredential(response) {
         login(resultado.usuario, resultado.sessionToken);
         registrarEvento(resultado.usuario.id, "login", `Ingreso de ${resultado.usuario.nombre}`);
         cerrarModal(MODAL_ID);
-        mostrarBienvenidaPersonajes(resultado.usuario);
+        navigate(destinoPostLogin(resultado.usuario), { replace: true });
 
     } catch (err) {
         slot.innerHTML = `<div class="login-error">No se pudo verificar el login (${err.message}). Probá de nuevo.</div>`;
