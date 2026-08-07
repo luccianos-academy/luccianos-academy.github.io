@@ -843,6 +843,40 @@
     color:var(--gold-deep);
 }
 
+/* Grilla de íconos para elegir el de un canal nuevo (ver
+   coordinacionOperativa.js) — reemplaza un <select> con nombres de
+   texto (nadie adivina qué ícono es "Idea" o "Corazón" sin probarlo)
+   por los íconos reales, clickeables. */
+.canal-icono-picker{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.canal-icono-btn{
+    width:36px;
+    height:36px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    background:var(--bg);
+    color:var(--muted);
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.canal-icono-btn:hover{
+    border-color:var(--gold);
+}
+
+.canal-icono-btn.active{
+    border-color:var(--gold);
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+}
+
 .canal-gestion-lista{
     display:flex;
     flex-direction:column;
@@ -924,6 +958,16 @@
     display:grid;
     grid-template-columns:2fr 1fr;
     gap:20px;
+}
+
+/* Sin esto, un hijo ancho sin wrap (ej. la tabla de Supervisores, con
+   varias columnas) fuerza su ítem de grid al ancho mínimo de
+   contenido en vez de al de la pista 2fr/1fr — mismo problema y
+   misma solución que .content (ver layout.css), un nivel más adentro:
+   los ítems de grid por default no se achican debajo de su
+   min-content. */
+.grid-2-1 > *{
+    min-width:0;
 }
 
 /* KPI / STAT */

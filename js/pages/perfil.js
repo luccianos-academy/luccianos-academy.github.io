@@ -142,11 +142,6 @@ export async function Perfil() {
                     <p class="text-xs text-muted">Foto de perfil
                         <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Subí una foto cuadrada (1:1) — se ajusta y comprime sola antes de subirla.">ⓘ</span>
                     </p>
-                    <details style="margin-top:4px">
-                        <summary class="text-xs text-muted" style="cursor:pointer">O pegar una URL</summary>
-                        <input type="text" id="input-foto-perfil" placeholder="https://..." value="${usuario.foto || ""}" style="width:100%;max-width:200px;margin-top:6px">
-                        <button type="button" class="btn btn-secondary" id="btn-guardar-foto" style="margin-top:8px;padding:6px 12px;font-size:12px">Guardar URL</button>
-                    </details>
                 </div>
             </div>
 
@@ -163,29 +158,6 @@ export async function Perfil() {
 }
 
 export function bindPerfil() {
-    const btnGuardarFoto = document.getElementById("btn-guardar-foto");
-    const inputFoto = document.getElementById("input-foto-perfil");
-
-    btnGuardarFoto?.addEventListener("click", async () => {
-        const usuario = getUsuarioActual();
-        const fotoUrl = inputFoto.value.trim();
-
-        btnGuardarFoto.disabled = true;
-        btnGuardarFoto.textContent = "Guardando...";
-
-        try {
-            await actualizarUsuario(usuario.id, { foto: fotoUrl });
-            usuario.foto = fotoUrl;
-            setItem("sesion", usuario);
-            alert("Foto guardada ✓");
-            navigate("perfil");
-        } catch (err) {
-            alert(err.message || "No se pudo guardar.");
-            btnGuardarFoto.disabled = false;
-            btnGuardarFoto.textContent = "Guardar";
-        }
-    });
-
     const btnSubirFoto = document.getElementById("btn-subir-foto");
     const inputArchivoFoto = document.getElementById("input-archivo-foto");
 

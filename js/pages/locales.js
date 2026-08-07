@@ -32,15 +32,58 @@ function badgeTipo(local) {
         : `<span class="badge badge-muted">Franquicia</span>`;
 }
 
+// Menú "⋮" en vez de 3 botones sólidos por fila (mismo patrón que
+// pages/colaboradores.js, duplicado a propósito acá — ver la nota de
+// supervisores.js sobre evitar un módulo util compartido fuera de la
+// lista de archivos aprobada).
+function menuAcciones(items) {
+    return `
+        <div class="menu-acciones-wrap">
+            <button class="btn btn-secondary menu-acciones-toggle" type="button" data-menu-toggle aria-label="Acciones">⋮</button>
+            <div class="menu-acciones-dropdown" hidden>${items.join("")}</div>
+        </div>
+    `;
+}
+
+function bindMenuAcciones() {
+    if (document._menuAccionesListo) return;
+    document._menuAccionesListo = true;
+
+    document.addEventListener("click", (e) => {
+        const toggle = e.target.closest("[data-menu-toggle]");
+        document.querySelectorAll(".menu-acciones-dropdown").forEach((dropdown) => {
+            if (toggle && dropdown === toggle.nextElementSibling) return;
+            dropdown.hidden = true;
+        });
+        if (!toggle) return;
+
+        const dropdown = toggle.nextElementSibling;
+        const abrir = dropdown.hidden;
+        dropdown.hidden = !abrir;
+        if (!abrir) return;
+
+        const r = toggle.getBoundingClientRect();
+        const ancho = dropdown.offsetWidth || 190;
+        const left = Math.min(r.left, window.innerWidth - ancho - 8);
+        dropdown.style.left = `${Math.max(8, left)}px`;
+        dropdown.style.top = `${r.bottom + 6}px`;
+
+        const alturaEstimada = dropdown.offsetHeight || 140;
+        if (r.bottom + 6 + alturaEstimada > window.innerHeight) {
+            dropdown.style.top = `${r.top - alturaEstimada - 6}px`;
+        }
+    });
+}
+
 function filaAcciones(local) {
-    const editarBtn = `<button class="btn btn-primary" data-editar="${local.id}">Editar</button>`;
+    const editarBtn = `<button class="menu-acciones-item" data-editar="${local.id}">Editar</button>`;
     const estadoBtn = local.estado === "Activa"
-        ? `<button class="btn btn-secondary" data-desactivar="${local.id}">Desactivar</button>`
-        : `<button class="btn btn-primary" data-activar="${local.id}">Activar</button>`;
+        ? `<button class="menu-acciones-item" data-desactivar="${local.id}">Desactivar</button>`
+        : `<button class="menu-acciones-item" data-activar="${local.id}">Activar</button>`;
     const tipoBtn = local.esPropio
-        ? `<button class="btn btn-secondary" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
-        : `<button class="btn btn-secondary" data-marcar-propio="${local.id}">Marcar propio</button>`;
-    return `<span style="display:flex;gap:8px;flex-wrap:wrap">${editarBtn}${estadoBtn}${tipoBtn}</span>`;
+        ? `<button class="menu-acciones-item" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
+        : `<button class="menu-acciones-item" data-marcar-propio="${local.id}">Marcar propio</button>`;
+    return menuAcciones([editarBtn, estadoBtn, tipoBtn]);
 }
 
 export async function Locales() {
@@ -78,6 +121,8 @@ export async function Locales() {
 }
 
 export function bindLocales() {
+
+    bindMenuAcciones();
 
     const buscador = document.getElementById("buscador-locales");
     if (buscador) {

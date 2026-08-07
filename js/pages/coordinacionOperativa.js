@@ -271,7 +271,7 @@ export function bindCoordinacionOperativa(params = []) {
             "• La creación y organización de los canales está a cargo de Administración.\n" +
             "• Supervisión publica dentro de cada canal.\n" +
             "• Capacitación acompaña comentando en las publicaciones.\n\n" +
-            "Cada publicación puede incluir un adjunto (por ahora, un enlace)."
+            "Cada publicación puede incluir un adjunto: PDF, imagen, video o un enlace."
         );
     });
 
@@ -768,10 +768,11 @@ async function abrirModalGestionarCanales() {
             </div>
 
             <label for="input-nuevo-canal-nombre" style="margin-top:16px">Nuevo canal</label>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <select id="input-nuevo-canal-icono" style="flex:0 0 90px">
-                    ${ICONOS_CANAL.map((i) => `<option value="${i.id}">${i.nombre}</option>`).join("")}
-                </select>
+            <label style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block">Ícono</label>
+            <div class="canal-icono-picker" id="nuevo-canal-icono-picker">
+                ${ICONOS_CANAL.map((i, idx) => `<button type="button" class="canal-icono-btn${idx === 0 ? " active" : ""}" data-icono="${i.id}" title="${i.nombre}" aria-label="${i.nombre}">${Icon(i.id, { size: 18 })}</button>`).join("")}
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
                 <input type="text" id="input-nuevo-canal-nombre" placeholder="Ej: Marketing" style="flex:1 1 140px">
                 <select id="input-nuevo-canal-visibilidad" style="flex:0 0 160px">
                     ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}">${v.nombre}</option>`).join("")}
@@ -825,10 +826,17 @@ async function abrirModalGestionarCanales() {
             });
         });
 
+        document.querySelectorAll("#nuevo-canal-icono-picker .canal-icono-btn").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                document.querySelectorAll("#nuevo-canal-icono-picker .canal-icono-btn").forEach((b) => b.classList.remove("active"));
+                btn.classList.add("active");
+            });
+        });
+
         document.getElementById("btn-crear-canal")?.addEventListener("click", async () => {
             const nombre = document.getElementById("input-nuevo-canal-nombre").value.trim();
             if (!nombre) return;
-            const icono = document.getElementById("input-nuevo-canal-icono").value;
+            const icono = document.querySelector("#nuevo-canal-icono-picker .canal-icono-btn.active")?.dataset.icono || ICONOS_CANAL[0].id;
             const restringidoA = document.getElementById("input-nuevo-canal-visibilidad").value;
             await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA });
             registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
