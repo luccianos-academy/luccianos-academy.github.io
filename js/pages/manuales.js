@@ -60,6 +60,24 @@ function camposManualHtml(m = {}) {
     `;
 }
 
+// Vistazo rápido para el Admin de a quién está habilitado cada
+// manual — antes solo decía "Solo Supervisión" sin aclarar a cuáles
+// roles exactos, obligando a entrar a Editar para confirmarlo.
+function chipsVisibilidadHtml(m) {
+    const roles = m.visiblePara ? m.visiblePara.split(",").map((r) => r.trim()).filter(Boolean) : [];
+    const chipsRoles = roles.map((id) => {
+        const r = ROLES_COMPARTIR.find((rc) => rc.id === id);
+        return r ? `<span class="badge badge-success">${r.label}</span>` : "";
+    }).join("");
+
+    const locales = m.sucursal ? m.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const chipLocales = locales.length
+        ? `<span class="badge badge-muted">${locales.length} local${locales.length > 1 ? "es" : ""}</span>`
+        : "";
+
+    return chipsRoles + chipLocales;
+}
+
 function leerCamposManual() {
     const rolesElegidos = Array.from(document.querySelectorAll(".input-compartir-rol:checked")).map((c) => c.value);
     return {
@@ -89,8 +107,7 @@ export async function Manuales() {
             <div style="flex:1;min-width:180px">
                 ${m.categoria ? `<div class="small text-muted">${m.categoria}</div>` : ""}
                 <h3 style="margin-top:2px">${m.titulo}</h3>
-                ${esAdmin && m.visiblePara && !m.visiblePara.includes("colaborador") ? `<span class="text-xs text-muted">Solo Supervisión</span>` : ""}
-                ${esAdmin && m.sucursal ? `<span class="text-xs text-muted">Locales: ${m.sucursal.split(",").map((s) => s.trim().replace("Lucciano's ", "")).join(", ")}</span>` : ""}
+                ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${chipsVisibilidadHtml(m)}</div>` : ""}
             </div>
             <span style="display:flex;gap:8px;flex-shrink:0">
                 <a class="btn btn-secondary" href="${m.url}">Ver manual</a>

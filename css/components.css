@@ -168,7 +168,7 @@
     align-items:center;
     justify-content:center;
     gap:3px;
-    padding:0 22px;
+    padding:0 18px;
     font-size:11px;
     font-weight:700;
     font-family:inherit;
@@ -180,13 +180,22 @@
 
 /* Mismo celeste que usa Gmail para "leído" — semánticamente distinto
    del dorado de marca (--gold), que ya significa "no leída"/destacado
-   en otras partes de esta misma pantalla. */
+   en otras partes de esta misma pantalla. Tono más vívido que el
+   anterior (#4a7fd6) — pedido explícito del usuario, quedaba muy
+   sutil contra el fondo oscuro. */
 .notif-swipe-toggle{
-    background:#4a7fd6;
+    background:#1a6fe8;
+}
+
+/* Pin personal, ahora como acción de swipe (antes vivía como botón
+   flotando sobre el texto de la fila) — mismo dorado que el resto de
+   la marca "esto importa" (.notif-item-fijada-personal, ver abajo). */
+.notif-swipe-pin{
+    background:var(--gold-deep);
 }
 
 .notif-swipe-delete{
-    background:var(--danger);
+    background:#e0392c;
 }
 
 .notif-swipe-content{
@@ -205,50 +214,6 @@
     /* Arrastrando con mouse (no solo dedo) — sin esto, el drag
        seleccionaba el texto de la fila en vez de solo deslizarla. */
     user-select:none;
-}
-
-/* Pin personal — toque directo (no hace falta deslizar), vive dentro
-   de la fila misma. Gris cuando no está fijada, dorado y relleno
-   cuando sí — mismo dorado que .notif-item-fijada, para que quede
-   claro que ambos son variantes del mismo concepto ("esto importa"),
-   solo que uno es de Administración y el otro personal. */
-.notif-item-pin-btn{
-    flex-shrink:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:28px;
-    height:28px;
-    padding:0;
-    background:none;
-    border:none;
-    border-radius:50%;
-    color:var(--line);
-    cursor:pointer;
-    transition:color .15s ease, background-color .15s ease;
-}
-
-.notif-item-pin-btn:hover{
-    background:var(--gold-soft);
-    color:var(--muted);
-}
-
-/* Insignia con fondo sólido (no solo el trazo coloreado) — sin esto,
-   un pin dorado se perdía contra fondos que también son dorados (fila
-   "no leída", el cuadro de ayuda arriba de la lista). El fondo sólido
-   + ícono blanco garantiza contraste sin importar dónde aparezca. */
-.notif-item-pin-btn.fijado{
-    background:var(--gold-deep);
-    color:#fff;
-}
-
-.notif-item-pin-btn.fijado svg{
-    fill:#fff;
-}
-
-.notif-item-pin-btn.fijado:hover{
-    background:var(--gold-deep);
-    color:#fff;
 }
 
 .notif-item{
@@ -349,6 +314,16 @@
 }
 
 .notif-item-fijada{
+    color:var(--gold-deep);
+    display:inline-flex;
+    vertical-align:middle;
+    margin-right:6px;
+}
+
+/* Fijado PERSONAL (ver .notif-swipe-pin) — mismo tratamiento visual
+   que .notif-item-fijada (fijado por Administración) arriba, para que
+   quede claro que ambos son variantes del mismo concepto. */
+.notif-item-fijada-personal{
     color:var(--gold-deep);
     display:inline-flex;
     vertical-align:middle;

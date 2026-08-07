@@ -373,52 +373,43 @@ function filaNotificacion(n, usuario, leida) {
     const prio = prioridadInfo(n.prioridad);
     const esAdmin = usuario.rol === "admin";
     const fijadaPersonal = estaFijadaPersonal(n, usuario.id);
-    // Swipe estilo Gmail, bidireccional — cada lado UNA acción, como en
-    // la app real (no las dos juntas de un mismo lado):
+    // Swipe estilo Gmail, bidireccional:
     //   → deslizar a la DERECHA revela "Leída"/"No leída" (para
-    //     cualquiera), panel celeste con ✓, queda pegado al borde
-    //     izquierdo mientras se desliza.
-    //   → deslizar a la IZQUIERDA revela "Eliminar" (solo Admin — nadie
-    //     más puede borrar una News), panel rojo con 🗑, pegado al
-    //     borde derecho.
+    //     cualquiera), panel celeste con ✓, pegado al borde izquierdo.
+    //   → deslizar a la IZQUIERDA revela "Fijar"/"Quitar" (para
+    //     cualquiera) y, solo para Admin, además "Eliminar" — panel
+    //     rojo pegado al borde derecho. El pin personal vivía antes
+    //     como botón aparte flotando sobre el texto de la fila; ahora
+    //     es una acción de swipe más, mismo lenguaje que el resto.
     // Ver bindSwipeNotif() más abajo. .notif-swipe-content es la fila
     // real; los ".notif-swipe-actions-*" quedan ocultos detrás hasta
     // que se desliza en su dirección correspondiente.
-    //
-    // El pin personal (Icon "pin") es un toggle aparte, de un toque
-    // directo — no hace falta deslizar para fijar/desfijar algo que se
-    // usa seguido. Vive DENTRO de .notif-swipe-content pero es un
-    // <button> real (no anidado dentro de otro <button> — por eso
-    // .notif-swipe-content pasó de <button> a <div rol="button">).
     return `
         <div class="notif-swipe-row" data-swipe-id="${n.id}">
             <div class="notif-swipe-actions notif-swipe-actions-izq">
                 <button type="button" class="notif-swipe-btn notif-swipe-toggle" data-swipe-toggle-leida="${n.id}">${Icon("check", { size: 18 })}<span>${leida ? "No leída" : "Leída"}</span></button>
             </div>
-            ${esAdmin ? `
             <div class="notif-swipe-actions notif-swipe-actions-der">
-                <button type="button" class="notif-swipe-btn notif-swipe-delete" data-swipe-eliminar="${n.id}">${Icon("tacho", { size: 18 })}<span>Eliminar</span></button>
+                <button type="button" class="notif-swipe-btn notif-swipe-pin" data-swipe-toggle-pin="${n.id}">${Icon("pin", { size: 18 })}<span>${fijadaPersonal ? "Quitar" : "Fijar"}</span></button>
+                ${esAdmin ? `<button type="button" class="notif-swipe-btn notif-swipe-delete" data-swipe-eliminar="${n.id}">${Icon("tacho", { size: 18 })}<span>Eliminar</span></button>` : ""}
             </div>
-            ` : ""}
             <div class="notif-item notif-swipe-content${leida ? "" : " no-leida"}" role="button" tabindex="0" data-ver-notif="${n.id}">
                 <span class="notif-item-icono" style="background:${prio.color}22;color:${prio.color}">${Icon(info.icono, { size: 18 })}</span>
                 <span class="notif-item-body">
-                    <span class="notif-item-titulo">${n.destacado ? `<span class="notif-item-fijada" title="Fijada por Administración">${Icon("trofeo", { size: 13 })}</span>` : ""}${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
+                    <span class="notif-item-titulo">${n.destacado ? `<span class="notif-item-fijada" title="Fijada por Administración">${Icon("trofeo", { size: 13 })}</span>` : ""}${fijadaPersonal ? `<span class="notif-item-fijada-personal" title="Fijada por vos">${Icon("pin", { size: 12 })}</span>` : ""}${n.titulo}${!leida ? '<i class="notif-dot"></i>' : ""}</span>
                 </span>
-                <button type="button" class="notif-item-pin-btn${fijadaPersonal ? " fijado" : ""}" data-toggle-pin="${n.id}" title="${fijadaPersonal ? "Desfijar" : "Fijar para mí"}" aria-label="${fijadaPersonal ? "Desfijar" : "Fijar para mí"}">${Icon("pin", { size: 16 })}</button>
                 <span class="notif-item-fecha">${etiquetaGrupo(n.fecha) === "Hoy" || etiquetaGrupo(n.fecha) === "Ayer" ? etiquetaGrupo(n.fecha) : formatearFecha(n.fecha).split(" de ")[0] + " " + formatearFecha(n.fecha).split(" de ")[1].slice(0, 3)}</span>
             </div>
         </div>
     `;
 }
 
-/** Swipe estilo Gmail sobre cada fila de News, bidireccional — cada
- *  lado revela UNA sola acción (no las dos juntas de un mismo lado):
- *  deslizar a la DERECHA revela "Leída"/"No leída" (para cualquiera,
- *  panel a la izquierda); deslizar a la IZQUIERDA revela "Eliminar"
- *  (solo Admin, panel a la derecha — si no hay panel de ese lado,
- *  directamente no se puede arrastrar hacia ahí). Ver .notif-swipe-*
- *  en css/components.css y la estructura armada en filaNotificacion().
+/** Swipe estilo Gmail sobre cada fila de News, bidireccional: deslizar
+ *  a la DERECHA revela "Leída"/"No leída" (para cualquiera, panel
+ *  celeste a la izquierda); deslizar a la IZQUIERDA revela "Fijar"/
+ *  "Quitar" (para cualquiera) y, solo para Admin, además "Eliminar" —
+ *  panel rojo a la derecha. Ver .notif-swipe-* en css/components.css
+ *  y la estructura armada en filaNotificacion().
  *  Sin librería — seguimiento de touch con transform, para una sola
  *  fila a la vez (nunca hace falta animar más de una).
  *
@@ -442,7 +433,9 @@ function bindSwipeNotif() {
         contenido._arrastrando = false;
 
         const maxDer = () => accionesIzq ? Math.min(accionesIzq.scrollWidth || 90, 160) : 0; // cuánto puede correrse hacia la derecha
-        const maxIzq = () => accionesDer ? Math.min(accionesDer.scrollWidth || 90, 160) : 0; // cuánto puede correrse hacia la izquierda
+        // Tope más alto que maxDer: este lado ahora puede tener 2
+        // botones juntos (Fijar + Eliminar, solo Admin) en vez de 1.
+        const maxIzq = () => accionesDer ? Math.min(accionesDer.scrollWidth || 90, 230) : 0; // cuánto puede correrse hacia la izquierda
 
         function cerrar() {
             contenido.style.transform = "";
@@ -537,14 +530,11 @@ function bindSwipeNotif() {
         });
     });
 
-    // Pin personal — toque directo, sin deslizar (a diferencia de las
-    // acciones de arriba, esto se usa seguido y no ameritaba un gesto).
-    document.querySelectorAll("[data-toggle-pin]").forEach((btn) => {
-        btn.addEventListener("click", async (e) => {
-            e.stopPropagation(); // está dentro de .notif-swipe-content — no abrir el detalle al tocar el pin
+    document.querySelectorAll("[data-swipe-toggle-pin]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
             const usuario = getUsuarioActual();
             const items = await getNoticias();
-            const noti = items.find((n) => String(n.id) === String(btn.dataset.togglePin));
+            const noti = items.find((n) => String(n.id) === String(btn.dataset.swipeTogglePin));
             if (!noti) return;
             await toggleFijadaPersonal(noti, usuario.id);
             navigate("news");
@@ -627,7 +617,7 @@ export async function News() {
 
         <div class="form-info-box" style="margin-top:14px">
             ${Icon("idea", { size: 16 })}
-            <p>Deslizá una noticia hacia un lado para marcarla leída${esAdmin ? " o eliminarla" : ""}. Tocá el pin <span class="notif-item-pin-btn fijado" style="display:inline-flex;width:20px;height:20px;vertical-align:middle;pointer-events:none">${Icon("pin", { size: 11 })}</span> para fijarla en tu lista personal, sin afectar lo que ven los demás.</p>
+            <p>Deslizá una noticia hacia la derecha para marcarla leída, o hacia la izquierda para fijarla en tu lista personal${esAdmin ? " o eliminarla" : ""} — fijar no afecta lo que ven los demás.</p>
         </div>
 
         <div class="section" data-panel="todas">${listaHtml(gruposTodas, fijadasTodas)}</div>
