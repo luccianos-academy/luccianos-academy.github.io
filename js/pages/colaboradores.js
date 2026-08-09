@@ -934,8 +934,12 @@ export function bindColaboradores() {
     document.querySelectorAll("[data-renovar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.renovar;
-            const colaboradores = await getColaboradores();
-            const c = colaboradores.find((x) => String(x.id) === String(id));
+            // getUsuarios (no getColaboradores): ese filtra por
+            // rol==="colaborador", así que para cualquier otro rol no
+            // encontraba la fila, asumía "sin fecha" y terminaba
+            // reactivando sin renovar — el bug que esto venía a arreglar.
+            const usuarios = await getUsuarios();
+            const c = usuarios.find((x) => String(x.id) === String(id));
 
             // Antes esto SOLO hacía {activo:"SI"} y dejaba intacta la
             // fecha de vencimiento. Para alguien con fecha ya pasada (el
@@ -952,7 +956,15 @@ export function bindColaboradores() {
             // se respeta la que ya tenía.
             if (yaVencido) cambios.fechaVencimientoAcceso = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
 
-            await actualizarUsuario(id, cambios);
+            // Si el backend rechaza el guardado devuelve {ok:false} sin
+            // tirar excepción — sin este chequeo la pantalla se recargaba
+            // como si todo hubiera salido bien y el acceso seguía vencido,
+            // sin ninguna pista de qué pasó.
+            const guardado = await actualizarUsuario(id, cambios);
+            if (!guardado || guardado.ok === false) {
+                alert(guardado?.error || "No se pudo renovar el acceso. Probá de nuevo.");
+                return;
+            }
             registrarEvento(getUsuarioActual().id, "renovar_acceso", `Acceso renovado (usuario ${id})${cambios.fechaVencimientoAcceso ? ` — nuevo vencimiento: ${cambios.fechaVencimientoAcceso}` : ""}`);
             navigate("colaboradores");
         });
@@ -970,8 +982,8 @@ export function bindColaboradores() {
     document.querySelectorAll("[data-extender]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.extender;
-            const colaboradores = await getColaboradores();
-            const c = colaboradores.find((x) => String(x.id) === String(id));
+            const usuarios = await getUsuarios();
+            const c = usuarios.find((x) => String(x.id) === String(id));
             if (!c) return;
             const base = c.fechaVencimientoAcceso && diasEntre(fechaHoyISO(), c.fechaVencimientoAcceso) > 0
                 ? c.fechaVencimientoAcceso
@@ -995,8 +1007,8 @@ export function bindColaboradores() {
 
     document.querySelectorAll("[data-editar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-            const colaboradores = await getColaboradores();
-            const c = colaboradores.find((x) => String(x.id) === String(btn.dataset.editar));
+            const usuarios = await getUsuarios();
+            const c = usuarios.find((x) => String(x.id) === String(btn.dataset.editar));
             if (c) abrirModalEditar(c);
         });
     });
