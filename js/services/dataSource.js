@@ -135,13 +135,9 @@ export async function writeSheet(hoja, fila, mockRows) {
         }
     }
 
-    // Queue for sync (will be uploaded in background)
-    if (syncManager) {
-        syncManager.queueChange(storeName, nuevaFila, 'put')
-            .catch(err => console.error(`[dataSource] Failed to queue change:`, err));
-    }
-
-    // Also save to Apps Script (legacy behavior for safety)
+    // La escritura real va directo al backend acá abajo (no hay cola de
+    // subida en segundo plano: la que existía llamaba a una acción
+    // "write" que no existe en el backend, así que siempre fallaba).
     const resultado = await guardarDatosSheet(hoja, nuevaFila);
     invalidar(hoja);
     return { ok: true, fila: nuevaFila, ...resultado };
@@ -166,12 +162,6 @@ export async function updateSheet(hoja, id, cambios, mockRows) {
                 const updated = { ...current, ...cambiosConTimestamp };
                 await idbManager.saveRecord(storeName, updated);
                 console.log(`[dataSource] Optimistic update to IndexedDB: ${hoja} (${id})`);
-
-                // Queue for sync
-                if (syncManager) {
-                    syncManager.queueChange(storeName, updated, 'put')
-                        .catch(err => console.error(`[dataSource] Failed to queue change:`, err));
-                }
             }
         } catch (err) {
             console.error(`[dataSource] Failed to optimistically update:`, err);
@@ -184,7 +174,7 @@ export async function updateSheet(hoja, id, cambios, mockRows) {
     return resultado;
 }
 
-// Delete: optimistic delete in IndexedDB, queue for sync
+// Delete: saca el registro local y lo borra en el backend
 export async function deleteSheet(hoja, id, mockRows) {
     if (USE_MOCK_DATA) {
         const index = mockRows.findIndex((f) => String(f.id) === String(id));
@@ -194,27 +184,20 @@ export async function deleteSheet(hoja, id, mockRows) {
 
     const storeName = sheetToStoreMap[hoja];
 
-    // Note: For delete, we mark as deleted rather than removing
-    // This ensures sync can track the deletion
+    // Antes esto NO sacaba el registro: lo marcaba con deleted:true para
+    // que una cola de subida (que nunca funcionó, ver syncManager) lo
+    // propagara después. Como nada filtraba ese flag al leer, el ítem
+    // "borrado" seguía apareciendo en la app para siempre. Ahora se
+    // saca de una y el borrado real va directo al backend acá abajo.
     if (storeName && idbManager && idbManager.db) {
         try {
-            const record = await idbManager.getRecord(storeName, id);
-            if (record) {
-                const deleted = { ...record, deleted: true, fechaModificacion: Date.now() };
-                await idbManager.saveRecord(storeName, deleted);
-                console.log(`[dataSource] Optimistic delete in IndexedDB: ${hoja} (${id})`);
-
-                if (syncManager) {
-                    syncManager.queueChange(storeName, deleted, 'delete')
-                        .catch(err => console.error(`[dataSource] Failed to queue delete:`, err));
-                }
-            }
+            await idbManager.deleteRecord(storeName, id);
+            console.log(`[dataSource] Borrado local: ${hoja} (${id})`);
         } catch (err) {
-            console.error(`[dataSource] Failed to optimistically delete:`, err);
+            console.error(`[dataSource] Failed to delete locally:`, err);
         }
     }
 
-    // Also delete from Apps Script
     const resultado = await eliminarDatosSheet(hoja, id);
     invalidar(hoja);
     return resultado;

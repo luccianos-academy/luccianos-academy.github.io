@@ -6,7 +6,6 @@ class SyncManager {
     this.isSyncing = false;
     this.syncInterval = 5 * 60 * 1000; // 5 minutes
     this.syncIntervalHandle = null;
-    this.pendingChanges = [];
     this.offlineMode = !navigator.onLine;
     this.lastSyncError = null;
   }
@@ -57,27 +56,22 @@ class SyncManager {
     const startTime = Date.now();
 
     try {
+      // No hay cola de subida: toda escritura (crear/editar/borrar) ya
+      // va directo al backend en el momento, desde services/
+      // dataSource.js. Acá solo se baja y se reemplaza la copia local.
       const lastSync = await idbManager.getLastSyncTime();
-
-      // Call Apps Script to get delta (changes since last sync)
       const delta = await this.fetchDelta(lastSync);
 
       if (delta && delta.data) {
-        // Merge changes into IndexedDB
         await this.mergeDelta(delta.data);
-
-        // Update last sync time
         await idbManager.setLastSyncTime(delta.timestamp || Date.now());
 
         const elapsed = Date.now() - startTime;
         const itemCount = Object.values(delta.data).reduce((sum, arr) => sum + (arr?.length || 0), 0);
-        console.log(`[SYNC] Completed in ${elapsed}ms - Downloaded ${itemCount} items`);
+        console.log(`[SYNC] Completed in ${elapsed}ms - ${itemCount} registros`);
       } else {
-        console.log('[SYNC] No changes since last sync');
+        console.log('[SYNC] Sin respuesta del servidor — copia local intacta');
       }
-
-      // Upload pending changes
-      await this.uploadPendingChanges();
 
       this.lastSyncError = null;
     } catch (error) {
@@ -128,129 +122,34 @@ class SyncManager {
     }
   }
 
-  // Merge delta into IndexedDB
+  // Reemplaza la copia local con la del servidor, hoja por hoja.
+  //
+  // ANTES esto solo agregaba/pisaba los registros del delta, sin sacar
+  // nunca nada — por eso un registro borrado en la hoja (o desde otro
+  // dispositivo) seguía vivo para siempre en la copia local, y una
+  // edición hecha a mano en el Sheet no llegaba nunca. Ahora el
+  // servidor manda la hoja entera (ver sync() en apps-script/Code.gs) y
+  // acá se reemplaza, así lo que ya no está en la hoja desaparece.
+  //
+  // Solo se tocan las hojas que el servidor realmente incluyó en la
+  // respuesta: las que no sincroniza (sucursales, canales, recursos,
+  // etc.) se dejan intactas en vez de vaciarlas por error.
   async mergeDelta(delta) {
-    const updates = {
-      usuarios: delta.usuarios || [],
-      cursos: delta.cursos || [],
-      lecciones: delta.lecciones || [],
-      noticias: delta.noticias || [],
-      comunicaciones: delta.comunicaciones || [],
-      asignaciones: delta.asignaciones || [],
-      resultados: delta.resultados || [],
-      manuales: delta.manuales || [],
-      evaluaciones: delta.evaluaciones || [],
-      sucursales: delta.sucursales || [],
-      canales: delta.canales || [],
-      publicaciones: delta.publicaciones || [],
-      comentarios: delta.comentarios || [],
-      recursos: delta.recursos || [],
-      tokens: delta.tokens || [],
-      auditoria: delta.auditoria || []
-    };
+    for (const [storeName, records] of Object.entries(delta)) {
+      if (!Array.isArray(records)) continue;
+      if (!idbManager.stores.includes(storeName)) continue;
 
-    for (const [storeName, records] of Object.entries(updates)) {
-      if (records.length > 0) {
-        await idbManager.saveRecords(storeName, records);
-        console.log(`[SYNC] Updated ${records.length} records in ${storeName}`);
-      }
+      await idbManager.clearStore(storeName);
+      if (records.length > 0) await idbManager.saveRecords(storeName, records);
+      console.log(`[SYNC] ${storeName}: copia local reemplazada (${records.length} registros)`);
     }
-  }
-
-  // Queue a change for upload
-  async queueChange(storeName, data, operation = 'put') {
-    console.log(`[SYNC] Queued change: ${storeName} - ${operation}`);
-
-    // Save to IndexedDB immediately (optimistic update)
-    await idbManager.saveRecord(storeName, data);
-
-    // Add to pending queue for upload
-    this.pendingChanges.push({
-      storeName,
-      data,
-      operation,
-      timestamp: Date.now()
-    });
-
-    // Try to upload immediately if online
-    if (!this.offlineMode) {
-      this.uploadPendingChanges().catch(err => {
-        console.error('[SYNC] Failed to upload pending changes:', err);
-      });
-    }
-  }
-
-  // Upload pending changes to backend
-  async uploadPendingChanges() {
-    if (this.pendingChanges.length === 0) return;
-
-    console.log(`[SYNC] Uploading ${this.pendingChanges.length} pending changes...`);
-
-    try {
-      const changes = [...this.pendingChanges];
-
-      for (const change of changes) {
-        try {
-          await window.gasRequest('write', {
-            hoja: this.mapStoreToSheet(change.storeName),
-            data: change.data,
-            operation: change.operation
-          });
-
-          // Remove from pending if successful
-          const index = this.pendingChanges.indexOf(change);
-          if (index > -1) {
-            this.pendingChanges.splice(index, 1);
-          }
-
-          console.log(`[SYNC] Uploaded: ${change.storeName} - ${change.operation}`);
-        } catch (error) {
-          console.error(`[SYNC] Failed to upload ${change.storeName}:`, error);
-          // Keep in pending queue for retry
-        }
-      }
-
-      if (this.pendingChanges.length > 0) {
-        console.log(`[SYNC] ${this.pendingChanges.length} changes still pending (will retry)`);
-      }
-    } catch (error) {
-      console.error('[SYNC] Upload batch failed:', error);
-    }
-  }
-
-  // Map store name to Sheet name
-  mapStoreToSheet(storeName) {
-    const mapping = {
-      usuarios: 'Usuarios',
-      cursos: 'Cursos',
-      lecciones: 'Lecciones',
-      noticias: 'Noticias',
-      comunicaciones: 'Comunicaciones',
-      asignaciones: 'Asignaciones',
-      resultados: 'Resultados',
-      manuales: 'Manuales',
-      evaluaciones: 'Evaluaciones',
-      sucursales: 'Sucursales',
-      canales: 'Canales',
-      publicaciones: 'Publicaciones',
-      comentarios: 'Comentarios',
-      recursos: 'Recursos',
-      tokens: 'Tokens',
-      auditoria: 'Auditoria'
-    };
-    return mapping[storeName] || storeName;
   }
 
   // Handle coming online
   async handleOnline() {
     console.log('[SYNC] Device came online');
     this.offlineMode = false;
-
-    // Immediate sync
     await this.syncWithBackend();
-
-    // Upload pending changes
-    await this.uploadPendingChanges();
   }
 
   // Handle going offline
@@ -270,7 +169,6 @@ class SyncManager {
     return {
       isSyncing: this.isSyncing,
       offlineMode: this.offlineMode,
-      pendingChanges: this.pendingChanges.length,
       lastSyncError: this.lastSyncError ? this.lastSyncError.message : null,
       lastSync: idbManager.getLastSyncTime()
     };

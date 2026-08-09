@@ -428,11 +428,22 @@ function _actualizarCrudo(hoja, id, cambios) {
 
     for (let i = 1; i < datos.length; i++) {
         if (String(datos[i][colId]) === String(id)) {
+            // Antes, si una columna no existía en la hoja (headers.indexOf
+            // devuelve -1), ese campo se salteaba en silencio y la función
+            // igual devolvía {ok:true} — el cliente creía que había
+            // guardado todo cuando en realidad faltaba una columna en el
+            // Sheet. Pasó de verdad con "foto" en Usuarios: la app decía
+            // éxito, la foto nunca llegaba a la planilla. Ahora, si falta
+            // alguna columna pedida, se avisa explícito en vez de mentir.
+            const noEncontradas = [];
             Object.keys(cambios).forEach((key) => {
                 const col = headers.indexOf(key);
-                if (col === -1) return;
+                if (col === -1) { noEncontradas.push(key); return; }
                 sheet.getRange(i + 1, col + 1).setValue(_sanitizarCelda(cambios[key]));
             });
+            if (noEncontradas.length > 0) {
+                return { ok: false, error: "Faltan columnas en \"" + hoja + "\": " + noEncontradas.join(", ") };
+            }
             return { ok: true };
         }
     }
@@ -877,8 +888,25 @@ function enviarPushPrueba(usuarioActual) {
 }
 
 /* ============================================================
-   SINCRONIZACIÓN — delta desde último sync
-   Retorna SOLO los registros que cambiaron desde lastSync
+   SINCRONIZACIÓN — foto completa de cada hoja
+
+   ANTES devolvía solo las filas con fechaModificacion > lastSync
+   ("delta"), y el cliente las mergeaba encima de su copia local. Eso
+   tenía dos agujeros graves, los dos reportados en producción:
+
+     · BORRAR nunca se propagaba. Una fila borrada simplemente deja de
+       existir en la hoja — no hay ninguna "lápida" con fecha nueva que
+       avise, así que la copia local del resto de los dispositivos
+       sobrevivía para siempre ("lo borré y sigue apareciendo").
+     · EDITAR A MANO en el Sheet tampoco se propagaba: escribir una
+       celda a mano no toca fechaModificacion, así que esa edición
+       quedaba invisible para todos los dispositivos, para siempre.
+
+   Ahora devuelve la hoja ENTERA y el cliente reemplaza su copia (ver
+   mergeDelta en services/syncManager.js). Con estos volúmenes
+   (decenas/cientos de filas) el costo es despreciable, y la hoja
+   vuelve a ser la única fuente de verdad. lastSyncTime se sigue
+   recibiendo por compatibilidad, pero ya no filtra nada.
 ============================================================ */
 
 function sync(lastSyncTime, usuarioActual) {
@@ -891,14 +919,7 @@ function sync(lastSyncTime, usuarioActual) {
 
         for (const hoja of hojas) {
             try {
-                const registros = leer(hoja, usuarioActual).data || [];
-                
-                // Filtrar solo los que cambiaron desde lastSync
-                // (requiere que cada fila tenga fechaModificacion)
-                data[hoja.toLowerCase()] = registros.filter(r => {
-                    const modificacion = r.fechaModificacion ? parseInt(r.fechaModificacion) : 0;
-                    return modificacion > lastSyncTime || !lastSyncTime;
-                });
+                data[hoja.toLowerCase()] = leer(hoja, usuarioActual).data || [];
             } catch (err) {
                 console.log(`Sync: error reading ${hoja}:`, err.message);
                 data[hoja.toLowerCase()] = [];

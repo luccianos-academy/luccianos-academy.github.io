@@ -226,6 +226,30 @@ class IndexedDBManager {
     });
   }
 
+  // Borrar un registro puntual.
+  //
+  // IndexedDB distingue el TIPO de la clave: el número 5 y el texto "5"
+  // son claves distintas. Los ids llegan como texto cuando vienen de un
+  // data-attribute del DOM, y como número cuando vienen del JSON del
+  // Sheet — así que se intenta con ambas formas, si no el borrado
+  // "funcionaba" sin borrar nada.
+  async deleteRecord(storeName, id) {
+    if (!this.db) await this.init();
+    const claves = [id];
+    const comoNumero = Number(id);
+    if (!Number.isNaN(comoNumero) && String(comoNumero) === String(id)) claves.push(comoNumero);
+    claves.push(String(id));
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([storeName], 'readwrite');
+      const store = transaction.objectStore(storeName);
+      claves.forEach((clave) => store.delete(clave));
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
   // Clear entire store
   async clearStore(storeName) {
     if (!this.db) await this.init();
