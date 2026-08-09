@@ -934,8 +934,26 @@ export function bindColaboradores() {
     document.querySelectorAll("[data-renovar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.renovar;
-            await actualizarUsuario(id, { activo: "SI" });
-            registrarEvento(getUsuarioActual().id, "renovar_acceso", `Acceso renovado (usuario ${id})`);
+            const colaboradores = await getColaboradores();
+            const c = colaboradores.find((x) => String(x.id) === String(id));
+
+            // Antes esto SOLO hacía {activo:"SI"} y dejaba intacta la
+            // fecha de vencimiento. Para alguien con fecha ya pasada (el
+            // caso típico: justamente por eso se le renueva) no servía
+            // de nada — seguía figurando "vencido", y peor: al entrar,
+            // el backend ve la fecha vencida y lo vuelve a desactivar
+            // solo (ver _usuarioDeSesion en apps-script/Code.gs). Ahora
+            // se le da una ventana nueva, igual que un alta.
+            const cambios = { activo: "SI" };
+            const vencimiento = c?.fechaVencimientoAcceso || "";
+            const yaVencido = vencimiento && diasEntre(fechaHoyISO(), vencimiento) <= 0;
+            // Sin fecha = acceso permanente: no se le pone una ahora,
+            // sería degradarlo sin que nadie lo pida. Con fecha futura
+            // se respeta la que ya tenía.
+            if (yaVencido) cambios.fechaVencimientoAcceso = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
+
+            await actualizarUsuario(id, cambios);
+            registrarEvento(getUsuarioActual().id, "renovar_acceso", `Acceso renovado (usuario ${id})${cambios.fechaVencimientoAcceso ? ` — nuevo vencimiento: ${cambios.fechaVencimientoAcceso}` : ""}`);
             navigate("colaboradores");
         });
     });
