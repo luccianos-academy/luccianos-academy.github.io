@@ -27,12 +27,29 @@ async function initApp() {
         // Wait for services to be globally available
         await waitForServices();
         
+        // IndexedDB SÍ se espera: es la caché local desde la que
+        // fetchSheet lee, y sin ella la primera pantalla iría a la red
+        // aunque los datos ya estuvieran guardados del uso anterior.
         console.log('[APP] Initializing IndexedDB...');
         await window.idbManager.init();
-        
-        console.log('[APP] Initializing Sync Manager...');
-        await window.syncManager.init();
-        
+
+        // El sync NO se espera. Antes sí, y eso bloqueaba el arranque
+        // entero detrás de una llamada de red que lee las 8 hojas: la
+        // app no dibujaba nada hasta que volviera. Es justo al revés de
+        // lo que la arquitectura offline-first promete — la gracia de
+        // tener copia local es pintar YA con lo que hay y actualizar
+        // después.
+        //
+        // No esperar es seguro: fetchSheet cae a la red por su cuenta si
+        // la copia local está vacía (primer uso), así que lo peor que
+        // pasa es lo que pasaba siempre. Y en cualquier arranque
+        // posterior la pantalla sale al toque desde IndexedDB mientras
+        // el sync se pone al día en segundo plano.
+        console.log('[APP] Initializing Sync Manager (en segundo plano)...');
+        window.syncManager.init().catch((err) => {
+            console.warn('[APP] Sync en segundo plano falló:', err);
+        });
+
         console.log('[APP] Initializing Router...');
         initRouter();
         bindTooltips();
