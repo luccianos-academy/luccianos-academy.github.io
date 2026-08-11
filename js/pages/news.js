@@ -82,6 +82,58 @@ function puedeCrearNoticia(usuario) {
     return usuario.rol === "admin" || (usuario.rol === "supervisor" && !usuario.capacitador);
 }
 
+/**
+ * A quién le llegó esta News, en castellano.
+ *
+ * Sin esto, una vez enviada no quedaba en NINGÚN lado a quién había
+ * ido: el dato estaba guardado (dirigidoA + sucursal + usuariosEspecificos)
+ * pero no se mostraba. Pedido del usuario: "si envié pero no presté
+ * atención a quién, sería un problema".
+ *
+ * Devuelve texto plano; quien lo pinte tiene que escaparlo (los
+ * nombres de usuarios y locales salen de la planilla).
+ */
+async function descripcionDestinatarios(noti) {
+    const dirigido = String(noti.dirigidoA || "").trim();
+
+    if (dirigido === "solo-admin") {
+        return "Solo vos — modo prueba, no le llegó a ningún colaborador";
+    }
+
+    if (dirigido === "usuarios-especificos") {
+        const ids = String(noti.usuariosEspecificos || "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (!ids.length) return "Usuarios específicos — ninguno seleccionado";
+        const usuarios = await getUsuarios();
+        // Un id que ya no está en la nómina se muestra como id en vez de
+        // desaparecer: que falte un destinatario de la lista sería
+        // justamente lo que este texto tiene que dejar ver.
+        const nombres = ids.map((id) => usuarios.find((u) => String(u.id) === id)?.nombre || `id ${id}`);
+        return `${nombres.length} usuario(s): ${nombres.join(", ")}`;
+    }
+
+    if (dirigido === "colaboradores-local") {
+        const locales = String(noti.sucursal || "").split(",").map((s) => s.trim()).filter(Boolean);
+        return locales.length
+            ? `Colaboradores de ${locales.length} local(es): ${locales.join(", ")}`
+            : "Locales específicos — ninguno seleccionado";
+    }
+
+    const conocido = DIRIGIDO_A.find((d) => d.id === dirigido);
+    return conocido ? conocido.nombre : "Todos los colaboradores";
+}
+
+/** Bloque "Enviada a:" del detalle. Solo para quien gestiona News
+ *  (Admin/Supervisor): a un colaborador no le aporta saber a qué otro
+ *  grupo le llegó, y podría leerse como que ve datos de terceros. */
+function bloqueDestinatarios(texto) {
+    return `
+        <div class="notif-destinatarios">
+            <span class="text-xs text-muted">Enviada a</span>
+            <div class="text-sm">${escaparHtml(texto)}</div>
+        </div>
+    `;
+}
+
 function tipoInfo(tipoId) {
     const conocido = TIPOS_NOTIFICACION.find((t) => t.id === tipoId);
     if (conocido) return conocido;
@@ -678,7 +730,7 @@ export function bindNews() {
             if (btn._arrastrando || btn._swipeAbierta) return;
             const items = await getNoticias();
             const noti = items.find((n) => String(n.id) === String(btn.dataset.verNotif));
-            if (noti) abrirDetalleNotificacion(noti, usuario);
+            if (noti) await abrirDetalleNotificacion(noti, usuario);
         };
         btn.addEventListener("click", abrir);
         // .notif-swipe-content pasó de <button> a <div rol="button"> (un
@@ -756,11 +808,14 @@ export function bindNews() {
 
 /** Vista de detalle — mismo modal que "editar", en modo lectura, con
  *  las acciones del mockup (Ir al curso, Ver adjunto, Marcar leída). */
-function abrirDetalleNotificacion(noti, usuario) {
+async function abrirDetalleNotificacion(noti, usuario) {
     const modalId = "modal-detalle-notif";
     const esAdmin = usuario.rol === "admin";
+    const gestiona = esAdmin || usuario.rol === "supervisor";
     const leida = estaLeida(noti, usuario.id);
     const info = tipoInfo(noti.tipo);
+
+    const destinatarios = gestiona ? await descripcionDestinatarios(noti) : "";
 
     const contenidoHtml = `
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
@@ -770,6 +825,7 @@ function abrirDetalleNotificacion(noti, usuario) {
             </div>
         </div>
         <p class="text-sm" style="margin-top:0;margin-bottom:16px;white-space:pre-wrap;line-height:1.6">${escaparHtml(noti.resumen)}</p>
+        ${destinatarios ? bloqueDestinatarios(destinatarios) : ""}
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
             ${noti.enlace ? `<a class="btn btn-primary" href="#/cursos/${noti.enlace}">Ir al curso</a>` : ""}
             ${noti.adjuntos?.map(a => `<a class="btn btn-sutil" href="${a.url}">${a.label}</a>`).join("") || (noti.adjuntoUrl ? `<a class="btn btn-sutil" href="${noti.adjuntoUrl}">${noti.adjuntoLabel || "Ver adjunto"}</a>` : "")}
@@ -1033,6 +1089,15 @@ export function bindNuevaNews(params = []) {
             return;
         }
         if (!cambios.fecha) { alert("Elegí una fecha de publicación."); return; }
+
+        // Confirmación con los destinatarios ESCRITOS. El destinatario se
+        // elige arriba de todo en el formulario y se pierde de vista
+        // mientras se redacta; publicar sin volver a mirarlo es
+        // exactamente el error que preocupa ("si envié pero no presté
+        // atención a quién, sería un problema"). Acá no se puede
+        // deshacer: una vez publicada ya salió el push.
+        const aQuien = await descripcionDestinatarios(cambios);
+        if (!confirm(`Se va a enviar a:\n\n${aQuien}\n\n¿Confirmás?`)) return;
 
         const textoOriginal = btnPublicar.textContent;
         btnPublicar.disabled = true;

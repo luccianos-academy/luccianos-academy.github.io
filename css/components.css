@@ -263,6 +263,17 @@
     justify-content:center;
 }
 
+/* "Enviada a" en el detalle de una News — dato de gestión, no parte
+   del mensaje, así que va separado del cuerpo por un bloque propio en
+   vez de mezclarse con el texto. */
+.notif-destinatarios{
+    margin:16px 0;
+    padding:10px 12px;
+    border-left:3px solid var(--gold-deep);
+    background:var(--bg);
+    border-radius:0 6px 6px 0;
+}
+
 .notif-item-body{
     flex:1;
     min-width:0;

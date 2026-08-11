@@ -473,6 +473,32 @@ function _esGestion(usuarioActual) {
     return usuarioActual.rol === "admin" || usuarioActual.rol === "supervisor";
 }
 
+/**
+ * Qué filas de Usuarios puede ver alguien que NO es gestión.
+ *
+ * Antes se devolvía la hoja entera a cualquier autenticado: nombre,
+ * email, local, estado y vencimiento de TODA la empresa quedaban a un
+ * request de distancia para cualquier colaborador. No hacía falta para
+ * nada — ninguna pantalla de colaborador raso usa la nómina; la única
+ * que la necesita es "Mi equipo", y solo la ve un Encargado, de su
+ * propio local.
+ *
+ *   - Encargado  → los de SU sucursal (es lo que su pantalla muestra).
+ *   - Colaborador → solo su propia fila. No es un caso vacío: el router
+ *     llama obtenerMiUsuario() en cada carga y necesita encontrarse.
+ */
+function _usuariosVisiblesPara(filas, usuarioActual) {
+    if (usuarioActual.encargado) {
+        const miSucursal = String(usuarioActual.sucursal || "").trim().toLowerCase();
+        return filas.filter(function (f) {
+            return String(f.sucursal || "").trim().toLowerCase() === miSucursal;
+        });
+    }
+    return filas.filter(function (f) {
+        return String(f.id) === String(usuarioActual.id);
+    });
+}
+
 function leer(hoja, usuarioActual) {
     if (LECTURA_SOLO_GESTION.indexOf(hoja) !== -1 && !_esGestion(usuarioActual)) {
         return { ok: false, error: "No tenés permiso para leer " + hoja + "." };
@@ -485,6 +511,21 @@ function leer(hoja, usuarioActual) {
     if ((hoja === "Asignaciones" || hoja === "Resultados") && !_esGestion(usuarioActual)) {
         return filas.filter((f) => String(f.colaboradorId) === String(usuarioActual.id));
     }
+
+    // Tokens de push: cada uno ve los suyos. La app solo los consulta
+    // para el indicador "notificaciones activadas" de Mi Perfil
+    // (getTokensDeUsuario, con el id propio), así que filtrar no le
+    // saca nada a nadie — y los tokens ajenos no tienen por qué estar
+    // al alcance. El envío real de push los lee server-side con
+    // _leerCrudo, sin pasar por acá.
+    if (hoja === "Tokens" && !_esGestion(usuarioActual)) {
+        return filas.filter((f) => String(f.usuarioId) === String(usuarioActual.id));
+    }
+
+    if (hoja === "Usuarios" && !_esGestion(usuarioActual)) {
+        return _usuariosVisiblesPara(filas, usuarioActual);
+    }
+
     return filas;
 }
 
@@ -1026,7 +1067,18 @@ function sync(lastSyncTime, usuarioActual) {
 
         for (const hoja of hojas) {
             try {
-                data[hoja.toLowerCase()] = leer(hoja, usuarioActual).data || [];
+                // leer() devuelve el ARRAY de filas (o {ok:false,error} si
+                // no hay permiso), nunca un objeto con .data. Con el
+                // ".data" que había acá el resultado era siempre
+                // undefined → [], así que el sync mandaba las 8 hojas
+                // vacías y mergeDelta, que limpia cada store antes de
+                // guardar, dejaba IndexedDB en cero en cada corrida.
+                // La app seguía andando porque fetchSheet, al no
+                // encontrar nada local, cae a la red — o sea que la
+                // caché local nunca sirvió para nada y cada pantalla
+                // pegaba contra Apps Script.
+                const filas = leer(hoja, usuarioActual);
+                data[hoja.toLowerCase()] = Array.isArray(filas) ? filas : [];
             } catch (err) {
                 console.log(`Sync: error reading ${hoja}:`, err.message);
                 data[hoja.toLowerCase()] = [];
