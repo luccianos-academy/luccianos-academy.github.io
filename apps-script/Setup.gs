@@ -57,6 +57,96 @@ function setupSyncColumns() {
 }
 
 /**
+ * dondeEstanLasFotos() — diagnóstico, no modifica nada.
+ *
+ * Responde "¿dónde carajo se guardan las fotos de perfil?" sin tener
+ * que buscar a mano en Drive. Imprime en el log:
+ *   - con qué cuenta de Google corre el script (define de QUIÉN es el
+ *     "Mi unidad" donde termina todo);
+ *   - el link directo a la carpeta de fotos;
+ *   - qué usuario tiene qué archivo, con su fecha y su link.
+ *
+ * A propósito NO usa _obtenerOCrearFolder: busca sin crear. Un
+ * diagnóstico que crea carpetas vacías al ejecutarse ensucia lo mismo
+ * que está tratando de explicar.
+ *
+ * Ejecutar: elegir esta función en el desplegable y darle Ejecutar.
+ * Después: Ver → Registros (o el panel "Registro de ejecución").
+ */
+function dondeEstanLasFotos() {
+  console.log('Cuenta que ejecuta: ' + Session.getEffectiveUser().getEmail());
+  console.log('Planilla vinculada: ' + SpreadsheetApp.getActiveSpreadsheet().getName());
+  console.log('');
+
+  function buscarSubcarpeta(padre, nombre) {
+    const it = padre.getFoldersByName(nombre);
+    return it.hasNext() ? it.next() : null;
+  }
+
+  const raiz = DriveApp.getRootFolder();
+  const recursos = buscarSubcarpeta(raiz, "Lucciano's Academy — Recursos");
+  if (!recursos) {
+    console.log('No existe la carpeta "Lucciano\'s Academy — Recursos" en Mi unidad de esta cuenta.');
+    console.log('Se crea sola en la primera subida. Si esperabas fotos acá, se subieron con OTRA cuenta.');
+    return;
+  }
+  console.log('Carpeta Recursos:      ' + recursos.getUrl());
+
+  const colaboradores = buscarSubcarpeta(recursos, 'Colaboradores');
+  if (!colaboradores) {
+    console.log('Todavía no hay ninguna foto de perfil subida (falta la subcarpeta "Colaboradores").');
+    return;
+  }
+  console.log('Carpeta Colaboradores: ' + colaboradores.getUrl());
+  console.log('');
+
+  // Nombre de cada usuario, para no leer solo ids sueltos.
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  const datos = hoja ? hoja.getDataRange().getValues() : [];
+  const encabezados = datos.length ? datos[0] : [];
+  const colId = encabezados.indexOf('id');
+  const colNombre = encabezados.indexOf('nombre');
+  const colFoto = encabezados.indexOf('foto');
+  const porId = {};
+  for (let i = 1; i < datos.length; i++) {
+    if (colId === -1) break;
+    porId[String(datos[i][colId])] = {
+      nombre: colNombre !== -1 ? datos[i][colNombre] : '(sin nombre)',
+      foto: colFoto !== -1 ? String(datos[i][colFoto] || '') : ''
+    };
+  }
+
+  let total = 0;
+  const carpetas = colaboradores.getFolders();
+  while (carpetas.hasNext()) {
+    const carpeta = carpetas.next();
+    const id = carpeta.getName();
+    const usuario = porId[id] || { nombre: '(no está en la hoja Usuarios)', foto: '' };
+    console.log('· id ' + id + ' — ' + usuario.nombre);
+
+    const archivos = carpeta.getFiles();
+    let hayArchivos = false;
+    while (archivos.hasNext()) {
+      const archivo = archivos.next();
+      hayArchivos = true;
+      total++;
+      console.log('    archivo: ' + archivo.getName() + '  (' + archivo.getDateCreated().toLocaleString() + ')');
+      console.log('    ver:     ' + archivo.getUrl());
+      // El punto del diagnóstico: si el id de este archivo NO aparece en
+      // la celda "foto", la app está mostrando otra cosa (una subida
+      // vieja, o una URL cargada a mano en la planilla).
+      const coincide = usuario.foto.indexOf(archivo.getId()) !== -1;
+      console.log('    ¿es la que muestra la app?: ' + (coincide ? 'SÍ' : 'NO'));
+    }
+    if (!hayArchivos) console.log('    (carpeta vacía)');
+    console.log('    celda "foto" en la hoja: ' + (usuario.foto || '(vacía)'));
+    console.log('');
+  }
+
+  console.log('=== ' + total + ' archivo(s) de foto en total ===');
+}
+
+/**
  * Editar OnChange para que auto-actualice fechaModificacion
  * (Agregar a existentes onEdit/onChange handlers, o crear trigger manual)
  */
