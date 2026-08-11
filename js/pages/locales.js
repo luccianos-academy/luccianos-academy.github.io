@@ -98,13 +98,30 @@ export async function Locales() {
         { key: "acciones", label: "" },
     ];
 
-    const filas = locales.map((l) => ({
+    const armarFila = (l) => ({
         ...l,
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
         estadoBadge: badgeEstado(l),
         acciones: filaAcciones(l),
-    }));
+    });
+
+    // Propios y franquicias se operan distinto, así que la pregunta más
+    // frecuente frente a esta pantalla es "¿cuáles son los propios?".
+    // Mezclados en una sola tabla había que leer la columna Tipo fila
+    // por fila; agrupados se responde de un vistazo. Mismo patrón de
+    // secciones que ya usa "Mi equipo" al agrupar por sucursal.
+    const propios = locales.filter((l) => l.esPropio);
+    const franquicias = locales.filter((l) => !l.esPropio);
+
+    const seccion = (titulo, lista, ayuda) => `
+        <div class="section" data-tipo-seccion="${titulo}">
+            <h3>${titulo} <span class="text-sm text-muted">(${lista.length})</span></h3>
+            ${lista.length
+                ? Table(columnas, lista.map(armarFila))
+                : `<p class="text-sm text-muted">${ayuda}</p>`}
+        </div>
+    `;
 
     return `
         ${Header("Locales", "Sucursales de Lucciano's")}
@@ -115,7 +132,8 @@ export async function Locales() {
         </div>
 
         <div id="tabla-locales">
-            ${Table(columnas, filas)}
+            ${seccion("Locales propios", propios, "Ninguno marcado como propio todavía — usá el menú ⋮ de cada local para marcarlo.")}
+            ${seccion("Franquicias", franquicias, "Todos los locales están marcados como propios.")}
         </div>
     `;
 }
@@ -131,6 +149,15 @@ export function bindLocales() {
             document.querySelectorAll("#tabla-locales tbody tr").forEach((fila) => {
                 const nombre = fila.firstElementChild?.textContent.toLowerCase() || "";
                 fila.style.display = nombre.includes(filtro) ? "" : "none";
+            });
+            // Ahora que hay dos secciones, una búsqueda que no matchea
+            // nada de un grupo dejaba su título colgado sobre una tabla
+            // vacía, como si el local buscado no existiera en ningún
+            // lado. Se esconde la sección entera.
+            document.querySelectorAll("#tabla-locales .section").forEach((seccion) => {
+                const visibles = [...seccion.querySelectorAll("tbody tr")]
+                    .some((f) => f.style.display !== "none");
+                seccion.style.display = visibles ? "" : "none";
             });
         });
     }

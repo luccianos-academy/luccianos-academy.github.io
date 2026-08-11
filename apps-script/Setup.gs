@@ -93,6 +93,86 @@ function setupSyncColumns() {
 }
 
 /**
+ * LISTA DE LOCALES PROPIOS — editar acá y ejecutar marcarLocalesPropios().
+ *
+ * Pegar un nombre por línea, entre comillas y separados por coma. No
+ * hace falta que coincida exacto: compara ignorando mayúsculas, tildes
+ * y espacios de más, así "Lucciano's Agüero CABA" matchea aunque en la
+ * planilla esté escrito distinto.
+ *
+ * Todo lo que NO esté en esta lista queda como franquicia — así es como
+ * lo interpreta la app (esPropio vacío = franquicia, por descarte).
+ */
+const LOCALES_PROPIOS = [
+    // "Lucciano's Martinez GBA",
+    // "Lucciano's Olivos GBA",
+];
+
+/** Saca tildes y normaliza, para comparar nombres escritos distinto. */
+function _normalizarNombre(s) {
+    return String(s || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+/**
+ * marcarLocalesPropios() — ESTA SÍ MODIFICA la hoja Sucursales.
+ *
+ * Marca esPropio="SI" en los locales de LOCALES_PROPIOS y "NO" en el
+ * resto. Existe para no tener que marcarlos de a uno desde la app, que
+ * es lo que el usuario terminó haciendo a mano.
+ *
+ * Si la lista está vacía no toca nada — así, ejecutarla por accidente
+ * antes de cargarla no borra las marcas que ya estén puestas.
+ */
+function marcarLocalesPropios() {
+  if (!LOCALES_PROPIOS.length) {
+    console.log('La lista LOCALES_PROPIOS está vacía — no se tocó nada.');
+    console.log('Cargá los nombres arriba en este mismo archivo y volvé a ejecutar.');
+    return;
+  }
+
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+  if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+  const datos = hoja.getDataRange().getValues();
+  const headers = datos[0];
+  const colNombre = headers.indexOf('nombre');
+  const colPropio = headers.indexOf('esPropio');
+
+  if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
+  if (colPropio === -1) { console.log('Falta la columna "esPropio". Agregá ese encabezado y volvé a ejecutar.'); return; }
+
+  const buscados = LOCALES_PROPIOS.map(_normalizarNombre);
+  const encontrados = {};
+  let propios = 0, franquicias = 0;
+
+  for (let i = 1; i < datos.length; i++) {
+    const nombre = String(datos[i][colNombre] || '').trim();
+    if (!nombre) continue;
+    const idx = buscados.indexOf(_normalizarNombre(nombre));
+    const esPropio = idx !== -1;
+    if (esPropio) { encontrados[idx] = true; propios++; } else { franquicias++; }
+    hoja.getRange(i + 1, colPropio + 1).setValue(esPropio ? 'SI' : 'NO');
+  }
+
+  console.log('✓ ' + propios + ' local(es) marcados como PROPIOS');
+  console.log('✓ ' + franquicias + ' quedaron como FRANQUICIAS');
+
+  // Un nombre de la lista que no matcheó ninguna fila casi siempre es un
+  // typo, y en silencio se traduce en un local que quedó mal clasificado.
+  const sinMatch = LOCALES_PROPIOS.filter(function (_, i) { return !encontrados[i]; });
+  if (sinMatch.length) {
+    console.log('');
+    console.log('⚠️  Estos nombres de la lista NO existen en la hoja Sucursales:');
+    sinMatch.forEach(function (n) { console.log('    "' + n + '"'); });
+    console.log('    Revisá cómo están escritos en la planilla — quedaron sin marcar.');
+  }
+}
+
+/**
  * revisarAccesos() — diagnóstico, NO modifica nada.
  *
  * Foto del estado de accesos de toda la nómina, para decidir a quién
