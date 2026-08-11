@@ -9,6 +9,32 @@ function iniciales(nombre) {
     return String(nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
 }
 
+/**
+ * Pedirle a Drive una foto del tamaño que se va a DIBUJAR.
+ *
+ * subirFotoPerfil (apps-script/Code.gs) guarda la URL con "sz=w640", y
+ * los avatares se muestran entre 28 y 48 px. Medido el 2026-08-09: esa
+ * misma imagen pesa 71.591 bytes a w640 y 16.519 a w160 — o sea que
+ * la lista de Colaboradores estaba bajando más de 3 MB de fotos para
+ * mostrarlas del tamaño de una moneda. De ahí que "cuesta tanto en
+ * cargar", y que algunas ni aparezcan: la que no llega a tiempo cae al
+ * fallback de iniciales.
+ *
+ * 160 px cubre el avatar más grande (48 px) incluso en pantallas
+ * retina, que piden el doble. Se reescribe al RENDERIZAR, no al
+ * guardar, así también achica las fotos que ya están cargadas en la
+ * planilla sin tener que tocarlas.
+ */
+const ANCHO_AVATAR = 160;
+
+function fotoDelTamanoJusto(url) {
+    return String(url || "")
+        // https://drive.google.com/thumbnail?id=X&sz=w640
+        .replace(/([?&]sz=w)\d+/, `$1${ANCHO_AVATAR}`)
+        // https://lh3.googleusercontent.com/d/X=w640
+        .replace(/=w\d+(-h\d+)?$/, `=w${ANCHO_AVATAR}`);
+}
+
 export function Avatar({ nombre, foto, size = "md" }) {
     const inicial = iniciales(nombre);
     const clases = `publicacion-avatar publicacion-avatar-${size}`;
@@ -27,10 +53,13 @@ export function Avatar({ nombre, foto, size = "md" }) {
     // deja inyectar un onerror que corre en la sesión de quien mire la
     // pantalla — y la lista de Colaboradores la mira un admin.
     const nombreSeguro = escaparHtml(nombre);
-    const fotoSegura = urlSegura(foto);
+    const fotoSegura = urlSegura(fotoDelTamanoJusto(foto));
 
     if (fotoSegura) {
-        return `<img class="${clases} avatar-foto" src="${fotoSegura}" alt="${nombreSeguro}" title="${nombreSeguro}" style="object-fit:cover">`;
+        // loading="lazy": en una lista de 45 personas el navegador
+        // arrancaba las 45 descargas de una. decoding="async" evita que
+        // decodificar la imagen frene el dibujado de la fila.
+        return `<img class="${clases} avatar-foto" src="${fotoSegura}" alt="${nombreSeguro}" title="${nombreSeguro}" loading="lazy" decoding="async" style="object-fit:cover">`;
     }
 
     return `<span class="${clases}" title="${nombreSeguro}">${inicial}</span>`;
@@ -61,6 +90,19 @@ export function bindAvatarFallback() {
     document.addEventListener("error", (evento) => {
         const img = evento.target;
         if (!(img instanceof HTMLImageElement) || !img.classList.contains("avatar-foto")) return;
+
+        // Un reintento antes de rendirse. Drive falla de forma pasajera
+        // —sobre todo con una foto recién subida, o con muchas cargando
+        // a la vez— y la primera versión de esto reemplazaba por las
+        // iniciales al primer error, para siempre: la foto existía y
+        // cargaba bien un segundo después, pero ya nadie la volvía a
+        // pedir. Se ve como "no me aparece la foto".
+        if (!img.dataset.reintento) {
+            img.dataset.reintento = "1";
+            const url = img.src;
+            setTimeout(() => { img.src = url + (url.includes("?") ? "&" : "?") + "r=" + Date.now(); }, 1200);
+            return;
+        }
 
         const span = document.createElement("span");
         // Se conservan las clases de tamaño (publicacion-avatar-sm/lg/xl)

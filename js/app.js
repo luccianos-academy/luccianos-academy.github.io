@@ -6,6 +6,7 @@
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
 import { bindAvatarFallback } from "./components/avatar.js";
+import { iniciarChequeoDeVersion } from "./services/actualizacion.js";
 import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
@@ -56,6 +57,9 @@ async function initApp() {
         // Antes de que se pinte cualquier avatar: si una foto no carga,
         // caer a las iniciales en vez del ícono de imagen rota.
         bindAvatarFallback();
+        // Avisa si se publicó una versión nueva mientras la app estaba
+        // abierta — instalada como PWA no hay forma de darse cuenta.
+        iniciarChequeoDeVersion();
         
         console.log('[APP] ✅ App fully initialized');
     } catch (err) {
