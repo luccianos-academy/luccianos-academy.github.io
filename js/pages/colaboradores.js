@@ -65,6 +65,7 @@ import { navigate } from "../router.js";
 import { Avatar } from "../components/avatar.js";
 import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, mapaLecciones, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
+import { escaparHtml } from "../services/html.js";
 
 const DIAS_ACCESO_INICIAL = 30;
 const DIAS_AVISO_VENCIMIENTO = 7;
@@ -337,6 +338,22 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
             // +30 y se terminaba recurriendo a "Hacer permanente".
             ? [`<button class="menu-acciones-item" data-renovar="${colaborador.id}">Renovar (+${DIAS_ACCESO_INICIAL} días)</button>`]
             : [`<button class="menu-acciones-item" data-deshabilitar="${colaborador.id}">Deshabilitar</button>`];
+
+        // Colaborador que quedó PERMANENTE de antes (celda de vencimiento
+        // vacía). Al sacar "Hacer permanente" quedó sin su inverso: no
+        // había ninguna forma de devolverlo al modelo de renovación por
+        // uso, y encima la renovación automática no lo alcanza (solo
+        // corre una fecha que ya existe). Reportado en vivo: "revisá a
+        // estos dos que están en permanente y no puedo cambiarlo".
+        // Solo para rol colaborador: en un supervisor o admin el acceso
+        // sin vencimiento es lo correcto, no algo que haya que "quitar".
+        // Hoy este menú solo lo usan filas de colaborador, pero dejarlo
+        // explícito evita que reusarlo en otra tabla ofrezca degradar a
+        // un supervisor sin querer.
+        if (!colaborador.fechaVencimientoAcceso && colaborador.rol === "colaborador") {
+            itemsAcceso.push(`<button class="menu-acciones-item" data-quitar-permanente="${colaborador.id}">Quitar permanente (+${DIAS_ACCESO_INICIAL} días)</button>`);
+        }
+
         grupos.push({ titulo: "Acceso", items: itemsAcceso });
     }
 
@@ -361,9 +378,13 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
 /** Checkbox de selección para "Enviar mail" (ver bindEnviarMail) — se
  *  suma como primera columna solo para Admin (ver COLUMNAS_BASE),
  *  nunca para Supervisor/Encargado. */
-function checkboxMail(email, nombre) {
+/** El mismo checkbox sirve para mandar mails y para las acciones de
+ *  acceso en bloque, así que lleva también el id: sin él, "renovar a
+ *  los seleccionados" tendría que resolver cada email contra la nómina
+ *  otra vez. */
+function checkboxMail(id, email, nombre) {
     if (!email) return "";
-    return `<input type="checkbox" class="mail-check" style="width:auto" data-mail-email="${email}" data-mail-nombre="${nombre}">`;
+    return `<input type="checkbox" class="mail-check" style="width:auto" data-mail-id="${id}" data-mail-email="${email}" data-mail-nombre="${escaparHtml(nombre)}">`;
 }
 
 const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
@@ -442,7 +463,7 @@ function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, curs
     return {
         ...c,
         nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
-        seleccion: checkboxMail(c.email, c.nombre),
+        seleccion: checkboxMail(c.id, c.email, c.nombre),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
         progresoBadge: badgeProgreso(progreso),
@@ -519,7 +540,7 @@ function filaAccionesGenerico(u) {
 function filaUsuarioGenerico(u) {
     return {
         ...u,
-        seleccion: checkboxMail(u.email, u.nombre),
+        seleccion: checkboxMail(u.id, u.email, u.nombre),
         rolBadge: rolLabelGenerico(u),
         sucursalLabel: u.sucursal || "—",
         estadoBadge: badgeEstadoGenerico(u),
@@ -822,6 +843,8 @@ export async function Colaboradores() {
             <div class="barra-enviar-mail">
                 <label class="text-sm"><input type="checkbox" id="chk-mail-todos" style="width:auto">Seleccionar todos los visibles</label>
                 <button class="btn btn-secondary" id="btn-enviar-mail">✉ Enviar mail</button>
+                <button class="btn btn-secondary" id="btn-lote-renovar">Dar acceso ${DIAS_ACCESO_INICIAL} días</button>
+                <button class="btn btn-secondary" id="btn-lote-deshabilitar">Quitar acceso</button>
             </div>
         ` : ""}
 
@@ -991,6 +1014,73 @@ export function bindColaboradores() {
         abrirModalEnviarMail(destinatarios);
     });
 
+    // ---- Acciones de acceso en bloque ----
+    //
+    // Pedido concreto: restaurar el acceso de decenas de personas de una,
+    // en vez de abrir el menú ⋮ de cada fila. Se combina con los filtros
+    // de arriba (Activos / Inactivos / Encargados) y el buscador, así
+    // "seleccionar todos los visibles" ya deja el grupo que se quiere.
+    //
+    // A DIFERENCIA de "Enviar mail", acá NO se cae a "todos los visibles"
+    // cuando no hay nada tildado: mandar un mail de más se perdona, dar o
+    // quitar acceso a 45 personas sin querer, no.
+    async function accionEnLote(accion, etiqueta, cambiosDe, boton) {
+        const marcados = checksVisibles(panelActivo()).filter((chk) => chk.checked);
+        if (!marcados.length) {
+            alert("Primero tildá a quiénes querés aplicarles la acción.");
+            return;
+        }
+
+        const nombres = marcados.map((chk) => chk.dataset.mailNombre);
+        const muestra = nombres.slice(0, 8).join("\n· ");
+        const resto = nombres.length > 8 ? `\n…y ${nombres.length - 8} más` : "";
+        if (!confirm(`${etiqueta} a ${nombres.length} persona(s):\n\n· ${muestra}${resto}\n\n¿Confirmás?`)) return;
+
+        const textoOriginal = boton.textContent;
+        boton.disabled = true;
+
+        // Secuencial a propósito: cada guardado es una llamada a Apps
+        // Script de ~1,5s y en paralelo se lo satura. Además, un
+        // Promise.all abortaría todo el lote apenas falla uno y no se
+        // sabría cuáles quedaron hechos (el mismo problema que ya nos
+        // pasó mandando pushes de News).
+        const fallaron = [];
+        for (let i = 0; i < marcados.length; i++) {
+            boton.textContent = `Procesando ${i + 1}/${marcados.length}...`;
+            const id = marcados[i].dataset.mailId;
+            try {
+                const r = await actualizarUsuario(id, cambiosDe());
+                if (!r || r.ok === false) fallaron.push(nombres[i]);
+            } catch (err) {
+                fallaron.push(nombres[i]);
+            }
+        }
+
+        boton.textContent = textoOriginal;
+        boton.disabled = false;
+
+        const hechos = marcados.length - fallaron.length;
+        registrarEvento(getUsuarioActual().id, accion, `${etiqueta} en bloque: ${hechos} de ${marcados.length}`);
+
+        if (fallaron.length) {
+            alert(`Se aplicó a ${hechos} de ${marcados.length}.\n\nNo se pudo con:\n· ${fallaron.join("\n· ")}`);
+        }
+        navigate("colaboradores");
+    }
+
+    document.getElementById("btn-lote-renovar")?.addEventListener("click", (e) => {
+        accionEnLote(
+            "renovar_acceso_lote",
+            `Dar acceso por ${DIAS_ACCESO_INICIAL} días`,
+            () => ({ activo: "SI", fechaVencimientoAcceso: sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL) }),
+            e.currentTarget,
+        );
+    });
+
+    document.getElementById("btn-lote-deshabilitar")?.addEventListener("click", (e) => {
+        accionEnLote("deshabilitar_acceso_lote", "Quitar el acceso", () => ({ activo: "NO" }), e.currentTarget);
+    });
+
     document.querySelectorAll("[data-renovar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const id = btn.dataset.renovar;
@@ -1010,11 +1100,21 @@ export function bindColaboradores() {
             // se le da una ventana nueva, igual que un alta.
             const cambios = { activo: "SI" };
             const vencimiento = c?.fechaVencimientoAcceso || "";
-            const yaVencido = vencimiento && diasEntre(fechaHoyISO(), vencimiento) <= 0;
-            // Sin fecha = acceso permanente: no se le pone una ahora,
-            // sería degradarlo sin que nadie lo pida. Con fecha futura
-            // se respeta la que ya tenía.
-            if (yaVencido) cambios.fechaVencimientoAcceso = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
+            const tieneFechaFutura = vencimiento && diasEntre(fechaHoyISO(), vencimiento) > 0;
+            // Se le da ventana nueva salvo que ya tenga una fecha futura
+            // (ahí se respeta la que tiene, no se le acorta).
+            //
+            // Un COLABORADOR sin fecha también entra acá a propósito.
+            // Antes se lo dejaba permanente "para no degradarlo sin que
+            // nadie lo pida", pero eso era del modelo viejo: hoy
+            // permanente es el estado que se quiere evitar, y además la
+            // renovación automática no alcanza a quien no tiene fecha
+            // (solo corre una que ya exista). Para supervisor/admin sí se
+            // respeta el permanente, que en ellos es lo correcto.
+            const esColaborador = !c || c.rol === "colaborador";
+            if (!tieneFechaFutura && (vencimiento || esColaborador)) {
+                cambios.fechaVencimientoAcceso = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
+            }
 
             // Si el backend rechaza el guardado devuelve {ok:false} sin
             // tirar excepción — sin este chequeo la pantalla se recargaba
@@ -1026,6 +1126,23 @@ export function bindColaboradores() {
                 return;
             }
             registrarEvento(getUsuarioActual().id, "renovar_acceso", `Acceso renovado (usuario ${id})${cambios.fechaVencimientoAcceso ? ` — nuevo vencimiento: ${cambios.fechaVencimientoAcceso}` : ""}`);
+            navigate("colaboradores");
+        });
+    });
+
+    // Devuelve al modelo de renovación por uso a un colaborador que
+    // había quedado permanente. Sin esto no había ninguna forma de
+    // sacarle el "Permanente" desde la app.
+    document.querySelectorAll("[data-quitar-permanente]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const id = btn.dataset.quitarPermanente;
+            const nuevaFecha = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
+            const guardado = await actualizarUsuario(id, { fechaVencimientoAcceso: nuevaFecha, activo: "SI" });
+            if (!guardado || guardado.ok === false) {
+                alert(guardado?.error || "No se pudo cambiar el acceso. Probá de nuevo.");
+                return;
+            }
+            registrarEvento(getUsuarioActual().id, "quitar_permanente", `Acceso permanente convertido a ${DIAS_ACCESO_INICIAL} días (usuario ${id}) — vence ${nuevaFecha}`);
             navigate("colaboradores");
         });
     });
