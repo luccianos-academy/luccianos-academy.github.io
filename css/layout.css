@@ -535,6 +535,35 @@
     background:var(--black);
 }
 
+/* Refrescar: más chico que la hamburguesa y sin fondo, para que no
+   compita con la campana (que sí lleva contador y es la acción
+   principal de la barra). */
+.topbar-refrescar{
+    width:36px;
+    height:36px;
+    background:transparent;
+    color:var(--text-muted);
+}
+
+.topbar-refrescar:hover{
+    background:transparent;
+    color:var(--gold);
+}
+
+/* Gira mientras baja datos — sin esto un toque no da ninguna señal de
+   que algo esté pasando, y se termina tocando tres veces. */
+.topbar-refrescar.girando .icon{
+    animation:girar-refresco .8s linear infinite;
+}
+
+@keyframes girar-refresco{
+    to{ transform:rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce){
+    .topbar-refrescar.girando .icon{ animation:none; opacity:.5; }
+}
+
 .topbar-logo{
     flex:1;
     display:flex;

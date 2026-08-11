@@ -58,6 +58,13 @@ export function invalidar(hoja) {
     delete cache[hoja];
 }
 
+/** Tira TODO el cache en memoria de una. Lo usa el botón de refrescar
+ *  (components/topbar.js): sin esto, invalidar hoja por hoja desde
+ *  afuera obligaría a quien llame a conocer la lista de hojas. */
+export function invalidarTodo() {
+    Object.keys(cache).forEach((hoja) => delete cache[hoja]);
+}
+
 // Fetch con IndexedDB como capa principal
 export async function fetchSheet(hoja, mockRows) {
     if (USE_MOCK_DATA) return structuredClone(mockRows);

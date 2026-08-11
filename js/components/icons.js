@@ -38,6 +38,11 @@ const PATHS = {
 
     configuracion: `<circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.8 6.2l-1.6 1.6M7.8 16.2l-1.6 1.6M17.8 17.8l-1.6-1.6M7.8 7.8 6.2 6.2"/>`,
 
+    // Flecha circular clásica de "recargar" — instalada como PWA la app
+    // no tiene barra de direcciones, así que este es el único refresh
+    // disponible.
+    refrescar: `<path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 4.5V10h-5.5"/>`,
+
     // Cámara — botón flotante de "subir foto" (Mi perfil).
     camara: `<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1-2h7l1 2h2A1.5 1.5 0 0 1 20 8.5v9A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5Z"/><circle cx="12" cy="13" r="3.3"/>`,
 

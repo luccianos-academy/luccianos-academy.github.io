@@ -12,6 +12,7 @@ import { renderLayout, renderFullScreen, Placeholder } from "./ui.js";
 import { MascotaCarga } from "./components/mascotaCarga.js";
 import { bindInstallBanner } from "./components/installBanner.js";
 import { bindMaestro } from "./components/maestro.js";
+import { bindRefrescar } from "./components/topbar.js";
 import { haySesion, puedeAccederA, getUsuarioActual, logout, volverAAdmin } from "./services/auth.js";
 import { obtenerMiUsuario } from "./data/usuarios.js";
 
@@ -147,6 +148,7 @@ async function renderRuta(path, ruta, params) {
     if (ruta.bind) ruta.bind(params);
 
     bindSidebar();
+    bindRefrescar();
 }
 
 function bindSidebar() {
