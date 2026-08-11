@@ -16,6 +16,7 @@ import { getLecciones, getLeccionesPorCurso, crearLeccion, actualizarLeccion, el
 import { getPreguntasPorCurso, eliminarPregunta } from "../data/evaluaciones.js";
 import { getAsignaciones, eliminarAsignacion } from "../data/asignaciones.js";
 import { getResultados, eliminarResultado } from "../data/resultados.js";
+import { LeccionEditable, bindLeccionEditable } from "../components/leccionEditable.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
@@ -266,17 +267,65 @@ async function abrirModalLecciones(cursoId) {
     });
 }
 
+/**
+ * Editar una lección VIÉNDOLA como la ve un colaborador.
+ *
+ * Antes esto abría un formulario de once campos: se editaba a ciegas y
+ * había que ir a #/cursos para ver el resultado — dos pantallas para
+ * una sola tarea. Ahora se dibuja la lección con el mismo lenguaje
+ * visual que la real, y cada bloque tiene su lápiz.
+ *
+ * Los campos de configuración (video, manual, imagen, orden, duración)
+ * siguen en el formulario completo, accesible desde el botón de abajo:
+ * no son contenido que se lea, así que verlos renderizados no aporta
+ * nada y mezclarlos ensuciaría la vista.
+ */
 async function abrirModalEditarLeccion(leccion) {
 
     const modalId = "modal-editar-leccion";
-    const contenidoHtml = camposLeccionHtml(leccion);
+    const contenidoHtml = `
+        <p class="text-xs text-muted" style="margin:0 0 12px">Tocá el lápiz de cada bloque para editarlo. Se guarda de a uno.</p>
+        ${LeccionEditable(leccion)}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+            <button class="btn btn-sutil" type="button" id="btn-campos-tecnicos">Video, manual, imagen y orden</button>
+        </div>
+    `;
 
-    abrirModal(Modal({ id: modalId, titulo: `Editar: ${leccion.titulo}`, contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
+    // Cada sección guarda sola, así que no hay un "Guardar" global que
+    // pueda perder algo: el botón principal solo cierra y recarga la
+    // pantalla de atrás, para que la lista muestre los títulos nuevos.
+    abrirModal(Modal({ id: modalId, titulo: leccion.titulo, contenidoHtml, textoConfirmar: "Listo" }), modalId, async () => {
+        cerrarModal(modalId);
+        navigate("academia");
+    });
+    bindLeccionEditable(leccion, {
+        alGuardar: (campo) => {
+            registrarEvento(getUsuarioActual().id, "editar_leccion", `Lección "${leccion.titulo}" — campo "${campo}" editado`);
+        },
+    });
+
+    document.getElementById("btn-campos-tecnicos")?.addEventListener("click", () => {
+        cerrarModal(modalId);
+        abrirModalCamposTecnicos(leccion);
+    });
+}
+
+/** El formulario completo de siempre, ahora solo para lo que no es
+ *  contenido de lectura. Se conserva entero — crear una lección nueva
+ *  lo sigue usando tal cual. */
+async function abrirModalCamposTecnicos(leccion) {
+    const modalId = "modal-campos-leccion";
+
+    abrirModal(Modal({ id: modalId, titulo: `Ajustes: ${leccion.titulo}`, contenidoHtml: camposLeccionHtml(leccion), textoConfirmar: "Guardar" }), modalId, async () => {
 
         const cambios = leerCamposLeccion();
         if (!cambios.titulo) return;
 
-        await actualizarLeccion(leccion.id, cambios);
+        const r = await actualizarLeccion(leccion.id, cambios);
+        if (!r || r.ok === false) {
+            alert(r?.error || "No se pudo guardar. Probá de nuevo.");
+            return;
+        }
         registrarEvento(getUsuarioActual().id, "editar_leccion", `Lección "${cambios.titulo}" editada`);
 
         cerrarModal(modalId);
