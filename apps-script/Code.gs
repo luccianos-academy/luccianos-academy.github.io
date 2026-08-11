@@ -515,9 +515,28 @@ function escribir(hoja, fila, usuarioActual) {
     return _escribirCrudo(hoja, fila);
 }
 
+/** Campos que CUALQUIER usuario autenticado puede cambiar en SU PROPIA
+ *  fila de Usuarios, sin importar el rol: su foto de perfil y la marca
+ *  de "ya vi la historia". Todo lo demás (rol, sucursal, activo,
+ *  vencimiento) sigue siendo exclusivo de admin/supervisor.
+ *  fechaModificacion viaja en todo payload (lo agrega dataSource.js),
+ *  así que va en la lista o el autoservicio nunca pasaría. */
+const CAMPOS_AUTOSERVICIO_USUARIOS = ["foto", "historiaVista", "fechaModificacion"];
+
+/** true si es el propio usuario tocando solo sus campos de autoservicio
+ *  — el caso "subo mi foto de perfil", que si no caía en el chequeo de
+ *  rol y devolvía "No tenés permiso para actualizar en Usuarios". */
+function _esAutoservicioUsuarios(hoja, id, cambios, usuarioActual) {
+    if (hoja !== "Usuarios") return false;
+    if (String(id) !== String(usuarioActual.id)) return false;
+    return Object.keys(cambios).every((k) => CAMPOS_AUTOSERVICIO_USUARIOS.indexOf(k) !== -1);
+}
+
 function actualizar(hoja, id, cambios, usuarioActual) {
-    const permiso = _autorizarEscritura(hoja, "actualizar", usuarioActual);
-    if (!permiso.ok) return permiso;
+    if (!_esAutoservicioUsuarios(hoja, id, cambios, usuarioActual)) {
+        const permiso = _autorizarEscritura(hoja, "actualizar", usuarioActual);
+        if (!permiso.ok) return permiso;
+    }
 
     cambios = Object.assign({}, cambios);
 

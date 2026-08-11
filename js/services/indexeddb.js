@@ -186,16 +186,34 @@ class IndexedDBManager {
     });
   }
 
+  // IndexedDB distingue el TIPO de la clave: el número 5 y el texto "5"
+  // son claves distintas. Los ids llegan como texto cuando vienen de un
+  // data-attribute del DOM, y como número cuando vienen del JSON del
+  // Sheet — así que toda búsqueda por clave prueba ambas formas.
+  _clavesPosibles(id) {
+    const claves = [id];
+    const comoNumero = Number(id);
+    if (!Number.isNaN(comoNumero) && String(comoNumero) === String(id)) claves.push(comoNumero);
+    claves.push(String(id));
+    return claves;
+  }
+
   // Get single record by ID
   async getRecord(storeName, id) {
     if (!this.db) await this.init();
+    const claves = this._clavesPosibles(id);
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([storeName], 'readonly');
       const store = transaction.objectStore(storeName);
-      const request = store.get(id);
+      let encontrado = null;
 
-      request.onsuccess = () => resolve(request.result || null);
-      request.onerror = () => reject(request.error);
+      claves.forEach((clave) => {
+        const request = store.get(clave);
+        request.onsuccess = () => { if (!encontrado && request.result) encontrado = request.result; };
+      });
+
+      transaction.oncomplete = () => resolve(encontrado);
+      transaction.onerror = () => reject(transaction.error);
     });
   }
 
@@ -226,19 +244,11 @@ class IndexedDBManager {
     });
   }
 
-  // Borrar un registro puntual.
-  //
-  // IndexedDB distingue el TIPO de la clave: el número 5 y el texto "5"
-  // son claves distintas. Los ids llegan como texto cuando vienen de un
-  // data-attribute del DOM, y como número cuando vienen del JSON del
-  // Sheet — así que se intenta con ambas formas, si no el borrado
-  // "funcionaba" sin borrar nada.
+  // Borrar un registro puntual (probando las dos formas de la clave,
+  // ver _clavesPosibles — si no, el borrado "funcionaba" sin borrar nada).
   async deleteRecord(storeName, id) {
     if (!this.db) await this.init();
-    const claves = [id];
-    const comoNumero = Number(id);
-    if (!Number.isNaN(comoNumero) && String(comoNumero) === String(id)) claves.push(comoNumero);
-    claves.push(String(id));
+    const claves = this._clavesPosibles(id);
 
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction([storeName], 'readwrite');
