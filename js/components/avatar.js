@@ -35,3 +35,41 @@ export function Avatar({ nombre, foto, size = "md" }) {
 
     return `<span class="${clases}" title="${nombreSeguro}">${inicial}</span>`;
 }
+
+/**
+ * Si la foto no carga, mostrar las iniciales en vez del ícono de imagen
+ * rota del navegador.
+ *
+ * Pasa de verdad y es transitorio: Drive tarda un rato en servir el
+ * thumbnail de un archivo recién subido, así que justo después de
+ * cambiar la foto de perfil la URL ya está guardada pero todavía no
+ * devuelve la imagen. Visto en vivo el 2026-08-09 — primero ícono roto,
+ * después la foto vieja, y recién ahí la nueva. Un ícono roto parece un
+ * error de la app; las iniciales son el estado que la app ya muestra
+ * cuando alguien no tiene foto, así que no llama la atención.
+ *
+ * Se engancha UNA vez a nivel documento en fase de captura: los eventos
+ * "error" de <img> no burbujean, pero sí se pueden capturar. Así funciona
+ * para cualquier avatar, incluso los que se pintan después — no hace
+ * falta que cada pantalla lo recuerde.
+ *
+ * A propósito NO se usa un onerror inline en el HTML: el nombre viene de
+ * la planilla, y meterlo dentro de un atributo de evento reabriría
+ * exactamente el agujero de inyección que services/html.js cerró.
+ */
+export function bindAvatarFallback() {
+    document.addEventListener("error", (evento) => {
+        const img = evento.target;
+        if (!(img instanceof HTMLImageElement) || !img.classList.contains("avatar-foto")) return;
+
+        const span = document.createElement("span");
+        // Se conservan las clases de tamaño (publicacion-avatar-sm/lg/xl)
+        // sacando solo la de la foto, así el círculo no cambia de tamaño
+        // al caer al fallback.
+        span.className = [...img.classList].filter((c) => c !== "avatar-foto").join(" ");
+        span.title = img.alt || "";
+        // textContent, no innerHTML: img.alt salió de la planilla.
+        span.textContent = iniciales(img.alt);
+        img.replaceWith(span);
+    }, true);
+}

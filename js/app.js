@@ -5,6 +5,7 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
+import { bindAvatarFallback } from "./components/avatar.js";
 import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
@@ -35,6 +36,9 @@ async function initApp() {
         console.log('[APP] Initializing Router...');
         initRouter();
         bindTooltips();
+        // Antes de que se pinte cualquier avatar: si una foto no carga,
+        // caer a las iniciales en vez del ícono de imagen rota.
+        bindAvatarFallback();
         
         console.log('[APP] ✅ App fully initialized');
     } catch (err) {
