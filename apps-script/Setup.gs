@@ -17,26 +17,36 @@ function setupSyncColumns() {
         return;
       }
       
-      // Buscar si ya existe la columna
+      // El backend busca la columna con headers.indexOf('fechaModificacion'),
+      // que distingue mayúsculas. Un encabezado escrito "FechaModificacion"
+      // parece correcto en la planilla pero para _actualizarCrudo no existe,
+      // y TODAS las escrituras de esa hoja fallan. Por eso, si aparece con
+      // otra capitalización, se corrige en vez de darla por buena.
       const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-      const existeFechaModificacion = headers.some(h => String(h).toLowerCase() === 'fechamodificacion');
-      
-      if (existeFechaModificacion) {
-        console.log(`✓ ${nombreHoja}: columna fechaModificacion ya existe`);
+      const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'fechamodificacion');
+
+      if (indice !== -1) {
+        if (headers[indice] === 'fechaModificacion') {
+          console.log(`✓ ${nombreHoja}: columna fechaModificacion ya existe`);
+        } else {
+          hoja.getRange(1, indice + 1).setValue('fechaModificacion');
+          console.log(`✓ ${nombreHoja}: encabezado corregido ("${headers[indice]}" → "fechaModificacion")`);
+        }
         return;
       }
-      
+
       // Agregar columna al final
       const ultimaColumna = hoja.getLastColumn() + 1;
       hoja.getRange(1, ultimaColumna).setValue('fechaModificacion');
-      
-      // Llenar con NOW() para todas las filas existentes
-      const ultimaFila = hoja.getLastRow();
-      if (ultimaFila > 1) {
-        const rango = hoja.getRange(2, ultimaColumna, ultimaFila - 1);
-        rango.setFormula('=NOW()');
-      }
-      
+
+      // Las filas existentes quedan VACÍAS a propósito. Antes se rellenaban
+      // con =NOW(), que es volátil: se recalcula con cada cambio de la
+      // planilla, así que el valor no significaba "cuándo se modificó esta
+      // fila" sino "cuándo se miró". Con 8 hojas llenas de esa fórmula la
+      // planilla recalcula todo el tiempo sin aportar nada. Vacío es
+      // correcto: el backend escribe el timestamp real en la primera
+      // actualización de cada fila, y el sync ya no compara por este campo
+      // (baja la hoja entera y reemplaza la copia local).
       console.log(`✓ ${nombreHoja}: columna agregada en columna ${ultimaColumna}`);
     } catch (err) {
       console.error(`✗ Error en ${nombreHoja}:`, err.message);
