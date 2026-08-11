@@ -34,6 +34,22 @@ const GOOGLE_CLIENT_ID = "801785311174-1kkcf884hdac9s1a6og2kum1joogme4t.apps.goo
 
 const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
 
+/**
+ * Versión de ESTE archivo, devuelta por doGet().
+ *
+ * Existe por un problema concreto y repetido: pegar el código en el
+ * editor de Apps Script NO cambia lo que sirve el web app — eso recién
+ * pasa al crear una "Nueva versión" de la implementación. Cuando ese
+ * paso se saltea, el síntoma es que el arreglo "no funciona", y para
+ * distinguirlo de un bug real había que probar a mano desde adentro de
+ * la app, con sesión iniciada.
+ *
+ * Con esto alcanza con abrir la URL /exec en el navegador: si el número
+ * no coincide con el de este archivo, la implementación quedó vieja y
+ * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
+ */
+const BACKEND_VERSION = "1.3.2";
+
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
 // Los matices que no entran en una tabla (crear un supervisor/admin es
@@ -136,7 +152,11 @@ function _despachar(body, usuarioActual) {
  *  expone ningún dato — solo confirma que el backend está vivo. */
 function doGet() {
     return ContentService
-        .createTextOutput(JSON.stringify({ ok: true, mensaje: "Lucciano's Academy backend activo" }))
+        .createTextOutput(JSON.stringify({
+            ok: true,
+            mensaje: "Lucciano's Academy backend activo",
+            version: BACKEND_VERSION,
+        }))
         .setMimeType(ContentService.MimeType.JSON);
 }
 

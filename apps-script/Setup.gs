@@ -93,6 +93,62 @@ function setupSyncColumns() {
 }
 
 /**
+ * probarVisibilidadUsuarios() — diagnóstico, no modifica nada.
+ *
+ * Responde "¿el filtro de lectura está realmente activo?" sin tener que
+ * entrar a la app ni abrir la consola del navegador. Corre la misma
+ * función leer() que usa el backend, con la sesión de cada persona, y
+ * muestra cuántas filas le tocan.
+ *
+ * OJO — esto ejecuta el código GUARDADO en el editor, que puede ser más
+ * nuevo que el IMPLEMENTADO. Si acá da bien pero en la app no, lo que
+ * falta es "Nueva versión" de la implementación. Para saber qué versión
+ * está publicada, abrí la URL /exec en el navegador y mirá "version"
+ * (BACKEND_VERSION en Code.gs).
+ *
+ * Ejecutar: elegir esta función y darle Ejecutar. Después: Ver → Registros.
+ */
+function probarVisibilidadUsuarios() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  const total = _filasComoObjetos(hoja).length;
+  console.log('Filas totales en la hoja Usuarios: ' + total);
+  console.log('');
+
+  const usuarios = _filasComoObjetos(hoja);
+  let probados = 0;
+
+  usuarios.forEach(function (fila) {
+    const email = String(fila.email || '').trim().toLowerCase();
+    if (!email) return;
+    // Una muestra por tipo de usuario alcanza; recorrer los 45 llena el
+    // log sin agregar información.
+    const rol = String(fila.rol || '').trim().toLowerCase();
+    const esEncargado = String(fila.encargado || '').trim().toUpperCase() === 'SI';
+    const clave = rol + (esEncargado ? '-encargado' : '');
+    probarVisibilidadUsuarios._vistos = probarVisibilidadUsuarios._vistos || {};
+    if (probarVisibilidadUsuarios._vistos[clave]) return;
+    probarVisibilidadUsuarios._vistos[clave] = true;
+
+    const sesion = _usuarioDeSesion(email);
+    if (!sesion) return;
+    const visibles = leer('Usuarios', sesion);
+    const cantidad = Array.isArray(visibles) ? visibles.length : 0;
+
+    const esperado = (rol === 'admin' || rol === 'supervisor') ? total
+      : esEncargado ? 'los de su sucursal' : 1;
+
+    console.log('· ' + sesion.nombre + ' (' + rol + (esEncargado ? ', encargado' : '') + ')');
+    console.log('    ve ' + cantidad + ' de ' + total + ' — esperado: ' + esperado);
+    probados++;
+  });
+
+  probarVisibilidadUsuarios._vistos = null;
+  console.log('');
+  console.log('=== ' + probados + ' tipo(s) de usuario probados ===');
+  console.log('Si un colaborador raso ve más de 1, el filtro NO está activo.');
+}
+
+/**
  * dondeEstanLasFotos() — diagnóstico, no modifica nada.
  *
  * Responde "¿dónde carajo se guardan las fotos de perfil?" sin tener
