@@ -7,6 +7,19 @@
 ============================*/
 
 import { getUsuarios } from "../data/usuarios.js";
+import { escaparHtml } from "../services/html.js";
+
+/** Cuántas opciones se listan de una. El resto se alcanza escribiendo:
+ *  con la nómina entera (no solo supervisores) una lista sin límite es
+ *  inmanejable, pero cortar en silencio hacía parecer que faltaba
+ *  gente — por eso abajo se avisa cuántas quedaron afuera. */
+const MAX_SUGERENCIAS = 12;
+
+function etiquetaRol(u) {
+    if (u.rol === "admin") return "Admin";
+    if (u.rol === "supervisor") return u.capacitador ? "Capacitador" : "Supervisor";
+    return u.encargado ? "Encargado" : "Colaborador";
+}
 
 export function MultiSelectUsuarios(inputId, valoresIniciales = []) {
     return `
@@ -32,17 +45,31 @@ export async function bindMultiSelectUsuarios(inputId) {
     const hidden = document.getElementById(inputId);
     if (!wrap || !buscar || !list || !chips || !hidden) return;
 
+    // ANTES acá se filtraba por rol supervisor/admin, dejando afuera a
+    // TODOS los colaboradores — con lo cual "usuarios específicos" no
+    // podía dirigirse justamente a la gente para la que existe News.
+    // Parecía una restricción de permisos ("no lee toda la nómina"),
+    // pero era un filtro de más: puedeVerNoticia() (data/noticias.js)
+    // resuelve por id, sin mirar el rol, así que cualquier usuario
+    // siempre pudo ser destinatario.
     const usuarios = await getUsuarios();
-    const usuariosPorRol = usuarios.filter((u) => u.rol === "supervisor" || u.rol === "admin");
+
+    // Para ELEGIR se ofrecen solo los activos: mandarle una News a
+    // alguien sin acceso no le llega a nadie. Para MOSTRAR los chips ya
+    // guardados se usa la lista completa, si no una News vieja dirigida
+    // a alguien que después se dio de baja mostraría un id pelado en
+    // lugar de su nombre.
+    const seleccionables = usuarios.filter((u) => u.activo === "SI");
 
     let elegidos = hidden.value ? hidden.value.split(",").map((id) => id.trim()).filter(Boolean) : [];
 
     function renderChips() {
         chips.innerHTML = elegidos.map((id) => {
-            const u = usuariosPorRol.find((usr) => String(usr.id) === String(id));
+            const u = usuarios.find((usr) => String(usr.id) === String(id));
             const nombre = u ? `${u.nombre} (${u.email})` : id;
+            const baja = u && u.activo !== "SI" ? " — sin acceso" : "";
             return `
-                <span class="multi-usuario-chip">${nombre}<button type="button" data-quitar-usuario="${id}" aria-label="Quitar">×</button></span>
+                <span class="multi-usuario-chip">${escaparHtml(nombre + baja)}<button type="button" data-quitar-usuario="${escaparHtml(id)}" aria-label="Quitar">×</button></span>
             `;
         }).join("");
         hidden.value = elegidos.join(",");
@@ -58,20 +85,33 @@ export async function bindMultiSelectUsuarios(inputId) {
 
     function renderLista(valor) {
         const q = valor.toLowerCase().trim();
-        const disponibles = usuariosPorRol.filter((u) => !elegidos.includes(String(u.id)));
+        const disponibles = seleccionables.filter((u) => !elegidos.includes(String(u.id)));
         const filtradas = q
             ? disponibles.filter((u) =>
                 u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
               )
             : disponibles;
 
-        list.innerHTML = filtradas.length
-            ? filtradas.slice(0, 8).map((u) => `
-                <div class="autocomplete-item" data-usuario-id="${u.id}">
-                    <strong>${u.nombre}</strong><br><small>${u.email}</small>
-                </div>
-            `).join("")
-            : `<div class="autocomplete-item" style="opacity:.6;cursor:default">Sin coincidencias</div>`;
+        if (!filtradas.length) {
+            list.innerHTML = `<div class="autocomplete-item" style="opacity:.6;cursor:default">Sin coincidencias</div>`;
+            list.classList.add("open");
+            return;
+        }
+
+        // El rol va al lado del nombre: con la nómina entera hay
+        // homónimos y hace falta saber a quién se le está mandando.
+        const items = filtradas.slice(0, MAX_SUGERENCIAS).map((u) => `
+            <div class="autocomplete-item" data-usuario-id="${escaparHtml(u.id)}">
+                <strong>${escaparHtml(u.nombre)}</strong> <small class="text-muted">· ${escaparHtml(etiquetaRol(u))}</small><br><small>${escaparHtml(u.email)}</small>
+            </div>
+        `).join("");
+
+        const restantes = filtradas.length - MAX_SUGERENCIAS;
+        const aviso = restantes > 0
+            ? `<div class="autocomplete-item" style="opacity:.6;cursor:default">…y ${restantes} más — escribí para filtrar</div>`
+            : "";
+
+        list.innerHTML = items + aviso;
         list.classList.add("open");
     }
 
