@@ -14,6 +14,7 @@ import { getSucursales, crearSucursal, actualizarSucursal } from "../data/sucurs
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { escaparHtml } from "../services/html.js";
 import { navigate } from "../router.js";
 
 function badgeEstado(local) {
@@ -91,6 +92,7 @@ export async function Locales() {
     const locales = await getSucursales();
 
     const columnas = [
+        { key: "seleccion", label: "" },
         { key: "nombre", label: "Local" },
         { key: "supervisor", label: "Supervisor" },
         { key: "tipoBadge", label: "Tipo" },
@@ -100,6 +102,7 @@ export async function Locales() {
 
     const armarFila = (l) => ({
         ...l,
+        seleccion: `<input type="checkbox" class="local-check" style="width:auto" data-local-id="${l.id}" data-local-nombre="${escaparHtml(l.nombre)}">`,
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
         estadoBadge: badgeEstado(l),
@@ -129,6 +132,12 @@ export async function Locales() {
         <div class="table-toolbar">
             <input type="search" id="buscador-locales" placeholder="Buscar local...">
             <button class="btn btn-primary" id="btn-nuevo-local">+ Nuevo local</button>
+        </div>
+
+        <div class="barra-enviar-mail">
+            <label class="text-sm"><input type="checkbox" id="chk-locales-todos" style="width:auto">Seleccionar todos los visibles</label>
+            <button class="btn btn-secondary" id="btn-lote-propio">Marcar como propios</button>
+            <button class="btn btn-secondary" id="btn-lote-franquicia">Marcar como franquicias</button>
         </div>
 
         <div id="tabla-locales">
@@ -161,6 +170,76 @@ export function bindLocales() {
             });
         });
     }
+
+    // ---- Marcar propio / franquicia en bloque ----
+    //
+    // Marcarlos de a uno con el menú ⋮ era el trabajo que el usuario
+    // terminó haciendo a mano ("si hay 10 propias las elijo todas juntas
+    // y las marco de una vez, no una por una"). Se combina con el
+    // buscador: filtrás, tildás todos los visibles, y aplicás.
+
+    function checksVisibles() {
+        return [...document.querySelectorAll("#tabla-locales .local-check")].filter((chk) => {
+            const fila = chk.closest("tr");
+            if (fila && fila.style.display === "none") return false;
+            // El buscador también esconde la SECCIÓN entera cuando ningún
+            // local suyo matchea. Sin mirar eso, las filas de una sección
+            // oculta seguían contando como visibles y "seleccionar todos"
+            // agarraba locales que no se estaban viendo.
+            const seccion = chk.closest(".section");
+            return !seccion || seccion.style.display !== "none";
+        });
+    }
+
+    document.getElementById("chk-locales-todos")?.addEventListener("change", (e) => {
+        checksVisibles().forEach((chk) => { chk.checked = e.target.checked; });
+    });
+
+    async function marcarEnLote(esPropio, boton) {
+        const marcados = checksVisibles().filter((chk) => chk.checked);
+        if (!marcados.length) {
+            alert("Primero tildá los locales que querés marcar.");
+            return;
+        }
+
+        const etiqueta = esPropio ? "Marcar como PROPIOS" : "Marcar como FRANQUICIAS";
+        const nombres = marcados.map((chk) => chk.dataset.localNombre);
+        const muestra = nombres.slice(0, 10).join("\n· ");
+        const resto = nombres.length > 10 ? `\n…y ${nombres.length - 10} más` : "";
+        if (!confirm(`${etiqueta} a ${nombres.length} local(es):\n\n· ${muestra}${resto}\n\n¿Confirmás?`)) return;
+
+        const textoOriginal = boton.textContent;
+        boton.disabled = true;
+
+        // Secuencial y con progreso, mismo criterio que el lote de
+        // accesos en Mi equipo: cada guardado es una llamada a Apps
+        // Script, y un Promise.all abortaría todo al primer fallo sin
+        // dejar saber cuáles quedaron hechos.
+        const fallaron = [];
+        for (let i = 0; i < marcados.length; i++) {
+            boton.textContent = `Procesando ${i + 1}/${marcados.length}...`;
+            try {
+                const r = await actualizarSucursal(marcados[i].dataset.localId, { esPropio: esPropio ? "SI" : "NO" });
+                if (r && r.ok === false) fallaron.push(nombres[i]);
+            } catch (err) {
+                fallaron.push(nombres[i]);
+            }
+        }
+
+        boton.textContent = textoOriginal;
+        boton.disabled = false;
+
+        const hechos = marcados.length - fallaron.length;
+        registrarEvento(getUsuarioActual().id, "editar_local", `${etiqueta} en bloque: ${hechos} de ${marcados.length}`);
+
+        if (fallaron.length) {
+            alert(`Se aplicó a ${hechos} de ${marcados.length}.\n\nNo se pudo con:\n· ${fallaron.join("\n· ")}`);
+        }
+        navigate("locales");
+    }
+
+    document.getElementById("btn-lote-propio")?.addEventListener("click", (e) => marcarEnLote(true, e.currentTarget));
+    document.getElementById("btn-lote-franquicia")?.addEventListener("click", (e) => marcarEnLote(false, e.currentTarget));
 
     document.querySelectorAll("[data-desactivar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
