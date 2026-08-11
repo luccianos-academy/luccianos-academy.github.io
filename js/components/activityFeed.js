@@ -8,6 +8,7 @@
 =============================*/
 
 import { EmptyState } from "./emptyState.js";
+import { escaparHtml } from "../services/html.js";
 
 export function ActivityFeed(eventos, { vacio = "Sin actividad reciente" } = {}) {
 
@@ -15,10 +16,17 @@ export function ActivityFeed(eventos, { vacio = "Sin actividad reciente" } = {})
         return EmptyState({ titulo: vacio });
     }
 
+    // e.texto sale del campo "detalle" de la hoja Auditoria, y la matriz
+    // de permisos deja que un COLABORADOR cree filas ahí (PERMISOS_ESCRITURA
+    // en apps-script/Code.gs). Este feed lo pinta el Inicio de Admin, el de
+    // Supervisor y el Dashboard — o sea que sin escapar, alguien de bajo
+    // privilegio podía guardar HTML en "detalle" y hacerlo ejecutar en la
+    // sesión de un admin, con su token a mano. Es el mismo problema que
+    // avatar.js, por otro camino.
     const items = eventos.map((e) => `
         <div class="activity-item">
-            <span>${e.texto}</span>
-            <span class="activity-time">${formatearFecha(e.fecha)}</span>
+            <span>${escaparHtml(e.texto)}</span>
+            <span class="activity-time">${escaparHtml(formatearFecha(e.fecha))}</span>
         </div>
     `).join("");
 

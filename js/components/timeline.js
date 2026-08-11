@@ -7,6 +7,7 @@
 =============================*/
 
 import { EmptyState } from "./emptyState.js";
+import { escaparHtml } from "../services/html.js";
 
 export function Timeline(eventos) {
 
@@ -18,9 +19,9 @@ export function Timeline(eventos) {
         <div class="timeline-item">
             <span class="timeline-dot"></span>
             <div>
-                <div class="text-sm text-muted">${formatearFecha(e.fecha)}</div>
-                <strong>${e.titulo}</strong>
-                ${e.detalle ? `<div class="text-sm text-muted">${e.detalle}</div>` : ""}
+                <div class="text-sm text-muted">${escaparHtml(formatearFecha(e.fecha))}</div>
+                <strong>${escaparHtml(e.titulo)}</strong>
+                ${e.detalle ? `<div class="text-sm text-muted">${escaparHtml(e.detalle)}</div>` : ""}
             </div>
         </div>
     `).join("");
