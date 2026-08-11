@@ -3,6 +3,8 @@
    components/avatar.js — Avatar del usuario (foto o iniciales)
 ============================*/
 
+import { escaparHtml, urlSegura } from "../services/html.js";
+
 function iniciales(nombre) {
     return String(nombre || "").trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || "").join("");
 }
@@ -20,9 +22,16 @@ export function Avatar({ nombre, foto, size = "md" }) {
     // natural de la FOTO — una imagen de varios cientos de px tapando
     // toda la fila. object-fit sigue haciendo falta para que una foto no
     // cuadrada no se deforme dentro del círculo.
-    if (foto) {
-        return `<img class="${clases} avatar-foto" src="${foto}" alt="${nombre}" title="${nombre}" style="object-fit:cover">`;
+    // nombre y foto salen de la planilla: van escapados SIEMPRE. Sin
+    // esto, un valor con comillas en "foto" cierra el atributo src y
+    // deja inyectar un onerror que corre en la sesión de quien mire la
+    // pantalla — y la lista de Colaboradores la mira un admin.
+    const nombreSeguro = escaparHtml(nombre);
+    const fotoSegura = urlSegura(foto);
+
+    if (fotoSegura) {
+        return `<img class="${clases} avatar-foto" src="${fotoSegura}" alt="${nombreSeguro}" title="${nombreSeguro}" style="object-fit:cover">`;
     }
 
-    return `<span class="${clases}" title="${nombre}">${inicial}</span>`;
+    return `<span class="${clases}" title="${nombreSeguro}">${inicial}</span>`;
 }

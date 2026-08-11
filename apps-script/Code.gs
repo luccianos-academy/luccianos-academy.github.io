@@ -532,6 +532,21 @@ function _esAutoservicioUsuarios(hoja, id, cambios, usuarioActual) {
     return Object.keys(cambios).every((k) => CAMPOS_AUTOSERVICIO_USUARIOS.indexOf(k) !== -1);
 }
 
+/** La foto se muestra con <img src="..."> en pantallas que abre un
+ *  ADMIN (lista de Colaboradores, Reportes). Si acá entrara texto
+ *  libre, un colaborador podría guardarse una "foto" con comillas y
+ *  un onerror, y ese código correría en la sesión del admin que la
+ *  mire. El cliente ya escapa al pintar; esto es el segundo cerrojo,
+ *  del lado que no se puede saltear llamando a la API a mano.
+ *  Solo se aceptan URLs https sin comillas, espacios ni < >. */
+function _fotoValida(url) {
+    const v = String(url == null ? "" : url).trim();
+    if (v === "") return true; // vacío = sacar la foto, es legítimo
+    if (v.length > 500) return false;
+    if (!/^https:\/\//i.test(v)) return false;
+    return !/["'<>\s\\]/.test(v);
+}
+
 function actualizar(hoja, id, cambios, usuarioActual) {
     if (!_esAutoservicioUsuarios(hoja, id, cambios, usuarioActual)) {
         const permiso = _autorizarEscritura(hoja, "actualizar", usuarioActual);
@@ -547,6 +562,12 @@ function actualizar(hoja, id, cambios, usuarioActual) {
     if (hoja === "Usuarios" && usuarioActual.rol !== "admin") {
         delete cambios.rol;
         delete cambios.capacitador;
+    }
+
+    // Vale para cualquier rol: ni un admin tiene motivo para guardar
+    // una "foto" que no sea una URL https limpia.
+    if (hoja === "Usuarios" && cambios.hasOwnProperty("foto") && !_fotoValida(cambios.foto)) {
+        return { ok: false, error: "La foto debe ser una URL https válida." };
     }
 
     // Noticias: colaborador solo puede tocar leidoPor (para marcar como leído)
