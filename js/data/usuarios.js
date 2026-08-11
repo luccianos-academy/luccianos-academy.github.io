@@ -51,6 +51,12 @@ function normalizarUsuario(f) {
         // URL de foto de perfil del usuario (opcional). Vacío = solo se
         // muestran las iniciales. Permite URL externa o ruta local.
         foto: String(f.foto || "").trim(),
+        // Fecha del último login, escrita por el backend en cada ingreso
+        // (_registrarIngreso en apps-script/Code.gs). Vacío = nunca entró
+        // desde que se empezó a registrar — se muestra como "Nunca", que
+        // es lo honesto: de los ingresos anteriores a este cambio no hay
+        // registro. Es lo que alimenta la vista de cuentas dormidas.
+        ultimoIngreso: String(f.ultimoIngreso || "").trim().slice(0, 10),
     };
 }
 

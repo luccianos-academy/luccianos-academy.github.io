@@ -5,10 +5,46 @@
  * Agrega columna 'fechaModificacion' a todas las hojas de datos
  */
 
+/**
+ * setupUltimoIngreso() — agrega la columna 'ultimoIngreso' a Usuarios.
+ *
+ * La escribe el backend en cada login (ver _registrarIngreso en
+ * Code.gs). Sin esta columna, la renovación automática por uso no
+ * funciona y la pantalla de "cuentas dormidas" queda vacía.
+ *
+ * Ejecutar una sola vez. Es idempotente: si ya existe, no hace nada.
+ * Las filas existentes quedan vacías — la app las trata como "nunca
+ * ingresó", que es lo honesto: no sabemos cuándo entraron por última
+ * vez antes de empezar a registrarlo.
+ */
+function setupUltimoIngreso() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  if (!hoja) {
+    console.log('No existe la hoja Usuarios.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'ultimoingreso');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'ultimoIngreso') {
+      console.log('✓ La columna ultimoIngreso ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('ultimoIngreso');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "ultimoIngreso").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('ultimoIngreso');
+  console.log('✓ Columna ultimoIngreso agregada. Se completa sola en el próximo login de cada persona.');
+}
+
 function setupSyncColumns() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hojas = ['Usuarios', 'Cursos', 'Lecciones', 'Noticias', 'Comunicaciones', 'Asignaciones', 'Resultados', 'Manuales'];
-  
+
   hojas.forEach(nombreHoja => {
     try {
       const hoja = ss.getSheetByName(nombreHoja);

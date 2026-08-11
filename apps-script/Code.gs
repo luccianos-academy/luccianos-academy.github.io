@@ -690,7 +690,74 @@ function verificarLogin(idToken) {
         return { ok: false, error: "Tu acceso está desactivado. Consultá con tu supervisor o administrador." };
     }
 
+    _registrarIngreso(usuario);
+
     return { ok: true, usuario: usuario, sessionToken: _emitirToken(email) };
+}
+
+/** Días de acceso que suma cada ingreso. Espejo de DIAS_ACCESO_INICIAL
+ *  en js/pages/colaboradores.js — si cambia uno, cambiar el otro. */
+const DIAS_RENOVACION_POR_USO = 30;
+
+/**
+ * Renovación automática por uso — se llama en CADA login exitoso.
+ *
+ * El vencimiento de acceso se estaba usando como mecanismo de baja, y
+ * para eso no sirve: obligaba al supervisor a renovar a mano gente que
+ * evidentemente sigue trabajando, y esa fricción repetida empujaba a
+ * marcar accesos como permanentes — que es justo lo que no se quiere,
+ * porque alguien que se va de la empresa se queda con acceso a la base
+ * para siempre.
+ *
+ * Invirtiendo la lógica: quien usa la app corre su propio vencimiento
+ * hacia adelante y nunca vence; quien se fue simplemente deja de entrar
+ * y su acceso caduca solo a los 30 días, sin que nadie tenga que
+ * acordarse. El supervisor solo actúa en la excepción (dar de baja a
+ * alguien que sabe que se fue → "Deshabilitar", que es inmediato).
+ *
+ * Los accesos permanentes (fechaVencimientoAcceso vacío) NO se tocan:
+ * no hay nada que correr.
+ */
+function _registrarIngreso(usuario) {
+    try {
+        const cambios = { ultimoIngreso: _fechaHoyISO() };
+
+        const fila = _buscarFilaUsuario(usuario.email);
+        const vencimiento = fila ? String(fila.fechaVencimientoAcceso || "").trim() : "";
+        if (vencimiento) {
+            const nuevo = _sumarDiasISO(_fechaHoyISO(), DIAS_RENOVACION_POR_USO);
+            // Solo empujar hacia adelante: si a alguien le dieron un
+            // acceso más largo a propósito, no se lo acortamos.
+            if (nuevo > vencimiento) cambios.fechaVencimientoAcceso = nuevo;
+        }
+
+        const r = _actualizarCrudo("Usuarios", usuario.id, cambios);
+
+        // _actualizarCrudo rechaza el payload ENTERO si alguna columna
+        // no existe. Sin este reintento, una planilla sin la columna
+        // ultimoIngreso se llevaría puesta también la renovación del
+        // vencimiento — el usuario terminaría venciendo igual y sin
+        // ninguna señal de por qué.
+        if (r && r.ok === false && cambios.fechaVencimientoAcceso) {
+            Logger.log("Ingreso: " + r.error + " — reintentando solo con el vencimiento.");
+            _actualizarCrudo("Usuarios", usuario.id, { fechaVencimientoAcceso: cambios.fechaVencimientoAcceso });
+        }
+    } catch (err) {
+        // Nunca romper el login por esto: si falta la columna
+        // ultimoIngreso, entrar sigue siendo más importante que
+        // registrar la métrica.
+        Logger.log("No se pudo registrar el ingreso: " + err.message);
+    }
+}
+
+/** "2026-08-09" + n días → "2026-08-19". Trabaja en texto ISO para no
+ *  depender de la zona horaria (una fecha sin hora corrida por UTC es
+ *  el bug clásico acá). */
+function _sumarDiasISO(fechaISO, dias) {
+    const partes = String(fechaISO).split("-");
+    const d = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]));
+    d.setDate(d.getDate() + Number(dias));
+    return Utilities.formatDate(d, Session.getScriptTimeZone(), "yyyy-MM-dd");
 }
 
 /* ============================================================
