@@ -93,6 +93,82 @@ function setupSyncColumns() {
 }
 
 /**
+ * revisarAccesos() — diagnóstico, NO modifica nada.
+ *
+ * Foto del estado de accesos de toda la nómina, para decidir a quién
+ * restaurar sin ir fila por fila en la planilla. Reporta cuatro grupos:
+ *
+ *   1. PERMANENTES SIN MOTIVO — colaboradores con fechaVencimientoAcceso
+ *      vacía. Vacío significa "no vence nunca", que es correcto para un
+ *      admin o supervisor pero no para un colaborador: son los que
+ *      quedaron fuera del modelo de renovación por uso y hay que
+ *      revisar uno por uno.
+ *   2. ACTIVOS — entran normal, se renuevan solos al usar la app.
+ *   3. SIN ACCESO — vencidos o deshabilitados. Vuelven con "Renovar".
+ *   4. NUNCA INGRESARON — sin ultimoIngreso registrado.
+ *
+ * Ejecutar: elegir la función y darle Ejecutar. Después: Ver → Registros.
+ */
+function revisarAccesos() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  if (!hoja) { console.log('No existe la hoja Usuarios.'); return; }
+
+  const filas = _filasComoObjetos(hoja);
+  const hoy = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+  const permanentesSinMotivo = [];
+  const activos = [];
+  const sinAcceso = [];
+  let nuncaIngresaron = 0;
+
+  filas.forEach(function (f) {
+    const rol = String(f.rol || '').trim().toLowerCase();
+    if (!rol) return;
+    const nombre = String(f.nombre || '(sin nombre)').trim();
+    const vence = String(f.fechaVencimientoAcceso || '').trim();
+    const activo = String(f.activo || '').trim().toUpperCase() !== 'NO';
+    const ingreso = String(f.ultimoIngreso || '').trim();
+    const etiqueta = nombre + ' — ' + String(f.sucursal || 'sin sucursal').trim();
+
+    if (!ingreso) nuncaIngresaron++;
+
+    // Un admin/supervisor sin vencimiento es lo esperado; un colaborador
+    // sin vencimiento es el que quedó permanente de antes.
+    if (rol === 'colaborador' && vence === '') {
+      permanentesSinMotivo.push(etiqueta + (activo ? '' : ' (inactivo)'));
+      return;
+    }
+    if (rol !== 'colaborador') return;
+
+    if (activo && (vence === '' || vence >= hoy)) {
+      activos.push(etiqueta + ' — vence ' + vence + (ingreso ? ' — último ingreso ' + ingreso : ' — nunca ingresó'));
+    } else {
+      sinAcceso.push(etiqueta + ' — venció ' + vence + (ingreso ? ' — último ingreso ' + ingreso : ' — nunca ingresó'));
+    }
+  });
+
+  console.log('Hoy: ' + hoy + ' — ' + filas.length + ' filas en la hoja');
+  console.log('');
+
+  console.log('⚠️  COLABORADORES PERMANENTES (celda de vencimiento vacía): ' + permanentesSinMotivo.length);
+  permanentesSinMotivo.forEach(function (x) { console.log('    ' + x); });
+  if (!permanentesSinMotivo.length) console.log('    (ninguno — bien)');
+  console.log('');
+
+  console.log('✅ COLABORADORES CON ACCESO: ' + activos.length);
+  activos.forEach(function (x) { console.log('    ' + x); });
+  console.log('');
+
+  console.log('🚫 COLABORADORES SIN ACCESO: ' + sinAcceso.length);
+  sinAcceso.forEach(function (x) { console.log('    ' + x); });
+  console.log('');
+
+  console.log('Nunca ingresaron (sin ultimoIngreso), en toda la nómina: ' + nuncaIngresaron);
+  console.log('Ojo: ultimoIngreso se registra recién desde el 2026-08-09, así que');
+  console.log('"nunca ingresó" incluye a quienes sí usaron la app antes de esa fecha.');
+}
+
+/**
  * probarVisibilidadUsuarios() — diagnóstico, no modifica nada.
  *
  * Responde "¿el filtro de lectura está realmente activo?" sin tener que
