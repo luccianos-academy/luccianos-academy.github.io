@@ -29,6 +29,13 @@
    conviene revisar, y "Deshabilitar" sigue siendo el corte inmediato
    para cuando se sabe que la persona se fue.
 
+   Por eso el menú de acceso quedó con DOS opciones excluyentes
+   (Renovar / Deshabilitar) y no con cinco. Las extensiones sueltas
+   (+15, +30) se sacaron por quedar sin función: a alguien activo el
+   vencimiento ya se le corre solo, y a alguien vencido no lo alcanzan
+   —quedó inactivo, no puede entrar, y por lo tanto tampoco puede
+   autorrenovarse—, que es justo para lo que está "Renovar".
+
    Solo Admin ve pestañas de rol (Colaboradores/Supervisores/Admins)
    — antes existía una pantalla "Usuarios" aparte para gestionar los
    3 roles, pero pisaba casi el mismo contenido que esta ("¿cuál uso
@@ -60,7 +67,6 @@ import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, mapa
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 
 const DIAS_ACCESO_INICIAL = 30;
-const DIAS_EXTENSION = 15;
 const DIAS_AVISO_VENCIMIENTO = 7;
 
 // Fechas como string "YYYY-MM-DD" en vez de Date — evita el desfasaje
@@ -305,31 +311,32 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
         grupos.push({ items: [puedeEditar ? `<button class="menu-acciones-item" data-editar="${colaborador.id}">Editar</button>` : "", verComoBtn].filter(Boolean) });
     }
 
-    // Todo lo demás (renovar/deshabilitar/extender/permanente) es
-    // gestión de acceso — Encargado (puedeDeshabilitar=false) no debe
+    // Gestión de acceso — Encargado (puedeDeshabilitar=false) no debe
     // ver ninguno de estos ítems, solo el estado.
+    //
+    // Quedan DOS opciones y son excluyentes: o la persona está adentro y
+    // se la puede sacar, o está afuera y se la puede volver a meter. Con
+    // la renovación automática por uso (_registrarIngreso, Code.gs) no
+    // hace falta nada más:
+    //
+    // - "Hacer permanente" se sacó porque era la vía por la que alguien
+    //   que se iba de la empresa quedaba con acceso a la base para
+    //   siempre. Supervisores y admins siguen sin vencimiento, pero
+    //   porque se crean sin fecha, no porque alguien los marque acá.
+    // - "+15 días" y "+30 días" se sacaron porque quedaron sin función:
+    //   a un colaborador ACTIVO el vencimiento ya se le corre solo en
+    //   cada ingreso, así que extenderlo a mano es empujar una fecha que
+    //   se vuelve a empujar sola. Y a uno vencido no lo alcanzan: quedó
+    //   inactivo, no puede entrar, y por lo tanto tampoco puede
+    //   autorrenovarse — para ese caso está "Renovar". Criterio del
+    //   usuario: "quien la necesite pedirá acceso".
     if (puedeDeshabilitar) {
-        const itemsAcceso = [];
-        if (colaborador.activo !== "SI") {
-            // El texto dice los días a propósito: como "Renovar acceso"
-            // no los mencionaba, nadie sabía que ESTE era el botón de
-            // +30, y se terminaba usando "Hacer permanente" para no
-            // quedar extendiendo de a 15.
-            itemsAcceso.push(`<button class="menu-acciones-item" data-renovar="${colaborador.id}">Renovar (+${DIAS_ACCESO_INICIAL} días)</button>`);
-        } else {
-            itemsAcceso.push(`<button class="menu-acciones-item" data-deshabilitar="${colaborador.id}">Deshabilitar</button>`);
-        }
-        if (colaborador.fechaVencimientoAcceso) {
-            itemsAcceso.push(`<button class="menu-acciones-item" data-extender="${colaborador.id}">+${DIAS_EXTENSION} días</button>`);
-            itemsAcceso.push(`<button class="menu-acciones-item" data-extender-largo="${colaborador.id}">+${DIAS_ACCESO_INICIAL} días</button>`);
-        }
-        // "Hacer permanente" ya no está para colaboradores: era la vía
-        // por la que alguien que se iba de la empresa quedaba con acceso
-        // a la base para siempre. Con la renovación automática por uso
-        // (_registrarIngreso en apps-script/Code.gs) dejó de hacer falta:
-        // quien trabaja corre su propio vencimiento y nunca vence.
-        // Supervisores y admins siguen sin vencimiento porque se crean
-        // directamente sin fecha, no porque alguien los marque acá.
+        const itemsAcceso = colaborador.activo !== "SI"
+            // Dice los días a propósito: "Renovar acceso" a secas no los
+            // mencionaba, así que nadie sabía que este era el botón de
+            // +30 y se terminaba recurriendo a "Hacer permanente".
+            ? [`<button class="menu-acciones-item" data-renovar="${colaborador.id}">Renovar (+${DIAS_ACCESO_INICIAL} días)</button>`]
+            : [`<button class="menu-acciones-item" data-deshabilitar="${colaborador.id}">Deshabilitar</button>`];
         grupos.push({ titulo: "Acceso", items: itemsAcceso });
     }
 
@@ -368,7 +375,7 @@ const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
     { key: "progresoBadge", label: "Progreso" },
     { key: "estadoBadge", label: "Estado" },
     { key: "ultimoIngresoBadge", label: `Último ingreso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="El acceso se renueva solo cada vez que la persona entra, así que no hace falta ir extendiéndolo. Si alguien deja de entrar, su acceso caduca solo a los ${DIAS_ACCESO_INICIAL} días. Esta columna te muestra a quién conviene revisar.">ⓘ</span>` },
-    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tocá los tres puntos (⋮) de cada fila para editar, activar/desactivar o extender los días de acceso de este colaborador.">ⓘ</span>` },
+    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Se renueva solo a 30 días cada vez que la persona entra. Tocá los tres puntos (⋮) para editar, deshabilitar el acceso o volver a habilitarlo.">ⓘ</span>` },
     { key: "acciones", label: "" },
 ];
 
@@ -583,7 +590,7 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
     ...cursos.map((cur, i) => ({ key: `curso_${cur.id}`, label: `<span class="mod-tooltip" data-tooltip-texto="${cur.nombre}">M${i + 1}</span>` })),
     { key: "estadoBadge", label: "Estado" },
     { key: "ultimoIngresoBadge", label: `Último ingreso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="El acceso se renueva solo cada vez que la persona entra, así que no hace falta ir extendiéndolo. Si alguien deja de entrar, su acceso caduca solo a los ${DIAS_ACCESO_INICIAL} días. Esta columna te muestra a quién conviene revisar.">ⓘ</span>` },
-    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tocá los tres puntos (⋮) de cada fila para editar, activar/desactivar o extender los días de acceso de este colaborador.">ⓘ</span>` },
+    { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Se renueva solo a 30 días cada vez que la persona entra. Tocá los tres puntos (⋮) para editar, deshabilitar el acceso o volver a habilitarlo.">ⓘ</span>` },
     { key: "acciones", label: "" },
 ];
 
@@ -1031,33 +1038,6 @@ export function bindColaboradores() {
             navigate("colaboradores");
         });
     });
-
-    // Las dos extensiones (+15 y +30) comparten todo salvo el número.
-    // Si el acceso ya venció, se cuenta desde HOY — sumar sobre una
-    // fecha pasada daría un vencimiento que ya nació vencido.
-    const extender = (attr, dias) => {
-        document.querySelectorAll(`[${attr}]`).forEach((btn) => {
-            btn.addEventListener("click", async () => {
-                const id = btn.getAttribute(attr);
-                const usuarios = await getUsuarios();
-                const c = usuarios.find((x) => String(x.id) === String(id));
-                if (!c) return;
-                const base = c.fechaVencimientoAcceso && diasEntre(fechaHoyISO(), c.fechaVencimientoAcceso) > 0
-                    ? c.fechaVencimientoAcceso
-                    : fechaHoyISO();
-                const nuevaFecha = sumarDias(base, dias);
-                const guardado = await actualizarUsuario(id, { fechaVencimientoAcceso: nuevaFecha, activo: "SI" });
-                if (!guardado || guardado.ok === false) {
-                    alert(guardado?.error || "No se pudo extender el acceso. Probá de nuevo.");
-                    return;
-                }
-                registrarEvento(getUsuarioActual().id, "extender_acceso", `Acceso de ${c.nombre} extendido ${dias} días (nuevo vencimiento: ${nuevaFecha})`);
-                navigate("colaboradores");
-            });
-        });
-    };
-    extender("data-extender", DIAS_EXTENSION);
-    extender("data-extender-largo", DIAS_ACCESO_INICIAL);
 
     document.querySelectorAll("[data-editar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
