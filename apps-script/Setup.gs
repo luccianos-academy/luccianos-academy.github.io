@@ -705,11 +705,34 @@ function completarSucursalesFaltantes(aplicar) {
     if (desconocidas.length) {
         console.log('');
         console.log('⚠️  EN LA HOJA PERO NO EN EL PADRÓN (' + desconocidas.length + ') — NO se tocan:');
-        desconocidas.forEach(function (n) { console.log('   ? ' + n); });
-        console.log('   Revisalas a mano: puede ser un local nuevo, o un nombre mal escrito.');
-        console.log('   OJO si es un error de tipeo: el nombre del local es la clave con la');
-        console.log('   que Usuarios, Manuales y Noticias lo enlazan, así que corregirlo');
-        console.log('   implica actualizar también esas hojas.');
+        // Cuánta gente quedaría huérfana si se borra o renombra cada una.
+        // Es el dato que hay que tener ANTES de tocarlas: el nombre del
+        // local es la clave con la que Usuarios lo enlaza, así que
+        // borrarla deja a esa gente apuntando a un local inexistente y no
+        // salta ningún error — simplemente dejan de verse donde deberían.
+        var hojaU = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+        var porLocal = {};
+        if (hojaU) {
+            var fu = hojaU.getDataRange().getValues();
+            var cs = fu[0].indexOf('sucursal');
+            var cn = fu[0].indexOf('nombre');
+            if (cs !== -1) {
+                for (var u = 1; u < fu.length; u++) {
+                    var k = _normLocal(fu[u][cs]);
+                    if (!k) continue;
+                    if (!porLocal[k]) porLocal[k] = [];
+                    porLocal[k].push(cn !== -1 ? fu[u][cn] : '(sin nombre)');
+                }
+            }
+        }
+        desconocidas.forEach(function (n) {
+            var gente = porLocal[_normLocal(n)] || [];
+            console.log('   ? ' + n + '   —   ' + (gente.length ? gente.length + ' persona(s) asignada(s): ' + gente.join(', ') : 'sin gente asignada'));
+        });
+        console.log('');
+        console.log('   Si NO tiene gente asignada, se puede borrar la fila y volver a');
+        console.log('   correr esta función para que cargue el nombre correcto.');
+        console.log('   Si SÍ tiene, hay que reasignar a esa gente PRIMERO.');
     }
 
     if (!aplicar) {
