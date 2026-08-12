@@ -1,7 +1,7 @@
 /* ============================
    Lucciano's Academy — datos reales
    Tabla "Sucursales" — los locales reales de Lucciano's
-   (Argentina, Uruguay, Paraguay, Chile, EEUU, España)
+   (Argentina, Uruguay, Paraguay, Chile, EEUU, España, Italia)
 
    esPropio: "SI" = locales propios (operados directamente por Lucciano's)
    esPropio: "" o vacío = franquicias
@@ -142,7 +142,12 @@ export const sucursalesMock = [
     { id: 88, nombre: "Lucciano's Carrasco Uruguay", supervisor: "", estado: "Activa" },
 
     // EXTERIOR - PARAGUAY
-    { id: 89, nombre: "Lucciano's Asuncion Paraguay", supervisor: "", estado: "Activa" },
+    // Abre próximamente. Queda "Inactiva" a propósito: así no aparece en
+    // el autocompletado al dar de alta gente (autocompleteSucursal.js y
+    // multiSelectSucursales.js filtran por estado "Activa"), que es
+    // justo lo que corresponde hasta que abra. Pasarla a "Activa" el día
+    // de la apertura es todo lo que hay que hacer.
+    { id: 89, nombre: "Lucciano's Asuncion Paraguay", supervisor: "", estado: "Inactiva" },
 
     // EXTERIOR - CHILE
     { id: 91, nombre: "Lucciano's Parque Arauco Chile", supervisor: "", estado: "Activa" },
@@ -163,4 +168,7 @@ export const sucursalesMock = [
     { id: 117, nombre: "Lucciano's Adventure USA", supervisor: "", estado: "Activa" },
     { id: 118, nombre: "Lucciano's Sawgrass USA", supervisor: "", estado: "Activa" },
     { id: 119, nombre: "Lucciano's The Florida Mall USA", supervisor: "", estado: "Activa" },
+
+    // EXTERIOR - ITALIA
+    { id: 120, nombre: "Lucciano's Roma Italia", supervisor: "", estado: "Activa" },
 ];
