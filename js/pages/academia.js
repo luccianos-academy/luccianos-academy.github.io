@@ -112,7 +112,9 @@ function etiquetaAlcance(aplicaA) {
 
 export async function Academia() {
 
-    const [cursos, lecciones] = await Promise.all([getCursos(), getLecciones()]);
+    const [cursos, lecciones, disponibilidad] = await Promise.all([
+        getCursos(), getLecciones(), getDisponibilidad(),
+    ]);
 
     const columnas = [
         { key: "nombre", label: "Curso" },
@@ -131,7 +133,17 @@ export async function Academia() {
         // pregunta "¿a quién le llega este curso?" es justo la que no
         // se puede contestar mirando la tabla, y un curso acotado por
         // error es invisible hasta que alguien reclama que no lo ve.
-        alcanceLabel: etiquetaAlcance(c.aplicaA),
+        // Dos cosas distintas en la misma celda: a quién le llega el
+        // CURSO, y cuántos de sus productos tienen la venta acotada.
+        // Sin lo segundo, un curso con media línea restringida se veía
+        // igual que uno sin ninguna restricción, y había que entrar al
+        // catálogo de cada uno para enterarse.
+        alcanceLabel: etiquetaAlcance(c.aplicaA) + (() => {
+            const n = mapaDisponibilidad(disponibilidad, c.nombre).size;
+            return n
+                ? `<div class="text-xs text-muted" style="margin-top:4px">${n} producto${n === 1 ? "" : "s"} acotado${n === 1 ? "" : "s"}</div>`
+                : "";
+        })(),
         acciones: `
             <a class="btn btn-secondary" href="#/cursos/${c.id}" title="Ver el curso tal cual lo ve un colaborador">👁 Vista previa</a>
             <button class="btn btn-secondary" data-ver-lecciones="${c.id}">Ver lecciones</button>
