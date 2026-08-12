@@ -15,7 +15,10 @@ const ESTRUCTURA_HOJAS_STAGING = {
     "Usuarios": ["id", "nombre", "email", "rol", "encargado", "sucursal", "activo",
         "fechaVencimientoAcceso", "fechaAlta", "capacitador", "historiaVista", "foto"],
 
-    "Sucursales": ["id", "nombre", "supervisor", "estado", "esPropio"],
+    // "pais" alimenta el alcance de contenido por país (services/alcance.js).
+    // Va acá y no en un setup aparte porque es dato del negocio, como
+    // esPropio, no plomería de sincronización.
+    "Sucursales": ["id", "nombre", "supervisor", "estado", "esPropio", "pais"],
 
     "Cursos": ["id", "nombre", "categoria", "obligatorio", "orden"],
 
