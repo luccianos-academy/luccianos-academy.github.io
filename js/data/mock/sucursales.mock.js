@@ -145,6 +145,7 @@ export const sucursalesMock = [
     { id: 86, nombre: "Lucciano's Punta Carretas Uruguay", supervisor: "", estado: "Activa" },
     { id: 87, nombre: "Lucciano's Punta del Este Uruguay", supervisor: "", estado: "Activa" },
     { id: 88, nombre: "Lucciano's Carrasco Uruguay", supervisor: "", estado: "Activa" },
+    { id: 122, nombre: "Lucciano's Punta Carrasco Uruguay", supervisor: "", estado: "Activa" },
 
     // EXTERIOR - PARAGUAY
     // Abre próximamente. Queda "Inactiva" a propósito: así no aparece en

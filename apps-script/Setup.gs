@@ -684,6 +684,7 @@ var PADRON_SUCURSALES = [
     { id: 86, nombre: "Lucciano's Punta Carretas Uruguay" },
     { id: 87, nombre: "Lucciano's Punta del Este Uruguay" },
     { id: 88, nombre: "Lucciano's Carrasco Uruguay" },
+    { id: 122, nombre: "Lucciano's Punta Carrasco Uruguay" },
     { id: 89, nombre: "Lucciano's Asuncion Paraguay", inactiva: true },
     { id: 91, nombre: "Lucciano's Parque Arauco Chile" },
     { id: 107, nombre: "Lucciano's Barcelona The Moon España" },
