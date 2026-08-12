@@ -356,10 +356,27 @@ function previsualizarLocalesPropios() {
  * es peor que ninguna, porque parece completa.
  */
 function marcarLocalesPropios() {
-    _propios(true);
+    _propios(true, false);
 }
 
-function _propios(aplicar) {
+/**
+ * marcarLocalesPropiosIgual() — MODIFICA la hoja Sucursales aunque haya
+ * nombres sin resolver.
+ *
+ * Escribe lo grueso y deja el resto para corregir a mano desde la
+ * pantalla de Locales. OJO con lo que implica: los locales que NO
+ * resolvieron quedan escritos como "NO" —franquicia— porque la función
+ * no tiene forma de saber a qué fila corresponden. Si eran propios, hay
+ * que arreglarlos después. Por eso al terminar los vuelve a listar.
+ *
+ * Preferí marcarLocalesPropios() siempre que puedas: esta versión deja
+ * la hoja con datos que parecen completos y no lo están.
+ */
+function marcarLocalesPropiosIgual() {
+    _propios(true, true);
+}
+
+function _propios(aplicar, forzar) {
     var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
     if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
 
@@ -423,18 +440,28 @@ function _propios(aplicar) {
         });
     }
 
+    var pendientes = sinResolver.concat(duplicados.map(function (d) { return d.split(' y ')[0]; }));
+
     if (!aplicar) {
         console.log('');
         console.log('— Previsualización. No se modificó nada. —');
-        console.log('Si el listado de arriba está bien, ejecutá marcarLocalesPropios().');
+        if (pendientes.length) {
+            console.log('Para escribir igual lo que sí resolvió y corregir el resto a');
+            console.log('mano después, ejecutá marcarLocalesPropiosIgual().');
+        } else {
+            console.log('Si el listado de arriba está bien, ejecutá marcarLocalesPropios().');
+        }
         return;
     }
 
-    if (sinResolver.length || duplicados.length) {
+    if (pendientes.length && !forzar) {
         console.log('');
         console.log('❌ NO SE APLICÓ NADA. Resolvé primero lo de arriba:');
         console.log('   · si el local no existe en la hoja, cargalo o sacalo de LOCALES_PROPIOS');
         console.log('   · si es ambiguo, agregá la equivalencia exacta en EQUIVALENCIAS_PROPIOS');
+        console.log('');
+        console.log('   O ejecutá marcarLocalesPropiosIgual() para escribir lo que sí');
+        console.log('   resolvió y corregir el resto a mano.');
         return;
     }
 
@@ -454,6 +481,16 @@ function _propios(aplicar) {
     hoja.getRange(2, colPropio + 1, columna.length, 1).setValues(columna);
     console.log('');
     console.log('✓ ' + propios + ' PROPIOS · ' + franquicias + ' FRANQUICIAS');
+
+    if (pendientes.length) {
+        console.log('');
+        console.log('⚠️  FALTAN ' + pendientes.length + ', CORREGILOS A MANO en Locales.');
+        console.log('   Quedaron escritos como FRANQUICIA porque la función no supo a');
+        console.log('   qué fila de la hoja corresponden, pero son PROPIOS:');
+        pendientes.forEach(function (p) { console.log('      · ' + p); });
+        console.log('');
+        console.log('   Total real: ' + (propios + pendientes.length) + ' propios.');
+    }
 }
 
 /* ══════════════════════════════════════════════════════════════════
