@@ -59,7 +59,9 @@ function setupUltimoIngreso() {
 function setupAplicaA() {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    ['Cursos', 'Lecciones'].forEach(function (nombreHoja) {
+    // Disponibilidad va en la misma lista: guarda el alcance de cada
+    // producto del catálogo con los mismos dos campos.
+    ['Cursos', 'Lecciones', 'Disponibilidad'].forEach(function (nombreHoja) {
         var hoja = ss.getSheetByName(nombreHoja);
         if (!hoja) { console.log('Hoja no encontrada: ' + nombreHoja); return; }
 
