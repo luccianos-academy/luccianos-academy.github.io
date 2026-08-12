@@ -863,9 +863,12 @@ export async function Colaboradores() {
                  algo tildado, dice cuántos son, y junta todas las acciones
                  en un lugar. Antes los botones estaban siempre visibles y
                  sin contexto: no se sabía sobre cuántos iban a aplicar. -->
-            <label class="barra-seleccion-todos text-sm">
-                <input type="checkbox" id="chk-mail-todos" style="width:auto">Seleccionar todos los visibles
-            </label>
+            <!-- El ⓘ va FUERA del <label>: adentro, tocarlo cuenta como
+                 tocar la etiqueta y seleccionaba a toda la gente visible. -->
+            <div class="barra-seleccion-todos text-sm">
+                <label><input type="checkbox" id="chk-mail-todos" style="width:auto">Seleccionar todos los visibles</label>
+                <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tilda solo a las personas que estás viendo ahora. Si filtraste por local o estado, o buscaste un nombre, las que quedaron ocultas NO se seleccionan — así podés filtrar un local y aplicarle la acción a todo ese equipo de una.">ⓘ</span>
+            </div>
             <div class="barra-seleccion" id="barra-seleccion" hidden>
                 <span class="barra-seleccion-cuenta" id="cuenta-seleccion">0 seleccionados</span>
                 <div class="barra-seleccion-acciones">

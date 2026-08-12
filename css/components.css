@@ -2083,6 +2083,18 @@ table.data-table tbody tr:hover{
     margin:0 0 10px;
 }
 
+/* El <label> pasó a ser hijo de este contenedor (el ⓘ de ayuda quedó
+   afuera, porque adentro tocarlo contaba como tocar la etiqueta y
+   tildaba todo). Como el gap de arriba ahora separa etiqueta y ⓘ, hace
+   falta el suyo propio o el checkbox queda pegado al texto. */
+.barra-seleccion-todos > label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0;
+    cursor:pointer;
+}
+
 .barra-seleccion{
     display:flex;
     align-items:center;

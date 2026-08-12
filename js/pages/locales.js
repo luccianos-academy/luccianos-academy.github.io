@@ -169,9 +169,12 @@ export async function Locales() {
              aparecen sólo cuando hay algo tildado y dicen sobre cuántos
              van a aplicar. Siempre visibles y sin contador, no se sabía
              si "Marcar como propios" iba a tocar 1 local o 122. -->
-        <label class="barra-seleccion-todos text-sm">
-            <input type="checkbox" id="chk-locales-todos" style="width:auto">Seleccionar todos los visibles
-        </label>
+        <!-- El ⓘ va FUERA del <label>: adentro, tocarlo cuenta como
+             tocar la etiqueta y tildaba los 122 locales de una. -->
+        <div class="barra-seleccion-todos text-sm">
+            <label><input type="checkbox" id="chk-locales-todos" style="width:auto">Seleccionar todos los visibles</label>
+            <span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Tilda solo los locales que estás viendo ahora. Si filtraste por país o buscaste algo, los que quedaron ocultos NO se seleccionan — así podés, por ejemplo, filtrar Uruguay y marcarlos todos de una.">ⓘ</span>
+        </div>
         <div class="barra-seleccion" id="barra-seleccion-locales" hidden>
             <span class="barra-seleccion-cuenta" id="cuenta-seleccion-locales">0 seleccionados</span>
             <div class="barra-seleccion-acciones">
