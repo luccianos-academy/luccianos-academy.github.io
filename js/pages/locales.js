@@ -180,6 +180,10 @@ export async function Locales() {
             <div class="barra-seleccion-acciones">
                 <button class="btn btn-secondary" id="btn-lote-propio">Marcar como propios</button>
                 <button class="btn btn-secondary" id="btn-lote-franquicia">Marcar como franquicias</button>
+                <!-- Mismo criterio que los dos de arriba: cuando entra un
+                     supervisor nuevo hay que pasarle sus locales de a uno
+                     por el menú ⋮, y son decenas. -->
+                <button class="btn btn-secondary" id="btn-lote-supervisor">Asignar supervisor</button>
             </div>
             <button class="btn btn-sutil" id="btn-limpiar-seleccion-locales">Deseleccionar</button>
         </div>
@@ -307,14 +311,21 @@ export function bindLocales() {
 
     refrescarBarraSeleccion();
 
-    async function marcarEnLote(esPropio, boton) {
+    /**
+     * Aplica los mismos campos a todos los locales tildados.
+     *
+     * Genérica y no una función por acción: marcar propio/franquicia y
+     * asignar supervisor comparten todo lo que importa —el confirm con
+     * la lista, el guardado secuencial con progreso, el reporte de los
+     * que fallaron— y solo cambia qué se escribe.
+     */
+    async function aplicarEnLote(etiqueta, campos, boton) {
         const marcados = checksVisibles().filter((chk) => chk.checked);
         if (!marcados.length) {
-            alert("Primero tildá los locales que querés marcar.");
+            alert("Primero tildá los locales que querés cambiar.");
             return;
         }
 
-        const etiqueta = esPropio ? "Marcar como PROPIOS" : "Marcar como FRANQUICIAS";
         const nombres = marcados.map((chk) => chk.dataset.localNombre);
         const muestra = nombres.slice(0, 10).join("\n· ");
         const resto = nombres.length > 10 ? `\n…y ${nombres.length - 10} más` : "";
@@ -331,7 +342,7 @@ export function bindLocales() {
         for (let i = 0; i < marcados.length; i++) {
             boton.textContent = `Procesando ${i + 1}/${marcados.length}...`;
             try {
-                const r = await actualizarSucursal(marcados[i].dataset.localId, { esPropio: esPropio ? "SI" : "NO" });
+                const r = await actualizarSucursal(marcados[i].dataset.localId, campos);
                 if (r && r.ok === false) fallaron.push(nombres[i]);
             } catch (err) {
                 fallaron.push(nombres[i]);
@@ -350,8 +361,55 @@ export function bindLocales() {
         navigate("locales");
     }
 
-    document.getElementById("btn-lote-propio")?.addEventListener("click", (e) => marcarEnLote(true, e.currentTarget));
-    document.getElementById("btn-lote-franquicia")?.addEventListener("click", (e) => marcarEnLote(false, e.currentTarget));
+    document.getElementById("btn-lote-propio")?.addEventListener("click", (e) =>
+        aplicarEnLote("Marcar como PROPIOS", { esPropio: "SI" }, e.currentTarget));
+    document.getElementById("btn-lote-franquicia")?.addEventListener("click", (e) =>
+        aplicarEnLote("Marcar como FRANQUICIAS", { esPropio: "NO" }, e.currentTarget));
+
+    document.getElementById("btn-lote-supervisor")?.addEventListener("click", async (e) => {
+        const boton = e.currentTarget;
+        if (!checksVisibles().some((chk) => chk.checked)) {
+            alert("Primero tildá los locales a los que querés asignarle un supervisor.");
+            return;
+        }
+
+        const usuarios = await getUsuarios();
+        const supervisores = usuarios.filter((u) => u.rol === "supervisor");
+        const modalId = "modal-lote-supervisor";
+        const cuantos = checksVisibles().filter((chk) => chk.checked).length;
+
+        const contenidoHtml = `
+            <p class="text-sm text-muted" style="margin-bottom:12px">
+                Se va a aplicar a ${cuantos} ${cuantos === 1 ? "local" : "locales"}.
+            </p>
+            <label for="input-lote-supervisor">Supervisor</label>
+            <select id="input-lote-supervisor">
+                <option value="">Sin asignar</option>
+                ${supervisores.map((s) => `<option value="${escaparHtml(s.nombre)}">${escaparHtml(s.nombre)}</option>`).join("")}
+            </select>
+            <!-- "Sin asignar" es una opción real y no un placeholder: sacarle
+                 los locales a un supervisor que se va es tan necesario como
+                 dárselos a uno que entra, y de a uno sería el mismo trabajo
+                 que esto viene a evitar. -->
+            <p class="text-xs text-muted" style="margin-top:6px">
+                Elegí "Sin asignar" para quitarles el supervisor que tengan.
+            </p>
+        `;
+
+        abrirModal(
+            Modal({ id: modalId, titulo: "Asignar supervisor", contenidoHtml, textoConfirmar: "Aplicar" }),
+            modalId,
+            async () => {
+                const supervisor = document.getElementById("input-lote-supervisor").value;
+                cerrarModal(modalId);
+                await aplicarEnLote(
+                    supervisor ? `Asignar a ${supervisor}` : "Quitar el supervisor",
+                    { supervisor },
+                    boton,
+                );
+            },
+        );
+    });
 
     document.querySelectorAll("[data-desactivar]").forEach((btn) => {
         btn.addEventListener("click", async () => {

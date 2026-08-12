@@ -42,18 +42,28 @@ export function puedeVerManual(manual, usuario) {
     const visiblePara = String(manual.visiblePara || "").trim();
     const sucursalManual = String(manual.sucursal || "").trim();
 
-    // Si está dirigido a sucursales específicas, permitir a cualquier colaborador de esos locales
+    // Dirigido a locales puntuales.
     if (sucursalManual) {
         const locales = sucursalManual.split(",").map((s) => s.trim()).filter(Boolean);
-        // Admin y Supervisor lo ven siempre (aunque no sean del local)
+        // Admin y Supervisor lo ven igual, aunque no sean de ese local —
+        // gestionan el contenido y tienen que poder revisarlo.
         if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
-        // Colaborador (incluyendo Encargado) lo ve si es de su local
-        if (usuario.rol === "colaborador" && locales.includes(usuario.sucursal)) return true;
-        // Si no es de su local, no lo ve
-        return false;
+        if (usuario.rol !== "colaborador") return false;
+        if (!locales.includes(usuario.sucursal)) return false;
+
+        // Si NO hay roles cargados, ser del local alcanza — igual que
+        // siempre, así ningún manual que hoy se ve deja de verse.
+        if (!visiblePara) return true;
+
+        // Si SÍ hay roles, tienen que cumplirse los dos. Antes, con la
+        // sucursal cargada, los roles se ignoraban por completo: un
+        // manual dirigido a Supervisores del local X lo terminaba viendo
+        // cualquier colaborador de X. Contradecía el cambio de julio que
+        // exige marcar al menos un rol para poder guardar un manual — se
+        // exigía el rol y después no se respetaba. Cae al chequeo de
+        // roles de abajo.
     }
 
-    // Si NO tiene sucursal específica, filtrar por visiblePara (manuales genéricos)
     if (visiblePara) {
         const roles = visiblePara.split(",").map((r) => r.trim()).filter(Boolean);
         // "capacitador" no es un rol real (es un Supervisor con
@@ -64,8 +74,14 @@ export function puedeVerManual(manual, usuario) {
         const paraCapacitador = roles.includes("capacitador") && usuario.rol === "supervisor" && usuario.capacitador;
         if (!roles.includes(usuario.rol) && !paraCapacitador) return false;
     } else {
-        // Sin sucursal Y sin rol asignado = manual no está activo, nadie lo ve
-        // (excepto Admin vía el check "esAdmin || puedeVerManual" en Manuales())
+        // Sin sucursal Y sin rol asignado = manual no está activo, nadie
+        // lo ve (el Admin igual lo alcanza por el "esAdmin ||" de
+        // Manuales(), para poder arreglarlo).
+        //
+        // Ojo: acá vacío significa "no lo ve NADIE", al revés que
+        // Cursos.aplicaA. No es una inconsistencia a emparejar: esto es
+        // un permiso y falla cerrado, aquello es contenido y por defecto
+        // le llega a todos.
         return false;
     }
 

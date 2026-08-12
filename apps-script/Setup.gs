@@ -41,6 +41,56 @@ function setupUltimoIngreso() {
   console.log('✓ Columna ultimoIngreso agregada. Se completa sola en el próximo login de cada persona.');
 }
 
+/**
+ * setupAplicaA() — agrega la columna "aplicaA" a Cursos y Lecciones.
+ *
+ * Es lo que habilita el alcance de contenido por país y local
+ * (js/services/alcance.js). Sin la columna, el código no rompe: lee ""
+ * y todo le aplica a todos, que es el comportamiento de siempre.
+ *
+ * VACÍO = le aplica a TODOS. Es la semántica correcta para contenido
+ * —lo normal es que un curso valga para toda la red y la excepción se
+ * declare— y la misma de Noticias.dirigidoA. Es la OPUESTA a
+ * Manuales.visiblePara, que es un permiso y falla cerrado.
+ *
+ * Se puede correr las veces que haga falta: si la columna ya está, no
+ * la toca.
+ */
+function setupAplicaA() {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    ['Cursos', 'Lecciones'].forEach(function (nombreHoja) {
+        var hoja = ss.getSheetByName(nombreHoja);
+        if (!hoja) { console.log('Hoja no encontrada: ' + nombreHoja); return; }
+
+        // Igual que en setupSyncColumns: el backend busca la columna con
+        // indexOf(), que distingue mayúsculas. Un encabezado "AplicaA"
+        // parece bien en la planilla pero para el código no existe.
+        var headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+        var i = headers.findIndex(function (h) { return String(h).trim().toLowerCase() === 'aplicaa'; });
+
+        if (i !== -1) {
+            if (headers[i] === 'aplicaA') {
+                console.log('✓ ' + nombreHoja + ': "aplicaA" ya existe');
+            } else {
+                hoja.getRange(1, i + 1).setValue('aplicaA');
+                console.log('✓ ' + nombreHoja + ': encabezado corregido de "' + headers[i] + '" a "aplicaA"');
+            }
+            return;
+        }
+
+        hoja.getRange(1, hoja.getLastColumn() + 1).setValue('aplicaA');
+        console.log('✓ ' + nombreHoja + ': columna "aplicaA" creada');
+    });
+
+    console.log('');
+    console.log('Listo. Se deja VACÍA a propósito: vacío = le aplica a todos.');
+    console.log('Para acotar, escribir países y/o locales separados por comas:');
+    console.log('   Argentina, Uruguay');
+    console.log("   Lucciano's Pocitos Uruguay");
+    console.log("   Uruguay, Lucciano's Agüero CABA");
+}
+
 function setupSyncColumns() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hojas = ['Usuarios', 'Cursos', 'Lecciones', 'Noticias', 'Comunicaciones', 'Asignaciones', 'Resultados', 'Manuales'];
