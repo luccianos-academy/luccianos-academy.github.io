@@ -96,19 +96,35 @@ function puedeCrearNoticia(usuario) {
 async function descripcionDestinatarios(noti) {
     const dirigido = String(noti.dirigidoA || "").trim();
 
-    if (dirigido === "solo-admin") {
-        return "Solo vos — modo prueba, no le llegó a ningún colaborador";
-    }
-
-    if (dirigido === "usuarios-especificos") {
-        const ids = String(noti.usuariosEspecificos || "").split(",").map((s) => s.trim()).filter(Boolean);
-        if (!ids.length) return "Usuarios específicos — ninguno seleccionado";
+    // El ORDEN de estos chequeos tiene que ser el MISMO que el de
+    // puedeVerNoticia (data/noticias.js), que es quien decide de verdad a
+    // quién le llega. Ahí usuariosEspecificos manda por sobre dirigidoA:
+    // si hay gente en esa lista, SOLO esa gente la ve, diga lo que diga
+    // dirigidoA.
+    //
+    // Esta función miraba dirigidoA primero y caía a "Todos los
+    // colaboradores" cuando no matcheaba. Resultado: una News mandada a
+    // dos personas se entregaba bien, pero el cartel decía que había ido
+    // a toda la red. Reportado en vivo: "le envié un news a dos personas
+    // de prueba y en el mensaje enviado dice a todos los colaboradores".
+    const ids = String(noti.usuariosEspecificos || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (ids.length) {
         const usuarios = await getUsuarios();
         // Un id que ya no está en la nómina se muestra como id en vez de
         // desaparecer: que falte un destinatario de la lista sería
         // justamente lo que este texto tiene que dejar ver.
         const nombres = ids.map((id) => usuarios.find((u) => String(u.id) === id)?.nombre || `id ${id}`);
         return `${nombres.length} usuario(s): ${nombres.join(", ")}`;
+    }
+
+    if (dirigido === "solo-admin") {
+        return "Solo vos — modo prueba, no le llegó a ningún colaborador";
+    }
+
+    if (dirigido === "usuarios-especificos") {
+        // Se eligió el modo pero la lista quedó vacía: la News en los
+        // hechos sale para todos, así que hay que decirlo sin vueltas.
+        return "Usuarios específicos, pero no quedó ninguno seleccionado — les llegó a todos los colaboradores";
     }
 
     if (dirigido === "colaboradores-local") {
