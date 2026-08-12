@@ -702,9 +702,29 @@ var PADRON_SUCURSALES = [
     { id: 120, nombre: "Lucciano's Roma Italia", propio: true },
 ];
 
-/** completarSucursalesFaltantes() — NO modifica nada si se llama así.
- *  Muestra qué se agregaría. Para aplicar: completarSucursalesFaltantes(true) */
-function completarSucursalesFaltantes(aplicar) {
+/**
+ * completarSucursalesFaltantes() — NO modifica nada. Muestra qué se
+ * agregaría y qué locales de la hoja no reconoce.
+ */
+function completarSucursalesFaltantes() {
+    _sucursalesFaltantes(false);
+}
+
+/**
+ * agregarSucursalesFaltantes() — MODIFICA la hoja: agrega las que
+ * faltan. No edita ni borra ninguna fila existente.
+ *
+ * Va como función aparte y no como completarSucursalesFaltantes(true):
+ * el botón Ejecutar del editor de Apps Script no permite pasarle
+ * argumentos a una función, así que la versión con parámetro se corría
+ * SIEMPRE en modo previsualización y no había forma de aplicarla desde
+ * ahí. Mismo patrón de dos funciones que ya usan propios y países.
+ */
+function agregarSucursalesFaltantes() {
+    _sucursalesFaltantes(true);
+}
+
+function _sucursalesFaltantes(aplicar) {
     var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
     if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
 
@@ -788,7 +808,7 @@ function completarSucursalesFaltantes(aplicar) {
     if (!aplicar) {
         console.log('');
         console.log('— Previsualización. No se modificó nada. —');
-        if (nuevas.length) console.log('Para agregarlas: completarSucursalesFaltantes(true)');
+        if (nuevas.length) console.log('Para agregarlas, ejecutá: agregarSucursalesFaltantes()');
         return;
     }
     if (!nuevas.length) return;
