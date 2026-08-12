@@ -837,6 +837,89 @@ function _sucursalesFaltantes(aplicar) {
                 (Object.keys(yaEstan).length + aEscribir.length) + ' sucursales.');
 }
 
+/**
+ * diagnosticoSucursales() — NO modifica nada.
+ *
+ * Contesta por qué la app puede estar mostrando menos locales de los que
+ * hay en la hoja. El sospechoso principal es el id: la caché local
+ * (IndexedDB) guarda cada sucursal con el id como clave, así que dos
+ * filas con el MISMO id, o con el id vacío, se pisan entre sí y en la
+ * app quedan como una sola. En la planilla no se nota nada.
+ */
+function diagnosticoSucursales() {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+    if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+    var filas = hoja.getDataRange().getValues();
+    var enc = filas[0];
+    console.log('Encabezados: ' + enc.join(' | '));
+
+    var colId = enc.indexOf('id');
+    var colNombre = enc.indexOf('nombre');
+    var colPropio = enc.indexOf('esPropio');
+    var colPais = enc.indexOf('pais');
+    console.log('Columnas → id:' + colId + '  nombre:' + colNombre + '  esPropio:' + colPropio + '  pais:' + colPais);
+    if (colId === -1) console.log('⚠️  NO hay columna "id". Sin id la app no puede distinguir una sucursal de otra.');
+    console.log('');
+
+    var vistos = {}, duplicados = [], sinId = [], sinPais = [];
+    var propios = 0, franquicias = 0, otros = [], filasReales = 0;
+
+    for (var i = 1; i < filas.length; i++) {
+        var nombre = String(filas[i][colNombre] || '').trim();
+        if (!nombre) continue;
+        filasReales++;
+
+        if (colId !== -1) {
+            var id = String(filas[i][colId] || '').trim();
+            if (!id) sinId.push(nombre);
+            else if (vistos[id]) duplicados.push('id ' + id + ': "' + vistos[id] + '" y "' + nombre + '"');
+            else vistos[id] = nombre;
+        }
+        if (colPais !== -1 && !String(filas[i][colPais] || '').trim()) sinPais.push(nombre);
+
+        if (colPropio !== -1) {
+            var v = String(filas[i][colPropio] || '').trim().toUpperCase();
+            if (v === 'SI') propios++;
+            else if (v === 'NO' || v === '') franquicias++;
+            else otros.push(nombre + ' → "' + filas[i][colPropio] + '"');
+        }
+    }
+
+    console.log('Filas con nombre: ' + filasReales);
+    console.log('Propios: ' + propios + '   ·   Franquicias: ' + franquicias);
+    console.log('');
+
+    if (duplicados.length) {
+        console.log('❌ IDs DUPLICADOS (' + duplicados.length + ') — la app muestra UNA sola de cada par:');
+        duplicados.forEach(function (d) { console.log('   ' + d); });
+    } else if (colId !== -1) {
+        console.log('✓ Sin ids duplicados');
+    }
+
+    if (sinId.length) {
+        console.log('');
+        console.log('❌ SIN ID (' + sinId.length + ') — todas colapsan en un solo registro:');
+        sinId.forEach(function (n) { console.log('   ' + n); });
+    }
+
+    if (otros.length) {
+        console.log('');
+        console.log('⚠️  esPropio con un valor que no es SI ni NO (' + otros.length + '):');
+        otros.forEach(function (n) { console.log('   ' + n); });
+    }
+
+    if (sinPais.length) {
+        console.log('');
+        console.log('⚠️  SIN PAÍS (' + sinPais.length + ') — ejecutá completarPaises():');
+        sinPais.slice(0, 15).forEach(function (n) { console.log('   ' + n); });
+        if (sinPais.length > 15) console.log('   …y ' + (sinPais.length - 15) + ' más');
+    }
+
+    console.log('');
+    console.log('La app debería mostrar ' + (filasReales - duplicados.length - Math.max(0, sinId.length - 1)) + ' locales.');
+}
+
 /* ══════════════════════════════════════════════════════════════════
    PAÍS DE CADA SUCURSAL
    ══════════════════════════════════════════════════════════════════
