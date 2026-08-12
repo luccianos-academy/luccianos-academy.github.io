@@ -26,7 +26,9 @@ import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/product
 import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
 import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
 import { PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA } from "../data/productosPasteleria.js";
-import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad } from "../data/disponibilidad.js";
+import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, conAlcanceCambiado } from "../data/disponibilidad.js";
+import { getSucursales } from "../data/sucursales.js";
+import { aplicaAlUsuario } from "../services/alcance.js";
 
 /** Los mismos campos que ya vive el esquema real de Lecciones (ver
  *  README de apps-script) — antes este formulario solo tenía título y
@@ -121,7 +123,7 @@ export async function Academia() {
         { key: "categoria", label: "Categoría" },
         { key: "obligatorioLabel", label: "Obligatorio" },
         { key: "leccionesLabel", label: "Lecciones" },
-        { key: "alcanceLabel", label: "Aplica a" },
+        { key: "alcanceLabel", label: "No aplica a" },
         { key: "acciones", label: "" },
     ];
 
@@ -138,7 +140,7 @@ export async function Academia() {
         // Sin lo segundo, un curso con media línea restringida se veía
         // igual que uno sin ninguna restricción, y había que entrar al
         // catálogo de cada uno para enterarse.
-        alcanceLabel: etiquetaAlcance(c.aplicaA) + (() => {
+        alcanceLabel: etiquetaAlcance(c.noAplicaA) + (() => {
             const n = mapaDisponibilidad(disponibilidad, c.nombre).size;
             return n
                 ? `<div class="text-xs text-muted" style="margin-top:4px">${n} producto${n === 1 ? "" : "s"} acotado${n === 1 ? "" : "s"}</div>`
@@ -147,7 +149,7 @@ export async function Academia() {
         acciones: `
             <a class="btn btn-secondary" href="#/cursos/${c.id}" title="Ver el curso tal cual lo ve un colaborador">👁 Vista previa</a>
             <button class="btn btn-secondary" data-ver-lecciones="${c.id}">Ver lecciones</button>
-            <button class="btn btn-secondary" data-alcance-curso="${c.id}">Aplica a</button>
+            <button class="btn btn-secondary" data-alcance-curso="${c.id}">No aplica a</button>
             ${CATALOGO_POR_CURSO[c.nombre] ? `<button class="btn btn-secondary" data-catalogo-curso="${escaparHtml(c.nombre)}">Catálogo</button>` : ""}
             <button class="btn btn-secondary" data-eliminar-curso="${c.id}">Eliminar</button>
         `,
@@ -179,12 +181,12 @@ export function bindAcademia() {
             const curso = cursos.find((c) => String(c.id) === String(btn.dataset.alcanceCurso));
             if (!curso) return;
             abrirModalAlcance({
-                titulo: `Aplica a — ${curso.nombre}`,
-                valorActual: curso.aplicaA,
-                guardar: async (aplicaA) => {
-                    await actualizarCurso(curso.id, { aplicaA });
+                titulo: `No aplica a — ${curso.nombre}`,
+                valorActual: curso.noAplicaA,
+                guardar: async (noAplicaA) => {
+                    await actualizarCurso(curso.id, { noAplicaA });
                     registrarEvento(getUsuarioActual().id, "editar_curso",
-                        `Alcance de "${curso.nombre}": ${aplicaA || "toda la red"}`);
+                        `Restricción de "${curso.nombre}": ${noAplicaA || "ninguna"}`);
                 },
                 volver: () => navigate("academia"),
             });
@@ -241,12 +243,23 @@ export function bindAcademia() {
  * Sirve igual para un curso y para una lección: el campo es el mismo
  * (aplicaA) y la pregunta también. Cambia sólo a qué hoja se guarda.
  */
+/**
+ * "No aplica a" — quiénes NO ven este curso o lección.
+ *
+ * Se declara la RESTRICCIÓN, no el permiso. Al revés obligaba a
+ * enumerar a todos los que sí lo ven para sacar a uno: para que una
+ * lección no vaya en Uruguay había que escribir los otros 6 países, y
+ * cada país nuevo que abre hay que acordarse de sumarlo a mano en cada
+ * lección. Declarando la excepción, lo nuevo hereda el default —le
+ * llega a todos— que es lo correcto para contenido de capacitación.
+ */
 async function abrirModalAlcance({ titulo, valorActual, guardar, volver }) {
 
     const modalId = "modal-alcance";
     const contenidoHtml = `
         <p class="text-sm text-muted" style="margin-bottom:12px">
-            Elegí los países o locales donde se usa. Si no ponés nada, le llega a toda la red.
+            Agregá los países o locales donde <strong>no</strong> corresponde.
+            Si no ponés nada, le llega a toda la red.
         </p>
         ${MultiSelectAlcance("input-alcance", valorActual || "")}
     `;
@@ -255,8 +268,8 @@ async function abrirModalAlcance({ titulo, valorActual, guardar, volver }) {
         Modal({ id: modalId, titulo, contenidoHtml, textoConfirmar: "Guardar" }),
         modalId,
         async () => {
-            const aplicaA = document.getElementById("input-alcance").value.trim();
-            await guardar(aplicaA);
+            const noAplicaA = document.getElementById("input-alcance").value.trim();
+            await guardar(noAplicaA);
             cerrarModal(modalId);
             volver();
         },
@@ -289,152 +302,160 @@ const CATALOGO_POR_CURSO = {
     "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
 };
 
-async function abrirModalCatalogo(nombreCurso) {
+async function abrirModalCatalogo(nombreCurso, ambitoElegido) {
 
     const catalogo = CATALOGO_POR_CURSO[nombreCurso];
     if (!catalogo) return;
     const [productos, categorias] = catalogo;
 
-    const filas = await getDisponibilidad();
+    const [filas, sucursales] = await Promise.all([getDisponibilidad(), getSucursales()]);
     const alcances = mapaDisponibilidad(filas, nombreCurso);
-
     const modalId = "modal-catalogo";
 
-    const acotados = productos.filter((p) => (alcances.get(p.nombre) || "").trim()).length;
+    const activas = sucursales.filter((s) => s.estado === "Activa");
+    const paises = [...new Set(activas.map((s) => s.pais).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, "es"));
+
+    // Se trabaja parado en UN país o local por vez, igual que "Módulos
+    // que tiene" de Locales. Antes había que marcar productos y después
+    // declarar en qué países se venden, o sea pensar al revés: para
+    // sacar Gluten Free de Chile había que enumerar los otros 6 países.
+    const ambito = ambitoElegido || paises[0] || "";
+
+    // ¿Este producto se vende en el ámbito elegido? Se responde con la
+    // misma función que usa la app para mostrar el catálogo, así la
+    // pantalla no puede decir una cosa y el colaborador ver otra.
+    const usuarioDelAmbito = paises.includes(ambito)
+        ? { rol: "colaborador", sucursal: (activas.find((s) => s.pais === ambito) || {}).nombre || "" }
+        : { rol: "colaborador", sucursal: ambito };
+    const seVende = (nombre) => aplicaAlUsuario(alcances.get(nombre) || {}, usuarioDelAmbito, activas);
 
     const bloques = categorias.map((cat) => {
         const deLaCat = productos.filter((p) => (p.categorias || []).includes(cat));
         if (!deLaCat.length) return "";
-        const acotadosCat = deLaCat.filter((p) => (alcances.get(p.nombre) || "").trim()).length;
+        const fuera = deLaCat.filter((p) => !seVende(p.nombre)).length;
         return `
             <div class="catalogo-grupo" data-grupo="${escaparHtml(cat)}">
                 <label class="catalogo-grupo-titulo">
-                    <input type="checkbox" data-cat-todos="${escaparHtml(cat)}">
+                    <input type="checkbox" data-cat-todos="${escaparHtml(cat)}" ${fuera ? "" : "checked"}>
                     <span class="catalogo-grupo-nombre">${escaparHtml(cat)}</span>
-                    <span class="catalogo-grupo-meta">${deLaCat.length}${acotadosCat ? ` · ${acotadosCat} acotado${acotadosCat === 1 ? "" : "s"}` : ""}</span>
+                    <span class="catalogo-grupo-meta">${deLaCat.length}${fuera ? ` · ${fuera} fuera` : ""}</span>
                 </label>
-                ${deLaCat.map((p) => {
-                    const alcance = (alcances.get(p.nombre) || "").trim();
-                    return `
-                    <label class="catalogo-item${alcance ? " acotado" : ""}" data-nombre="${escaparHtml(p.nombre.toLowerCase())}">
+                ${deLaCat.map((p) => `
+                    <label class="catalogo-item" data-nombre="${escaparHtml(p.nombre.toLowerCase())}">
                         <input type="checkbox" class="prod-check"
-                               data-cat="${escaparHtml(cat)}" data-producto="${escaparHtml(p.nombre)}">
+                               data-cat="${escaparHtml(cat)}" data-producto="${escaparHtml(p.nombre)}"
+                               ${seVende(p.nombre) ? "checked" : ""}>
                         ${p.foto
                             ? `<img class="catalogo-foto" src="${escaparHtml(p.foto)}" alt="" loading="lazy">`
                             : `<span class="catalogo-foto catalogo-foto-vacia">${escaparHtml(p.nombre.slice(0, 2).toUpperCase())}</span>`}
                         <span class="catalogo-nombre">${escaparHtml(p.nombre)}</span>
-                        <span class="catalogo-alcance">${etiquetaAlcance(alcance)}</span>
-                    </label>`;
-                }).join("")}
+                    </label>
+                `).join("")}
             </div>
         `;
     }).join("");
 
-    // La barra se muestra SIEMPRE, con el instructivo cuando no hay
-    // nada marcado. Escondida hasta la primera selección, al abrir el
-    // modal sólo se veía una lista y un botón "Cerrar": no había ninguna
-    // pista de que "Aplica a…" es el guardar, ni de que hay que marcar
-    // algo primero.
+    // Agrupado por país, con "todo el país" arriba de sus locales. Una
+    // lista plana de 123 nombres obliga a saber de memoria en qué país
+    // está cada uno; así se baja del país al local sin buscar.
+    const opciones = paises.map((p) => {
+        const locales = activas.filter((s) => s.pais === p);
+        return `
+            <optgroup label="${escaparHtml(p)}">
+                <option value="${escaparHtml(p)}" ${p === ambito ? "selected" : ""}>
+                    Todo ${escaparHtml(p)} — ${locales.length} ${locales.length === 1 ? "local" : "locales"}
+                </option>
+                ${locales.map((s) => `
+                    <option value="${escaparHtml(s.nombre)}" ${s.nombre === ambito ? "selected" : ""}>
+                        &nbsp;&nbsp;${escaparHtml(s.nombre.replace("Lucciano's ", ""))}
+                    </option>`).join("")}
+            </optgroup>
+        `;
+    }).join("");
+
     const contenidoHtml = `
-        <div class="catalogo-cabecera">
-            <input type="search" id="buscador-catalogo" placeholder="Buscar producto...">
-            <p class="text-xs text-muted" style="margin:8px 0 0">
-                ${productos.length} productos · ${acotados
-                    ? `<strong>${acotados}</strong> con venta acotada`
-                    : "todos se venden en toda la red"}
-            </p>
-        </div>
+        <label for="select-ambito">¿Para qué país o local?</label>
+        <select id="select-ambito">${opciones}</select>
 
-        <div class="barra-seleccion catalogo-barra" id="barra-catalogo">
-            <span class="barra-seleccion-cuenta" id="cuenta-catalogo"></span>
-            <div class="barra-seleccion-acciones" id="acciones-catalogo" hidden>
-                <button type="button" class="btn btn-primary" id="btn-catalogo-alcance">Definir dónde se venden</button>
-                <button type="button" class="btn btn-sutil" id="btn-catalogo-limpiar">Deseleccionar</button>
-            </div>
-        </div>
+        <p class="text-sm text-muted" style="margin:12px 0 10px">
+            Destildá los productos que <strong>no</strong> se venden ahí. Las lecciones no se tocan:
+            el curso se hace igual, sólo desaparecen de la galería.
+        </p>
 
-        <div id="catalogo-lista">${bloques}</div>
+        <input type="search" id="buscador-catalogo" placeholder="Buscar producto...">
+        <div id="catalogo-lista" style="margin-top:14px">${bloques}</div>
         <p id="catalogo-sin-resultados" class="text-sm text-muted" hidden>Ningún producto coincide con la búsqueda.</p>
     `;
 
-    // Sin textoConfirmar: acá no hay un "guardar" final. Cada tanda se
-    // aplica desde la barra y se guarda en el momento, como en Locales.
-    abrirModal(Modal({ id: modalId, titulo: `Catálogo — ${nombreCurso}`, contenidoHtml, textoConfirmar: "" }), modalId);
+    abrirModal(
+        Modal({ id: modalId, titulo: `Catálogo — ${nombreCurso}`, contenidoHtml, textoConfirmar: "Guardar" }),
+        modalId,
+        async () => {
+            const boton = document.querySelector(`[data-confirm="${modalId}"]`);
+            const chks = [...document.querySelectorAll("#catalogo-lista .prod-check")];
 
-    const marcados = () => [...document.querySelectorAll("#catalogo-lista .prod-check:checked")];
+            // Sólo los que cambiaron: guardar los 60 serían 60 llamadas
+            // a Apps Script para tocar 8.
+            const cambios = chks.map((chk) => {
+                const nombre = chk.dataset.producto;
+                if (seVende(nombre) === chk.checked) return null;
+                const actual = alcances.get(nombre) || {};
+                return {
+                    nombre,
+                    noAplicaA: conAlcanceCambiado(actual.noAplicaA, ambito, chk.checked),
+                };
+            }).filter(Boolean);
 
-    function refrescar() {
-        const n = marcados().length;
-        const cuenta = document.getElementById("cuenta-catalogo");
-        const acciones = document.getElementById("acciones-catalogo");
-        acciones.hidden = n === 0;
-        // Sin nada marcado la barra dice qué hacer, en vez de "0
-        // seleccionados", que no le dice nada a quien recién abre.
-        cuenta.textContent = n
-            ? `${n} ${n === 1 ? "producto seleccionado" : "productos seleccionados"}`
-            : "Marcá productos para acotar dónde se venden";
-        cuenta.classList.toggle("catalogo-instructivo", n === 0);
-    }
+            if (!cambios.length) { cerrarModal(modalId); return; }
 
-    // Buscar entre 60 productos evita scrollear la lista entera cuando
-    // ya se sabe cuál se busca. Esconde también la categoría que se
-    // queda sin ninguno, para no dejar títulos colgados.
+            boton.disabled = true;
+            for (let i = 0; i < cambios.length; i++) {
+                boton.textContent = `Guardando ${i + 1}/${cambios.length}...`;
+                await guardarDisponibilidad(nombreCurso, cambios[i].nombre, { noAplicaA: cambios[i].noAplicaA }, filas);
+            }
+
+            registrarEvento(getUsuarioActual().id, "editar_curso",
+                `Catálogo de ${nombreCurso} en ${ambito}: ${cambios.length} producto(s) cambiados`);
+            cerrarModal(modalId);
+            navigate("academia");
+        },
+    );
+
+    // Cambiar de país recarga la lista con lo que corresponde a ese
+    // ámbito. Se avisa si hay cambios sin guardar: se perderían.
+    document.getElementById("select-ambito").addEventListener("change", (e) => {
+        const hayCambios = [...document.querySelectorAll("#catalogo-lista .prod-check")]
+            .some((chk) => seVende(chk.dataset.producto) !== chk.checked);
+        if (hayCambios && !confirm("Hay cambios sin guardar en " + ambito + ". ¿Descartarlos?")) {
+            e.target.value = ambito;
+            return;
+        }
+        cerrarModal(modalId);
+        abrirModalCatalogo(nombreCurso, e.target.value);
+    });
+
+    document.getElementById("catalogo-lista").addEventListener("change", (e) => {
+        // Atajo por categoría: el título marca o desmarca todos los suyos.
+        if (e.target.dataset.catTodos) {
+            document.querySelectorAll(`#catalogo-lista .prod-check[data-cat="${CSS.escape(e.target.dataset.catTodos)}"]`)
+                .forEach((chk) => { chk.checked = e.target.checked; });
+        }
+    });
+
     document.getElementById("buscador-catalogo").addEventListener("input", (e) => {
         const q = e.target.value.trim().toLowerCase();
         document.querySelectorAll("#catalogo-lista .catalogo-item").forEach((item) => {
             item.style.display = !q || item.dataset.nombre.includes(q) ? "" : "none";
         });
-        let algunoVisible = false;
+        let alguno = false;
         document.querySelectorAll("#catalogo-lista .catalogo-grupo").forEach((grupo) => {
             const hay = [...grupo.querySelectorAll(".catalogo-item")].some((i) => i.style.display !== "none");
             grupo.style.display = hay ? "" : "none";
-            if (hay) algunoVisible = true;
+            if (hay) alguno = true;
         });
-        document.getElementById("catalogo-sin-resultados").hidden = algunoVisible;
+        document.getElementById("catalogo-sin-resultados").hidden = alguno;
     });
-
-    document.getElementById("catalogo-lista").addEventListener("change", (e) => {
-        // Atajo por categoría: marcar el título marca todos los suyos.
-        // Es lo que vuelve innecesario un modelo aparte "por categoría".
-        if (e.target.dataset.catTodos) {
-            document.querySelectorAll(`#catalogo-lista .prod-check[data-cat="${CSS.escape(e.target.dataset.catTodos)}"]`)
-                .forEach((chk) => { chk.checked = e.target.checked; });
-        }
-        refrescar();
-    });
-
-    document.getElementById("btn-catalogo-limpiar").addEventListener("click", () => {
-        document.querySelectorAll("#catalogo-lista input[type=checkbox]").forEach((chk) => { chk.checked = false; });
-        refrescar();
-    });
-
-    document.getElementById("btn-catalogo-alcance").addEventListener("click", () => {
-        const elegidos = marcados().map((chk) => chk.dataset.producto);
-        if (!elegidos.length) return;
-        // Si todos los marcados comparten el mismo alcance, se precarga;
-        // si son distintos se arranca vacío para no pisar sin querer.
-        const alcancesDistintos = new Set(elegidos.map((n) => alcances.get(n) || ""));
-        const inicial = alcancesDistintos.size === 1 ? [...alcancesDistintos][0] : "";
-
-        cerrarModal(modalId);
-        abrirModalAlcance({
-            titulo: `Aplica a — ${elegidos.length} ${elegidos.length === 1 ? "producto" : "productos"}`,
-            valorActual: inicial,
-            guardar: async (aplicaA) => {
-                // Secuencial: cada guardado es una llamada a Apps Script
-                // y un Promise.all abortaría todo al primer fallo sin
-                // dejar saber cuáles quedaron hechos.
-                for (const nombre of elegidos) {
-                    await guardarDisponibilidad(nombreCurso, nombre, aplicaA, filas);
-                }
-                registrarEvento(getUsuarioActual().id, "editar_curso",
-                    `Catálogo de ${nombreCurso}: ${elegidos.length} producto(s) → ${aplicaA || "toda la red"}`);
-            },
-            volver: () => abrirModalCatalogo(nombreCurso),
-        });
-    });
-
-    refrescar();
 }
 
 async function abrirModalNuevoCurso() {
@@ -480,10 +501,10 @@ async function abrirModalLecciones(cursoId) {
     const listaHtml = lecciones.length
         ? lecciones.map((l) => `
             <div class="list item">
-                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.aplicaA)}</span>
+                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.noAplicaA)}</span>
                 <span>
                     <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
-                    <button class="btn btn-secondary" data-alcance-leccion="${l.id}">Aplica a</button>
+                    <button class="btn btn-secondary" data-alcance-leccion="${l.id}">No aplica a</button>
                     <button class="btn btn-secondary" data-eliminar-leccion="${l.id}">Eliminar</button>
                 </span>
             </div>
@@ -530,12 +551,12 @@ async function abrirModalLecciones(cursoId) {
             // dos modales encimados dejan el de abajo clickeable.
             cerrarModal(modalId);
             abrirModalAlcance({
-                titulo: `Aplica a — ${leccion.titulo}`,
-                valorActual: leccion.aplicaA,
-                guardar: async (aplicaA) => {
-                    await actualizarLeccion(leccion.id, { aplicaA });
+                titulo: `No aplica a — ${leccion.titulo}`,
+                valorActual: leccion.noAplicaA,
+                guardar: async (noAplicaA) => {
+                    await actualizarLeccion(leccion.id, { noAplicaA });
                     registrarEvento(getUsuarioActual().id, "editar_leccion",
-                        `Alcance de "${leccion.titulo}": ${aplicaA || "toda la red"}`);
+                        `Restricción de "${leccion.titulo}": ${noAplicaA || "ninguna"}`);
                 },
                 volver: () => abrirModalLecciones(cursoId),
             });

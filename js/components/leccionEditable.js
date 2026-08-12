@@ -118,11 +118,25 @@ export function bindLeccionEditable(leccion, { alGuardar } = {}) {
 
         const valorOriginal = leccion[campo] || "";
         const control = seccion.multilinea
-            ? `<textarea class="leccion-seccion-input" rows="4"></textarea>`
+            ? `<textarea class="leccion-seccion-input" rows="6"></textarea>`
             : `<input type="text" class="leccion-seccion-input">`;
+
+        // Barra de formato sólo en los campos largos: en un título de
+        // una línea, una lista no significa nada.
+        const barra = seccion.multilinea ? `
+            <div class="formato-barra">
+                <button class="formato-btn" type="button" data-formato="negrita" title="Negrita">
+                    <strong>N</strong>
+                </button>
+                <button class="formato-btn" type="button" data-formato="lista" title="Lista con viñetas">☰</button>
+                <button class="formato-btn" type="button" data-formato="numerada" title="Lista numerada">1.</button>
+                <span class="formato-ayuda text-xs text-muted">Una línea en blanco separa párrafos</span>
+            </div>
+        ` : "";
 
         contenedor.innerHTML = `
             <label class="text-xs text-muted" style="display:block;margin-bottom:6px">${escaparHtml(seccion.etiqueta)}</label>
+            ${barra}
             ${control}
             <div class="leccion-seccion-acciones">
                 <button class="btn btn-sutil" type="button" data-cancelar>Cancelar</button>
@@ -136,6 +150,43 @@ export function bindLeccionEditable(leccion, { alGuardar } = {}) {
         const input = contenedor.querySelector(".leccion-seccion-input");
         input.value = valorOriginal;
         input.focus();
+
+        // Los botones insertan la marca sobre la selección, como
+        // cualquier editor: seleccionás y tocás N. Sin selección, dejan
+        // el cursor listo para escribir adentro de la marca — obligar a
+        // seleccionar antes sería un paso de más.
+        contenedor.querySelectorAll("[data-formato]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const ini = input.selectionStart;
+                const fin = input.selectionEnd;
+                const sel = input.value.slice(ini, fin);
+
+                if (btn.dataset.formato === "negrita") {
+                    input.value = input.value.slice(0, ini) + `**${sel || "texto"}**` + input.value.slice(fin);
+                    input.selectionStart = ini + 2;
+                    input.selectionEnd = ini + 2 + (sel || "texto").length;
+                } else {
+                    const marca = btn.dataset.formato === "lista" ? "- " : "1. ";
+                    // Sobre varias líneas seleccionadas, cada una pasa a
+                    // ser un ítem: convertir un texto ya escrito en lista
+                    // es más frecuente que escribirla desde cero.
+                    const lineas = (sel || "").split("\n");
+                    const conMarca = lineas.map((l, i) => {
+                        const limpia = l.replace(/^\s*(?:[-*]|\d+\.)\s+/, "");
+                        const m = btn.dataset.formato === "numerada" ? `${i + 1}. ` : marca;
+                        return limpia.trim() ? m + limpia : m;
+                    }).join("\n");
+                    // Si no arranca en el principio de una línea, se
+                    // agrega un salto: "algo - item" no es una lista.
+                    const antes = input.value.slice(0, ini);
+                    const salto = !antes || antes.endsWith("\n") ? "" : "\n";
+                    input.value = antes + salto + conMarca + input.value.slice(fin);
+                    const pos = ini + salto.length + conMarca.length;
+                    input.selectionStart = input.selectionEnd = pos;
+                }
+                input.focus();
+            });
+        });
 
         contenedor.querySelector("[data-cancelar]").addEventListener("click", () => cerrarEditor(campo));
 

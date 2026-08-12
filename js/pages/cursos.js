@@ -543,7 +543,7 @@ async function renderDetalleCurso(usuario, cursoId) {
         const [productos, categorias] = galeriaCruda;
         const alcances = mapaDisponibilidad(await getDisponibilidad(), curso.nombre);
         const visibles = productos.filter((prod) =>
-            aplicaAlUsuario({ aplicaA: alcances.get(prod.nombre) || "" }, usuario));
+            aplicaAlUsuario(alcances.get(prod.nombre) || {}, usuario));
         // Una categoría que se quedó sin productos no se muestra: la
         // pill existiría, se tocaría, y la grilla quedaría vacía sin
         // explicar por qué.

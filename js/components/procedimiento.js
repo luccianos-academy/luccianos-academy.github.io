@@ -9,6 +9,8 @@
    mismo lenguaje visual sin duplicar la lógica de parseo.
 =============================*/
 
+import { tieneFormato, formatearTexto } from "../services/formato.js";
+
 /** "Nombre: detalle." o "Nombre (detalle)." — separa nombre/detalle
  *  para la lista con bullet; si no matchea ningún patrón, todo el
  *  ítem pasa a "nombre" sin detalle. */
@@ -43,6 +45,14 @@ function renderPasosNumerados(texto) {
  *  saltos de línea, o puntos separadores. */
 export function renderProcedimiento(texto) {
     if (!texto) return "";
+
+    // Si el texto trae marcas explícitas (**negrita**, "- item", "1.
+    // item") se respeta al pie de la letra. Todo lo de abajo es
+    // adivinanza sobre texto sin formato, y adivinar encima de algo que
+    // el autor ya declaró sería pisarlo: escribir dos oraciones seguidas
+    // terminaba dando una lista de dos ítems que nadie pidió.
+    if (tieneFormato(texto)) return `<div class="leccion-texto">${formatearTexto(texto)}</div>`;
+
     if (/^1\)\s/.test(texto.trim())) return renderPasosNumerados(texto);
 
     let items = [];

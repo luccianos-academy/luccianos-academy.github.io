@@ -32,7 +32,14 @@ function normalizar(f) {
         id: f.id,
         curso: String(f.curso || "").trim(),
         producto: String(f.producto || "").trim(),
+        // aplicaA existe por compatibilidad y para el caso raro ("esto
+        // se vende SOLO acá"), pero la pantalla escribe noAplicaA: se
+        // opera parándose en un país y destildando lo que no vende, que
+        // es como se piensa y como funciona Módulos. Declararlo al revés
+        // obligaba a enumerar los 6 países donde sí se vende para sacar
+        // uno.
         aplicaA: String(f.aplicaA || "").trim(),
+        noAplicaA: String(f.noAplicaA || "").trim(),
     };
 }
 
@@ -48,14 +55,23 @@ export async function getDisponibilidad() {
     }
 }
 
-/** producto → aplicaA, para un curso. Devuelve un Map para no recorrer
- *  la lista entera por cada producto al renderizar la galería. */
+/** producto → { aplicaA, noAplicaA }, para un curso. Devuelve un Map
+ *  para no recorrer la lista entera por cada producto al renderizar. */
 export function mapaDisponibilidad(filas, nombreCurso) {
     const mapa = new Map();
     (filas || [])
         .filter((f) => f.curso === nombreCurso)
-        .forEach((f) => mapa.set(f.producto, f.aplicaA));
+        .forEach((f) => mapa.set(f.producto, { aplicaA: f.aplicaA, noAplicaA: f.noAplicaA }));
     return mapa;
+}
+
+/** Excluye o devuelve un producto para un país/local puntual, sin tocar
+ *  el resto de su alcance. Es la operación que hace la pantalla:
+ *  destildar en Chile no debería alterar lo que pasa en Uruguay. */
+export function conAlcanceCambiado(actual, ambito, loTiene) {
+    const lista = String(actual || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const sinEste = lista.filter((s) => s.toLowerCase() !== ambito.toLowerCase());
+    return (loTiene ? sinEste : [...sinEste, ambito]).join(", ");
 }
 
 /**
@@ -65,10 +81,10 @@ export function mapaDisponibilidad(filas, nombreCurso) {
  * sería más prolijo, pero deja la hoja sin rastro de que alguien tocó
  * ese producto y volvió atrás — y el costo es una fila.
  */
-export async function guardarDisponibilidad(curso, producto, aplicaA, existentes) {
+export async function guardarDisponibilidad(curso, producto, cambios, existentes) {
     const yaEsta = (existentes || []).find((f) => f.curso === curso && f.producto === producto);
     if (yaEsta) {
-        return updateSheet(HOJAS.DISPONIBILIDAD, yaEsta.id, { aplicaA }, disponibilidadMock);
+        return updateSheet(HOJAS.DISPONIBILIDAD, yaEsta.id, cambios, disponibilidadMock);
     }
-    return writeSheet(HOJAS.DISPONIBILIDAD, { curso, producto, aplicaA }, disponibilidadMock);
+    return writeSheet(HOJAS.DISPONIBILIDAD, { curso, producto, ...cambios }, disponibilidadMock);
 }
