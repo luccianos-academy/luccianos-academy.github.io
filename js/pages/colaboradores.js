@@ -840,11 +840,22 @@ export async function Colaboradores() {
         </div>
 
         ${esAdmin ? `
-            <div class="barra-enviar-mail">
-                <label class="text-sm"><input type="checkbox" id="chk-mail-todos" style="width:auto">Seleccionar todos los visibles</label>
-                <button class="btn btn-secondary" id="btn-enviar-mail">✉ Enviar mail</button>
-                <button class="btn btn-secondary" id="btn-lote-renovar">Dar acceso ${DIAS_ACCESO_INICIAL} días</button>
-                <button class="btn btn-secondary" id="btn-lote-deshabilitar">Quitar acceso</button>
+            <!-- Barra de selección al estilo Gmail: aparece SOLO cuando hay
+                 algo tildado, dice cuántos son, y junta todas las acciones
+                 en un lugar. Antes los botones estaban siempre visibles y
+                 sin contexto: no se sabía sobre cuántos iban a aplicar. -->
+            <label class="barra-seleccion-todos text-sm">
+                <input type="checkbox" id="chk-mail-todos" style="width:auto">Seleccionar todos los visibles
+            </label>
+            <div class="barra-seleccion" id="barra-seleccion" hidden>
+                <span class="barra-seleccion-cuenta" id="cuenta-seleccion">0 seleccionados</span>
+                <div class="barra-seleccion-acciones">
+                    <button class="btn btn-secondary" id="btn-lote-renovar">Dar acceso ${DIAS_ACCESO_INICIAL} días</button>
+                    <button class="btn btn-secondary" id="btn-lote-deshabilitar">Quitar acceso</button>
+                    <button class="btn btn-secondary" id="btn-enviar-mail">✉ Enviar mail</button>
+                    <button class="btn btn-sutil-danger" id="btn-lote-eliminar">Eliminar</button>
+                </div>
+                <button class="btn btn-sutil" id="btn-limpiar-seleccion">Deseleccionar</button>
             </div>
         ` : ""}
 
@@ -978,7 +989,11 @@ export function bindColaboradores() {
             if (buscador) buscador.value = "";
             const chkTodos = document.getElementById("chk-mail-todos");
             if (chkTodos) chkTodos.checked = false;
+            // Cambiar de pestaña destilda todo: una selección hecha sobre
+            // Colaboradores no debe aplicarse sin querer a Supervisores.
+            document.querySelectorAll(".mail-check").forEach((chk) => { chk.checked = false; });
             aplicarFiltros();
+            refrescarBarraSeleccion();
         });
     });
 
@@ -997,9 +1012,39 @@ export function bindColaboradores() {
         });
     }
 
+    // La barra de acciones aparece SOLO con algo tildado y dice cuántos
+    // son — mismo criterio que Gmail. Sin eso los botones estaban
+    // siempre a la vista y sin contexto: no se sabía sobre cuánta gente
+    // iban a aplicar hasta leer el confirm.
+    function refrescarBarraSeleccion() {
+        const barra = document.getElementById("barra-seleccion");
+        if (!barra) return;
+        const n = checksVisibles(panelActivo()).filter((chk) => chk.checked).length;
+        barra.hidden = n === 0;
+        const cuenta = document.getElementById("cuenta-seleccion");
+        if (cuenta) cuenta.textContent = n === 1 ? "1 seleccionado" : `${n} seleccionados`;
+    }
+
+    // Delegado en el documento: las filas se redibujan al cambiar de
+    // pestaña o al filtrar, así que enganchar cada checkbox de a uno se
+    // pierde en el primer re-render.
+    document.addEventListener("change", (e) => {
+        if (e.target.classList?.contains("mail-check")) refrescarBarraSeleccion();
+    });
+
     document.getElementById("chk-mail-todos")?.addEventListener("change", (e) => {
         checksVisibles(panelActivo()).forEach((chk) => { chk.checked = e.target.checked; });
+        refrescarBarraSeleccion();
     });
+
+    document.getElementById("btn-limpiar-seleccion")?.addEventListener("click", () => {
+        document.querySelectorAll(".mail-check").forEach((chk) => { chk.checked = false; });
+        const todos = document.getElementById("chk-mail-todos");
+        if (todos) todos.checked = false;
+        refrescarBarraSeleccion();
+    });
+
+    refrescarBarraSeleccion();
 
     document.getElementById("btn-enviar-mail")?.addEventListener("click", () => {
         const visibles = checksVisibles(panelActivo());
@@ -1079,6 +1124,66 @@ export function bindColaboradores() {
 
     document.getElementById("btn-lote-deshabilitar")?.addEventListener("click", (e) => {
         accionEnLote("deshabilitar_acceso_lote", "Quitar el acceso", () => ({ activo: "NO" }), e.currentTarget);
+    });
+
+    // Eliminar en bloque. NO usa accionEnLote porque borrar una persona
+    // no es un update: hay que llevarse también sus asignaciones y sus
+    // resultados (si no quedan huérfanos apuntando a un id que ya no
+    // existe) y, desde Code.gs v1.4.3, su carpeta de Drive.
+    //
+    // Es la única acción de esta pantalla que no se puede deshacer, así
+    // que pide confirmar DOS veces: la primera lista los nombres, la
+    // segunda hace escribir la cantidad. Suena excesivo hasta que
+    // alguien tilda "todos los visibles" y le da sin leer.
+    document.getElementById("btn-lote-eliminar")?.addEventListener("click", async (e) => {
+        const boton = e.currentTarget;
+        const marcados = checksVisibles(panelActivo()).filter((chk) => chk.checked);
+        if (!marcados.length) {
+            alert("Primero tildá a quiénes querés eliminar.");
+            return;
+        }
+
+        const nombres = marcados.map((chk) => chk.dataset.mailNombre);
+        const muestra = nombres.slice(0, 8).join("\n· ");
+        const resto = nombres.length > 8 ? `\n…y ${nombres.length - 8} más` : "";
+        if (!confirm(`ELIMINAR definitivamente a ${nombres.length} persona(s):\n\n· ${muestra}${resto}\n\nSe borran también sus asignaciones, sus resultados de examen y su carpeta de fotos.\n\nEsto no se puede deshacer.`)) return;
+
+        const escrito = prompt(`Para confirmar, escribí cuántas personas vas a eliminar (${nombres.length}):`);
+        if (String(escrito || "").trim() !== String(nombres.length)) {
+            alert("No coincide. No se eliminó a nadie.");
+            return;
+        }
+
+        const textoOriginal = boton.textContent;
+        boton.disabled = true;
+        const fallaron = [];
+
+        for (let i = 0; i < marcados.length; i++) {
+            boton.textContent = `Eliminando ${i + 1}/${marcados.length}...`;
+            const id = marcados[i].dataset.mailId;
+            try {
+                const [asignaciones, resultados] = await Promise.all([
+                    getAsignacionesPorColaborador(id),
+                    getResultadosPorColaborador(id),
+                ]);
+                for (const a of asignaciones) await eliminarAsignacion(a.id);
+                for (const r of resultados) await eliminarResultado(r.id);
+                const borrado = await eliminarUsuario(id);
+                if (borrado && borrado.ok === false) fallaron.push(nombres[i]);
+            } catch (err) {
+                fallaron.push(nombres[i]);
+            }
+        }
+
+        boton.textContent = textoOriginal;
+        boton.disabled = false;
+
+        const hechos = marcados.length - fallaron.length;
+        registrarEvento(getUsuarioActual().id, "eliminar_usuario_lote", `Eliminación en bloque: ${hechos} de ${marcados.length}`);
+        if (fallaron.length) {
+            alert(`Se eliminaron ${hechos} de ${marcados.length}.\n\nNo se pudo con:\n· ${fallaron.join("\n· ")}`);
+        }
+        navigate("colaboradores");
     });
 
     document.querySelectorAll("[data-renovar]").forEach((btn) => {

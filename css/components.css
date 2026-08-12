@@ -2057,6 +2057,57 @@ table.data-table tbody tr:hover{
     color:var(--muted);
 }
 
+/* Barra de acciones sobre la selección — patrón de Gmail: aparece solo
+   cuando hay algo tildado, dice cuántos son, y junta todas las acciones
+   en un lugar. Antes los botones vivían siempre a la vista y sin
+   contexto: no se sabía sobre cuánta gente iban a aplicar. */
+.barra-seleccion-todos{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--muted);
+    margin:0 0 10px;
+}
+
+.barra-seleccion{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    margin:0 0 14px;
+    padding:10px 14px;
+    background:var(--gold-soft);
+    border:1px solid var(--gold-deep);
+    border-radius:var(--radius-sm);
+}
+
+.barra-seleccion[hidden]{ display:none; }
+
+.barra-seleccion-cuenta{
+    font-size:14px;
+    font-weight:500;
+    color:var(--gold-deep);
+    white-space:nowrap;
+}
+
+.barra-seleccion-acciones{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:8px;
+    /* Empuja "Deseleccionar" al extremo opuesto, como el descarte de
+       Gmail: separar lo que suma de lo que cancela. */
+    flex:1;
+}
+
+@media (max-width: 700px){
+    /* En mobile los botones ocupan el ancho: apretar el equivocado con
+       el pulgar es más fácil que en desktop. */
+    .barra-seleccion{ align-items:stretch; flex-direction:column; }
+    .barra-seleccion-acciones{ flex-direction:column; }
+    .barra-seleccion-acciones .btn{ width:100%; }
+}
+
 .barra-enviar-mail{
     display:flex;
     align-items:center;
