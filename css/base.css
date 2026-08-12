@@ -27,8 +27,17 @@
    en vez de quedar fija. Los que sí necesitan scroll horizontal propio
    (ej. .table-wrapper) lo declaran ellos mismos y siguen funcionando:
    esto solo bloquea el desborde a nivel de página. */
+/* "clip" y no "hidden": son idénticos para tapar el desborde lateral,
+   pero "hidden" convierte al elemento en un contenedor de scroll, y eso
+   ROMPE todo position:sticky que haya adentro — se pegan a esta caja en
+   vez de al viewport y en la práctica no se pegan a nada. Así estaban
+   fallando la barra de selección múltiple y la topbar mobile.
+   "clip" tapa igual sin crear contenedor de scroll. Se deja "hidden"
+   antes como respaldo para navegadores viejos (Safari <16), donde lo
+   único que se pierde es que sticky sigue sin andar. */
 html{
     overflow-x:hidden;
+    overflow-x:clip;
 }
 
 body{
@@ -36,6 +45,7 @@ body{
     background:var(--bg);
     color:var(--text);
     overflow-x:hidden;
+    overflow-x:clip;   /* ver la nota en html{} — hidden rompe sticky */
     width:100%;
 }
 

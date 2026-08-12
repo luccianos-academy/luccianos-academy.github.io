@@ -37,13 +37,38 @@ function normalizar(s) {
         .toLowerCase();
 }
 
+/* El país está en el sufijo del nombre de cada local — "Lucciano's
+   Pocitos Uruguay", "Lucciano's Weston USA" — y los argentinos terminan
+   en provincia. Esto es el respaldo de la columna "pais" de la hoja: si
+   una fila la tiene vacía (recién cargada, o antes de correr
+   completarPaises() en Setup.gs) el local no queda sin país y el filtro
+   por país lo sigue encontrando.
+
+   La columna manda siempre que tenga valor: un local puede llamarse de
+   una forma que no diga su país, y ahí se carga a mano. */
+const PAIS_POR_SUFIJO = {
+    uruguay: "Uruguay",
+    paraguay: "Paraguay",
+    chile: "Chile",
+    espana: "España",
+    usa: "Estados Unidos",
+    italia: "Italia",
+};
+
+export function paisDelNombre(nombre) {
+    const t = normalizar(nombre).replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    if (!t) return "";
+    return PAIS_POR_SUFIJO[t.split(" ").pop()] || "Argentina";
+}
+
 /** El país de una persona, deducido de su local. "" si no se puede
  *  resolver (no se pasaron las sucursales, o al local le falta el país). */
 export function paisDe(usuario, sucursales = []) {
     const miLocal = normalizar(usuario?.sucursal);
     if (!miLocal) return "";
     const suc = sucursales.find((s) => normalizar(s.nombre) === miLocal);
-    return String(suc?.pais || "").trim();
+    if (!suc) return "";
+    return String(suc.pais || "").trim() || paisDelNombre(suc.nombre);
 }
 
 /**

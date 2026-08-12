@@ -5,6 +5,7 @@
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { sucursalesMock } from "./mock/sucursales.mock.js";
+import { paisDelNombre } from "../services/alcance.js";
 import { HOJAS } from "../config.js";
 
 function normalizarSucursal(f) {
@@ -28,6 +29,12 @@ function normalizarSucursal(f) {
         // un local nuevo cae solo del lado correcto apenas se carga,
         // sin tener que volver a tocar ningún canal.
         esPropio: String(f.esPropio || "").trim().toUpperCase() === "SI",
+        // Segmenta el contenido por país (services/alcance.js) y el
+        // filtro de la pantalla de Locales. Si la celda está vacía se
+        // deduce del sufijo del nombre, así una sucursal recién cargada
+        // no queda fuera del filtro hasta que alguien complete la
+        // columna.
+        pais: String(f.pais || "").trim() || paisDelNombre(f.nombre),
     };
 }
 

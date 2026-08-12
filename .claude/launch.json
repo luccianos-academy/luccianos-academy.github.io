@@ -4,7 +4,7 @@
     {
       "name": "faro-preview",
       "runtimeExecutable": "sh",
-      "runtimeArgs": ["-c", "python3 -m http.server $PORT --directory \"/Users/gabrielbusquets/Desktop/Lucciano's Academy/Luccianos Academy\""],
+      "runtimeArgs": ["-c", "cd \"/Users/gabrielbusquets/Desktop/Lucciano's Academy/Luccianos Academy\" && exec python3 -m http.server $PORT"],
       "port": 5947,
       "autoPort": true
     }

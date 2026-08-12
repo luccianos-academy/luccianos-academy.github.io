@@ -597,7 +597,12 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, pu
  *  explícito del usuario. Admin sigue viendo la versión simple
  *  (COLUMNAS_BASE) — no se pidió este detalle ahí, y ya maneja 3
  *  pestañas de rol. */
-const COLUMNAS_SEMAFORO_GESTION = (cursos) => [
+const COLUMNAS_SEMAFORO_GESTION = (cursos, conSeleccion = false) => [
+    // El supervisor ve ESTA tabla, no la de admin, así que la columna de
+    // selección tiene que existir también acá o la barra de acciones en
+    // lote no tendría sobre qué operar. Va condicionada porque el
+    // Encargado ve la misma tabla en modo solo lectura.
+    ...(conSeleccion ? [{ key: "seleccion", label: "" }] : []),
     { key: "nombre", label: "Nombre" },
     { key: "email", label: "Email" },
     { key: "rolLabel", label: "Rol" },
@@ -621,6 +626,7 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
     const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapaLeccionesPorCurso);
     const fila = {
         ...c,
+        seleccion: checkboxMail(c.id, c.email, c.nombre),
         nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
         rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
         progreso: progreso.pct,
@@ -658,6 +664,17 @@ export async function Colaboradores() {
     const puedeDeshabilitar = usuario.rol !== "colaborador" && !usuario.capacitador;
     const puedeEditar = usuario.rol !== "colaborador" && !usuario.capacitador;
     const puedeRegistrar = !esEncargado && !usuario.capacitador;
+
+    // Las acciones en lote son las mismas que ya tiene fila por fila —
+    // la barra sólo evita repetirlas 20 veces. Por eso se apoya en
+    // puedeDeshabilitar en vez de exigir admin: un supervisor que ya
+    // puede renovar el acceso de a uno no gana ningún permiso nuevo por
+    // hacerlo de a diez.
+    //
+    // Eliminar es la excepción y va aparte: en el backend
+    // Usuarios.eliminar es ["admin"], así que un supervisor sólo se
+    // comería el rechazo. El botón no se le muestra.
+    const puedeAccionesEnLote = puedeDeshabilitar;
 
     let gruposPorSucursal = null; // Admin y Supervisor (con >1 local) ven la lista agrupada
     let colaboradores;
@@ -762,7 +779,9 @@ export async function Colaboradores() {
     const armarFila = esAdmin
         ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
         : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso);
-    const columnasTabla = esAdmin ? COLUMNAS_BASE(false, esAdmin) : COLUMNAS_SEMAFORO_GESTION(cursos);
+    const columnasTabla = esAdmin
+        ? COLUMNAS_BASE(false, esAdmin)
+        : COLUMNAS_SEMAFORO_GESTION(cursos, puedeAccionesEnLote);
 
     let cuerpoHtml;
     if (gruposPorSucursal) {
@@ -839,7 +858,7 @@ export async function Colaboradores() {
             <button class="pill-categoria" id="btn-filtro-encargados">Encargados</button>
         </div>
 
-        ${esAdmin ? `
+        ${puedeAccionesEnLote ? `
             <!-- Barra de selección al estilo Gmail: aparece SOLO cuando hay
                  algo tildado, dice cuántos son, y junta todas las acciones
                  en un lugar. Antes los botones estaban siempre visibles y
@@ -853,7 +872,7 @@ export async function Colaboradores() {
                     <button class="btn btn-secondary" id="btn-lote-renovar">Dar acceso ${DIAS_ACCESO_INICIAL} días</button>
                     <button class="btn btn-secondary" id="btn-lote-deshabilitar">Quitar acceso</button>
                     <button class="btn btn-secondary" id="btn-enviar-mail">✉ Enviar mail</button>
-                    <button class="btn btn-sutil-danger" id="btn-lote-eliminar">Eliminar</button>
+                    ${esAdmin ? `<button class="btn btn-sutil-danger" id="btn-lote-eliminar">Eliminar</button>` : ""}
                 </div>
                 <button class="btn btn-sutil" id="btn-limpiar-seleccion">Deseleccionar</button>
             </div>
@@ -997,9 +1016,14 @@ export function bindColaboradores() {
         });
     });
 
-    // ---- "Enviar mail" (uno, varios o todos los visibles) ----
-    // Solo Admin — Supervisor/Encargado nunca ven estos controles
-    // (a diferencia de editar/deshabilitar, que sí puede un Supervisor).
+    // ---- Selección múltiple: mail y acciones de acceso en lote ----
+    // Admin y Supervisor. El Encargado no, porque su vista es de solo
+    // lectura y no llega a renderizar los checkboxes.
+    //
+    // Los handlers de acá no chequean el rol: si el usuario no tiene
+    // permiso, los controles directamente no existen en el HTML y los
+    // addEventListener con "?." no hacen nada. El permiso real igual lo
+    // valida el backend en cada llamada.
 
     function panelActivo() {
         return document.querySelector("#tabla-colaboradores [data-rol-panel]:not([hidden])") || document.getElementById("tabla-colaboradores");

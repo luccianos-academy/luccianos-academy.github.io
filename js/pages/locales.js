@@ -102,6 +102,10 @@ export async function Locales() {
 
     const armarFila = (l) => ({
         ...l,
+        // El país va como atributo de la fila y no como columna visible:
+        // repetir "Argentina" 102 veces gasta ancho sin decir nada, y el
+        // filtro lo lee igual.
+        _datos: { pais: l.pais || "" },
         seleccion: `<input type="checkbox" class="local-check" style="width:auto" data-local-id="${l.id}" data-local-nombre="${escaparHtml(l.nombre)}">`,
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
@@ -126,24 +130,65 @@ export async function Locales() {
         </div>
     `;
 
+    // Segmentador por país. Con 122 locales repartidos en 7 países,
+    // llegar a los 4 de Uruguay scrolleando es incómodo. Se arma desde
+    // los datos y no con una lista fija: el día que abra un local en un
+    // país nuevo, la pill aparece sola.
+    //
+    // Argentina primero por ser el 84% de los locales, el resto por
+    // cantidad. Ordenar alfabéticamente dejaba Chile —con un local—
+    // antes que Argentina.
+    const porPais = new Map();
+    locales.forEach((l) => {
+        const p = l.pais || "Sin país";
+        porPais.set(p, (porPais.get(p) || 0) + 1);
+    });
+    const paises = [...porPais.entries()].sort((a, b) => {
+        if (a[0] === "Argentina") return -1;
+        if (b[0] === "Argentina") return 1;
+        return b[1] - a[1] || a[0].localeCompare(b[0], "es");
+    });
+
+    const pillsPais = [
+        `<button class="pill-categoria activa" data-filtro-pais="todos">Todos <span class="text-sm">(${locales.length})</span></button>`,
+        ...paises.map(([p, n]) =>
+            `<button class="pill-categoria" data-filtro-pais="${escaparHtml(p)}">${escaparHtml(p)} <span class="text-sm">(${n})</span></button>`),
+    ].join("");
+
     return `
         ${Header("Locales", "Sucursales de Lucciano's")}
 
         <div class="table-toolbar">
-            <input type="search" id="buscador-locales" placeholder="Buscar local...">
+            <input type="search" id="buscador-locales" placeholder="Buscar local o supervisor...">
             <button class="btn btn-primary" id="btn-nuevo-local">+ Nuevo local</button>
         </div>
 
-        <div class="barra-enviar-mail">
-            <label class="text-sm"><input type="checkbox" id="chk-locales-todos" style="width:auto">Seleccionar todos los visibles</label>
-            <button class="btn btn-secondary" id="btn-lote-propio">Marcar como propios</button>
-            <button class="btn btn-secondary" id="btn-lote-franquicia">Marcar como franquicias</button>
+        <div class="galeria-pills" id="filtro-paises" style="margin:14px 0">${pillsPais}</div>
+
+        <!-- Mismo patrón que Mi equipo: los botones de acción en lote
+             aparecen sólo cuando hay algo tildado y dicen sobre cuántos
+             van a aplicar. Siempre visibles y sin contador, no se sabía
+             si "Marcar como propios" iba a tocar 1 local o 122. -->
+        <label class="barra-seleccion-todos text-sm">
+            <input type="checkbox" id="chk-locales-todos" style="width:auto">Seleccionar todos los visibles
+        </label>
+        <div class="barra-seleccion" id="barra-seleccion-locales" hidden>
+            <span class="barra-seleccion-cuenta" id="cuenta-seleccion-locales">0 seleccionados</span>
+            <div class="barra-seleccion-acciones">
+                <button class="btn btn-secondary" id="btn-lote-propio">Marcar como propios</button>
+                <button class="btn btn-secondary" id="btn-lote-franquicia">Marcar como franquicias</button>
+            </div>
+            <button class="btn btn-sutil" id="btn-limpiar-seleccion-locales">Deseleccionar</button>
         </div>
 
         <div id="tabla-locales">
             ${seccion("Locales propios", propios, "Ninguno marcado como propio todavía — usá el menú ⋮ de cada local para marcarlo.")}
             ${seccion("Franquicias", franquicias, "Todos los locales están marcados como propios.")}
         </div>
+
+        <p id="locales-sin-resultados" class="text-sm text-muted" hidden>
+            Ningún local coincide con la búsqueda.
+        </p>
     `;
 }
 
@@ -152,24 +197,61 @@ export function bindLocales() {
     bindMenuAcciones();
 
     const buscador = document.getElementById("buscador-locales");
-    if (buscador) {
-        buscador.addEventListener("input", () => {
-            const filtro = buscador.value.trim().toLowerCase();
-            document.querySelectorAll("#tabla-locales tbody tr").forEach((fila) => {
-                const nombre = fila.firstElementChild?.textContent.toLowerCase() || "";
-                fila.style.display = nombre.includes(filtro) ? "" : "none";
-            });
-            // Ahora que hay dos secciones, una búsqueda que no matchea
-            // nada de un grupo dejaba su título colgado sobre una tabla
-            // vacía, como si el local buscado no existiera en ningún
-            // lado. Se esconde la sección entera.
-            document.querySelectorAll("#tabla-locales .section").forEach((seccion) => {
-                const visibles = [...seccion.querySelectorAll("tbody tr")]
-                    .some((f) => f.style.display !== "none");
-                seccion.style.display = visibles ? "" : "none";
-            });
+    let paisActivo = "todos";
+
+    // Texto y país se aplican juntos: filtrarlos por separado hacía que
+    // el último en ejecutarse pisara al otro (elegir un país mostraba
+    // locales que la búsqueda había descartado).
+    function aplicarFiltros() {
+        const filtro = (buscador?.value || "").trim().toLowerCase();
+
+        document.querySelectorAll("#tabla-locales tbody tr").forEach((fila) => {
+            // Por columna y no por posición. Antes esto leía
+            // firstElementChild, que desde que existe la columna de
+            // checkboxes es una celda vacía: el buscador comparaba
+            // siempre contra "" y escondía todos los locales apenas
+            // tipeabas una letra.
+            const nombre = fila.querySelector('[data-col="nombre"]')?.textContent.toLowerCase() || "";
+            const supervisor = fila.querySelector('[data-col="supervisor"]')?.textContent.toLowerCase() || "";
+            const pais = fila.dataset.pais || "";
+
+            const coincideTexto = !filtro || nombre.includes(filtro) || supervisor.includes(filtro);
+            const coincidePais = paisActivo === "todos" || pais === paisActivo;
+            fila.style.display = coincideTexto && coincidePais ? "" : "none";
         });
+
+        // Una búsqueda que no matchea nada de un grupo dejaba su título
+        // colgado sobre una tabla vacía, como si el local buscado no
+        // existiera en ningún lado. Se esconde la sección entera.
+        document.querySelectorAll("#tabla-locales .section").forEach((seccion) => {
+            const visibles = [...seccion.querySelectorAll("tbody tr")]
+                .some((f) => f.style.display !== "none");
+            seccion.style.display = visibles ? "" : "none";
+        });
+
+        const vacio = document.getElementById("locales-sin-resultados");
+        if (vacio) {
+            const hay = [...document.querySelectorAll("#tabla-locales tbody tr")]
+                .some((f) => f.style.display !== "none");
+            vacio.hidden = hay;
+        }
+
+        // Filtrar cambia qué está a la vista, y las acciones en lote sólo
+        // aplican sobre lo visible. Sin esto la barra podía decir "12
+        // seleccionados" cuando el filtro dejó 2 en pantalla.
+        refrescarBarraSeleccion();
     }
+
+    buscador?.addEventListener("input", aplicarFiltros);
+
+    document.getElementById("filtro-paises")?.addEventListener("click", (e) => {
+        const pill = e.target.closest("[data-filtro-pais]");
+        if (!pill) return;
+        paisActivo = pill.dataset.filtroPais;
+        document.querySelectorAll("#filtro-paises [data-filtro-pais]")
+            .forEach((p) => p.classList.toggle("activa", p === pill));
+        aplicarFiltros();
+    });
 
     // ---- Marcar propio / franquicia en bloque ----
     //
@@ -191,9 +273,36 @@ export function bindLocales() {
         });
     }
 
+    // La barra sólo aparece con algo tildado y dice cuántos son, así los
+    // botones nunca aplican sobre una cantidad que no está a la vista.
+    function refrescarBarraSeleccion() {
+        const barra = document.getElementById("barra-seleccion-locales");
+        if (!barra) return;
+        const n = checksVisibles().filter((chk) => chk.checked).length;
+        barra.hidden = n === 0;
+        const cuenta = document.getElementById("cuenta-seleccion-locales");
+        if (cuenta) cuenta.textContent = `${n} ${n === 1 ? "local seleccionado" : "locales seleccionados"}`;
+    }
+
     document.getElementById("chk-locales-todos")?.addEventListener("change", (e) => {
         checksVisibles().forEach((chk) => { chk.checked = e.target.checked; });
+        refrescarBarraSeleccion();
     });
+
+    // Delegado: las filas se re-renderizan al aplicar un lote, y un
+    // listener por checkbox se perdería en ese redibujo.
+    document.addEventListener("change", (e) => {
+        if (e.target.classList?.contains("local-check")) refrescarBarraSeleccion();
+    });
+
+    document.getElementById("btn-limpiar-seleccion-locales")?.addEventListener("click", () => {
+        document.querySelectorAll("#tabla-locales .local-check").forEach((chk) => { chk.checked = false; });
+        const todos = document.getElementById("chk-locales-todos");
+        if (todos) todos.checked = false;
+        refrescarBarraSeleccion();
+    });
+
+    refrescarBarraSeleccion();
 
     async function marcarEnLote(esPropio, boton) {
         const marcados = checksVisibles().filter((chk) => chk.checked);
@@ -303,15 +412,22 @@ async function abrirModalNuevoLocal() {
             ${supervisores.map((s) => `<option value="${s.nombre}">${s.nombre}</option>`).join("")}
         </select>
 
+        <!-- Mismo componente .radio-card que ya usa News para elegir
+             destinatario: los radios nativos sueltos que había acá se
+             veían con el azul del sistema y desalineados entre sí. -->
         <label style="margin-top:16px;display:block;margin-bottom:8px">Tipo de local</label>
-        <div style="display:flex;gap:16px;margin-bottom:16px">
-            <label style="display:flex;align-items:center;gap:8px">
+        <div class="radio-cards" style="margin-bottom:16px">
+            <label class="radio-card">
                 <input type="radio" name="tipo-local" value="propio" id="input-propio">
-                <span>Propio</span>
+                <span class="radio-card-radio"></span>
+                <span class="radio-card-titulo">Propio</span>
+                <span class="radio-card-desc">Operado por Lucciano's</span>
             </label>
-            <label style="display:flex;align-items:center;gap:8px">
+            <label class="radio-card">
                 <input type="radio" name="tipo-local" value="franquicia" id="input-franquicia" checked>
-                <span>Franquicia</span>
+                <span class="radio-card-radio"></span>
+                <span class="radio-card-titulo">Franquicia</span>
+                <span class="radio-card-desc">Operado por un tercero</span>
             </label>
         </div>
     `;
