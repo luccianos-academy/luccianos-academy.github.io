@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.4.2";
+const BACKEND_VERSION = "1.4.3";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -647,7 +647,59 @@ function actualizar(hoja, id, cambios, usuarioActual) {
 function eliminar(hoja, id, usuarioActual) {
     const permiso = _autorizarEscritura(hoja, "eliminar", usuarioActual);
     if (!permiso.ok) return permiso;
+
+    // Borrar a alguien del sistema tiene que llevarse también su carpeta
+    // de Drive: si no, queda una carpeta huérfana con su foto para
+    // siempre, y con rotación alta eso se acumula. Va ANTES de borrar la
+    // fila porque necesita el nombre para encontrarla.
+    //
+    // Solo en "Eliminar" (borrado real, que ya se lleva asignaciones y
+    // resultados). "Deshabilitar" no pasa por acá — ahí la persona sigue
+    // en el sistema y su foto tiene que quedar, por si vuelve.
+    if (hoja === "Usuarios") _borrarCarpetaDeColaborador(id);
+
     return _eliminarCrudo(hoja, id);
+}
+
+/**
+ * Manda a la papelera la carpeta de Drive de un colaborador.
+ *
+ * A la papelera y no borrado definitivo: si alguien elimina a la
+ * persona equivocada, dentro de los 30 días se recupera.
+ *
+ * Busca por ID, no por nombre: la carpeta se llama "Nombre (id)" y el
+ * nombre pudo haber cambiado desde que se creó. El id es lo único
+ * estable.
+ *
+ * Nunca tira error: que Drive falle no puede impedir que se borre al
+ * usuario del sistema, que es lo que realmente pidió quien apretó el
+ * botón.
+ */
+function _borrarCarpetaDeColaborador(id) {
+    try {
+        const raiz = DriveApp.getRootFolder();
+        const recursos = raiz.getFoldersByName("Lucciano's Academy — Recursos");
+        if (!recursos.hasNext()) return;
+        const colaboradores = recursos.next().getFoldersByName("Colaboradores");
+        if (!colaboradores.hasNext()) return;
+
+        const buscado = String(id).split(".")[0];
+        const carpetas = colaboradores.next().getFolders();
+        while (carpetas.hasNext()) {
+            const c = carpetas.next();
+            const nombre = c.getName();
+            // "Nombre (id)" o, en las viejas, solo el id.
+            const m = nombre.match(/\((\d+)\)\s*$/);
+            const idCarpeta = m ? m[1] : nombre.trim().split(".")[0];
+            if (idCarpeta === buscado) {
+                c.setTrashed(true);
+                Logger.log("Carpeta de Drive enviada a papelera: " + nombre);
+                return;
+            }
+        }
+    } catch (err) {
+        Logger.log("No se pudo borrar la carpeta de Drive: " + err.message);
+    }
 }
 
 /** Interruptor de emergencia: por defecto Supervisor tiene paridad con
