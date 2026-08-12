@@ -34,12 +34,23 @@ export function detalleConNombres(detalle, usuarios) {
     let texto = String(detalle || "");
     if (!texto || !usuarios?.length) return texto;
 
-    // Los ids son Date.now(): 13 dígitos, a veces con cola decimal que
-    // le agrega la planilla (ver services/ids.js).
-    return texto.replace(/\b(\d{9,})(?:\.\d+)?\b/g, (match, entero) => {
-        const u = usuarios.find((x) => String(x.id).split(".")[0] === entero);
-        return u ? u.nombre : match;
+    const nombreDe = (n) => usuarios.find((x) => String(x.id).split(".")[0] === n)?.nombre;
+
+    // 1) "usuario 1", "(usuario 48)" — acá el id puede ser de cualquier
+    //    largo porque la palabra "usuario" lo desambigua. Hace falta: los
+    //    primeros usuarios cargados tienen ids chicos (1, 6, 48...) y con
+    //    el patrón de abajo, que pide 9 dígitos, quedaban sin traducir.
+    //    No se puede reemplazar cualquier número suelto: "30 días" o
+    //    "12 de 12" se convertirían en nombres.
+    texto = texto.replace(/\busuario\s+(\d+)(?:\.\d+)?\b/gi, (match, n) => {
+        const nombre = nombreDe(n);
+        return nombre ? match.replace(/\d+(?:\.\d+)?/, nombre) : match;
     });
+
+    // 2) Ids sueltos, sin la palabra delante. Solo de 9 dígitos para
+    //    arriba (Date.now() son 13): más corto que eso no se puede
+    //    distinguir de una cantidad cualquiera.
+    return texto.replace(/\b(\d{9,})(?:\.\d+)?\b/g, (match, entero) => nombreDe(entero) || match);
 }
 
 export async function registrarEvento(usuarioId, accion, detalle = "") {
