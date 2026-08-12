@@ -2079,6 +2079,20 @@ table.data-table tbody tr:hover{
     background:var(--gold-soft);
     border:1px solid var(--gold-deep);
     border-radius:var(--radius-sm);
+    /* Fija al scrollear: con 43 personas agrupadas por local hay que
+       bajar para seguir tildando, y volver arriba cada vez a buscar el
+       botón hace inusable la selección múltiple. Debajo de la topbar
+       (z-index 850) y encima del contenido. */
+    position:sticky;
+    top:0;
+    z-index:700;
+    box-shadow:0 6px 16px rgba(0,0,0,.45);
+}
+
+@media (max-width:900px){
+    /* Acá la topbar existe y mide 58px: sin este offset la barra queda
+       tapada justo cuando más se la necesita. */
+    .barra-seleccion{ top:58px; }
 }
 
 .barra-seleccion[hidden]{ display:none; }
