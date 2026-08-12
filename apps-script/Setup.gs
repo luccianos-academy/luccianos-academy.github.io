@@ -515,6 +515,235 @@ function _propios(aplicar, forzar) {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   SUCURSALES FALTANTES
+   ══════════════════════════════════════════════════════════════════
+
+   La hoja se sembró con una lista de 99 locales y desde entonces la red
+   creció a 122: faltan los 5 de USA, los 8 de España, Roma, dos de
+   Uruguay, Abasto 2 y siete argentinas. En la app se notaba en el filtro
+   por país, que no mostraba ni Estados Unidos ni España.
+
+   Esta lista es el padrón completo. La función de abajo SOLO AGREGA lo
+   que no está: nunca edita ni borra una fila existente, así que no pisa
+   nada cargado a mano y se puede correr las veces que haga falta.       */
+
+var PADRON_SUCURSALES = [
+    { id: 1, nombre: "Lucciano's Martinez GBA", propio: true },
+    { id: 2, nombre: "Lucciano's Olivos GBA", propio: true },
+    { id: 7, nombre: "Lucciano's San Miguel GBA", propio: true },
+    { id: 12, nombre: "Lucciano's Shopping Abasto CABA", propio: true },
+    { id: 121, nombre: "Lucciano's Shopping Abasto 2 CABA", propio: true },
+    { id: 13, nombre: "Lucciano's La Imprenta Gran Hotel CABA", propio: true },
+    { id: 14, nombre: "Lucciano's Distrito Arcos CABA", propio: true },
+    { id: 20, nombre: "Lucciano's Recoleta CABA", propio: true },
+    { id: 21, nombre: "Lucciano's Dot CABA", propio: true },
+    { id: 33, nombre: "Lucciano's Agüero CABA", propio: true },
+    { id: 37, nombre: "Lucciano's Galerias Pacifico CABA", propio: true },
+    { id: 42, nombre: "Lucciano's Patio Bullrich CABA", propio: true },
+    { id: 43, nombre: "Lucciano's Obelisco CABA", propio: true },
+    { id: 45, nombre: "Lucciano's Calle Corrientes CABA", propio: true },
+    { id: 46, nombre: "Lucciano's Santa Fe y Parana CABA", propio: true },
+    { id: 47, nombre: "Lucciano's Nordelta Buenos Aires", propio: true },
+    { id: 63, nombre: "Lucciano's Cerro De Las Rosas Córdoba", propio: true },
+    { id: 64, nombre: "Lucciano's Nuevocentro Córdoba", propio: true },
+    { id: 66, nombre: "Lucciano's Alto Rosario Santa Fe", propio: true },
+    { id: 79, nombre: "Lucciano's Galerias Salta", propio: true },
+    { id: 80, nombre: "Lucciano's Alto NOA Salta", propio: true },
+    { id: 81, nombre: "Lucciano's Posadas Misiones", propio: true },
+    { id: 90, nombre: "Lucciano's Alem Mar del Plata", propio: true },
+    { id: 91, nombre: "Lucciano's Aldrey Mar del Plata", propio: true },
+    { id: 92, nombre: "Lucciano's Central Mar del Plata", propio: true },
+    { id: 93, nombre: "Lucciano's Constitucion Mar del Plata", propio: true },
+    { id: 94, nombre: "Lucciano's Gallegos Mar del Plata", propio: true },
+    { id: 95, nombre: "Lucciano's Guemes Mar del Plata", propio: true },
+    { id: 96, nombre: "Lucciano's Paso Mar del Plata", propio: true },
+    { id: 97, nombre: "Lucciano's Peatonal Mar del Plata", propio: true },
+    { id: 98, nombre: "Lucciano's Torreon Mar del Plata", propio: true },
+    { id: 99, nombre: "Lucciano's Varese Mar del Plata", propio: true },
+    { id: 3, nombre: "Lucciano's Parque Avellaneda Shopping GBA" },
+    { id: 4, nombre: "Lucciano's Ituzaingo GBA" },
+    { id: 5, nombre: "Lucciano's Distrito T GBA" },
+    { id: 6, nombre: "Lucciano's Adrogué GBA" },
+    { id: 8, nombre: "Lucciano's Parque Leloir GBA" },
+    { id: 9, nombre: "Lucciano's Quilmes GBA" },
+    { id: 10, nombre: "Lucciano's Caseros GBA" },
+    { id: 11, nombre: "Lucciano's Ramos Mejia GBA" },
+    { id: 15, nombre: "Lucciano's Arcos del Rosedal CABA" },
+    { id: 16, nombre: "Lucciano's Villa del Parque CABA" },
+    { id: 17, nombre: "Lucciano's Honduras CABA" },
+    { id: 18, nombre: "Lucciano's Cid Campeador CABA" },
+    { id: 19, nombre: "Lucciano's Devoto CABA" },
+    { id: 22, nombre: "Lucciano's Puerto Madero Dique CABA" },
+    { id: 23, nombre: "Lucciano's Puerto Madero CABA" },
+    { id: 24, nombre: "Lucciano's Caballito CABA" },
+    { id: 25, nombre: "Lucciano's Parque Rivadavia CABA" },
+    { id: 26, nombre: "Lucciano's Libertador CABA" },
+    { id: 27, nombre: "Lucciano's Villa Urquiza CABA" },
+    { id: 28, nombre: "Lucciano's Villa Urquiza II CABA" },
+    { id: 29, nombre: "Lucciano's Villa Luro CABA" },
+    { id: 30, nombre: "Lucciano's Coghlan CABA" },
+    { id: 31, nombre: "Lucciano's Las Cañitas CABA" },
+    { id: 32, nombre: "Lucciano's Colegiales CABA" },
+    { id: 34, nombre: "Lucciano's Nuñez CABA" },
+    { id: 35, nombre: "Lucciano's Belgrano C CABA" },
+    { id: 36, nombre: "Lucciano's Bajo Belgrano CABA" },
+    { id: 38, nombre: "Lucciano's San Telmo CABA" },
+    { id: 39, nombre: "Lucciano's Paseo del Angel CABA" },
+    { id: 40, nombre: "Lucciano's Plaza Houssay CABA" },
+    { id: 41, nombre: "Lucciano's Palermo Chico CABA" },
+    { id: 44, nombre: "Lucciano's Almagro CABA" },
+    { id: 48, nombre: "Lucciano's Baxar Mercado Buenos Aires" },
+    { id: 49, nombre: "Lucciano's La Plata Buenos Aires" },
+    { id: 50, nombre: "Lucciano's Pilar Buenos Aires" },
+    { id: 51, nombre: "Lucciano's Pilar II Buenos Aires" },
+    { id: 52, nombre: "Lucciano's City Bell Buenos Aires" },
+    { id: 53, nombre: "Lucciano's Las Lomitas Buenos Aires" },
+    { id: 54, nombre: "Lucciano's Lanus Buenos Aires" },
+    { id: 55, nombre: "Lucciano's San Fernando Buenos Aires" },
+    { id: 56, nombre: "Lucciano's Campana Buenos Aires" },
+    { id: 57, nombre: "Lucciano's San Nicolas Buenos Aires" },
+    { id: 58, nombre: "Lucciano's Tandil Buenos Aires" },
+    { id: 59, nombre: "Lucciano's Carilo Buenos Aires" },
+    { id: 60, nombre: "Lucciano's Pinamar Buenos Aires", inactiva: true },
+    { id: 61, nombre: "Lucciano's Bahia Blanca Buenos Aires" },
+    { id: 62, nombre: "Lucciano's Bahia Blanca Villa Mitre Buenos Aires" },
+    { id: 65, nombre: "Lucciano's Ribera Shopping Santa Fe" },
+    { id: 67, nombre: "Lucciano's Peatonal Sarmiento Mendoza" },
+    { id: 68, nombre: "Lucciano's Palmares Mendoza" },
+    { id: 69, nombre: "Lucciano's Chacras de Coria Mendoza" },
+    { id: 70, nombre: "Lucciano's Shopping Mendoza" },
+    { id: 71, nombre: "Lucciano's Resistencia Chaco" },
+    { id: 72, nombre: "Lucciano's Av Argentina Neuquén" },
+    { id: 73, nombre: "Lucciano's Paseo de la Costa Neuquén" },
+    { id: 74, nombre: "Lucciano's Cipolletti Rio Negro" },
+    { id: 75, nombre: "Lucciano's Gral Roca Rio Negro" },
+    { id: 76, nombre: "Lucciano's Barrio Norte Tucuman" },
+    { id: 77, nombre: "Lucciano's Yerba Buena Tucuman" },
+    { id: 78, nombre: "Lucciano's Catamarca Catamarca" },
+    { id: 82, nombre: "Lucciano's Madryn Chubut" },
+    { id: 83, nombre: "Lucciano's Ushuaia Tierra del Fuego", inactiva: true },
+    { id: 84, nombre: "Lucciano's Capital Corrientes" },
+    { id: 100, nombre: "Lucciano's Cabildo y Juramento CABA" },
+    { id: 101, nombre: "Lucciano's Castelar Buenos Aires" },
+    { id: 102, nombre: "Lucciano's Palermo Buenos Aires" },
+    { id: 103, nombre: "Lucciano's Mar de las Pampas Buenos Aires" },
+    { id: 104, nombre: "Lucciano's General Pico Buenos Aires" },
+    { id: 105, nombre: "Lucciano's Vista Pueblo Buenos Aires" },
+    { id: 106, nombre: "Lucciano's Santa Fe Santa Fe" },
+    { id: 85, nombre: "Lucciano's Pocitos Uruguay" },
+    { id: 86, nombre: "Lucciano's Punta Carretas Uruguay" },
+    { id: 87, nombre: "Lucciano's Punta del Este Uruguay" },
+    { id: 88, nombre: "Lucciano's Carrasco Uruguay" },
+    { id: 89, nombre: "Lucciano's Asuncion Paraguay", inactiva: true },
+    { id: 91, nombre: "Lucciano's Parque Arauco Chile" },
+    { id: 107, nombre: "Lucciano's Barcelona The Moon España" },
+    { id: 108, nombre: "Lucciano's Barcelona España" },
+    { id: 109, nombre: "Lucciano's Madrid España" },
+    { id: 110, nombre: "Lucciano's Granada España" },
+    { id: 111, nombre: "Lucciano's Valencia España" },
+    { id: 112, nombre: "Lucciano's Málaga Uncibay III España" },
+    { id: 113, nombre: "Lucciano's Alicante España" },
+    { id: 114, nombre: "Lucciano's Málaga I España" },
+    { id: 115, nombre: "Lucciano's Weston USA" },
+    { id: 116, nombre: "Lucciano's American Dream USA" },
+    { id: 117, nombre: "Lucciano's Adventure USA" },
+    { id: 118, nombre: "Lucciano's Sawgrass USA" },
+    { id: 119, nombre: "Lucciano's The Florida Mall USA" },
+    { id: 120, nombre: "Lucciano's Roma Italia", propio: true },
+];
+
+/** completarSucursalesFaltantes() — NO modifica nada si se llama así.
+ *  Muestra qué se agregaría. Para aplicar: completarSucursalesFaltantes(true) */
+function completarSucursalesFaltantes(aplicar) {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+    if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+    var filas = hoja.getDataRange().getValues();
+    var enc = filas[0];
+    var colNombre = enc.indexOf('nombre');
+    var colId = enc.indexOf('id');
+    if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
+
+    // Se comparan nombres normalizados y no texto crudo: una tilde o un
+    // espacio de más alcanzarían para cargar un duplicado del mismo local.
+    var yaEstan = {};
+    var idsUsados = {};
+    var maxId = 0;
+    for (var i = 1; i < filas.length; i++) {
+        var nom = String(filas[i][colNombre] || '').trim();
+        if (!nom) continue;
+        yaEstan[_normLocal(nom)] = nom;
+        if (colId !== -1) {
+            var id = Number(filas[i][colId]);
+            if (isFinite(id)) { idsUsados[Math.round(id)] = true; if (id > maxId) maxId = Math.round(id); }
+        }
+    }
+
+    var nuevas = PADRON_SUCURSALES.filter(function (s) { return !yaEstan[_normLocal(s.nombre)]; });
+
+    // Al revés: lo que está en la hoja y no en el padrón. No se toca —
+    // puede ser un local nuevo cargado a mano, o un nombre mal escrito
+    // que hay que corregir con criterio, no automáticamente.
+    var enPadron = {};
+    PADRON_SUCURSALES.forEach(function (s) { enPadron[_normLocal(s.nombre)] = true; });
+    var desconocidas = Object.keys(yaEstan)
+        .filter(function (k) { return !enPadron[k]; })
+        .map(function (k) { return yaEstan[k]; });
+
+    console.log('En la hoja: ' + Object.keys(yaEstan).length + '   ·   Padrón: ' + PADRON_SUCURSALES.length);
+    console.log('');
+
+    if (!nuevas.length) {
+        console.log('No falta ninguna. La hoja ya tiene el padrón completo.');
+    } else {
+        console.log('FALTAN ' + nuevas.length + ':');
+        nuevas.forEach(function (s) {
+            console.log('   + ' + s.nombre + (s.propio ? '   [propio]' : '') + (s.inactiva ? '   [inactiva]' : ''));
+        });
+    }
+
+    if (desconocidas.length) {
+        console.log('');
+        console.log('⚠️  EN LA HOJA PERO NO EN EL PADRÓN (' + desconocidas.length + ') — NO se tocan:');
+        desconocidas.forEach(function (n) { console.log('   ? ' + n); });
+        console.log('   Revisalas a mano: puede ser un local nuevo, o un nombre mal escrito.');
+        console.log('   OJO si es un error de tipeo: el nombre del local es la clave con la');
+        console.log('   que Usuarios, Manuales y Noticias lo enlazan, así que corregirlo');
+        console.log('   implica actualizar también esas hojas.');
+    }
+
+    if (!aplicar) {
+        console.log('');
+        console.log('— Previsualización. No se modificó nada. —');
+        if (nuevas.length) console.log('Para agregarlas: completarSucursalesFaltantes(true)');
+        return;
+    }
+    if (!nuevas.length) return;
+
+    var colEstado = enc.indexOf('estado');
+    var colPropio = enc.indexOf('esPropio');
+    var colPais = enc.indexOf('pais');
+
+    var aEscribir = nuevas.map(function (s) {
+        var fila = [];
+        for (var c = 0; c < enc.length; c++) fila.push('');
+        // Se respeta el id del padrón si está libre; si no, se sigue
+        // después del más alto para no pisar a nadie.
+        if (colId !== -1) { if (idsUsados[s.id]) { maxId++; fila[colId] = maxId; } else { fila[colId] = s.id; idsUsados[s.id] = true; if (s.id > maxId) maxId = s.id; } }
+        fila[colNombre] = s.nombre;
+        if (colEstado !== -1) fila[colEstado] = s.inactiva ? 'Inactiva' : 'Activa';
+        if (colPropio !== -1) fila[colPropio] = s.propio ? 'SI' : 'NO';
+        if (colPais !== -1) fila[colPais] = _paisDelNombre(s.nombre);
+        return fila;
+    });
+
+    hoja.getRange(hoja.getLastRow() + 1, 1, aEscribir.length, enc.length).setValues(aEscribir);
+    console.log('');
+    console.log('✓ Agregadas ' + aEscribir.length + '. La hoja queda con ' +
+                (Object.keys(yaEstan).length + aEscribir.length) + ' sucursales.');
+}
+
+/* ══════════════════════════════════════════════════════════════════
    PAÍS DE CADA SUCURSAL
    ══════════════════════════════════════════════════════════════════
 
