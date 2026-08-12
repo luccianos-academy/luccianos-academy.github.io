@@ -11,7 +11,7 @@
 import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
-import { getCursos, crearCurso, eliminarCurso } from "../data/cursos.js";
+import { getCursos, crearCurso, actualizarCurso, eliminarCurso } from "../data/cursos.js";
 import { getLecciones, getLeccionesPorCurso, crearLeccion, actualizarLeccion, eliminarLeccion } from "../data/lecciones.js";
 import { getPreguntasPorCurso, eliminarPregunta } from "../data/evaluaciones.js";
 import { getAsignaciones, eliminarAsignacion } from "../data/asignaciones.js";
@@ -20,6 +20,8 @@ import { LeccionEditable, bindLeccionEditable } from "../components/leccionEdita
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
+import { escaparHtml } from "../services/html.js";
+import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 
 /** Los mismos campos que ya vive el esquema real de Lecciones (ver
  *  README de apps-script) — antes este formulario solo tenía título y
@@ -89,6 +91,20 @@ function leerCamposLeccion() {
     };
 }
 
+/** Cómo se ve el alcance en la tabla. "Todos" en gris y no en blanco:
+ *  es el caso normal y no tiene que competir visualmente con los pocos
+ *  que sí están acotados, que son los que hay que revisar. */
+function etiquetaAlcance(aplicaA) {
+    const lista = String(aplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!lista.length) return `<span class="text-sm text-muted">Todos</span>`;
+    const corto = lista.map((s) => escaparHtml(s.replace("Lucciano's ", "")));
+    // Con más de dos se corta: la columna no puede crecer sin empujar
+    // las acciones fuera de pantalla. El detalle está a un clic.
+    const visibles = corto.slice(0, 2).join(", ");
+    const resto = corto.length > 2 ? ` +${corto.length - 2}` : "";
+    return `<span class="badge badge-warning">${visibles}${resto}</span>`;
+}
+
 export async function Academia() {
 
     const [cursos, lecciones] = await Promise.all([getCursos(), getLecciones()]);
@@ -98,6 +114,7 @@ export async function Academia() {
         { key: "categoria", label: "Categoría" },
         { key: "obligatorioLabel", label: "Obligatorio" },
         { key: "leccionesLabel", label: "Lecciones" },
+        { key: "alcanceLabel", label: "Aplica a" },
         { key: "acciones", label: "" },
     ];
 
@@ -105,9 +122,15 @@ export async function Academia() {
         ...c,
         obligatorioLabel: c.obligatorio ? "Sí" : "No",
         leccionesLabel: lecciones.filter((l) => String(l.cursoId) === String(c.id)).length,
+        // Se muestra como columna y no escondido en el menú: la
+        // pregunta "¿a quién le llega este curso?" es justo la que no
+        // se puede contestar mirando la tabla, y un curso acotado por
+        // error es invisible hasta que alguien reclama que no lo ve.
+        alcanceLabel: etiquetaAlcance(c.aplicaA),
         acciones: `
             <a class="btn btn-secondary" href="#/cursos/${c.id}" title="Ver el curso tal cual lo ve un colaborador">👁 Vista previa</a>
             <button class="btn btn-secondary" data-ver-lecciones="${c.id}">Ver lecciones</button>
+            <button class="btn btn-secondary" data-alcance-curso="${c.id}">Aplica a</button>
             <button class="btn btn-secondary" data-eliminar-curso="${c.id}">Eliminar</button>
         `,
     }));
@@ -130,6 +153,24 @@ export function bindAcademia() {
 
     document.querySelectorAll("[data-ver-lecciones]").forEach((btn) => {
         btn.addEventListener("click", () => abrirModalLecciones(btn.dataset.verLecciones));
+    });
+
+    document.querySelectorAll("[data-alcance-curso]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const cursos = await getCursos();
+            const curso = cursos.find((c) => String(c.id) === String(btn.dataset.alcanceCurso));
+            if (!curso) return;
+            abrirModalAlcance({
+                titulo: `Aplica a — ${curso.nombre}`,
+                valorActual: curso.aplicaA,
+                guardar: async (aplicaA) => {
+                    await actualizarCurso(curso.id, { aplicaA });
+                    registrarEvento(getUsuarioActual().id, "editar_curso",
+                        `Alcance de "${curso.nombre}": ${aplicaA || "toda la red"}`);
+                },
+                volver: () => navigate("academia"),
+            });
+        });
     });
 
     document.querySelectorAll("[data-eliminar-curso]").forEach((btn) => {
@@ -170,6 +211,38 @@ export function bindAcademia() {
 
     const btnNuevo = document.getElementById("btn-nuevo-curso");
     if (btnNuevo) btnNuevo.addEventListener("click", abrirModalNuevoCurso);
+}
+
+/**
+ * "Aplica a" — a qué países y locales les corresponde este contenido.
+ *
+ * Sirve igual para un curso y para una lección: el campo es el mismo
+ * (aplicaA) y la pregunta también. Cambia sólo a qué hoja se guarda.
+ */
+async function abrirModalAlcance({ titulo, valorActual, guardar, volver }) {
+
+    const modalId = "modal-alcance";
+    const contenidoHtml = `
+        <p class="text-sm text-muted" style="margin-bottom:12px">
+            Elegí los países o locales donde se usa. Si no ponés nada, le llega a toda la red.
+        </p>
+        ${MultiSelectAlcance("input-alcance", valorActual || "")}
+    `;
+
+    abrirModal(
+        Modal({ id: modalId, titulo, contenidoHtml, textoConfirmar: "Guardar" }),
+        modalId,
+        async () => {
+            const aplicaA = document.getElementById("input-alcance").value.trim();
+            await guardar(aplicaA);
+            cerrarModal(modalId);
+            volver();
+        },
+    );
+
+    // Después de abrirModal: el HTML tiene que estar en el DOM para
+    // que el buscador encuentre sus elementos.
+    await bindMultiSelectAlcance("input-alcance");
 }
 
 async function abrirModalNuevoCurso() {
@@ -215,9 +288,10 @@ async function abrirModalLecciones(cursoId) {
     const listaHtml = lecciones.length
         ? lecciones.map((l) => `
             <div class="list item">
-                <span>${l.orden}. ${l.titulo}</span>
+                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.aplicaA)}</span>
                 <span>
                     <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
+                    <button class="btn btn-secondary" data-alcance-leccion="${l.id}">Aplica a</button>
                     <button class="btn btn-secondary" data-eliminar-leccion="${l.id}">Eliminar</button>
                 </span>
             </div>
@@ -253,6 +327,26 @@ async function abrirModalLecciones(cursoId) {
             // document.getElementById() agarre el formulario equivocado.
             cerrarModal(modalId);
             abrirModalEditarLeccion(leccion);
+        });
+    });
+
+    document.querySelectorAll("[data-alcance-leccion]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const leccion = lecciones.find((l) => String(l.id) === String(btn.dataset.alcanceLeccion));
+            if (!leccion) return;
+            // Se cierra el modal de lecciones antes de abrir el otro:
+            // dos modales encimados dejan el de abajo clickeable.
+            cerrarModal(modalId);
+            abrirModalAlcance({
+                titulo: `Aplica a — ${leccion.titulo}`,
+                valorActual: leccion.aplicaA,
+                guardar: async (aplicaA) => {
+                    await actualizarLeccion(leccion.id, { aplicaA });
+                    registrarEvento(getUsuarioActual().id, "editar_leccion",
+                        `Alcance de "${leccion.titulo}": ${aplicaA || "toda la red"}`);
+                },
+                volver: () => abrirModalLecciones(cursoId),
+            });
         });
     });
 

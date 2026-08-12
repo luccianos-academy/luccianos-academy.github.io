@@ -2270,6 +2270,20 @@ table.data-table tbody tr:hover{
     background:var(--surface-2);
 }
 
+/* Encabezado de grupo dentro de la lista (ver multiSelectAlcance.js:
+   "Países" y "Locales" en la misma lista). No es clickeable — sin
+   distinguirlo del resto se toca creyendo que es una opción. */
+.autocomplete-grupo{
+    padding:8px 14px 4px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+    cursor:default;
+    pointer-events:none;
+}
+
 /* Chips de locales elegidos (ver multiSelectSucursales.js) — debajo
    del buscador, cada uno con su × para sacarlo sin tener que abrir
    la lista de nuevo. */
