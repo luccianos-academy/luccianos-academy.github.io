@@ -141,7 +141,7 @@ export const MENU_POR_ROL = {
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
         "academia", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "locales", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -155,7 +155,12 @@ export const MENU_POR_ROL = {
 const PERMISOS_PAGINA = {
     dashboard:      ["admin"],
     supervisores:   ["admin"],
-    locales:        ["admin"],
+    // Supervisor entra para VERIFICAR que sus locales estén bien
+    // cargados y corregir lo que haga falta — el backend ya le permite
+    // actualizar Sucursales (Code.gs, Sucursales.actualizar). Crear y
+    // eliminar locales sigue siendo sólo del Admin, y eso se resuelve
+    // dentro de la página, no acá.
+    locales:        ["admin", "supervisor"],
     academia:       ["admin"],
     evaluaciones:   ["admin"],
     reportes:       ["admin"],

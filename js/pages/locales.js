@@ -10,7 +10,7 @@
 import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
-import { getSucursales, crearSucursal, actualizarSucursal } from "../data/sucursales.js";
+import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal } from "../data/sucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
@@ -89,7 +89,16 @@ function filaAcciones(local) {
 
 export async function Locales() {
 
+    const usuario = getUsuarioActual();
+    const esAdmin = usuario?.rol === "admin";
+
+    // El Supervisor entra a VERIFICAR que sus locales estén bien
+    // cargados y a corregir lo que haga falta, no a dar de alta locales
+    // nuevos: eso es un cambio estructural y queda en el Admin. Editar,
+    // activar y marcar propio/franquicia sí puede — el backend ya se lo
+    // permite (Code.gs, Sucursales.actualizar).
     const locales = await getSucursales();
+    const misLocales = esAdmin ? [] : await getMisLocales(usuario, locales);
 
     const columnas = [
         { key: "seleccion", label: "" },
@@ -104,8 +113,9 @@ export async function Locales() {
         ...l,
         // El país va como atributo de la fila y no como columna visible:
         // repetir "Argentina" 102 veces gasta ancho sin decir nada, y el
-        // filtro lo lee igual.
-        _datos: { pais: l.pais || "" },
+        // filtro lo lee igual. Lo mismo con "mío", que además solo le
+        // importa al Supervisor.
+        _datos: { pais: l.pais || "", mio: misLocales.includes(l.nombre) ? "1" : "0" },
         seleccion: `<input type="checkbox" class="local-check" style="width:auto" data-local-id="${l.id}" data-local-nombre="${escaparHtml(l.nombre)}">`,
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
@@ -150,7 +160,10 @@ export async function Locales() {
     });
 
     const pillsPais = [
-        `<button class="pill-categoria activa" data-filtro-pais="todos">Todos <span class="text-sm">(${locales.length})</span></button>`,
+        // "Todos los países" y no "Todos" a secas: al Supervisor le
+        // aparece arriba la fila Todos/Mis locales, y dos pills "Todos"
+        // una encima de la otra se leen como duplicadas.
+        `<button class="pill-categoria activa" data-filtro-pais="todos">Todos los países <span class="text-sm">(${locales.length})</span></button>`,
         ...paises.map(([p, n]) =>
             `<button class="pill-categoria" data-filtro-pais="${escaparHtml(p)}">${escaparHtml(p)} <span class="text-sm">(${n})</span></button>`),
     ].join("");
@@ -160,8 +173,19 @@ export async function Locales() {
 
         <div class="table-toolbar">
             <input type="search" id="buscador-locales" placeholder="Buscar local o supervisor...">
-            <button class="btn btn-primary" id="btn-nuevo-local">+ Nuevo local</button>
+            ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-local">+ Nuevo local</button>` : ""}
         </div>
+
+        <!-- El Supervisor ve toda la red por defecto y filtra los suyos
+             cuando quiere. Arrancar acotado a lo propio escondía
+             justamente el error que viene a detectar: un local que
+             DEBERÍA ser suyo y no está asignado no aparecería nunca. -->
+        ${!esAdmin ? `
+            <div class="galeria-pills" id="filtro-mios" style="margin:14px 0 0">
+                <button class="pill-categoria activa" data-filtro-mio="todos">Todos <span class="text-sm">(${locales.length})</span></button>
+                <button class="pill-categoria" data-filtro-mio="1">Mis locales <span class="text-sm">(${misLocales.length})</span></button>
+            </div>
+        ` : ""}
 
         <div class="galeria-pills" id="filtro-paises" style="margin:14px 0">${pillsPais}</div>
 
@@ -205,6 +229,7 @@ export function bindLocales() {
 
     const buscador = document.getElementById("buscador-locales");
     let paisActivo = "todos";
+    let mioActivo = "todos";
 
     // Texto y país se aplican juntos: filtrarlos por separado hacía que
     // el último en ejecutarse pisara al otro (elegir un país mostraba
@@ -224,7 +249,8 @@ export function bindLocales() {
 
             const coincideTexto = !filtro || nombre.includes(filtro) || supervisor.includes(filtro);
             const coincidePais = paisActivo === "todos" || pais === paisActivo;
-            fila.style.display = coincideTexto && coincidePais ? "" : "none";
+            const coincideMio = mioActivo === "todos" || fila.dataset.mio === "1";
+            fila.style.display = coincideTexto && coincidePais && coincideMio ? "" : "none";
         });
 
         // Una búsqueda que no matchea nada de un grupo dejaba su título
@@ -250,6 +276,15 @@ export function bindLocales() {
     }
 
     buscador?.addEventListener("input", aplicarFiltros);
+
+    document.getElementById("filtro-mios")?.addEventListener("click", (e) => {
+        const pill = e.target.closest("[data-filtro-mio]");
+        if (!pill) return;
+        mioActivo = pill.dataset.filtroMio;
+        document.querySelectorAll("#filtro-mios [data-filtro-mio]")
+            .forEach((p) => p.classList.toggle("activa", p === pill));
+        aplicarFiltros();
+    });
 
     document.getElementById("filtro-paises")?.addEventListener("click", (e) => {
         const pill = e.target.closest("[data-filtro-pais]");
@@ -310,6 +345,11 @@ export function bindLocales() {
     });
 
     refrescarBarraSeleccion();
+
+    // Una pasada al entrar deja la barra de selección y el cartel de
+    // "sin resultados" consistentes con el estado inicial de los
+    // filtros, sin depender de que el usuario toque algo primero.
+    aplicarFiltros();
 
     /**
      * Aplica los mismos campos a todos los locales tildados.
