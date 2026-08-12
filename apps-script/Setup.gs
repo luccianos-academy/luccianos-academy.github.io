@@ -253,6 +253,9 @@ const LOCALES_PROPIOS = [
     'ALTO ROSARIO',
     'ALEM MDP', 'CONSTITUCION MDP', 'GUEMES MDP', 'LOS GALLEGOS MDP', 'CENTRAL',
     'PASEO ALDREY MDP', 'PEATONAL GRAND THEATRE', 'VARESE', 'PASO MDP', 'TORREON',
+    // Único local propio fuera de Argentina. El resto del exterior
+    // (España, Uruguay, USA, Chile, Paraguay) son franquicias.
+    'ROMA',
 ];
 
 /**

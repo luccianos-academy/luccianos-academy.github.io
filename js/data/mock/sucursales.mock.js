@@ -175,5 +175,6 @@ export const sucursalesMock = [
     { id: 119, nombre: "Lucciano's The Florida Mall USA", supervisor: "", estado: "Activa" },
 
     // EXTERIOR - ITALIA
-    { id: 120, nombre: "Lucciano's Roma Italia", supervisor: "", estado: "Activa" },
+    // Único local propio fuera de Argentina; el resto del exterior es franquicia.
+    { id: 120, nombre: "Lucciano's Roma Italia", supervisor: "", estado: "Activa", esPropio: "SI" },
 ];
