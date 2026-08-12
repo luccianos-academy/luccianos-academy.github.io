@@ -278,6 +278,11 @@ const EQUIVALENCIAS_PROPIOS = {
     'ABASTO 2': "Shopping Abasto 2",
     'AV. SANTA FE (AGUERO)': "Aguero",
     'SALTA ALTO NOA': "Alto NOA",
+    // Nombres completos, confirmados por el usuario contra la hoja: acá
+    // el matcheo por tokens no puede funcionar (ver la nota en
+    // _buscarSucursal) y la comparación literal los resuelve seguro.
+    'CORDOBA CERRO': "Lucciano's Cerro De Las Rosas Córdoba",
+    'NUEVOCENTRO SHOPPING CBA': "Lucciano's Nuevocentro Córdoba",
     'DOT BAIRES': "Dot CABA",
     'LOS GALLEGOS MDP': "Gallegos Mar del Plata",
     'PASEO ALDREY MDP': "Aldrey Mar del Plata",
@@ -316,6 +321,22 @@ function _normLocal(s) {
  *  se puede resolver sin ambigüedad. */
 function _buscarSucursal(corto, filas, colNombre) {
     var objetivo = EQUIVALENCIAS_PROPIOS[corto];
+
+    // Si la equivalencia es el nombre COMPLETO tal cual está en la hoja,
+    // se usa literal y no se normaliza nada. Es la salida de emergencia
+    // para los casos donde normalizar juega en contra: "Lucciano's Cerro
+    // De Las Rosas Córdoba" pierde "Córdoba" y "De Las Rosas" al sacarle
+    // las regiones del final y queda en "cerro", mientras que el nombre
+    // corto "CORDOBA CERRO" las conserva porque las tiene en el medio —
+    // así el token "cordoba" no existía de un lado y no matcheaba nunca.
+    if (objetivo) {
+        var literal = [];
+        for (var k = 1; k < filas.length; k++) {
+            if (String(filas[k][colNombre] || '').trim().toLowerCase() === objetivo.trim().toLowerCase()) literal.push(k);
+        }
+        if (literal.length === 1) return { fila: literal[0], nombre: filas[literal[0]][colNombre] };
+    }
+
     var nc = _normLocal(objetivo || corto);
 
     var exactos = [];
