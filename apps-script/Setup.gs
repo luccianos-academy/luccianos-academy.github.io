@@ -91,6 +91,38 @@ function setupAplicaA() {
     console.log("   Uruguay, Lucciano's Agüero CABA");
 }
 
+/**
+ * setupDisponibilidad() — crea la hoja "Disponibilidad".
+ *
+ * Guarda dónde se vende cada producto del catálogo, SOLO para los que
+ * son excepción: un producto sin fila acá está disponible en toda la
+ * red. Por eso la hoja nace vacía y es correcto que lo esté.
+ *
+ * La alternativa —una fila por producto, ~100— obligaba a mantenerla
+ * sincronizada con el catálogo, que vive en el código: al sumar un
+ * sabor habría que acordarse de agregarlo también acá, y si no, quedaría
+ * sin fila sin poder distinguir "aplica a todos" de "falta cargarlo".
+ */
+function setupDisponibilidad() {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja = ss.getSheetByName('Disponibilidad');
+
+    if (hoja) {
+        console.log('La hoja "Disponibilidad" ya existe — no se toca.');
+        return;
+    }
+
+    hoja = ss.insertSheet('Disponibilidad');
+    var enc = ['id', 'curso', 'producto', 'aplicaA', 'fechaModificacion'];
+    hoja.getRange(1, 1, 1, enc.length).setValues([enc]);
+    hoja.setFrozenRows(1);
+
+    console.log('✓ Hoja "Disponibilidad" creada con: ' + enc.join(' | '));
+    console.log('');
+    console.log('Queda VACÍA a propósito: sin fila, un producto se muestra en toda');
+    console.log('la red. Se llena sola desde Academia → Catálogo, al acotar alguno.');
+}
+
 function setupSyncColumns() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hojas = ['Usuarios', 'Cursos', 'Lecciones', 'Noticias', 'Comunicaciones', 'Asignaciones', 'Resultados', 'Manuales'];

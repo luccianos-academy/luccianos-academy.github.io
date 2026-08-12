@@ -2270,6 +2270,50 @@ table.data-table tbody tr:hover{
     background:var(--surface-2);
 }
 
+/* ── Catálogo de productos por curso (academia.js) ─────────────────
+   Lista larga —61 sabores en Heladería— agrupada por categoría, para
+   marcar dónde se vende cada uno. */
+.catalogo-grupo{
+    margin:0 0 18px;
+}
+
+.catalogo-grupo-titulo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:0 0 8px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--line);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--gold-deep);
+    cursor:pointer;
+}
+
+.catalogo-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:7px 4px;
+    margin:0;
+    font-size:14px;
+    color:var(--text);
+    cursor:pointer;
+    border-radius:6px;
+}
+
+.catalogo-item:hover{
+    background:var(--surface-2);
+}
+
+/* El nombre empuja al badge de alcance contra el borde derecho, así la
+   columna de "dónde se vende" se lee en vertical de un vistazo. */
+.catalogo-item > span:first-of-type{
+    flex:1;
+}
+
 /* Encabezado de grupo dentro de la lista (ver multiSelectAlcance.js:
    "Países" y "Locales" en la misma lista). No es clickeable — sin
    distinguirlo del resto se toca creyendo que es una opción. */

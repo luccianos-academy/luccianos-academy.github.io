@@ -22,6 +22,11 @@ import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { escaparHtml } from "../services/html.js";
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
+import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/productosChocolateria.js";
+import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
+import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
+import { PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA } from "../data/productosPasteleria.js";
+import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad } from "../data/disponibilidad.js";
 
 /** Los mismos campos que ya vive el esquema real de Lecciones (ver
  *  README de apps-script) — antes este formulario solo tenía título y
@@ -131,6 +136,7 @@ export async function Academia() {
             <a class="btn btn-secondary" href="#/cursos/${c.id}" title="Ver el curso tal cual lo ve un colaborador">👁 Vista previa</a>
             <button class="btn btn-secondary" data-ver-lecciones="${c.id}">Ver lecciones</button>
             <button class="btn btn-secondary" data-alcance-curso="${c.id}">Aplica a</button>
+            ${CATALOGO_POR_CURSO[c.nombre] ? `<button class="btn btn-secondary" data-catalogo-curso="${escaparHtml(c.nombre)}">Catálogo</button>` : ""}
             <button class="btn btn-secondary" data-eliminar-curso="${c.id}">Eliminar</button>
         `,
     }));
@@ -171,6 +177,10 @@ export function bindAcademia() {
                 volver: () => navigate("academia"),
             });
         });
+    });
+
+    document.querySelectorAll("[data-catalogo-curso]").forEach((btn) => {
+        btn.addEventListener("click", () => abrirModalCatalogo(btn.dataset.catalogoCurso));
     });
 
     document.querySelectorAll("[data-eliminar-curso]").forEach((btn) => {
@@ -243,6 +253,132 @@ async function abrirModalAlcance({ titulo, valorActual, guardar, volver }) {
     // Después de abrirModal: el HTML tiene que estar en el DOM para
     // que el buscador encuentre sus elementos.
     await bindMultiSelectAlcance("input-alcance");
+}
+
+/* ── Catálogo: dónde se vende cada producto ────────────────────────
+
+   Los productos viven en el código (data/productos*.js) porque son
+   material de consulta —fotos, nombres, descripciones del manual—, no
+   datos de negocio. Lo que SÍ cambia por país es dónde se vende cada
+   uno, y eso se guarda en la hoja Disponibilidad, sólo para los que
+   son excepción.
+
+   Se administra por producto y no por categoría porque las
+   restricciones reales no respetan categorías: Chile no tiene la línea
+   Gluten Free entera, pero un país puede tener la línea y no un sabor
+   suelto, y la certificación Kosher está repartida entre todas las
+   categorías. Por producto incluye el caso de la categoría entera —con
+   el atajo de "marcar toda la categoría"—; al revés no.                */
+
+const CATALOGO_POR_CURSO = {
+    "Chocolatería": [PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA],
+    "Heladería": [PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA],
+    "Icepops": [PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS],
+    "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
+};
+
+async function abrirModalCatalogo(nombreCurso) {
+
+    const catalogo = CATALOGO_POR_CURSO[nombreCurso];
+    if (!catalogo) return;
+    const [productos, categorias] = catalogo;
+
+    const filas = await getDisponibilidad();
+    const alcances = mapaDisponibilidad(filas, nombreCurso);
+
+    const modalId = "modal-catalogo";
+
+    const bloques = categorias.map((cat) => {
+        const deLaCat = productos.filter((p) => (p.categorias || []).includes(cat));
+        if (!deLaCat.length) return "";
+        return `
+            <div class="catalogo-grupo">
+                <label class="catalogo-grupo-titulo">
+                    <input type="checkbox" style="width:auto" data-cat-todos="${escaparHtml(cat)}">
+                    ${escaparHtml(cat)} <span class="text-xs text-muted">(${deLaCat.length})</span>
+                </label>
+                ${deLaCat.map((p) => `
+                    <label class="catalogo-item">
+                        <input type="checkbox" style="width:auto" class="prod-check"
+                               data-cat="${escaparHtml(cat)}" data-producto="${escaparHtml(p.nombre)}">
+                        <span>${escaparHtml(p.nombre)}</span>
+                        ${etiquetaAlcance(alcances.get(p.nombre))}
+                    </label>
+                `).join("")}
+            </div>
+        `;
+    }).join("");
+
+    const contenidoHtml = `
+        <p class="text-sm text-muted" style="margin-bottom:12px">
+            Marcá los productos y elegí dónde se venden. Los que no toques quedan disponibles en toda la red.
+        </p>
+        <div class="barra-seleccion" id="barra-catalogo" hidden>
+            <span class="barra-seleccion-cuenta" id="cuenta-catalogo">0 seleccionados</span>
+            <div class="barra-seleccion-acciones">
+                <button type="button" class="btn btn-secondary" id="btn-catalogo-alcance">Aplica a…</button>
+                <button type="button" class="btn btn-sutil" id="btn-catalogo-limpiar">Deseleccionar</button>
+            </div>
+        </div>
+        <div id="catalogo-lista">${bloques}</div>
+    `;
+
+    // Sin textoConfirmar: acá no hay un "guardar" final. Cada tanda se
+    // aplica desde la barra y se guarda en el momento, como en Locales.
+    abrirModal(Modal({ id: modalId, titulo: `Catálogo — ${nombreCurso}`, contenidoHtml, textoConfirmar: "" }), modalId);
+
+    const marcados = () => [...document.querySelectorAll("#catalogo-lista .prod-check:checked")];
+
+    function refrescar() {
+        const n = marcados().length;
+        const barra = document.getElementById("barra-catalogo");
+        barra.hidden = n === 0;
+        document.getElementById("cuenta-catalogo").textContent =
+            `${n} ${n === 1 ? "producto seleccionado" : "productos seleccionados"}`;
+    }
+
+    document.getElementById("catalogo-lista").addEventListener("change", (e) => {
+        // Atajo por categoría: marcar el título marca todos los suyos.
+        // Es lo que vuelve innecesario un modelo aparte "por categoría".
+        if (e.target.dataset.catTodos) {
+            document.querySelectorAll(`#catalogo-lista .prod-check[data-cat="${CSS.escape(e.target.dataset.catTodos)}"]`)
+                .forEach((chk) => { chk.checked = e.target.checked; });
+        }
+        refrescar();
+    });
+
+    document.getElementById("btn-catalogo-limpiar").addEventListener("click", () => {
+        document.querySelectorAll("#catalogo-lista input[type=checkbox]").forEach((chk) => { chk.checked = false; });
+        refrescar();
+    });
+
+    document.getElementById("btn-catalogo-alcance").addEventListener("click", () => {
+        const elegidos = marcados().map((chk) => chk.dataset.producto);
+        if (!elegidos.length) return;
+        // Si todos los marcados comparten el mismo alcance, se precarga;
+        // si son distintos se arranca vacío para no pisar sin querer.
+        const alcancesDistintos = new Set(elegidos.map((n) => alcances.get(n) || ""));
+        const inicial = alcancesDistintos.size === 1 ? [...alcancesDistintos][0] : "";
+
+        cerrarModal(modalId);
+        abrirModalAlcance({
+            titulo: `Aplica a — ${elegidos.length} ${elegidos.length === 1 ? "producto" : "productos"}`,
+            valorActual: inicial,
+            guardar: async (aplicaA) => {
+                // Secuencial: cada guardado es una llamada a Apps Script
+                // y un Promise.all abortaría todo al primer fallo sin
+                // dejar saber cuáles quedaron hechos.
+                for (const nombre of elegidos) {
+                    await guardarDisponibilidad(nombreCurso, nombre, aplicaA, filas);
+                }
+                registrarEvento(getUsuarioActual().id, "editar_curso",
+                    `Catálogo de ${nombreCurso}: ${elegidos.length} producto(s) → ${aplicaA || "toda la red"}`);
+            },
+            volver: () => abrirModalCatalogo(nombreCurso),
+        });
+    });
+
+    refrescar();
 }
 
 async function abrirModalNuevoCurso() {

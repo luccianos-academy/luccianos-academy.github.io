@@ -20,9 +20,14 @@ export function Modal({ id, titulo, contenidoHtml, textoConfirmar = "Guardar" })
                     ${contenidoHtml}
                 </div>
 
+                <!-- textoConfirmar vacío = modal sin acción final. Lo usa
+                     el catálogo de productos, donde cada tanda se guarda
+                     en el momento y no hay nada que confirmar al cerrar:
+                     un botón "Guardar" ahí haría dudar de si lo aplicado
+                     antes quedó guardado o no. -->
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" data-close="${id}">Cancelar</button>
-                    <button class="btn btn-primary" data-confirm="${id}">${textoConfirmar}</button>
+                    <button class="btn btn-secondary" data-close="${id}">${textoConfirmar ? "Cancelar" : "Cerrar"}</button>
+                    ${textoConfirmar ? `<button class="btn btn-primary" data-confirm="${id}">${textoConfirmar}</button>` : ""}
                 </div>
 
             </div>

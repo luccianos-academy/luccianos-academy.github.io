@@ -84,6 +84,11 @@ const PERMISOS_ESCRITURA = {
     // "eliminar" client-facing (la limpieza de tokens inválidos la
     // hace enviarPush() directo con _eliminarCrudo, sin pasar por acá).
     Tokens:        { crear: ["admin", "supervisor", "colaborador"], actualizar: [], eliminar: [] },
+    // Dónde se vende cada producto del catálogo. Mismo criterio que
+    // Cursos y Lecciones: el contenido lo gestiona el Admin. La LECTURA
+    // queda abierta a cualquier autenticado —no está en las hojas
+    // restringidas— porque sin ella el catálogo no se puede filtrar.
+    Disponibilidad: { crear: ["admin"], actualizar: ["admin"], eliminar: ["admin"] },
 };
 
 // Hojas cuya lectura queda restringida (el resto la lee cualquier

@@ -32,6 +32,7 @@ import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
+import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
 
 export async function Cursos(params = []) {
 
@@ -533,8 +534,24 @@ async function renderDetalleCurso(usuario, cursoId) {
         "Icepops": [PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS],
         "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
     };
-    const galeriaCurso = GALERIAS_POR_CURSO[curso.nombre];
-    const galeriaHtml = galeriaCurso
+    // Un producto puede no venderse en todos lados (ej. Gluten Free no
+    // existe en Chile). La hoja Disponibilidad guarda SOLO las
+    // excepciones: sin fila, el producto se muestra en toda la red.
+    const galeriaCruda = GALERIAS_POR_CURSO[curso.nombre];
+    let galeriaCurso = galeriaCruda;
+    if (galeriaCruda) {
+        const [productos, categorias] = galeriaCruda;
+        const alcances = mapaDisponibilidad(await getDisponibilidad(), curso.nombre);
+        const visibles = productos.filter((prod) =>
+            aplicaAlUsuario({ aplicaA: alcances.get(prod.nombre) || "" }, usuario));
+        // Una categoría que se quedó sin productos no se muestra: la
+        // pill existiría, se tocaría, y la grilla quedaría vacía sin
+        // explicar por qué.
+        const categoriasConAlgo = categorias.filter((c) =>
+            visibles.some((prod) => (prod.categorias || []).includes(c)));
+        galeriaCurso = [visibles, categoriasConAlgo];
+    }
+    const galeriaHtml = galeriaCurso && galeriaCurso[0].length
         ? `<div class="section"><h2>Catálogo de productos</h2>${GaleriaProductos(...galeriaCurso)}</div>`
         : "";
 
