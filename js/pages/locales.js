@@ -12,6 +12,7 @@ import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal } from "../data/sucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
+import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { escaparHtml } from "../services/html.js";
@@ -84,7 +85,8 @@ function filaAcciones(local) {
     const tipoBtn = local.esPropio
         ? `<button class="menu-acciones-item" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
         : `<button class="menu-acciones-item" data-marcar-propio="${local.id}">Marcar propio</button>`;
-    return menuAcciones([editarBtn, estadoBtn, tipoBtn]);
+    const modulosBtn = `<button class="menu-acciones-item" data-modulos="${local.id}">Módulos que tiene</button>`;
+    return menuAcciones([editarBtn, modulosBtn, estadoBtn, tipoBtn]);
 }
 
 export async function Locales() {
@@ -483,6 +485,14 @@ export function bindLocales() {
         });
     });
 
+    document.querySelectorAll("[data-modulos]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const locales = await getSucursales();
+            const local = locales.find((l) => String(l.id) === String(btn.dataset.modulos));
+            if (local) abrirModalModulos(local);
+        });
+    });
+
     document.querySelectorAll("[data-editar]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const locales = await getSucursales();
@@ -493,6 +503,85 @@ export function bindLocales() {
 
     const btnNuevo = document.getElementById("btn-nuevo-local");
     if (btnNuevo) btnNuevo.addEventListener("click", abrirModalNuevoLocal);
+}
+
+/**
+ * "Módulos" — qué cursos tiene este local.
+ *
+ * Se administra desde el LOCAL porque así es como se piensa: "Devoto no
+ * tiene cafetería" es una característica de Devoto, no de las 26
+ * lecciones de Cafetería. Preguntarlo del otro lado obligaría a abrir el
+ * curso y enumerar los 122 locales que sí lo tienen.
+ *
+ * Se GUARDA en el curso igual (campo noAplicaA), y no en la sucursal,
+ * para que decidir "¿este curso le toca?" no necesite cargar la lista de
+ * sucursales: esa pregunta se hace desde una docena de pantallas y
+ * varias de ellas no son asíncronas.
+ */
+async function abrirModalModulos(local) {
+
+    const cursos = await getCursos();
+    const modalId = "modal-modulos";
+
+    const excluidoDe = (curso) => String(curso.noAplicaA || "")
+        .split(",").map((s) => s.trim())
+        .some((s) => s && s.toLowerCase() === local.nombre.toLowerCase());
+
+    const contenidoHtml = `
+        <p class="text-sm text-muted" style="margin-bottom:14px">
+            Destildá los módulos que este local <strong>no</strong> tiene. Sus lecciones y su
+            catálogo dejan de aparecerle a la gente de acá, y tampoco cuentan para su progreso.
+        </p>
+        <div id="lista-modulos">
+            ${cursos.map((c) => `
+                <label class="modulo-item">
+                    <input type="checkbox" data-curso-id="${c.id}" ${excluidoDe(c) ? "" : "checked"}>
+                    <span class="modulo-nombre">${escaparHtml(c.nombre)}</span>
+                    <span class="text-xs text-muted">${escaparHtml(c.categoria)}</span>
+                </label>
+            `).join("")}
+        </div>
+    `;
+
+    abrirModal(
+        Modal({ id: modalId, titulo: `Módulos — ${local.nombre}`, contenidoHtml, textoConfirmar: "Guardar" }),
+        modalId,
+        async () => {
+            const boton = document.querySelector(`[data-confirm="${modalId}"]`);
+            const chks = [...document.querySelectorAll("#lista-modulos [data-curso-id]")];
+
+            // Solo se escriben los cursos que CAMBIARON. Guardar los 8
+            // siempre serían 8 llamadas a Apps Script para tocar uno.
+            const cambios = chks.map((chk) => {
+                const curso = cursos.find((c) => String(c.id) === chk.dataset.cursoId);
+                const teniaExcluido = excluidoDe(curso);
+                const quedaExcluido = !chk.checked;
+                if (teniaExcluido === quedaExcluido) return null;
+
+                const lista = String(curso.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+                const sinEste = lista.filter((s) => s.toLowerCase() !== local.nombre.toLowerCase());
+                return {
+                    curso,
+                    noAplicaA: (quedaExcluido ? [...sinEste, local.nombre] : sinEste).join(", "),
+                };
+            }).filter(Boolean);
+
+            if (!cambios.length) { cerrarModal(modalId); return; }
+
+            boton.disabled = true;
+            for (let i = 0; i < cambios.length; i++) {
+                boton.textContent = `Guardando ${i + 1}/${cambios.length}...`;
+                await actualizarCurso(cambios[i].curso.id, { noAplicaA: cambios[i].noAplicaA });
+            }
+
+            const quitados = cambios.filter((c) => c.noAplicaA.toLowerCase().includes(local.nombre.toLowerCase()));
+            registrarEvento(getUsuarioActual().id, "editar_local",
+                `Módulos de ${local.nombre}: ${quitados.length} quitado(s), ${cambios.length - quitados.length} devuelto(s)`);
+
+            cerrarModal(modalId);
+            navigate("locales");
+        },
+    );
 }
 
 async function abrirModalNuevoLocal() {

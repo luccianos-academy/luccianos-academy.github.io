@@ -19,6 +19,12 @@ function normalizarCurso(f) {
         // normal; la excepción se declara. Ojo que es la semántica
         // OPUESTA a Manuales.visiblePara, donde vacío = no lo ve nadie.
         aplicaA: String(f.aplicaA || "").trim(),
+        // El complemento de aplicaA: países o locales que NO tienen este
+        // curso. Existe porque el caso frecuente es la excepción de UN
+        // local ("Devoto no tiene cafetería") y expresarla con aplicaA
+        // obligaría a enumerar los otros 122. La exclusión gana sobre la
+        // inclusión — ver services/alcance.js.
+        noAplicaA: String(f.noAplicaA || "").trim(),
     };
 }
 

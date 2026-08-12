@@ -63,6 +63,25 @@ function setupAplicaA() {
         var hoja = ss.getSheetByName(nombreHoja);
         if (!hoja) { console.log('Hoja no encontrada: ' + nombreHoja); return; }
 
+        // Las dos columnas van juntas porque son las dos mitades de la
+        // misma pregunta: aplicaA dice a quién SÍ, noAplicaA a quién NO.
+        ['aplicaA', 'noAplicaA'].forEach(function (columna) {
+            var hs = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+            var j = hs.findIndex(function (h) { return String(h).trim().toLowerCase() === columna.toLowerCase(); });
+            if (j !== -1) {
+                if (hs[j] !== columna) {
+                    hoja.getRange(1, j + 1).setValue(columna);
+                    console.log('✓ ' + nombreHoja + ': encabezado corregido a "' + columna + '"');
+                } else {
+                    console.log('✓ ' + nombreHoja + ': "' + columna + '" ya existe');
+                }
+                return;
+            }
+            hoja.getRange(1, hoja.getLastColumn() + 1).setValue(columna);
+            console.log('✓ ' + nombreHoja + ': columna "' + columna + '" creada');
+        });
+        return;
+
         // Igual que en setupSyncColumns: el backend busca la columna con
         // indexOf(), que distingue mayúsculas. Un encabezado "AplicaA"
         // parece bien en la planilla pero para el código no existe.

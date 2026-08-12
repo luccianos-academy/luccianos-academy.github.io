@@ -2270,6 +2270,42 @@ table.data-table tbody tr:hover{
     background:var(--surface-2);
 }
 
+/* ── Módulos que tiene un local (locales.js) ───────────────────────
+   Tildado = lo tiene. Se lee como una lista de lo que hay, no de lo
+   que falta, que es como se piensa el local. */
+#lista-modulos > .modulo-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin:0;
+    padding:11px 10px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    cursor:pointer;
+    color:var(--text);
+    font-size:14px;
+}
+
+#lista-modulos > .modulo-item + .modulo-item{
+    margin-top:8px;
+}
+
+#lista-modulos > .modulo-item input{ width:auto; }
+
+#lista-modulos > .modulo-item:has(input:checked){
+    border-color:var(--gold-deep);
+    background:var(--gold-soft);
+}
+
+/* Destildado —el módulo que el local NO tiene— se atenúa: es un estado
+   de excepción y tiene que distinguirse sin leer el checkbox. */
+#lista-modulos > .modulo-item:not(:has(input:checked)) .modulo-nombre{
+    color:var(--muted);
+    text-decoration:line-through;
+}
+
+.modulo-nombre{ flex:1; }
+
 /* ── Catálogo de productos por curso (academia.js) ─────────────────
    60 sabores en una lista: sin foto y sin jerarquía era una pared de
    texto imposible de recorrer. La miniatura es lo que hace que se

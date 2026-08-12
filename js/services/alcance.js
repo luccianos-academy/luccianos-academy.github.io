@@ -93,19 +93,28 @@ export function paisDe(usuario, sucursales = []) {
  * a que vea el de otra red.
  */
 export function aplicaAlUsuario(item, usuario, sucursales = []) {
-    const lista = String(item?.aplicaA || "").trim();
-    if (!lista) return true;
+    const incluye = String(item?.aplicaA || "").trim();
+    const excluye = String(item?.noAplicaA || "").trim();
+    if (!incluye && !excluye) return true;
     if (!usuario) return false;
     if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
 
     const miLocal = normalizar(usuario.sucursal);
     const miPais = normalizar(paisDe(usuario, sucursales));
-
-    return lista
+    const meNombra = (lista) => lista
         .split(",")
         .map(normalizar)
         .filter(Boolean)
         .some((t) => t === miLocal || (miPais && t === miPais));
+
+    // La exclusión gana. Es lo que permite decir "esto es para toda la
+    // red MENOS Devoto" sin tener que enumerar los otros 122 locales en
+    // aplicaA, que es el caso más frecuente: un local que no tiene
+    // cafetería es una excepción suya, no una propiedad de las 26
+    // lecciones de Cafetería.
+    if (excluye && meNombra(excluye)) return false;
+    if (!incluye) return true;
+    return meNombra(incluye);
 }
 
 /**

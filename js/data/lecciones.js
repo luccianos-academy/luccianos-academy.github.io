@@ -42,6 +42,8 @@ function normalizarLeccion(f) {
         // Cafetería le aplica a toda la red, pero la lección de batidos
         // no en Uruguay, que usa otra carta. VACÍO = le aplica a todos.
         aplicaA: String(f.aplicaA || "").trim(),
+        // Ver la nota en data/cursos.js — mismo campo, misma semántica.
+        noAplicaA: String(f.noAplicaA || "").trim(),
     };
 }
 
