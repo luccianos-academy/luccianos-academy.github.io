@@ -13,6 +13,11 @@ export const sucursalesMock = [
     { id: 2, nombre: "Lucciano's Olivos GBA", supervisor: "Tomás Ojeda", estado: "Activa", esPropio: "SI" },
     { id: 7, nombre: "Lucciano's San Miguel GBA", supervisor: "", estado: "Activa", esPropio: "SI" },
     { id: 12, nombre: "Lucciano's Shopping Abasto CABA", supervisor: "Barbara Riccitelli", estado: "Activa", esPropio: "SI" },
+    // Segundo punto de venta dentro del mismo shopping. Comparte la
+    // nómina con el de arriba, así que va a quedar sin colaboradores
+    // asignados — es lo esperado. Existe para que la cantidad de locales
+    // coincida con el listado de la empresa.
+    { id: 121, nombre: "Lucciano's Shopping Abasto 2 CABA", supervisor: "Barbara Riccitelli", estado: "Activa", esPropio: "SI" },
     { id: 13, nombre: "Lucciano's La Imprenta Gran Hotel CABA", supervisor: "", estado: "Activa", esPropio: "SI" },
     { id: 14, nombre: "Lucciano's Distrito Arcos CABA", supervisor: "", estado: "Activa", esPropio: "SI" },
     { id: 20, nombre: "Lucciano's Recoleta CABA", supervisor: "Ever Rodríguez", estado: "Activa", esPropio: "SI" },

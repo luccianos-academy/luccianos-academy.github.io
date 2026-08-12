@@ -237,12 +237,16 @@ function probarVisibilidadUsuarios() {
    abajo. NO se renombra nada en la hoja — pedido explícito del usuario:
    "no cambiemos nombres, matchea".
 
-   La lista original traía "ABASTO 2": son dos puntos de venta dentro del
-   mismo shopping, pero comparten nómina, así que en la hoja hay una sola
-   sucursal y acá va una sola entrada. Confirmado por el usuario.       */
+   "ABASTO 2" son dos puntos de venta dentro del mismo shopping que
+   COMPARTEN NÓMINA. Van como dos sucursales igual, para que la cantidad
+   coincida con el listado de locales de la empresa. Como la nómina es
+   una sola, toda la gente va cargada en "Abasto" y "Abasto 2" queda sin
+   colaboradores: es lo esperado, no un error. Lo que NO hay que hacer es
+   repartir el equipo entre las dos, porque el encargado de una no ve a
+   la gente de la otra.                                                 */
 
 const LOCALES_PROPIOS = [
-    'ABASTO', 'AV. SANTA FE (AGUERO)', 'LA IMPRENTA', 'DISTRITO ARCOS',
+    'ABASTO', 'ABASTO 2', 'AV. SANTA FE (AGUERO)', 'LA IMPRENTA', 'DISTRITO ARCOS',
     'MARTINEZ', 'SANTA FE Y PARANA', 'CALLE CORRIENTES', 'OBELISCO', 'GALERIAS PACIFICO',
     'SAN MIGUEL', 'DOT BAIRES', 'BULLRICH', 'NORDELTA', 'OLIVOS', 'RECOLETA',
     'CORDOBA CERRO', 'NUEVOCENTRO SHOPPING CBA', 'POSADAS', 'SALTA', 'SALTA ALTO NOA',
@@ -264,6 +268,11 @@ const LOCALES_PROPIOS = [
  *                     porque la otra está en la lista como SALTA ALTO NOA
  */
 const EQUIVALENCIAS_PROPIOS = {
+    // Abasto y Abasto 2 se necesitan SÍ O SÍ acá: sin esto, "ABASTO"
+    // matchea parcialmente contra las dos y el matcheo se declara
+    // ambiguo. Con el nombre completo cada una da match exacto.
+    'ABASTO': "Shopping Abasto",
+    'ABASTO 2': "Shopping Abasto 2",
     'AV. SANTA FE (AGUERO)': "Aguero",
     'SALTA ALTO NOA': "Alto NOA",
     'DOT BAIRES': "Dot CABA",
