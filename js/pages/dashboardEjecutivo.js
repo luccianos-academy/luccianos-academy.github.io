@@ -24,6 +24,7 @@ import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
 import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
+import { cursosDeLaPersona } from "../services/alcance.js";
 
 const UMBRAL_CRITICO = 50;
 const UMBRAL_DESTACADO = 90;
@@ -52,7 +53,7 @@ function claveMes(fechaStr) {
  *  mediar solo esas filas infla el número (1 curso terminado de 8
  *  daba "100%" en vez de ~13%). Mismo criterio que pages/colaboradores.js. */
 function progresoPersona(persona, asignaciones, cursos) {
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || persona.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, persona);
     if (!cursosAplicables.length) return null;
     const propias = asignaciones.filter((a) => String(a.colaboradorId) === String(persona.id));
     const suma = cursosAplicables.reduce((s, cur) => {

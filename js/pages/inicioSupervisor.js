@@ -27,6 +27,7 @@ import { getResultados } from "../data/resultados.js";
 import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
 import { mismoId } from "../services/ids.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { cursosDeLaPersona } from "../services/alcance.js";
 
 // "YYYY-MM-DD" es una fecha sin hora — leerla con new Date(str) y
 // getMonth()/getFullYear() la corre un día en zonas detrás de UTC
@@ -44,7 +45,7 @@ function fechaHoyISO() {
  *  terminado de 8 daba "100%" en vez de ~13%). Mismo criterio que
  *  pages/colaboradores.js/reportes.js. */
 function progresoPersona(persona, asignaciones, cursos) {
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || persona.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, persona);
     if (!cursosAplicables.length) return null;
     const propias = asignaciones.filter((a) => String(a.colaboradorId) === String(persona.id));
     const suma = cursosAplicables.reduce((s, cur) => {

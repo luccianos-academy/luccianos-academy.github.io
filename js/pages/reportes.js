@@ -34,6 +34,7 @@ import { getResultados } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getLecciones } from "../data/lecciones.js";
 import { getEvaluaciones } from "../data/evaluaciones.js";
+import { cursosDeLaPersona, cursoAplicaAPersona, leccionesDeLaPersona } from "../services/alcance.js";
 
 const TIPOS = [
     { id: "semaforo",     titulo: "Semáforo",       descripcion: "Quién está bien y quién necesita refuerzo, con ranking.", icono: "alertas" },
@@ -71,7 +72,7 @@ export function badgeNivel(nivel) {
  *  terminado de 8 daba "100%" en vez de ~13%). Mismo criterio que
  *  pages/colaboradores.js/inicioSupervisor.js. */
 function progresoPersona(persona, asignaciones, cursos) {
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || persona.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, persona);
     if (!cursosAplicables.length) return null;
     const propias = asignaciones.filter((a) => String(a.colaboradorId) === String(persona.id));
     const suma = cursosAplicables.reduce((s, cur) => {
@@ -162,21 +163,21 @@ export function barraProgreso(hechos, total) {
     `;
 }
 
-/** cursoId → cantidad de lecciones — se arma UNA sola vez por render
- *  (no por colaborador) y se usa para agregar "Lecciones vistas" de
- *  cada persona sin pedir getLecciones() por fila. */
-export function mapaLecciones(lecciones) {
-    const mapa = new Map();
-    lecciones.forEach((l) => mapa.set(String(l.cursoId), (mapa.get(String(l.cursoId)) || 0) + 1));
-    return mapa;
-}
-
 /** Lecciones vistas de una persona, sumadas entre todos sus cursos
  *  aplicables — el progreso por curso (progresoCursoDePersona, %) ya
  *  representa lecciones vistas/total DE ESE curso; acá se traduce ese
  *  % a una cantidad real y se suma contra el total de lecciones de
  *  Academy, no solo un promedio de porcentajes. */
-export function leccionesDePersona(persona, cursosAplicables, asignaciones, mapa) {
+export function leccionesDePersona(persona, cursosAplicables, asignaciones, lecciones) {
+    // El mapa se arma POR PERSONA y no una sola vez para todos: una
+    // lección puede no aplicarle a alguien (ej. batidos en Uruguay), y
+    // contarla en su total le dejaría el progreso incompleto para
+    // siempre — vería 18/20 con todo lo suyo terminado. Es O(personas ×
+    // lecciones), irrelevante con la escala real de la app.
+    const mias = leccionesDeLaPersona(lecciones || [], persona);
+    const mapa = new Map();
+    mias.forEach((l) => mapa.set(String(l.cursoId), (mapa.get(String(l.cursoId)) || 0) + 1));
+
     let vistas = 0;
     let total = 0;
     cursosAplicables.forEach((cur) => {
@@ -218,16 +219,15 @@ export function estadoEvaluacion(colaborador, curso, resultados, cursosConEvalua
  *  (cursos de Gestión para quien no es encargado) se muestra en gris,
  *  sin contar en Total. */
 export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados = [], lecciones = [], cursosConEvaluacion = new Set()) {
-    const mapa = mapaLecciones(lecciones);
     const filas = colaboradores
         .map((c) => {
-            const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
+            const cursosAplicables = cursosDeLaPersona(cursos, c);
             const total = cursosAplicables.length;
             const hechos = cursosAplicables.filter((cur) => progresoCursoDePersona(c, cur, asignaciones) === 100).length;
             const promedio = total
                 ? Math.round(cursosAplicables.reduce((s, cur) => s + progresoCursoDePersona(c, cur, asignaciones), 0) / total)
                 : 0;
-            const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapa);
+            const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, lecciones);
 
             const fila = {
                 _promedio: promedio,
@@ -245,7 +245,7 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resulta
                 leccionesVistas: barraProgreso(leccionesVistas, leccionesTotal),
             };
             cursos.forEach((cur) => {
-                const aplica = cur.categoria !== "Gestión" || c.encargado;
+                const aplica = cursoAplicaAPersona(cur, c);
                 fila[`curso_${cur.id}`] = aplica
                     ? `<div class="celda-curso">${celdaPct(progresoCursoDePersona(c, cur, asignaciones))}${estadoEvaluacion(c, cur, resultados, cursosConEvaluacion)}</div>`
                     : `<span class="text-xs text-muted">No aplica</span>`;
@@ -447,7 +447,7 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
         .map((nombreSucursal) => {
             const equipo = colaboradores.filter((c) => c.sucursal === nombreSucursal);
             const promedio = promedioDeGrupo(equipo, asignaciones, cursos) ?? 0;
-            const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || equipo.some((c) => c.encargado));
+            const cursosAplicables = cursos.filter((cur) => equipo.some((c) => cursoAplicaAPersona(cur, c)));
             const avatares = equipo.slice(0, 3).map((c) => Avatar({ nombre: c.nombre, foto: c.foto, size: "sm" })).join("");
             const extra = equipo.length > 3 ? `<span class="pila-mas">+${equipo.length - 3}</span>` : "";
 
@@ -460,7 +460,7 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
                 nivel: badgeNivel(nivelDe(promedio)),
             };
             cursos.forEach((cur) => {
-                const aplican = equipo.filter((c) => cur.categoria !== "Gestión" || c.encargado);
+                const aplican = equipo.filter((c) => cursoAplicaAPersona(cur, c));
                 const valores = aplican.map((c) => progresoCursoDePersona(c, cur, asignaciones));
                 fila[`curso_${cur.id}`] = valores.length
                     ? anilloPct(Math.round(valores.reduce((s, v) => s + v, 0) / valores.length), 40)

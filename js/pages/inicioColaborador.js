@@ -26,6 +26,7 @@ import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getColaboradoresPorSucursal } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { cursosDeLaPersona } from "../services/alcance.js";
 
 // Por cantidad de cursos completados, no por promedio de progreso —
 // completar un curso es de un solo sentido (nunca "se descompleta"),
@@ -84,7 +85,7 @@ export async function InicioColaborador() {
     // ya usa pages/cursos.js para la lista/gateo. Sin este filtro acá,
     // un colaborador raso veía "8 módulos" en vez de 7 y una tarjeta
     // de un curso al que después no puede entrar.
-    const cursosAplicables = cursos.filter((c) => c.categoria !== "Gestión" || usuario.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, usuario);
 
     // Mismo criterio que pages/colaboradores.js: % sobre el TOTAL de
     // cursos aplicables, no solo los ya empezados — si no, terminar 1

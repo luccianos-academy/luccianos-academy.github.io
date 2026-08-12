@@ -37,6 +37,11 @@ function normalizarLeccion(f) {
         consejo: f.consejo || "",
         resumen: f.resumen || "",
         estado: f.estado || "Activo",
+        // Alcance por país/local — ver services/alcance.js. Existe a
+        // nivel LECCIÓN y no solo de curso porque el caso real es ese:
+        // Cafetería le aplica a toda la red, pero la lección de batidos
+        // no en Uruguay, que usa otra carta. VACÍO = le aplica a todos.
+        aplicaA: String(f.aplicaA || "").trim(),
     };
 }
 

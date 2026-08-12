@@ -22,6 +22,7 @@ import { getAsignacionesPorColaborador } from "../data/asignaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { cursosDeLaPersona } from "../services/alcance.js";
 
 function tarjetaExamen({ curso, estado, nota }) {
     if (estado === "pendiente") {
@@ -62,7 +63,7 @@ export async function MisEvaluaciones() {
     // Mismo filtro que el resto de la app: "Gestión" (hoy solo
     // "Encargados y Responsables") es solo para colaboradores con
     // encargado:true (ver pages/cursos.js, pages/inicioColaborador.js).
-    const cursosAplicables = cursos.filter((c) => c.categoria !== "Gestión" || usuario.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, usuario);
 
     // Un examen solo existe para rendir/revisar una vez el curso está
     // completo (mismo gate que usa el propio curso para mostrar el CTA).

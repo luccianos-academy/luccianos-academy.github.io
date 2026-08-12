@@ -63,9 +63,10 @@ import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
 import { navigate } from "../router.js";
 import { Avatar } from "../components/avatar.js";
-import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, mapaLecciones, leccionesDePersona, kpisSemaforo } from "./reportes.js";
+import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { escaparHtml } from "../services/html.js";
+import { cursosDeLaPersona, cursoAplicaAPersona } from "../services/alcance.js";
 
 const DIAS_ACCESO_INICIAL = 30;
 const DIAS_AVISO_VENCIMIENTO = 7;
@@ -410,7 +411,7 @@ const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
  *  cursos sin asignación cuentan como 0, no se descartan.
  *  null solo si la persona no tiene ningún curso aplicable. */
 function progresoColaborador(colaborador, asignaciones, cursos) {
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || colaborador.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, colaborador);
     if (!cursosAplicables.length) return { pct: null, hechos: 0, total: 0 };
 
     const propias = asignaciones.filter((a) => String(a.colaboradorId) === String(colaborador.id));
@@ -620,10 +621,10 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos, conSeleccion = false) => [
     { key: "acciones", label: "" },
 ];
 
-function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso) {
+function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || c.encargado);
-    const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, mapaLeccionesPorCurso);
+    const cursosAplicables = cursosDeLaPersona(cursos, c);
+    const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, leccionesParaSemaforo);
     const fila = {
         ...c,
         seleccion: checkboxMail(c.id, c.email, c.nombre),
@@ -638,7 +639,7 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
         acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),
     };
     cursos.forEach((cur) => {
-        const aplica = cur.categoria !== "Gestión" || c.encargado;
+        const aplica = cursoAplicaAPersona(cur, c);
         fila[`curso_${cur.id}`] = aplica
             ? `<div class="celda-curso">${celdaPct(progresoCursoDePersona(c, cur, asignaciones))}${estadoEvaluacion(c, cur, resultados, cursosConEvaluacion)}</div>`
             : `<span class="text-xs text-muted">No aplica</span>`;
@@ -750,7 +751,9 @@ export async function Colaboradores() {
         esAdmin ? [] : getLecciones(),
     ]);
     const cursosConEvaluacion = esAdmin ? new Set() : new Set(evaluaciones.map((p) => String(p.cursoId)));
-    const mapaLeccionesPorCurso = esAdmin ? null : mapaLecciones(lecciones);
+    // Se pasa el array crudo: leccionesDePersona necesita filtrar por
+    // alcance persona por persona, y un mapa ya contado no lo permite.
+    const leccionesParaSemaforo = esAdmin ? [] : lecciones;
 
     // Chequeo + desactivación de accesos vencidos — se corre cada vez
     // que se abre esta pantalla (ver nota arriba sobre por qué acá).
@@ -778,7 +781,7 @@ export async function Colaboradores() {
     // simple (columnas de siempre) — ese detalle ya lo tiene en Reportes.
     const armarFila = esAdmin
         ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
-        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, mapaLeccionesPorCurso);
+        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo);
     const columnasTabla = esAdmin
         ? COLUMNAS_BASE(false, esAdmin)
         : COLUMNAS_SEMAFORO_GESTION(cursos, puedeAccionesEnLote);

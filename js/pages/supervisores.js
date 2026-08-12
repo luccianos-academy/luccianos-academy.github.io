@@ -17,6 +17,7 @@ import { getUsuarios } from "../data/usuarios.js";
 import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getCursos } from "../data/cursos.js";
+import { cursosDeLaPersona } from "../services/alcance.js";
 
 /** % real del camino completo de UNA persona — sobre el total de
  *  cursos que le corresponden (mismo filtro de "Gestión" que usa
@@ -25,7 +26,7 @@ import { getCursos } from "../data/cursos.js";
  *  mediar solo esas filas infla el número (1 curso terminado de 8
  *  daba "100%" en vez de ~13%). Mismo criterio que pages/colaboradores.js. */
 function progresoPersona(persona, asignaciones, cursos) {
-    const cursosAplicables = cursos.filter((cur) => cur.categoria !== "Gestión" || persona.encargado);
+    const cursosAplicables = cursosDeLaPersona(cursos, persona);
     if (!cursosAplicables.length) return null;
     const propias = asignaciones.filter((a) => String(a.colaboradorId) === String(persona.id));
     const suma = cursosAplicables.reduce((s, cur) => {

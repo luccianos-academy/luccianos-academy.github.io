@@ -61,14 +61,24 @@ export function paisDelNombre(nombre) {
     return PAIS_POR_SUFIJO[t.split(" ").pop()] || "Argentina";
 }
 
-/** El país de una persona, deducido de su local. "" si no se puede
- *  resolver (no se pasaron las sucursales, o al local le falta el país). */
+/**
+ * El país de una persona, deducido de su local. "" solo si la persona
+ * no tiene local asignado.
+ *
+ * Las sucursales son OPCIONALES, y que lo sean es lo que hace viable
+ * todo esto: la regla se consulta desde una docena de pantallas, y
+ * exigirles cargar la lista de sucursales para poder preguntar habría
+ * significado volver asíncronas funciones que hoy no lo son. Cuando se
+ * pasan, manda la columna "pais" de la hoja —un local puede llamarse de
+ * una forma que no diga su país—; cuando no, se deduce del nombre, que
+ * es de donde sale esa columna igual.
+ */
 export function paisDe(usuario, sucursales = []) {
     const miLocal = normalizar(usuario?.sucursal);
     if (!miLocal) return "";
     const suc = sucursales.find((s) => normalizar(s.nombre) === miLocal);
-    if (!suc) return "";
-    return String(suc.pais || "").trim() || paisDelNombre(suc.nombre);
+    if (suc) return String(suc.pais || "").trim() || paisDelNombre(suc.nombre);
+    return paisDelNombre(usuario.sucursal);
 }
 
 /**
@@ -78,10 +88,9 @@ export function paisDe(usuario, sucursales = []) {
  * podrían revisar lo que le toca a otra red. Mismo criterio que
  * puedeVerManual.
  *
- * Si no se pasan las sucursales solo se puede resolver por local, no
- * por país — así que un contenido acotado a "Uruguay" no le aparecería
- * a nadie. Criterio conservador y explícito: es mejor que falte a que
- * se muestre de más.
+ * Una persona sin local asignado no matchea contra nada acotado: no hay
+ * forma de saber qué le corresponde, y es mejor que le falte contenido
+ * a que vea el de otra red.
  */
 export function aplicaAlUsuario(item, usuario, sucursales = []) {
     const lista = String(item?.aplicaA || "").trim();
@@ -113,10 +122,17 @@ export function aplicaAlUsuario(item, usuario, sucursales = []) {
  * completó sus 6 cursos aplicables vea 100% y no 75%.
  */
 export function cursosDeLaPersona(cursos, persona, sucursales = []) {
-    return (cursos || []).filter((cur) => {
-        if (cur.categoria === "Gestión" && !persona?.encargado) return false;
-        return aplicaAlUsuario(cur, persona, sucursales);
-    });
+    return (cursos || []).filter((cur) => cursoAplicaAPersona(cur, persona, sucursales));
+}
+
+/**
+ * La misma pregunta para UN curso. Existe porque varias pantallas
+ * arman una grilla de curso × persona y necesitan pintar "No aplica"
+ * celda por celda, sin filtrar la lista entera.
+ */
+export function cursoAplicaAPersona(curso, persona, sucursales = []) {
+    if (curso?.categoria === "Gestión" && !persona?.encargado) return false;
+    return aplicaAlUsuario(curso, persona, sucursales);
 }
 
 /** Las lecciones de un curso que le corresponden a una persona. Un

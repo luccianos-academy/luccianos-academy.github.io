@@ -31,6 +31,7 @@ import { getResultadosPorColaborador } from "../data/resultados.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { navigate } from "../router.js";
+import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
 
 export async function Cursos(params = []) {
 
@@ -73,7 +74,13 @@ async function renderListaCursos(usuario) {
     // raso no debería ver ni poder abrir contenido de gestión de local.
     // Supervisor entra sin esa restricción (ve todo el catálogo, solo
     // para repasar contenido — no le genera progreso propio).
-    const cursos = todosLosCursos.filter((c) => c.categoria !== "Gestión" || usuario.encargado || usuario.rol === "supervisor");
+    // El alcance por país/local (services/alcance.js) va aparte de la
+    // regla de Gestión y no se puede delegar en cursosDeLaPersona():
+    // esa función excluye Gestión para todo el que no sea encargado,
+    // mientras que acá el Supervisor sí la ve.
+    const cursos = todosLosCursos
+        .filter((c) => c.categoria !== "Gestión" || usuario.encargado || usuario.rol === "supervisor")
+        .filter((c) => aplicaAlUsuario(c, usuario));
 
     const tarjetas = cursos.map((curso) => {
         const asignacion = asignaciones.find((a) => String(a.cursoId) === String(curso.id));
@@ -406,16 +413,26 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
 
 async function renderDetalleCurso(usuario, cursoId) {
 
-    const [cursos, lecciones, asignaciones, resultados] = await Promise.all([
+    const [cursos, todasLasLecciones, asignaciones, resultados] = await Promise.all([
         getCursos(),
         getLeccionesPorCurso(cursoId),
         getAsignacionesPorColaborador(usuario.id),
         getResultadosPorColaborador(usuario.id),
     ]);
 
+    // Un curso puede aplicar entero y tener adentro alguna lección que
+    // no — ej. Cafetería sí en Uruguay, pero la lección de batidos no,
+    // porque usan otra carta. Se filtra acá, antes de contar nada, para
+    // que el total de lecciones del curso sea el de ESTA persona.
+    const lecciones = leccionesDeLaPersona(todasLasLecciones, usuario);
+
     const curso = cursos.find((c) => String(c.id) === String(cursoId));
     const esSoloEncargados = curso && curso.categoria === "Gestión" && !usuario.encargado && usuario.rol !== "supervisor";
-    if (!curso || esSoloEncargados) {
+    // Sin esto, un curso acotado a otro país desaparecía del catálogo
+    // pero seguía abriéndose pegando el link — se esconde y se bloquea,
+    // no solo se esconde.
+    const fueraDeAlcance = curso && !aplicaAlUsuario(curso, usuario);
+    if (!curso || esSoloEncargados || fueraDeAlcance) {
         return EmptyState({
             titulo: "Curso no encontrado",
             detalle: "Puede que ya no exista o que el enlace esté mal.",

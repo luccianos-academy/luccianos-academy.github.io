@@ -14,6 +14,11 @@ function normalizarCurso(f) {
         categoria: f.categoria || "General",
         obligatorio: String(f.obligatorio || "").toUpperCase() === "SI",
         orden: Number(f.orden) || 0,
+        // Lista separada por comas que mezcla países y locales — ver
+        // services/alcance.js. VACÍO = le aplica a todos, que es lo
+        // normal; la excepción se declara. Ojo que es la semántica
+        // OPUESTA a Manuales.visiblePara, donde vacío = no lo ve nadie.
+        aplicaA: String(f.aplicaA || "").trim(),
     };
 }
 
