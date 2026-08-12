@@ -395,6 +395,32 @@ function _propios(aplicar) {
         console.log('');
         console.log('⚠️  SIN RESOLVER (no existen en la hoja o son ambiguos):');
         sinResolver.forEach(function (s) { console.log('    ' + s); });
+
+        // Sin esto hay que ir a mirar la hoja a mano para descubrir cómo
+        // se llama realmente el local que no matcheó. Se listan sólo las
+        // sucursales libres que comparten alguna palabra con el nombre
+        // sin resolver: listarlas todas serían 89 franquicias de ruido.
+        sinResolver.forEach(function (corto) {
+            var palabras = _normLocal(EQUIVALENCIAS_PROPIOS[corto] || corto)
+                .split(' ').filter(function (p) { return p.length > 2; });
+            var candidatas = [];
+            for (var j = 1; j < filas.length; j++) {
+                var nom = String(filas[j][colNombre] || '').trim();
+                if (!nom || resueltas[j]) continue;
+                var n = _normLocal(nom);
+                var pega = palabras.some(function (p) { return n.indexOf(p) !== -1; });
+                if (pega) candidatas.push(nom);
+            }
+            console.log('');
+            if (candidatas.length) {
+                console.log('    ¿"' + corto + '" es alguna de estas?');
+                candidatas.forEach(function (c) { console.log('       · ' + c); });
+                console.log('      Si es una, ponela en EQUIVALENCIAS_PROPIOS con ese nombre.');
+            } else {
+                console.log('    "' + corto + '" no se parece a ninguna sucursal libre.');
+                console.log('      O no está cargada en la hoja, o se llama de otra forma.');
+            }
+        });
     }
 
     if (!aplicar) {
