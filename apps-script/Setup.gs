@@ -225,6 +225,75 @@ function probarVisibilidadUsuarios() {
 }
 
 /**
+ * renombrarCarpetasDeColaboradores() — MODIFICA Drive. Ejecutar una vez.
+ *
+ * Las carpetas de fotos se crearon con el id del colaborador
+ * ("1786486477496"), así que abrir Drive es una lista de números sin
+ * forma de saber de quién es cada una. Desde Code.gs v1.4.2 las nuevas
+ * se llaman "Nombre (id)", pero eso solo aplica cuando la persona
+ * vuelve a subir una foto — las que ya existen se quedan como están.
+ * Esto las pasa todas de una.
+ *
+ * También reporta las carpetas cuyo id ya NO está en la hoja Usuarios:
+ * son de gente eliminada antes de que el borrado limpiara Drive. No las
+ * toca — solo las lista, para que se decida qué hacer.
+ *
+ * Es idempotente: correrla dos veces no rompe nada.
+ */
+function renombrarCarpetasDeColaboradores() {
+  const raiz = DriveApp.getRootFolder();
+  const recursos = raiz.getFoldersByName("Lucciano's Academy — Recursos");
+  if (!recursos.hasNext()) { console.log('No existe la carpeta de Recursos.'); return; }
+  const colab = recursos.next().getFoldersByName('Colaboradores');
+  if (!colab.hasNext()) { console.log('No existe la subcarpeta Colaboradores.'); return; }
+
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  const datos = hoja.getDataRange().getValues();
+  const enc = datos[0];
+  const colId = enc.indexOf('id');
+  const colNombre = enc.indexOf('nombre');
+  if (colId === -1 || colNombre === -1) { console.log('Faltan columnas id/nombre.'); return; }
+
+  const porId = {};
+  for (let i = 1; i < datos.length; i++) {
+    const id = String(datos[i][colId]).split('.')[0].trim();
+    if (id) porId[id] = String(datos[i][colNombre] || '').trim();
+  }
+
+  let renombradas = 0, yaEstaban = 0;
+  const huerfanas = [];
+  const it = colab.next().getFolders();
+
+  while (it.hasNext()) {
+    const c = it.next();
+    const nombre = c.getName();
+    // "Nombre (id)" o, en las viejas, el id solo (a veces con decimales)
+    const m = nombre.match(/\((\d+)\)\s*$/);
+    const id = m ? m[1] : nombre.trim().split('.')[0];
+
+    const persona = porId[id];
+    if (!persona) { huerfanas.push(nombre); continue; }
+
+    const deseado = persona + ' (' + id + ')';
+    if (nombre === deseado) { yaEstaban++; continue; }
+    c.setName(deseado);
+    console.log('  ' + nombre + '   →   ' + deseado);
+    renombradas++;
+  }
+
+  console.log('');
+  console.log('✓ ' + renombradas + ' carpeta(s) renombradas · ' + yaEstaban + ' ya estaban bien');
+
+  if (huerfanas.length) {
+    console.log('');
+    console.log('⚠️  ' + huerfanas.length + ' carpeta(s) de gente que ya NO está en Usuarios:');
+    huerfanas.forEach(function (n) { console.log('    ' + n); });
+    console.log('    NO se tocaron. Son de usuarios eliminados antes de que');
+    console.log('    el borrado limpiara Drive — se pueden mandar a la papelera a mano.');
+  }
+}
+
+/**
  * dondeEstanLasFotos() — diagnóstico, no modifica nada.
  *
  * Responde "¿dónde carajo se guardan las fotos de perfil?" sin tener
