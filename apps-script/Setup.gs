@@ -838,6 +838,93 @@ function _sucursalesFaltantes(aplicar) {
 }
 
 /**
+ * arreglarSucursales() — la única que hay que correr. MODIFICA la hoja.
+ *
+ * Hace las tres cosas juntas, en una pasada:
+ *
+ *   1. NUMERA los ids de 1 a N. La caché de la app (IndexedDB) guarda
+ *      cada sucursal usando el id como clave: dos filas con el mismo id
+ *      —o con el id vacío— se pisan y en la app quedan como una sola. Eso
+ *      es lo que hacía que se vieran 101 locales de 123. Renumerar es
+ *      seguro porque nada enlaza por id: Usuarios, Manuales y Noticias
+ *      referencian la sucursal por NOMBRE.
+ *   2. esPropio = SI a los de LOCALES_PROPIOS, NO a todo el resto.
+ *   3. pais deducido del sufijo del nombre, si está vacío.
+ *
+ * No borra filas ni toca nombres. Si algún local de la lista de propios
+ * no aparece en la hoja, lo dice al final para cargarlo a mano — no
+ * frena por eso.
+ */
+function arreglarSucursales() {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+    if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+    var filas = hoja.getDataRange().getValues();
+    var enc = filas[0];
+    var colId = enc.indexOf('id');
+    var colNombre = enc.indexOf('nombre');
+    var colPropio = enc.indexOf('esPropio');
+    var colPais = enc.indexOf('pais');
+
+    if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
+    if (colId === -1) { console.log('Falta la columna "id".'); return; }
+    if (colPropio === -1) { console.log('Falta la columna "esPropio".'); return; }
+    if (colPais === -1) {
+        colPais = hoja.getLastColumn();
+        hoja.getRange(1, colPais + 1).setValue('pais');
+        enc.push('pais');
+        console.log('Columna "pais" creada.');
+    }
+
+    var resueltas = {};
+    var noEncontrados = [];
+    LOCALES_PROPIOS.forEach(function (corto) {
+        var m = _buscarSucursal(corto, filas, colNombre);
+        if (m) resueltas[m.fila] = true; else noEncontrados.push(corto);
+    });
+
+    var ids = [], propios = [], paises = [];
+    var n = 0, cuantosPropios = 0, porPais = {};
+
+    for (var i = 1; i < filas.length; i++) {
+        var nombre = String(filas[i][colNombre] || '').trim();
+        if (!nombre) { ids.push(['']); propios.push(['']); paises.push(['']); continue; }
+
+        n++;
+        ids.push([n]);
+
+        var esPropio = !!resueltas[i];
+        propios.push([esPropio ? 'SI' : 'NO']);
+        if (esPropio) cuantosPropios++;
+
+        var pais = String(filas[i][colPais] || '').trim() || _paisDelNombre(nombre);
+        paises.push([pais]);
+        porPais[pais] = (porPais[pais] || 0) + 1;
+    }
+
+    // Una escritura por columna: celda por celda serían 369 llamadas.
+    hoja.getRange(2, colId + 1, ids.length, 1).setValues(ids);
+    hoja.getRange(2, colPropio + 1, propios.length, 1).setValues(propios);
+    hoja.getRange(2, colPais + 1, paises.length, 1).setValues(paises);
+
+    console.log('✓ ' + n + ' locales · ids numerados de 1 a ' + n);
+    console.log('✓ ' + cuantosPropios + ' propios · ' + (n - cuantosPropios) + ' franquicias');
+    console.log('');
+    Object.keys(porPais).sort(function (a, b) { return porPais[b] - porPais[a]; })
+        .forEach(function (p) { console.log('   ' + porPais[p] + '  ' + p); });
+
+    if (noEncontrados.length) {
+        console.log('');
+        console.log('⚠️  Estos locales propios NO están en la hoja — cargalos a mano');
+        console.log('    desde Locales y volvé a ejecutar esto:');
+        noEncontrados.forEach(function (c) { console.log('    · ' + c); });
+    }
+
+    console.log('');
+    console.log('Ahora en la app: Cerrar sesión, volver a entrar, y va a mostrar los ' + n + '.');
+}
+
+/**
  * diagnosticoSucursales() — NO modifica nada.
  *
  * Contesta por qué la app puede estar mostrando menos locales de los que
