@@ -224,6 +224,302 @@ function probarVisibilidadUsuarios() {
   console.log('Si un colaborador raso ve más de 1, el filtro NO está activo.');
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   LOCALES PROPIOS
+   ══════════════════════════════════════════════════════════════════
+
+   Lista pasada por el usuario el 2026-08-12. Todo lo que NO esté acá
+   queda como franquicia (mismo criterio "por descarte" que ya usa la
+   app: esPropio vacío = franquicia).
+
+   Los nombres vienen cortos ("ABASTO") y en la planilla están completos
+   ("Lucciano's Shopping Abasto CABA"), así que hay un matcheo tolerante
+   abajo. NO se renombra nada en la hoja — pedido explícito del usuario:
+   "no cambiemos nombres, matchea".
+
+   La lista original traía "ABASTO 2": son dos puntos de venta dentro del
+   mismo shopping, pero comparten nómina, así que en la hoja hay una sola
+   sucursal y acá va una sola entrada. Confirmado por el usuario.       */
+
+const LOCALES_PROPIOS = [
+    'ABASTO', 'AV. SANTA FE (AGUERO)', 'LA IMPRENTA', 'DISTRITO ARCOS',
+    'MARTINEZ', 'SANTA FE Y PARANA', 'CALLE CORRIENTES', 'OBELISCO', 'GALERIAS PACIFICO',
+    'SAN MIGUEL', 'DOT BAIRES', 'BULLRICH', 'NORDELTA', 'OLIVOS', 'RECOLETA',
+    'CORDOBA CERRO', 'NUEVOCENTRO SHOPPING CBA', 'POSADAS', 'SALTA', 'SALTA ALTO NOA',
+    'ALTO ROSARIO',
+    'ALEM MDP', 'CONSTITUCION MDP', 'GUEMES MDP', 'LOS GALLEGOS MDP', 'CENTRAL',
+    'PASEO ALDREY MDP', 'PEATONAL GRAND THEATRE', 'VARESE', 'PASO MDP', 'TORREON',
+];
+
+/**
+ * Equivalencias que el matcheo automático NO puede resolver solo,
+ * verificadas contra la lista real de sucursales:
+ *
+ *   DOT BAIRES        → el shopping se llama Dot Baires, la sucursal "Dot"
+ *   LOS GALLEGOS MDP  → en la hoja está sin el "Los"
+ *   PASEO ALDREY MDP  → en la hoja está sin el "Paseo"
+ *   PEATONAL GRAND THEATRE → hay DOS "Peatonal" (Mar del Plata y
+ *                     Sarmiento Mendoza); Grand Theatre es la de MDP
+ *   SALTA             → hay dos en Salta; por descarte es Galerías,
+ *                     porque la otra está en la lista como SALTA ALTO NOA
+ */
+const EQUIVALENCIAS_PROPIOS = {
+    'AV. SANTA FE (AGUERO)': "Aguero",
+    'SALTA ALTO NOA': "Alto NOA",
+    'DOT BAIRES': "Dot CABA",
+    'LOS GALLEGOS MDP': "Gallegos Mar del Plata",
+    'PASEO ALDREY MDP': "Aldrey Mar del Plata",
+    'PEATONAL GRAND THEATRE': "Peatonal Mar del Plata",
+    'SALTA': "Galerias Salta",
+};
+
+/* Las regiones se sacan SOLO cuando est\u00e1n al final del nombre, nunca en
+   el medio. Borrarlas en cualquier posici\u00f3n romp\u00eda feo: "Lucciano's Santa
+   Fe Santa Fe" quedaba en cadena VAC\u00cdA, y la cadena vac\u00eda es substring de
+   todo, as\u00ed que esa sucursal sal\u00eda candidata de cualquier local. */
+var _REGIONES = ['caba', 'gba', 'mdp', 'mar del plata', 'buenos aires',
+                 'cordoba', 'cba', 'santa fe', 'misiones', 'de las rosas'];
+
+function _normLocal(s) {
+    var t = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    t = t.replace(/lucciano's/g, ' ').replace(/luccianos/g, ' ');
+    t = t.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    var siguio = true;
+    while (siguio) {
+        siguio = false;
+        for (var i = 0; i < _REGIONES.length; i++) {
+            var suf = ' ' + _REGIONES[i];
+            // el "length >" garantiza que nunca devuelva vac\u00edo
+            if (t.length > suf.length && t.slice(-suf.length) === suf) {
+                t = t.slice(0, -suf.length).trim();
+                siguio = true;
+            }
+        }
+    }
+    return t;
+}
+
+/** Devuelve {fila, nombre} de la sucursal que corresponde, o null si no
+ *  se puede resolver sin ambigüedad. */
+function _buscarSucursal(corto, filas, colNombre) {
+    var objetivo = EQUIVALENCIAS_PROPIOS[corto];
+    var nc = _normLocal(objetivo || corto);
+
+    var exactos = [];
+    for (var i = 1; i < filas.length; i++) {
+        if (_normLocal(filas[i][colNombre]) === nc) exactos.push(i);
+    }
+    if (exactos.length === 1) return { fila: exactos[0], nombre: filas[exactos[0]][colNombre] };
+    if (exactos.length > 1) return null;
+
+    var toks = nc.split(' ').filter(function (t) { return t.length > 2; });
+    if (!toks.length) return null;
+    var cand = [];
+    for (var j = 1; j < filas.length; j++) {
+        var partes = _normLocal(filas[j][colNombre]).split(' ');
+        var todos = toks.every(function (t) { return partes.indexOf(t) !== -1; });
+        if (todos) cand.push(j);
+    }
+    return cand.length === 1 ? { fila: cand[0], nombre: filas[cand[0]][colNombre] } : null;
+}
+
+/**
+ * previsualizarLocalesPropios() — NO modifica nada. Ejecutar PRIMERO.
+ *
+ * Muestra qué sucursal de la hoja se va a marcar por cada nombre de la
+ * lista, y qué queda sin resolver. Clasificar mal un local es un error
+ * de datos que después nadie encuentra, así que conviene leer esto
+ * antes de aplicar.
+ */
+function previsualizarLocalesPropios() {
+    _propios(false);
+}
+
+/**
+ * marcarLocalesPropios() — MODIFICA la hoja Sucursales.
+ *
+ * Marca esPropio="SI" en los de la lista y "NO" en el resto. Se NIEGA a
+ * aplicar si algún nombre quedó sin resolver: una clasificación a medias
+ * es peor que ninguna, porque parece completa.
+ */
+function marcarLocalesPropios() {
+    _propios(true);
+}
+
+function _propios(aplicar) {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+    if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+    var filas = hoja.getDataRange().getValues();
+    var enc = filas[0];
+    var colNombre = enc.indexOf('nombre');
+    var colPropio = enc.indexOf('esPropio');
+    if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
+    if (colPropio === -1) { console.log('Falta la columna "esPropio". Agregá ese encabezado y volvé a ejecutar.'); return; }
+
+    var resueltas = {};
+    var sinResolver = [];
+    var duplicados = [];
+
+    LOCALES_PROPIOS.forEach(function (corto) {
+        var m = _buscarSucursal(corto, filas, colNombre);
+        if (!m) { sinResolver.push(corto); return; }
+        if (resueltas[m.fila]) { duplicados.push(corto + ' y ' + resueltas[m.fila] + ' → ' + m.nombre); return; }
+        resueltas[m.fila] = corto;
+        console.log('  ' + corto + '   →   ' + m.nombre);
+    });
+
+    var cuantas = Object.keys(resueltas).length;
+    console.log('');
+    console.log('Resueltos: ' + cuantas + ' de ' + LOCALES_PROPIOS.length);
+
+    if (duplicados.length) {
+        console.log('');
+        console.log('⚠️  DOS nombres de la lista apuntan a la MISMA sucursal:');
+        duplicados.forEach(function (d) { console.log('    ' + d); });
+    }
+    if (sinResolver.length) {
+        console.log('');
+        console.log('⚠️  SIN RESOLVER (no existen en la hoja o son ambiguos):');
+        sinResolver.forEach(function (s) { console.log('    ' + s); });
+    }
+
+    if (!aplicar) {
+        console.log('');
+        console.log('— Previsualización. No se modificó nada. —');
+        console.log('Si el listado de arriba está bien, ejecutá marcarLocalesPropios().');
+        return;
+    }
+
+    if (sinResolver.length || duplicados.length) {
+        console.log('');
+        console.log('❌ NO SE APLICÓ NADA. Resolvé primero lo de arriba:');
+        console.log('   · si el local no existe en la hoja, cargalo o sacalo de LOCALES_PROPIOS');
+        console.log('   · si es ambiguo, agregá la equivalencia exacta en EQUIVALENCIAS_PROPIOS');
+        return;
+    }
+
+    // Una sola escritura para toda la columna. Celda por celda serían 120
+    // llamadas y Apps Script se arrastra con eso.
+    var columna = [];
+    var propios = 0, franquicias = 0;
+    for (var i = 1; i < filas.length; i++) {
+        if (!String(filas[i][colNombre] || '').trim()) {
+            columna.push([filas[i][colPropio]]);   // fila vacía: no la tocamos
+            continue;
+        }
+        var esPropio = !!resueltas[i];
+        columna.push([esPropio ? 'SI' : 'NO']);
+        esPropio ? propios++ : franquicias++;
+    }
+    hoja.getRange(2, colPropio + 1, columna.length, 1).setValues(columna);
+    console.log('');
+    console.log('✓ ' + propios + ' PROPIOS · ' + franquicias + ' FRANQUICIAS');
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   PAÍS DE CADA SUCURSAL
+   ══════════════════════════════════════════════════════════════════
+
+   La columna "pais" es lo que hace funcionar el alcance por país de
+   cursos y lecciones (js/services/alcance.js): a nadie se le pregunta
+   de qué país es, se deduce de su local.
+
+   No hace falta cargarla a mano: el país YA está en el sufijo del
+   nombre — "Lucciano's Pocitos Uruguay", "Lucciano's Weston USA". Todo
+   lo que no tenga sufijo de país extranjero es Argentina, porque los
+   locales argentinos terminan en provincia (CABA, GBA, Mendoza…).
+
+   Se guardan los nombres COMPLETOS, no abreviaturas. El valor de esta
+   columna es el mismo texto que después se escribe en el campo
+   "aplicaA" de un curso, y ahí alguien va a tipear "Uruguay", no
+   "uru".                                                              */
+
+var PAIS_POR_SUFIJO = {
+    'uruguay': 'Uruguay',
+    'paraguay': 'Paraguay',
+    'chile': 'Chile',
+    'espana': 'España',
+    'usa': 'Estados Unidos',
+    'italia': 'Italia',
+};
+
+function _paisDelNombre(nombre) {
+    var t = String(nombre || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+    var ultima = t.split(' ').pop();
+    return PAIS_POR_SUFIJO[ultima] || 'Argentina';
+}
+
+/** previsualizarPaises() — NO modifica nada. Ejecutar PRIMERO. */
+function previsualizarPaises() {
+    _paises(false);
+}
+
+/** completarPaises() — MODIFICA la hoja Sucursales. Crea la columna
+ *  "pais" si no existe y la completa. No pisa lo que ya esté cargado a
+ *  mano: si una fila ya tiene país, se respeta. */
+function completarPaises() {
+    _paises(true);
+}
+
+function _paises(aplicar) {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sucursales');
+    if (!hoja) { console.log('No existe la hoja Sucursales.'); return; }
+
+    var filas = hoja.getDataRange().getValues();
+    var enc = filas[0];
+    var colNombre = enc.indexOf('nombre');
+    if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
+
+    var colPais = enc.indexOf('pais');
+    if (colPais === -1) {
+        if (!aplicar) {
+            console.log('La columna "pais" todavía no existe — completarPaises() la crea.');
+            console.log('');
+        } else {
+            colPais = hoja.getLastColumn();
+            hoja.getRange(1, colPais + 1).setValue('pais');
+            console.log('Columna "pais" creada.');
+        }
+    }
+
+    var cuenta = {};
+    var columna = [];
+    var respetadas = 0;
+
+    for (var i = 1; i < filas.length; i++) {
+        var nombre = String(filas[i][colNombre] || '').trim();
+        if (!nombre) { columna.push(['']); continue; }
+
+        var yaCargado = colPais === -1 ? '' : String(filas[i][colPais] || '').trim();
+        var pais = yaCargado || _paisDelNombre(nombre);
+        if (yaCargado) respetadas++;
+
+        columna.push([pais]);
+        cuenta[pais] = (cuenta[pais] || 0) + 1;
+        if (pais !== 'Argentina') console.log('  ' + nombre + '   →   ' + pais);
+    }
+
+    console.log('');
+    Object.keys(cuenta).sort().forEach(function (p) {
+        console.log('  ' + cuenta[p] + '  ' + p);
+    });
+    if (respetadas) console.log('(' + respetadas + ' filas ya tenían país cargado, no se tocaron)');
+
+    if (!aplicar) {
+        console.log('');
+        console.log('— Previsualización. No se modificó nada. —');
+        console.log('Si está bien, ejecutá completarPaises().');
+        return;
+    }
+
+    hoja.getRange(2, colPais + 1, columna.length, 1).setValues(columna);
+    console.log('');
+    console.log('✓ Columna "pais" completada en ' + columna.length + ' filas.');
+}
+
 /**
  * renombrarCarpetasDeColaboradores() — MODIFICA Drive. Ejecutar una vez.
  *
