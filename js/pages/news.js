@@ -29,6 +29,7 @@ import {
 } from "../data/noticias.js";
 import { getCursos } from "../data/cursos.js";
 import { getUsuarios } from "../data/usuarios.js";
+import { mismoId } from "../services/ids.js";
 import { getSucursales } from "../data/sucursales.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
@@ -113,7 +114,10 @@ async function descripcionDestinatarios(noti) {
         // Un id que ya no está en la nómina se muestra como id en vez de
         // desaparecer: que falte un destinatario de la lista sería
         // justamente lo que este texto tiene que dejar ver.
-        const nombres = ids.map((id) => usuarios.find((u) => String(u.id) === id)?.nombre || `id ${id}`);
+        // mismoId y no ===: la planilla devuelve los ids con cola decimal
+        // a veces, y comparados como texto no encuentran a nadie — se veía
+        // "1 usuario(s): id 1786486477496.17" en vez del nombre.
+        const nombres = ids.map((id) => usuarios.find((u) => mismoId(u.id, id))?.nombre || `usuario dado de baja (${id})`);
         return `${nombres.length} usuario(s): ${nombres.join(", ")}`;
     }
 

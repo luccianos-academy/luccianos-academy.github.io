@@ -24,7 +24,8 @@ import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
-import { getAuditoria } from "../data/auditoria.js";
+import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
+import { mismoId } from "../services/ids.js";
 import { getUsuarioActual } from "../services/auth.js";
 
 // "YYYY-MM-DD" es una fecha sin hora — leerla con new Date(str) y
@@ -144,9 +145,11 @@ export async function InicioSupervisor() {
         : "";
 
     const actividad = auditoria
-        .filter((a) => equipoIds.includes(String(a.usuarioId)) || String(a.usuarioId) === String(usuario.id))
-        .slice(0, 5)
-        .map((a) => ({ fecha: a.fecha, texto: a.detalle }));
+        // mismoId y no includes(String(...)): la planilla devuelve los ids
+        // con cola decimal a veces, y así el filtro no matcheaba a nadie.
+        .filter((a) => equipoIds.some((eid) => mismoId(eid, a.usuarioId)) || mismoId(a.usuarioId, usuario.id))
+        .slice(0, 10)
+        .map((a) => ({ fecha: a.fecha, texto: detalleConNombres(a.detalle, usuarios) }));
 
     return `
         ${Header(`Bienvenido/a, ${usuario.nombre}`, usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : (misLocales.join(", ") || "Sin local asignado"), { saludo: true })}
@@ -179,7 +182,7 @@ export async function InicioSupervisor() {
                 ${rankingLocales ? `<div class="section">${rankingLocales}</div>` : ""}
             </div>
             <div>
-                <h2>Últimas actividades</h2>
+                <h2>Movimientos de gestión</h2>
                 ${ActivityFeed(actividad)}
             </div>
         </div>

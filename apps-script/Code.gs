@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.3.4";
+const BACKEND_VERSION = "1.4.2";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -1304,6 +1304,50 @@ function subirArchivo(nombreArchivo, extension, archivoBase64) {
  *  otro pasando otro id a mano. La URL que se guarda es la de
  *  thumbnail (no archivo.getUrl(), que abre el visor de Drive) —
  *  esa sí sirve directo como src de una <img>. */
+/**
+ * La carpeta de cada colaborador en Drive, por NOMBRE.
+ *
+ * Antes se llamaba con el id (un Date.now() de 13 dígitos), así que
+ * abrir Drive era una lista de números sin manera de saber de quién es
+ * cada carpeta. Pedido del usuario: "las carpetas caen sobre id, nunca
+ * voy a saber quiénes son; debe decir nombre de usuario, si no será un
+ * desmadre cuando haya mucha información".
+ *
+ * Migra sola: si ya existe la carpeta vieja con el id, la renombra en
+ * vez de crear una nueva — así las fotos ya subidas no quedan
+ * huérfanas en una carpeta que nadie vuelve a mirar.
+ *
+ * El nombre lleva el id entre paréntesis al final para que dos personas
+ * que se llamen igual no compartan carpeta (y con ella, la foto: el
+ * archivo se llama "perfil_*" en las dos).
+ */
+function _carpetaDeColaborador(padre, usuarioActual) {
+    const nombre = String(usuarioActual.nombre || "").trim() || "Sin nombre";
+    const id = String(usuarioActual.id);
+    const deseado = nombre + " (" + id + ")";
+
+    const yaEsta = padre.getFoldersByName(deseado);
+    if (yaEsta.hasNext()) return yaEsta.next();
+
+    // Carpeta vieja, nombrada solo con el id: se renombra.
+    const vieja = padre.getFoldersByName(id);
+    if (vieja.hasNext()) {
+        const c = vieja.next();
+        c.setName(deseado);
+        return c;
+    }
+
+    // Carpeta nombrada solo con el nombre (por si quedó alguna así).
+    const soloNombre = padre.getFoldersByName(nombre);
+    if (soloNombre.hasNext()) {
+        const c = soloNombre.next();
+        c.setName(deseado);
+        return c;
+    }
+
+    return padre.createFolder(deseado);
+}
+
 function subirFotoPerfil(usuarioActual, extension, archivoBase64) {
     try {
         if (!usuarioActual || !extension || !archivoBase64) {
@@ -1312,7 +1356,7 @@ function subirFotoPerfil(usuarioActual, extension, archivoBase64) {
 
         const carpetaRecursos = _obtenerOCrearFolder("Lucciano's Academy — Recursos", DriveApp.getRootFolder());
         const carpetaColaboradores = _obtenerOCrearFolder("Colaboradores", carpetaRecursos);
-        const carpetaUsuario = _obtenerOCrearFolder(String(usuarioActual.id), carpetaColaboradores);
+        const carpetaUsuario = _carpetaDeColaborador(carpetaColaboradores, usuarioActual);
 
         // Cualquier "perfil*" anterior en esa carpeta se manda a la
         // papelera antes de subir la nueva — sin esto, re-subir la foto

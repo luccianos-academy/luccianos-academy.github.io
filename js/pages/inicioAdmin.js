@@ -17,7 +17,7 @@ import { getUsuarios } from "../data/usuarios.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
-import { getAuditoria } from "../data/auditoria.js";
+import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 
 // "YYYY-MM-DD" es una fecha sin hora — leerla con new Date(str) y
@@ -68,7 +68,11 @@ export async function InicioAdmin() {
         })),
     ].slice(0, 3);
 
-    const actividad = auditoria.slice(0, 5).map((a) => ({ fecha: a.fecha, texto: a.detalle }));
+    // 10 y no 5: con 43 personas y acciones de varios supervisores, cinco
+    // entradas se consumen en una tarde y lo de ayer ya no se ve.
+    // detalleConNombres cambia los ids que quedaron escritos en el texto
+    // por el nombre de la persona — ver data/auditoria.js.
+    const actividad = auditoria.slice(0, 10).map((a) => ({ fecha: a.fecha, texto: detalleConNombres(a.detalle, usuarios) }));
 
     return `
         ${Header(`Bienvenido/a, ${usuario.nombre}`, "Centro de Control", { saludo: true })}
@@ -96,8 +100,9 @@ export async function InicioAdmin() {
                 <div class="cards">${topAlertas.join("") || `<p class="text-muted text-sm">Sin alertas urgentes por ahora.</p>`}</div>
             </div>
             <div>
-                <h2>Actividad reciente</h2>
-                ${ActivityFeed(actividad)}
+                <h2>Movimientos de gestión</h2>
+                <p class="text-xs text-muted" style="margin:-6px 0 10px">Altas, bajas y cambios hechos desde la plataforma. Para ver quién la estuvo usando, mirá "Último ingreso" en Mi equipo.</p>
+                ${ActivityFeed(actividad, { vacio: "Todavía no hay movimientos registrados" })}
             </div>
         </div>
     `;

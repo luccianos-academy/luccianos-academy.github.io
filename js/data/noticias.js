@@ -23,6 +23,7 @@ import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/da
 import { noticiasMock } from "./mock/noticias.mock.js";
 import { HOJAS } from "../config.js";
 import { getSucursales } from "./sucursales.js";
+import { listaTieneId } from "../services/ids.js";
 
 // A quién apunta una noticia (campo "dirigidoA"). News es solo para
 // colaboradores — Supervisión y Admin SIEMPRE reciben copia y ven
@@ -141,8 +142,12 @@ export function puedeVerNoticia(noticia, usuario, sucursales = []) {
     const usuariosEspecificos = String(noticia.usuariosEspecificos || "").trim();
     if (usuariosEspecificos) {
         if (usuario.rol === "admin") return true;
-        const listaUsuarios = usuariosEspecificos.split(",").map(id => String(id).trim()).filter(Boolean);
-        return listaUsuarios.includes(String(usuario.id));
+        // listaTieneId y no includes(String(...)): la planilla devuelve
+        // los ids con cola decimal a veces ("1786486477496.17"), y
+        // comparados como texto no coinciden con ninguno. Con la lista
+        // no vacía, eso dejaba la News SIN LLEGARLE A NADIE y sin ningún
+        // error visible. Ver services/ids.js.
+        return listaTieneId(usuariosEspecificos, usuario.id);
     }
     
     const dirigidoA = String(noticia.dirigidoA || "").trim();

@@ -23,7 +23,7 @@ import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
-import { getAuditoria } from "../data/auditoria.js";
+import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
 
 const UMBRAL_CRITICO = 50;
 const UMBRAL_DESTACADO = 90;
@@ -155,8 +155,8 @@ export async function DashboardEjecutivo() {
     const usuariosInactivos = usuarios.filter((u) => u.activo === "NO").length;
     const totalAlertas = cursosVencidos + evaluacionesPendientes + usuariosInactivos;
 
-    const ultimosIngresos = auditoria.filter((a) => a.accion === "registrar_colaborador").slice(0, 5).map((a) => ({ fecha: a.fecha, texto: a.detalle }));
-    const actividadReciente = auditoria.slice(0, 6).map((a) => ({ fecha: a.fecha, texto: a.detalle }));
+    const ultimosIngresos = auditoria.filter((a) => a.accion === "registrar_colaborador").slice(0, 10).map((a) => ({ fecha: a.fecha, texto: detalleConNombres(a.detalle, usuarios) }));
+    const actividadReciente = auditoria.slice(0, 10).map((a) => ({ fecha: a.fecha, texto: detalleConNombres(a.detalle, usuarios) }));
 
     const itemsRankingSupervisores = await rankingSupervisores(usuarios, sucursales, asignaciones, cursos);
 
