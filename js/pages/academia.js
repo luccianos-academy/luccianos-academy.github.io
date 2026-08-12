@@ -288,39 +288,61 @@ async function abrirModalCatalogo(nombreCurso) {
 
     const modalId = "modal-catalogo";
 
+    const acotados = productos.filter((p) => (alcances.get(p.nombre) || "").trim()).length;
+
     const bloques = categorias.map((cat) => {
         const deLaCat = productos.filter((p) => (p.categorias || []).includes(cat));
         if (!deLaCat.length) return "";
+        const acotadosCat = deLaCat.filter((p) => (alcances.get(p.nombre) || "").trim()).length;
         return `
-            <div class="catalogo-grupo">
+            <div class="catalogo-grupo" data-grupo="${escaparHtml(cat)}">
                 <label class="catalogo-grupo-titulo">
-                    <input type="checkbox" style="width:auto" data-cat-todos="${escaparHtml(cat)}">
-                    ${escaparHtml(cat)} <span class="text-xs text-muted">(${deLaCat.length})</span>
+                    <input type="checkbox" data-cat-todos="${escaparHtml(cat)}">
+                    <span class="catalogo-grupo-nombre">${escaparHtml(cat)}</span>
+                    <span class="catalogo-grupo-meta">${deLaCat.length}${acotadosCat ? ` · ${acotadosCat} acotado${acotadosCat === 1 ? "" : "s"}` : ""}</span>
                 </label>
-                ${deLaCat.map((p) => `
-                    <label class="catalogo-item">
-                        <input type="checkbox" style="width:auto" class="prod-check"
+                ${deLaCat.map((p) => {
+                    const alcance = (alcances.get(p.nombre) || "").trim();
+                    return `
+                    <label class="catalogo-item${alcance ? " acotado" : ""}" data-nombre="${escaparHtml(p.nombre.toLowerCase())}">
+                        <input type="checkbox" class="prod-check"
                                data-cat="${escaparHtml(cat)}" data-producto="${escaparHtml(p.nombre)}">
-                        <span>${escaparHtml(p.nombre)}</span>
-                        ${etiquetaAlcance(alcances.get(p.nombre))}
-                    </label>
-                `).join("")}
+                        ${p.foto
+                            ? `<img class="catalogo-foto" src="${escaparHtml(p.foto)}" alt="" loading="lazy">`
+                            : `<span class="catalogo-foto catalogo-foto-vacia">${escaparHtml(p.nombre.slice(0, 2).toUpperCase())}</span>`}
+                        <span class="catalogo-nombre">${escaparHtml(p.nombre)}</span>
+                        <span class="catalogo-alcance">${etiquetaAlcance(alcance)}</span>
+                    </label>`;
+                }).join("")}
             </div>
         `;
     }).join("");
 
+    // La barra se muestra SIEMPRE, con el instructivo cuando no hay
+    // nada marcado. Escondida hasta la primera selección, al abrir el
+    // modal sólo se veía una lista y un botón "Cerrar": no había ninguna
+    // pista de que "Aplica a…" es el guardar, ni de que hay que marcar
+    // algo primero.
     const contenidoHtml = `
-        <p class="text-sm text-muted" style="margin-bottom:12px">
-            Marcá los productos y elegí dónde se venden. Los que no toques quedan disponibles en toda la red.
-        </p>
-        <div class="barra-seleccion" id="barra-catalogo" hidden>
-            <span class="barra-seleccion-cuenta" id="cuenta-catalogo">0 seleccionados</span>
-            <div class="barra-seleccion-acciones">
-                <button type="button" class="btn btn-secondary" id="btn-catalogo-alcance">Aplica a…</button>
+        <div class="catalogo-cabecera">
+            <input type="search" id="buscador-catalogo" placeholder="Buscar producto...">
+            <p class="text-xs text-muted" style="margin:8px 0 0">
+                ${productos.length} productos · ${acotados
+                    ? `<strong>${acotados}</strong> con venta acotada`
+                    : "todos se venden en toda la red"}
+            </p>
+        </div>
+
+        <div class="barra-seleccion catalogo-barra" id="barra-catalogo">
+            <span class="barra-seleccion-cuenta" id="cuenta-catalogo"></span>
+            <div class="barra-seleccion-acciones" id="acciones-catalogo" hidden>
+                <button type="button" class="btn btn-primary" id="btn-catalogo-alcance">Definir dónde se venden</button>
                 <button type="button" class="btn btn-sutil" id="btn-catalogo-limpiar">Deseleccionar</button>
             </div>
         </div>
+
         <div id="catalogo-lista">${bloques}</div>
+        <p id="catalogo-sin-resultados" class="text-sm text-muted" hidden>Ningún producto coincide con la búsqueda.</p>
     `;
 
     // Sin textoConfirmar: acá no hay un "guardar" final. Cada tanda se
@@ -331,11 +353,33 @@ async function abrirModalCatalogo(nombreCurso) {
 
     function refrescar() {
         const n = marcados().length;
-        const barra = document.getElementById("barra-catalogo");
-        barra.hidden = n === 0;
-        document.getElementById("cuenta-catalogo").textContent =
-            `${n} ${n === 1 ? "producto seleccionado" : "productos seleccionados"}`;
+        const cuenta = document.getElementById("cuenta-catalogo");
+        const acciones = document.getElementById("acciones-catalogo");
+        acciones.hidden = n === 0;
+        // Sin nada marcado la barra dice qué hacer, en vez de "0
+        // seleccionados", que no le dice nada a quien recién abre.
+        cuenta.textContent = n
+            ? `${n} ${n === 1 ? "producto seleccionado" : "productos seleccionados"}`
+            : "Marcá productos para acotar dónde se venden";
+        cuenta.classList.toggle("catalogo-instructivo", n === 0);
     }
+
+    // Buscar entre 60 productos evita scrollear la lista entera cuando
+    // ya se sabe cuál se busca. Esconde también la categoría que se
+    // queda sin ninguno, para no dejar títulos colgados.
+    document.getElementById("buscador-catalogo").addEventListener("input", (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll("#catalogo-lista .catalogo-item").forEach((item) => {
+            item.style.display = !q || item.dataset.nombre.includes(q) ? "" : "none";
+        });
+        let algunoVisible = false;
+        document.querySelectorAll("#catalogo-lista .catalogo-grupo").forEach((grupo) => {
+            const hay = [...grupo.querySelectorAll(".catalogo-item")].some((i) => i.style.display !== "none");
+            grupo.style.display = hay ? "" : "none";
+            if (hay) algunoVisible = true;
+        });
+        document.getElementById("catalogo-sin-resultados").hidden = algunoVisible;
+    });
 
     document.getElementById("catalogo-lista").addEventListener("change", (e) => {
         // Atajo por categoría: marcar el título marca todos los suyos.
