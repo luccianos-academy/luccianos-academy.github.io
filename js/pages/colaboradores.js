@@ -677,6 +677,7 @@ export async function Colaboradores() {
     // comería el rechazo. El botón no se le muestra.
     const puedeAccionesEnLote = puedeDeshabilitar;
 
+    let miSupervisor = "";
     let gruposPorSucursal = null; // Admin y Supervisor (con >1 local) ven la lista agrupada
     let colaboradores;
     let supervisores = [];
@@ -699,6 +700,11 @@ export async function Colaboradores() {
         gruposPorSucursal = [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     } else if (esEncargado) {
         colaboradores = await getColaboradoresPorSucursal(usuario.sucursal);
+        // Puede haber más de uno (cobertura de vacaciones, locales
+        // grandes) — la columna es una lista separada por comas.
+        const sucursales = await getSucursales();
+        const miLocal = sucursales.find((s) => s.nombre === usuario.sucursal);
+        miSupervisor = String(miLocal?.supervisor || "").split(",").map((n) => n.trim()).filter(Boolean).join(", ");
     } else {
         // Supervisor: puede tener más de un local a cargo (ver
         // getMisLocales, incluye el fallback a su propio
@@ -858,8 +864,22 @@ export async function Colaboradores() {
             <button class="pill-categoria activa" data-filtro-activo="todos">Todos</button>
             <button class="pill-categoria" data-filtro-activo="SI">Activos</button>
             <button class="pill-categoria" data-filtro-activo="NO">Inactivos</button>
-            <button class="pill-categoria" id="btn-filtro-encargados">Encargados</button>
+            <!-- El filtro "Encargados" sirve para encontrar a los
+                 encargados entre mucha gente. Un Encargado ve sólo su
+                 propio local, donde el único encargado es él: la pill
+                 no filtra nada útil. -->
+            ${esEncargado ? "" : `<button class="pill-categoria" id="btn-filtro-encargados">Encargados</button>`}
         </div>
+
+        <!-- A quién responder. Un Encargado no tiene dónde ver quién es
+             su supervisor, y es el dato que necesita cuando algo se le
+             complica. Sale de la columna "supervisor" del local, que ya
+             se carga en Locales. -->
+        ${esEncargado && miSupervisor ? `
+            <p class="text-sm text-muted" style="margin:-6px 0 14px">
+                Supervisor a cargo: <strong style="color:var(--gold-deep)">${escaparHtml(miSupervisor)}</strong>
+            </p>
+        ` : ""}
 
         ${puedeAccionesEnLote ? `
             <!-- Barra de selección al estilo Gmail: aparece SOLO cuando hay

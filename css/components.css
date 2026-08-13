@@ -1869,22 +1869,19 @@
     overflow-x:auto;
 }
 
-@media (min-width:900px){
-    .table-wrapper{ overflow:visible; }
+/* El encabezado de COLUMNAS no se fija, y es una decisión, no un
+   olvido. Fijarlo obliga a sacarle el overflow al contenedor —es lo
+   único que lo vuelve un contenedor de scroll y por eso el sticky se
+   ancla a él en vez de a la pantalla—, y ese overflow es justamente el
+   que permite scrollear una tabla más ancha que la pantalla.
 
-    .table-wrapper table.data-table thead th{
-        position:sticky;
-        /* Debajo del título de sección, que también queda fijo y mide
-           36px: con los dos en 0 se encimaban y sólo se leía uno. */
-        top:36px;
-        z-index:3;
-        /* --surface-2 es un velo blanco al 3,5%: como fondo de un
-           elemento fijo deja ver las filas pasando por debajo. Se apila
-           sobre --card, que sí es opaco, para conservar exactamente el
-           mismo color y que además tape. */
-        background:linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
-    }
-}
+   Se probó al revés en la v1.18.0 y salió mal: la matriz del semáforo
+   tiene una columna por curso y quedaba cortada en M7, sin forma de
+   llegar a las últimas. Ver todas las columnas importa más que tener el
+   encabezado fijo.
+
+   El título de sección sí queda fijo: vive fuera del contenedor, así
+   que no tiene ese conflicto. */
 
 /* El título de sección se fija en cualquier ancho. z-index por encima
    del encabezado de columnas: cuando los dos coinciden, el que manda es
