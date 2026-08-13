@@ -22,6 +22,7 @@ import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { escaparHtml } from "../services/html.js";
 import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
+import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 
 /** Los mismos campos que ya vive el esquema real de Lecciones (ver
  *  README de apps-script) — antes este formulario solo tenía título y
@@ -267,6 +268,7 @@ async function abrirModalLecciones(cursoId) {
                 <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.noAplicaA)}</span>
                 <span>
                     <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
+                    <button class="btn btn-secondary" data-duplicar-leccion="${l.id}">Duplicar para…</button>
                     <button class="btn btn-secondary" data-eliminar-leccion="${l.id}">Eliminar</button>
                 </span>
             </div>
@@ -302,6 +304,72 @@ async function abrirModalLecciones(cursoId) {
             // document.getElementById() agarre el formulario equivocado.
             cerrarModal(modalId);
             abrirModalEditarLeccion(leccion);
+        });
+    });
+
+    /**
+     * "Duplicar para…" — la misma lección en otra versión.
+     *
+     * Europa usa otras unidades y otros nombres: donde acá dice "vaso",
+     * allá es "copeta" o "tarrina". Eso no es un ajuste de la lección
+     * argentina, es otra lección. Hacerlo a mano son tres pasos —crear,
+     * acotar la copia, acotar la original— y el tercero es fácil de
+     * olvidar: si falta, ese país termina viendo LAS DOS versiones.
+     *
+     * Acá la copia nace acotada al ámbito elegido y la original queda
+     * excluida de él, en una sola operación.
+     *
+     * Es el único lugar donde se usa la INCLUSIÓN (aplicaA) en vez de la
+     * restricción: una variante nace para un destino puntual, y
+     * declararla al revés obligaría a enumerar los otros seis países.
+     */
+    document.querySelectorAll("[data-duplicar-leccion]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const leccion = lecciones.find((l) => String(l.id) === String(btn.dataset.duplicarLeccion));
+            if (!leccion) return;
+
+            cerrarModal(modalId);
+            const dupId = "modal-duplicar";
+            const contenidoHtml = `
+                <p class="text-sm text-muted" style="margin-bottom:12px">
+                    Se crea una copia de <strong>${escaparHtml(leccion.titulo)}</strong> para el país o
+                    local que elijas. La original deja de verse ahí, así nadie ve las dos versiones.
+                </p>
+                ${MultiSelectAlcance("input-duplicar", "")}
+            `;
+
+            abrirModal(
+                Modal({ id: dupId, titulo: "Duplicar para…", contenidoHtml, textoConfirmar: "Duplicar" }),
+                dupId,
+                async () => {
+                    const ambito = document.getElementById("input-duplicar").value.trim();
+                    if (!ambito) {
+                        alert("Elegí al menos un país o local para la copia.");
+                        return;
+                    }
+
+                    const copia = { ...leccion };
+                    delete copia.id;
+                    copia.titulo = `${leccion.titulo} (${ambito.split(",")[0].trim().replace("Lucciano's ", "")})`;
+                    copia.aplicaA = ambito;
+                    copia.noAplicaA = "";
+                    // La copia va justo después de la original para que
+                    // no aparezca al final de la lista, lejos de su par.
+                    copia.orden = leccion.orden;
+
+                    await crearLeccion(copia);
+                    await actualizarLeccion(leccion.id, {
+                        noAplicaA: [leccion.noAplicaA, ambito].filter(Boolean).join(", "),
+                    });
+
+                    registrarEvento(getUsuarioActual().id, "crear_leccion",
+                        `Variante de "${leccion.titulo}" para ${ambito}`);
+                    cerrarModal(dupId);
+                    navigate("academia");
+                },
+            );
+
+            await bindMultiSelectAlcance("input-duplicar");
         });
     });
 
