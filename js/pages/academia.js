@@ -116,9 +116,20 @@ function etiquetaAlcance(aplicaA, noAplicaA) {
     // las acciones fuera de pantalla. El detalle está a un clic.
     const resumir = (lista) => lista.slice(0, 2).join(", ") + (lista.length > 2 ? ` +${lista.length - 2}` : "");
 
+    // Distinto peso visual a propósito. La variante es la que hay que
+    // mirar —es contenido nuevo, acotado— y va con badge. La original
+    // excluida es el caso normal cuando existe una variante, así que va
+    // en gris chico: informa sin gritar.
+    //
+    // Lo que NO se hace es mostrar "Todos" en la original. Sería más
+    // limpio y es tentador porque la variante suele estar al lado, pero
+    // el dato vive en la lección, no en la pareja: si se borra la
+    // variante, la original SIGUE excluyendo a ese país y la pantalla
+    // estaría afirmando que le llega a todos. Ese error se descubre
+    // meses después, cuando alguien reclama que nunca vio algo.
     const partes = [];
     if (solo.length) partes.push(`<span class="badge badge-success">Solo ${resumir(solo)}</span>`);
-    if (menos.length) partes.push(`<span class="badge badge-warning">Todos menos ${resumir(menos)}</span>`);
+    if (menos.length) partes.push(`<span class="text-xs text-muted">excepto ${resumir(menos)}</span>`);
     return partes.join(" ");
 }
 
