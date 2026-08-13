@@ -1789,6 +1789,27 @@
 
 /* TABLE */
 
+/* ── Encabezados fijos al scrollear ────────────────────────────────
+   Con 123 locales o 43 personas se pierde de vista qué columna es cada
+   una y en qué grupo se está parado.
+
+   Son DOS cosas distintas y se resuelven distinto:
+
+   · El título de sección ("Locales propios", el nombre de cada local en
+     Mi equipo) vive FUERA del contenedor de la tabla, así que se puede
+     fijar siempre, en cualquier ancho.
+
+   · El encabezado de columnas vive adentro, y ahí aparece el conflicto:
+     .table-wrapper necesita overflow-x para poder scrollear una tabla
+     más ancha que la pantalla, y eso lo convierte en contenedor de
+     scroll — con lo cual un sticky adentro se ancla a ÉL y no a la
+     pantalla, o sea que no se pega a nada. Medido: el encabezado se iba
+     a -253px al scrollear.
+
+     Por eso el encabezado se fija sólo de 900px para arriba, donde la
+     tabla entra y no hace falta scroll horizontal. En el teléfono se
+     mantiene el scroll, que sin él directamente no se llega a las
+     últimas columnas. */
 .table-wrapper{
     margin-top:25px;
     background:var(--card);
@@ -1797,6 +1818,40 @@
     box-shadow:var(--shadow);
     overflow:hidden;
     overflow-x:auto;
+}
+
+@media (min-width:900px){
+    .table-wrapper{ overflow:visible; }
+
+    .table-wrapper table.data-table thead th{
+        position:sticky;
+        /* Debajo del título de sección, que también queda fijo y mide
+           36px: con los dos en 0 se encimaban y sólo se leía uno. */
+        top:36px;
+        z-index:3;
+        /* --surface-2 es un velo blanco al 3,5%: como fondo de un
+           elemento fijo deja ver las filas pasando por debajo. Se apila
+           sobre --card, que sí es opaco, para conservar exactamente el
+           mismo color y que además tape. */
+        background:linear-gradient(var(--surface-2), var(--surface-2)), var(--card);
+    }
+}
+
+/* El título de sección se fija en cualquier ancho. z-index por encima
+   del encabezado de columnas: cuando los dos coinciden, el que manda es
+   el del grupo. */
+.section > h3{
+    position:sticky;
+    top:0;
+    z-index:4;
+    background:var(--bg);
+    padding:8px 0;
+    margin:0 0 4px;
+}
+
+@media (max-width:900px){
+    /* Debajo de la topbar, que también es sticky y mide 58px. */
+    .section > h3{ top:58px; }
 }
 
 table.data-table{
