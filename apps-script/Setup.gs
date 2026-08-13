@@ -359,6 +359,10 @@ const LOCALES_PROPIOS = [
     // Único local propio fuera de Argentina. El resto del exterior
     // (España, Uruguay, USA, Chile, Paraguay) son franquicias.
     'ROMA',
+    // Cargados directamente en producción, confirmados propios por el
+    // usuario. En la hoja vienen con apóstrofo tipográfico; matchean
+    // igual porque _normLocal lo unifica.
+    'OROÑO', 'PLAZA OESTE',
 ];
 
 /**
@@ -771,8 +775,8 @@ var PADRON_SUCURSALES = [
     // OJO con el apóstrofo: en la planilla vienen con el tipográfico
     // (Lucciano’s). Acá van con el recto y matchean igual porque
     // _normLocal ahora unifica los dos.
-    { id: 123, nombre: "Lucciano's Oroño Santa Fe" },
-    { id: 124, nombre: "Lucciano's Plaza Oeste Buenos Aires" },
+    { id: 123, nombre: "Lucciano's Oroño Santa Fe", propio: true },
+    { id: 124, nombre: "Lucciano's Plaza Oeste Buenos Aires", propio: true },
 ];
 
 /**

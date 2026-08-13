@@ -180,6 +180,6 @@ export const sucursalesMock = [
     { id: 120, nombre: "Lucciano's Roma Italia", supervisor: "", estado: "Activa", esPropio: "SI" },
 
     // INTERIOR - cargados en producción
-    { id: 123, nombre: "Lucciano's Oroño Santa Fe", supervisor: "", estado: "Activa" },
-    { id: 124, nombre: "Lucciano's Plaza Oeste Buenos Aires", supervisor: "", estado: "Activa" },
+    { id: 123, nombre: "Lucciano's Oroño Santa Fe", supervisor: "", estado: "Activa", esPropio: "SI" },
+    { id: 124, nombre: "Lucciano's Plaza Oeste Buenos Aires", supervisor: "", estado: "Activa", esPropio: "SI" },
 ];
