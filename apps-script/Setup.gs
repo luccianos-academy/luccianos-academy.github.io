@@ -509,7 +509,14 @@ function _propios(aplicar, forzar) {
     var colNombre = enc.indexOf('nombre');
     var colPropio = enc.indexOf('esPropio');
     if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
-    if (colPropio === -1) { console.log('Falta la columna "esPropio". Agregá ese encabezado y volvé a ejecutar.'); return; }
+    if (colPropio === -1) {
+        if (!aplicar) { console.log('La columna "esPropio" todavía no existe — se crea al aplicar.'); }
+        else {
+            colPropio = hoja.getLastColumn();
+            hoja.getRange(1, colPropio + 1).setValue('esPropio');
+            console.log('Columna "esPropio" creada.');
+        }
+    }
 
     var resueltas = {};
     var sinResolver = [];
@@ -921,7 +928,16 @@ function arreglarSucursales() {
 
     if (colNombre === -1) { console.log('Falta la columna "nombre".'); return; }
     if (colId === -1) { console.log('Falta la columna "id".'); return; }
-    if (colPropio === -1) { console.log('Falta la columna "esPropio".'); return; }
+    // Se crean las que falten en vez de abortar. La hoja de PRODUCCIÓN
+    // es más vieja que la de staging y venía sin esPropio ni pais: la
+    // función salía sin tocar nada y el resultado —0 propios, 0
+    // franquicias— parecía un problema de datos cuando era de esquema.
+    if (colPropio === -1) {
+        colPropio = hoja.getLastColumn();
+        hoja.getRange(1, colPropio + 1).setValue('esPropio');
+        enc.push('esPropio');
+        console.log('Columna "esPropio" creada.');
+    }
     if (colPais === -1) {
         colPais = hoja.getLastColumn();
         hoja.getRange(1, colPais + 1).setValue('pais');
