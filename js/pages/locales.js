@@ -365,6 +365,7 @@ export function bindLocales() {
     // y las marco de una vez, no una por una"). Se combina con el
     // buscador: filtrás, tildás todos los visibles, y aplicás.
 
+    /** Los visibles AHORA — sólo para "seleccionar todos los visibles". */
     function checksVisibles() {
         return [...document.querySelectorAll("#tabla-locales .local-check")].filter((chk) => {
             const fila = chk.closest("tr");
@@ -378,15 +379,34 @@ export function bindLocales() {
         });
     }
 
-    // La barra sólo aparece con algo tildado y dice cuántos son, así los
-    // botones nunca aplican sobre una cantidad que no está a la vista.
+    /**
+     * Todos los tildados, estén filtrados o no.
+     *
+     * La selección NO se limita a lo visible, y esa era la falla: con
+     * 123 locales el flujo real es buscar uno, tildarlo, borrar la
+     * búsqueda, buscar el siguiente. Contando sólo lo visible, el
+     * primero desaparecía de la cuenta al buscar el segundo y nunca se
+     * podían juntar dos.
+     */
+    function marcados() {
+        return [...document.querySelectorAll("#tabla-locales .local-check:checked")];
+    }
+
     function refrescarBarraSeleccion() {
         const barra = document.getElementById("barra-seleccion-locales");
         if (!barra) return;
-        const n = checksVisibles().filter((chk) => chk.checked).length;
-        barra.hidden = n === 0;
+        const todos = marcados();
+        barra.hidden = todos.length === 0;
         const cuenta = document.getElementById("cuenta-seleccion-locales");
-        if (cuenta) cuenta.textContent = `${n} ${n === 1 ? "local seleccionado" : "locales seleccionados"}`;
+        if (!cuenta) return;
+
+        // Se avisa cuántos quedaron fuera del filtro: si no, la barra
+        // dice "3 seleccionados" con un solo local en pantalla y parece
+        // un error.
+        const visibles = checksVisibles().filter((chk) => chk.checked).length;
+        const ocultos = todos.length - visibles;
+        cuenta.textContent = `${todos.length} ${todos.length === 1 ? "local seleccionado" : "locales seleccionados"}`
+            + (ocultos ? ` · ${ocultos} fuera de la búsqueda` : "");
     }
 
     document.getElementById("chk-locales-todos")?.addEventListener("change", (e) => {
@@ -423,13 +443,13 @@ export function bindLocales() {
      * que fallaron— y solo cambia qué se escribe.
      */
     async function aplicarEnLote(etiqueta, campos, boton) {
-        const marcados = checksVisibles().filter((chk) => chk.checked);
-        if (!marcados.length) {
+        const seleccionados = marcados();
+        if (!seleccionados.length) {
             alert("Primero tildá los locales que querés cambiar.");
             return;
         }
 
-        const nombres = marcados.map((chk) => chk.dataset.localNombre);
+        const nombres = seleccionados.map((chk) => chk.dataset.localNombre);
         const muestra = nombres.slice(0, 10).join("\n· ");
         const resto = nombres.length > 10 ? `\n…y ${nombres.length - 10} más` : "";
         if (!confirm(`${etiqueta} a ${nombres.length} local(es):\n\n· ${muestra}${resto}\n\n¿Confirmás?`)) return;
@@ -442,10 +462,10 @@ export function bindLocales() {
         // Script, y un Promise.all abortaría todo al primer fallo sin
         // dejar saber cuáles quedaron hechos.
         const fallaron = [];
-        for (let i = 0; i < marcados.length; i++) {
-            boton.textContent = `Procesando ${i + 1}/${marcados.length}...`;
+        for (let i = 0; i < seleccionados.length; i++) {
+            boton.textContent = `Procesando ${i + 1}/${seleccionados.length}...`;
             try {
-                const r = await actualizarSucursal(marcados[i].dataset.localId, campos);
+                const r = await actualizarSucursal(seleccionados[i].dataset.localId, campos);
                 if (r && r.ok === false) fallaron.push(nombres[i]);
             } catch (err) {
                 fallaron.push(nombres[i]);
@@ -455,11 +475,11 @@ export function bindLocales() {
         boton.textContent = textoOriginal;
         boton.disabled = false;
 
-        const hechos = marcados.length - fallaron.length;
-        registrarEvento(getUsuarioActual().id, "editar_local", `${etiqueta} en bloque: ${hechos} de ${marcados.length}`);
+        const hechos = seleccionados.length - fallaron.length;
+        registrarEvento(getUsuarioActual().id, "editar_local", `${etiqueta} en bloque: ${hechos} de ${seleccionados.length}`);
 
         if (fallaron.length) {
-            alert(`Se aplicó a ${hechos} de ${marcados.length}.\n\nNo se pudo con:\n· ${fallaron.join("\n· ")}`);
+            alert(`Se aplicó a ${hechos} de ${seleccionados.length}.\n\nNo se pudo con:\n· ${fallaron.join("\n· ")}`);
         }
         navigate("locales");
     }
@@ -470,12 +490,12 @@ export function bindLocales() {
         aplicarEnLote("Marcar como FRANQUICIAS", { esPropio: "NO" }, e.currentTarget));
 
     document.getElementById("btn-lote-contenido")?.addEventListener("click", () => {
-        const marcados = checksVisibles().filter((chk) => chk.checked);
-        if (!marcados.length) {
+        const seleccionados = marcados();
+        if (!seleccionados.length) {
             alert("Primero tildá los locales que querés configurar.");
             return;
         }
-        const nombres = marcados.map((chk) => chk.dataset.localNombre);
+        const nombres = seleccionados.map((chk) => chk.dataset.localNombre);
 
         // Si están TODOS los locales del país activo, se guarda el país
         // en vez de los N nombres. No es cosmético: guardando los
@@ -488,15 +508,20 @@ export function bindLocales() {
         const esPaisEntero = paisActivo !== "todos" && nombres.length === delPais && delPais > 0;
 
         const ambitos = esPaisEntero ? [paisActivo] : nombres;
+        // Se nombran los locales mientras entren: confirmar sobre "3
+        // locales" obliga a cerrar el modal para recordar cuáles eran.
+        const cortos = nombres.map((n) => n.replace("Lucciano's ", ""));
         const etiqueta = esPaisEntero
             ? `todo ${paisActivo}`
-            : nombres.length === 1 ? nombres[0] : `${nombres.length} locales`;
+            : cortos.length <= 3
+                ? cortos.join(", ")
+                : `${cortos.slice(0, 2).join(", ")} y ${cortos.length - 2} más`;
         abrirModalContenido(ambitos, etiqueta);
     });
 
     document.getElementById("btn-lote-supervisor")?.addEventListener("click", async (e) => {
         const boton = e.currentTarget;
-        if (!checksVisibles().some((chk) => chk.checked)) {
+        if (!marcados().length) {
             alert("Primero tildá los locales a los que querés asignarle un supervisor.");
             return;
         }
@@ -504,7 +529,7 @@ export function bindLocales() {
         const usuarios = await getUsuarios();
         const supervisores = usuarios.filter((u) => u.rol === "supervisor");
         const modalId = "modal-lote-supervisor";
-        const cuantos = checksVisibles().filter((chk) => chk.checked).length;
+        const cuantos = marcados().length;
 
         const contenidoHtml = `
             <p class="text-sm text-muted" style="margin-bottom:12px">
@@ -703,8 +728,8 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
 
     const contenidoHtml = `
         <p class="text-sm text-muted" style="margin-bottom:14px">
-            Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong> no tiene.
-            Lo que no toques queda como está.
+            Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong>
+            ${ambitos.length === 1 ? "no tiene" : "no tienen"}. Lo que no toques queda como está.
         </p>
         <input type="search" id="buscador-arbol" placeholder="Buscar módulo, lección o producto...">
         <div id="arbol-contenido" style="margin-top:14px">${bloques}</div>

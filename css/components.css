@@ -2270,6 +2270,22 @@ table.data-table tbody tr:hover{
     background:var(--surface-2);
 }
 
+/* En celular, entre el buscador y la primera fila quedaban las pills de
+   país, las de "mis locales" y la barra de selección — con el teclado
+   abierto no entra nada. Buscador y barra quedan fijos arriba; las pills
+   scrollean, que es lo que se usa una vez y no en cada búsqueda. */
+@media (max-width:700px){
+    .table-toolbar:has(#buscador-locales){
+        position:sticky;
+        top:58px;   /* debajo de la topbar */
+        z-index:6;
+        background:var(--bg);
+        padding:10px 0 8px;
+        margin-top:0;
+    }
+    .barra-seleccion{ top:calc(58px + 62px); }
+}
+
 /* ── Árbol de contenido de un local (locales.js) ───────────────────
    Módulo → Catálogo / Lecciones → ítems. La sangría es lo que hace
    legible de qué depende cada cosa; sin ella son 300 checkboxes
