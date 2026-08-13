@@ -49,7 +49,11 @@ function mostrarAviso(nueva) {
     `;
     document.body.appendChild(barra);
 
-    barra.querySelector("#btn-actualizar-app").addEventListener("click", async () => {
+    barra.querySelector("#btn-actualizar-app").addEventListener("click", async (e) => {
+        const boton = e.currentTarget;
+        boton.disabled = true;
+        boton.textContent = "Actualizando...";
+
         // El SW no cachea, pero si algún día lo hiciera esto evita que
         // el reload sirva lo viejo igual.
         try {
@@ -57,11 +61,28 @@ function mostrarAviso(nueva) {
                 const claves = await caches.keys();
                 await Promise.all(claves.map((k) => caches.delete(k)));
             }
-        } catch { /* si falla, el reload de abajo igual vale la pena */ }
+        } catch (err) { /* si falla, lo de abajo igual vale la pena */ }
 
-        // Recarga con un parámetro nuevo: fuerza a pedir el documento de
-        // nuevo en vez de servirlo de la caché, que es exactamente el
-        // problema que estamos resolviendo.
+        // Y ACÁ ESTABA EL PROBLEMA REAL. Recargar con "?v=" sólo cambia
+        // la dirección del DOCUMENTO: los .js y .css se siguen pidiendo
+        // con la misma URL, así que el navegador los sirve de su caché
+        // —GitHub Pages los manda con ~10 minutos de vigencia— y la app
+        // volvía a levantar el código viejo. El usuario tocaba
+        // "Actualizar", no pasaba nada, y sólo funcionaba cerrando todo
+        // y esperando.
+        //
+        // Se piden de nuevo uno por uno con cache:"reload", que obliga a
+        // ir a la red e ignorar lo guardado. La lista sale de lo que la
+        // página REALMENTE cargó, así no hay que mantenerla a mano ni se
+        // escapa un módulo importado dinámicamente.
+        try {
+            const recursos = performance.getEntriesByType("resource")
+                .map((r) => r.name)
+                .filter((u) => u.startsWith(location.origin) && /\.(js|css)(\?|$)/.test(u));
+            await Promise.all([...new Set(recursos)].map((u) =>
+                fetch(u, { cache: "reload" }).catch(() => { /* uno que falle no frena al resto */ })));
+        } catch (err) { /* sin performance API, se recarga igual */ }
+
         location.replace(`${location.pathname}?v=${nueva}${location.hash}`);
     });
 }
