@@ -1789,6 +1789,37 @@
 
 /* TABLE */
 
+.campo-con-prefijo{
+    display:flex;
+    align-items:stretch;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    overflow:hidden;
+    background:var(--card);
+}
+
+/* El prefijo se ve como parte del campo pero no se puede tocar: es lo
+   que garantiza que el apóstrofo sea siempre el mismo. */
+.campo-prefijo{
+    display:flex;
+    align-items:center;
+    padding:0 10px;
+    background:var(--surface-2);
+    border-right:1px solid var(--line);
+    color:var(--muted);
+    font-size:14px;
+    white-space:nowrap;
+    user-select:none;
+}
+
+.campo-con-prefijo input{
+    flex:1;
+    border:none;
+    border-radius:0;
+    background:transparent;
+    margin:0;
+}
+
 .sidebar-beta{
     margin:0 14px 12px;
     padding:10px 12px;

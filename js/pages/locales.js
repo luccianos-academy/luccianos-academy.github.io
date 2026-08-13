@@ -125,6 +125,23 @@ function bindMenuAcciones() {
  * que se le da a alguien que tiene que RECORRER la plataforma sin poder
  * alterarla.
  */
+/* El prefijo "Lucciano's" lo pone la app, no se tipea. Escribirlo a mano
+   fue lo que metió "Lucciano’s Oroño Santa Fe" con apóstrofo tipográfico
+   —el que ponen solo los teclados de iPhone y Word— mientras el resto de
+   la red usa el recto. Son caracteres distintos, y como los nombres de
+   local son la clave con la que se compara todo, un local escrito de una
+   forma no matchea contra el mismo nombre escrito de la otra. Falla en
+   silencio: nadie ve un error, simplemente ese local queda afuera. */
+const PREFIJO_LOCAL = "Lucciano's ";
+
+/** Saca el prefijo escrito de cualquier forma, para que el campo muestre
+ *  sólo la parte editable y pegar el nombre completo no lo duplique. */
+function sinPrefijo(nombre) {
+    return String(nombre || "")
+        .replace(/^\s*lucciano['\u2018\u2019\u02BC]?s?\s+/i, "")
+        .trim();
+}
+
 function puedeGestionarLocales(usuario) {
     if (usuario?.rol === "admin") return true;
     return usuario?.rol === "supervisor" && !usuario?.capacitador;
@@ -860,8 +877,13 @@ async function abrirModalNuevoLocal() {
 
     const contenidoHtml = `
         <label for="input-nombre">Nombre del local</label>
-        <input type="text" id="input-nombre" placeholder="Lucciano's ...">
-        <p class="text-xs text-muted" style="margin-top:4px">Debe empezar con "Lucciano's"</p>
+        <div class="campo-con-prefijo">
+            <span class="campo-prefijo">${PREFIJO_LOCAL.trim()}</span>
+            <input type="text" id="input-nombre" placeholder="Agüero CABA">
+        </div>
+        <p class="text-xs text-muted" style="margin-top:4px">
+            Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
+        </p>
 
         <label for="input-supervisor">Supervisor</label>
         <select id="input-supervisor">
@@ -891,16 +913,13 @@ async function abrirModalNuevoLocal() {
 
     abrirModal(Modal({ id: modalId, titulo: "Nuevo local", contenidoHtml, textoConfirmar: "Crear" }), modalId, async () => {
 
-        const nombre = document.getElementById("input-nombre").value.trim();
+        const resto = sinPrefijo(document.getElementById("input-nombre").value);
+        const nombre = resto ? PREFIJO_LOCAL + resto : "";
         const supervisor = document.getElementById("input-supervisor").value;
         const esPropio = document.getElementById("input-propio").checked;
 
         if (!nombre) {
             alert("El nombre es requerido.");
-            return;
-        }
-        if (!nombre.startsWith("Lucciano")) {
-            alert("El nombre debe empezar con \"Lucciano's\"");
             return;
         }
 
@@ -921,8 +940,13 @@ async function abrirModalEditarLocal(local) {
 
     const contenidoHtml = `
         <label for="input-nombre">Nombre del local</label>
-        <input type="text" id="input-nombre" placeholder="Lucciano's ..." value="${local.nombre || ""}">
-        <p class="text-xs text-muted" style="margin-top:4px">Debe empezar con "Lucciano's"</p>
+        <div class="campo-con-prefijo">
+            <span class="campo-prefijo">${PREFIJO_LOCAL.trim()}</span>
+            <input type="text" id="input-nombre" placeholder="Agüero CABA" value="${escaparHtml(sinPrefijo(local.nombre))}">
+        </div>
+        <p class="text-xs text-muted" style="margin-top:4px">
+            Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
+        </p>
 
         <label for="input-supervisor">Supervisor</label>
         <select id="input-supervisor">
@@ -933,15 +957,12 @@ async function abrirModalEditarLocal(local) {
 
     abrirModal(Modal({ id: modalId, titulo: "Editar local: " + local.nombre, contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
 
-        const nombre = document.getElementById("input-nombre").value.trim();
+        const resto = sinPrefijo(document.getElementById("input-nombre").value);
+        const nombre = resto ? PREFIJO_LOCAL + resto : "";
         const supervisor = document.getElementById("input-supervisor").value;
 
         if (!nombre) {
             alert("El nombre es requerido.");
-            return;
-        }
-        if (!nombre.startsWith("Lucciano")) {
-            alert("El nombre debe empezar con \"Lucciano's\"");
             return;
         }
 
