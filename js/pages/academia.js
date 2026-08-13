@@ -282,6 +282,28 @@ async function abrirModalNuevoCurso() {
     });
 }
 
+/**
+ * Exclusiones huérfanas: países o locales que una lección excluye, pero
+ * para los que NO existe ninguna variante en ese curso.
+ *
+ * Pasa al borrar una variante: la exclusión vive en la lección original,
+ * no en la pareja, así que borrar la copia deja a ese país sin ninguna
+ * de las dos versiones — ni la propia, que ya no existe, ni la general,
+ * de la que quedó excluido. Y en la pantalla no se distingue de una
+ * exclusión puesta a propósito.
+ */
+function exclusionesHuerfanas(leccion, hermanas) {
+    const excluye = String(leccion.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (!excluye.length) return [];
+    const cubiertos = new Set();
+    hermanas.forEach((h) => {
+        if (String(h.id) === String(leccion.id)) return;
+        String(h.aplicaA || "").split(",").map((s) => s.trim()).filter(Boolean)
+            .forEach((a) => cubiertos.add(a.toLowerCase()));
+    });
+    return excluye.filter((e) => !cubiertos.has(e.toLowerCase()));
+}
+
 async function abrirModalLecciones(cursoId) {
 
     const todasLasLecciones = await getLecciones();
@@ -292,7 +314,17 @@ async function abrirModalLecciones(cursoId) {
     const listaHtml = lecciones.length
         ? lecciones.map((l) => `
             <div class="list item">
-                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.aplicaA, l.noAplicaA)}</span>
+                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.aplicaA, l.noAplicaA)}
+                ${(() => {
+                    const huerfanas = exclusionesHuerfanas(l, lecciones);
+                    if (!huerfanas.length) return "";
+                    const nombres = huerfanas.map((h) => h.replace("Lucciano's ", ""));
+                    return `<div class="aviso-huerfana">
+                        ⚠ ${escaparHtml(nombres.join(", "))} no ve esta lección y tampoco tiene una versión propia.
+                        <button class="btn btn-sutil" data-reparar-leccion="${l.id}"
+                                data-devolver="${escaparHtml(huerfanas.join(", "))}">Devolvérsela</button>
+                    </div>`;
+                })()}</span>
                 <span>
                     <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
                     <button class="btn btn-secondary" data-duplicar-leccion="${l.id}">Duplicar para…</button>
@@ -319,6 +351,24 @@ async function abrirModalLecciones(cursoId) {
 
         cerrarModal(modalId);
         navigate("academia");
+    });
+
+    document.querySelectorAll("[data-reparar-leccion]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const leccion = lecciones.find((l) => String(l.id) === String(btn.dataset.repararLeccion));
+            if (!leccion) return;
+            const devolver = btn.dataset.devolver.split(",").map((s) => s.trim().toLowerCase());
+            const queda = String(leccion.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean)
+                .filter((s) => !devolver.includes(s.toLowerCase()));
+
+            btn.disabled = true;
+            btn.textContent = "Devolviendo...";
+            await actualizarLeccion(leccion.id, { noAplicaA: queda.join(", ") });
+            registrarEvento(getUsuarioActual().id, "editar_leccion",
+                `Se devolvió "${leccion.titulo}" a ${btn.dataset.devolver}`);
+            cerrarModal(modalId);
+            abrirModalLecciones(cursoId);
+        });
     });
 
     document.querySelectorAll("[data-editar-leccion]").forEach((btn) => {
@@ -402,9 +452,71 @@ async function abrirModalLecciones(cursoId) {
 
     document.querySelectorAll("[data-eliminar-leccion]").forEach((btn) => {
         btn.addEventListener("click", async () => {
+            const leccion = lecciones.find((l) => String(l.id) === String(btn.dataset.eliminarLeccion));
+
+            // La ORIGINAL de una familia no se borra. Es la que ve todo
+            // el que no tiene variante propia: borrarla deja sin esa
+            // lección a la red entera menos los dos o tres países que sí
+            // tienen la suya, y las variantes quedan huérfanas apuntando
+            // a algo que ya no existe. Primero se borran las variantes.
+            const variantes = lecciones.filter((otra) => {
+                if (String(otra.id) === String(leccion?.id)) return false;
+                const cubre = String(otra.aplicaA || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+                if (!cubre.length) return false;
+                const excluyo = String(leccion?.noAplicaA || "").split(",").map((s) => s.trim().toLowerCase());
+                return cubre.some((c) => excluyo.includes(c));
+            });
+
+            if (variantes.length) {
+                alert(
+                    `No se puede borrar "${leccion.titulo}".\n\n`
+                    + `Es la versión general: la ve todo el que no tiene una propia. `
+                    + `Hay ${variantes.length} ${variantes.length === 1 ? "versión" : "versiones"} que depende${variantes.length === 1 ? "" : "n"} de ella:\n\n`
+                    + variantes.map((v) => `· ${v.titulo}`).join("\n")
+                    + `\n\nBorrá primero esas versiones.`,
+                );
+                return;
+            }
+
+            // Si es una VARIANTE, borrarla sola deja al país que cubría
+            // sin ninguna versión: la original sigue excluyéndolo. Se
+            // ofrece devolvérsela en el mismo paso, porque acordarse
+            // después no pasa — el síntoma aparece semanas más tarde,
+            // cuando alguien reclama que nunca vio esa lección.
+            const cubria = String(leccion?.aplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+            const originales = cubria.length
+                ? lecciones.filter((otra) => {
+                    if (String(otra.id) === String(leccion.id)) return false;
+                    const excluye = String(otra.noAplicaA || "").split(",").map((s) => s.trim().toLowerCase());
+                    return cubria.some((c) => excluye.includes(c.toLowerCase()));
+                })
+                : [];
+
             if (!confirm("¿Eliminar esta lección? Esta acción no se puede deshacer.")) return;
+
+            let devolver = false;
+            if (originales.length) {
+                const nombres = cubria.map((c) => c.replace("Lucciano's ", "")).join(", ");
+                devolver = confirm(
+                    `Esta es la versión para ${nombres}.\n\n`
+                    + `Si la borrás sin más, ${nombres} se queda sin ninguna versión de `
+                    + `"${originales[0].titulo}" — la original lo tiene excluido.\n\n`
+                    + `¿Querés que le devuelva la versión general?`,
+                );
+            }
+
             await eliminarLeccion(btn.dataset.eliminarLeccion);
-            registrarEvento(getUsuarioActual().id, "eliminar_leccion", `Lección ${btn.dataset.eliminarLeccion} eliminada`);
+
+            if (devolver) {
+                for (const otra of originales) {
+                    const queda = String(otra.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean)
+                        .filter((s) => !cubria.some((c) => c.toLowerCase() === s.toLowerCase()));
+                    await actualizarLeccion(otra.id, { noAplicaA: queda.join(", ") });
+                }
+            }
+
+            registrarEvento(getUsuarioActual().id, "eliminar_leccion",
+                `Lección ${btn.dataset.eliminarLeccion} eliminada${devolver ? " (se devolvió la versión general)" : ""}`);
             cerrarModal(modalId);
             navigate("academia");
         });

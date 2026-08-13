@@ -2286,6 +2286,20 @@ table.data-table tbody tr:hover{
     .barra-seleccion{ top:calc(58px + 62px); }
 }
 
+.aviso-huerfana{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:6px;
+    padding:7px 10px;
+    border:1px solid var(--warning, #c9a84c);
+    border-radius:8px;
+    background:var(--gold-soft);
+    font-size:12px;
+    color:var(--text);
+}
+
 /* ── Árbol de contenido de un local (locales.js) ───────────────────
    Módulo → Catálogo / Lecciones → ítems. La sangría es lo que hace
    legible de qué depende cada cosa; sin ella son 300 checkboxes
