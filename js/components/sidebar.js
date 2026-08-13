@@ -161,6 +161,22 @@ export function Sidebar(rutaActiva = "inicio") {
 
             ${InstallBanner()}
 
+            <!-- Aviso de versión en desarrollo. Va atado al ROL y no al
+                 entorno: la cuenta de revisión se usa en producción, donde
+                 ES_STAGING es falso y el badge de "PRUEBA" no aparece —
+                 justo cuando más hace falta el aviso. Un capacitador es
+                 quien entra a mirar sin gestionar, o sea exactamente
+                 quien necesita saber que puede encontrar cosas a medio
+                 hacer. No se puede cerrar: si se olvida, el aviso deja de
+                 cumplir su función. -->
+            ${usuario.capacitador ? `
+                <div class="sidebar-beta">
+                    <strong>Versión en desarrollo</strong>
+                    Estás viendo una vista previa. Puede haber contenido
+                    incompleto o cosas que todavía no funcionan.
+                </div>
+            ` : ""}
+
             <div class="sidebar-footer">
                 <div class="quien">${usuario.nombre} · ${rolLegible}</div>
                 ${usuario.sucursal ? `<div class="sucursal">${usuario.sucursal.replace("Lucciano's ", "")}</div>` : ""}

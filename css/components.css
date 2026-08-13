@@ -1789,6 +1789,24 @@
 
 /* TABLE */
 
+.sidebar-beta{
+    margin:0 14px 12px;
+    padding:10px 12px;
+    border:1px solid var(--gold-deep);
+    border-radius:10px;
+    background:var(--gold-soft);
+    font-size:11.5px;
+    line-height:1.45;
+    color:var(--muted);
+}
+
+.sidebar-beta strong{
+    display:block;
+    margin-bottom:3px;
+    color:var(--gold-deep);
+    font-size:12px;
+}
+
 /* ── Encabezados fijos al scrollear ────────────────────────────────
    Con 123 locales o 43 personas se pierde de vista qué columna es cada
    una y en qué grupo se está parado.
