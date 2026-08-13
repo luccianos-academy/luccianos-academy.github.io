@@ -13,10 +13,51 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal } from "../data/sucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
+import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
+import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad } from "../data/disponibilidad.js";
+import { PRODUCTOS_CHOCOLATERIA } from "../data/productosChocolateria.js";
+import { PRODUCTOS_HELADERIA } from "../data/productosHeladeria.js";
+import { PRODUCTOS_ICEPOPS } from "../data/productosIcepops.js";
+import { PRODUCTOS_PASTELERIA } from "../data/productosPasteleria.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { escaparHtml } from "../services/html.js";
 import { navigate } from "../router.js";
+
+// Los productos viven en el código (data/productos*.js); acá sólo hace
+// falta saber cuáles son de cada curso para armar el árbol.
+const CATALOGO_POR_CURSO = {
+    "Chocolatería": [PRODUCTOS_CHOCOLATERIA],
+    "Heladería": [PRODUCTOS_HELADERIA],
+    "Icepops": [PRODUCTOS_ICEPOPS],
+    "Pastelería": [PRODUCTOS_PASTELERIA],
+};
+
+/** Cuenta cuántos ítems (curso, lección o producto) tienen restringido
+ *  a este local y cuántos a su país. Se arma una sola vez por render y
+ *  se consulta por fila. */
+function contarRestricciones(items, local) {
+    let porPais = 0;
+    let porLocal = 0;
+    items.forEach((noAplicaA) => {
+        const lista = String(noAplicaA || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+        if (!lista.length) return;
+        if (lista.includes(String(local.nombre).toLowerCase())) porLocal++;
+        else if (local.pais && lista.includes(String(local.pais).toLowerCase())) porPais++;
+    });
+    return { porPais, porLocal };
+}
+
+function badgeRestricciones(local) {
+    const { porPais, porLocal } = local._restricciones || { porPais: 0, porLocal: 0 };
+    if (!porPais && !porLocal) return `<span class="text-sm text-muted">—</span>`;
+    const partes = [];
+    // El propio del local va primero y en dorado: es el que alguien
+    // configuró para ESTE local y el que se va a querer revisar.
+    if (porLocal) partes.push(`<span class="badge badge-warning" title="Configurado para este local">${porLocal} del local</span>`);
+    if (porPais) partes.push(`<span class="badge badge-muted" title="Heredado de ${escaparHtml(local.pais)}">${porPais} del país</span>`);
+    return partes.join(" ");
+}
 
 function badgeEstado(local) {
     return local.estado === "Activa"
@@ -85,7 +126,7 @@ function filaAcciones(local) {
     const tipoBtn = local.esPropio
         ? `<button class="menu-acciones-item" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
         : `<button class="menu-acciones-item" data-marcar-propio="${local.id}">Marcar propio</button>`;
-    const modulosBtn = `<button class="menu-acciones-item" data-modulos="${local.id}">Módulos que tiene</button>`;
+    const modulosBtn = `<button class="menu-acciones-item" data-modulos="${local.id}">Contenido que tiene</button>`;
     return menuAcciones([editarBtn, modulosBtn, estadoBtn, tipoBtn]);
 }
 
@@ -99,13 +140,26 @@ export async function Locales() {
     // nuevos: eso es un cambio estructural y queda en el Admin. Editar,
     // activar y marcar propio/franquicia sí puede — el backend ya se lo
     // permite (Code.gs, Sucursales.actualizar).
-    const locales = await getSucursales();
+    const [locales, cursos, lecciones, disponibilidad] = await Promise.all([
+        getSucursales(), getCursos(), getLecciones(), getDisponibilidad(),
+    ]);
     const misLocales = esAdmin ? [] : await getMisLocales(usuario, locales);
+
+    // Todas las restricciones que existen, de las tres fuentes, en una
+    // sola lista. Se recorre una vez y no por fila: con 123 locales,
+    // recalcularlo en cada uno serían 123 pasadas sobre los ~300 ítems.
+    const todosLosNoAplicaA = [
+        ...cursos.map((c) => c.noAplicaA),
+        ...lecciones.map((l) => l.noAplicaA),
+        ...disponibilidad.map((d) => d.noAplicaA),
+    ].filter(Boolean);
+    locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosNoAplicaA, l); });
 
     const columnas = [
         { key: "seleccion", label: "" },
         { key: "nombre", label: "Local" },
         { key: "supervisor", label: "Supervisor" },
+        { key: "restriccionBadge", label: "Restricciones" },
         { key: "tipoBadge", label: "Tipo" },
         { key: "estadoBadge", label: "Estado" },
         { key: "acciones", label: "" },
@@ -118,6 +172,12 @@ export async function Locales() {
         // filtro lo lee igual. Lo mismo con "mío", que además solo le
         // importa al Supervisor.
         _datos: { pais: l.pais || "", mio: misLocales.includes(l.nombre) ? "1" : "0" },
+        // Distingue si lo que le falta viene heredado del país o es
+        // propio del local. Sin separarlos, un local con "3
+        // restricciones" no dice si es una excepción suya o algo que le
+        // pasa a todo el país — y son dos cosas muy distintas al
+        // revisar por qué alguien no ve un contenido.
+        restriccionBadge: badgeRestricciones(l),
         seleccion: `<input type="checkbox" class="local-check" style="width:auto" data-local-id="${l.id}" data-local-nombre="${escaparHtml(l.nombre)}">`,
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
@@ -210,6 +270,7 @@ export async function Locales() {
                      supervisor nuevo hay que pasarle sus locales de a uno
                      por el menú ⋮, y son decenas. -->
                 <button class="btn btn-secondary" id="btn-lote-supervisor">Asignar supervisor</button>
+                <button class="btn btn-primary" id="btn-lote-contenido">Contenido que tienen</button>
             </div>
             <button class="btn btn-sutil" id="btn-limpiar-seleccion-locales">Deseleccionar</button>
         </div>
@@ -408,6 +469,31 @@ export function bindLocales() {
     document.getElementById("btn-lote-franquicia")?.addEventListener("click", (e) =>
         aplicarEnLote("Marcar como FRANQUICIAS", { esPropio: "NO" }, e.currentTarget));
 
+    document.getElementById("btn-lote-contenido")?.addEventListener("click", () => {
+        const marcados = checksVisibles().filter((chk) => chk.checked);
+        if (!marcados.length) {
+            alert("Primero tildá los locales que querés configurar.");
+            return;
+        }
+        const nombres = marcados.map((chk) => chk.dataset.localNombre);
+
+        // Si están TODOS los locales del país activo, se guarda el país
+        // en vez de los N nombres. No es cosmético: guardando los
+        // nombres, el próximo local que abra en ese país no heredaría la
+        // restricción y quedaría viendo lo que el resto no ve.
+        const delPais = paisActivo !== "todos"
+            ? [...document.querySelectorAll("#tabla-locales tbody tr")]
+                .filter((f) => f.dataset.pais === paisActivo).length
+            : 0;
+        const esPaisEntero = paisActivo !== "todos" && nombres.length === delPais && delPais > 0;
+
+        const ambitos = esPaisEntero ? [paisActivo] : nombres;
+        const etiqueta = esPaisEntero
+            ? `todo ${paisActivo}`
+            : nombres.length === 1 ? nombres[0] : `${nombres.length} locales`;
+        abrirModalContenido(ambitos, etiqueta);
+    });
+
     document.getElementById("btn-lote-supervisor")?.addEventListener("click", async (e) => {
         const boton = e.currentTarget;
         if (!checksVisibles().some((chk) => chk.checked)) {
@@ -489,7 +575,7 @@ export function bindLocales() {
         btn.addEventListener("click", async () => {
             const locales = await getSucursales();
             const local = locales.find((l) => String(l.id) === String(btn.dataset.modulos));
-            if (local) abrirModalModulos(local);
+            if (local) abrirModalContenido([local.nombre], local.nombre);
         });
     });
 
@@ -518,70 +604,198 @@ export function bindLocales() {
  * sucursales: esa pregunta se hace desde una docena de pantallas y
  * varias de ellas no son asíncronas.
  */
-async function abrirModalModulos(local) {
+/**
+ * "Contenido" — qué módulos, lecciones y productos tiene un conjunto de
+ * locales.
+ *
+ * Un solo lugar para las tres cosas. Antes estaban repartidas: los
+ * módulos acá, el alcance de curso/lección en Academia, y el catálogo en
+ * otro modal de Academia, cada una con una interacción distinta. La
+ * pregunta es siempre la misma —"¿esto lo tiene?"— así que el gesto
+ * también: tildado lo tiene, destildado no.
+ *
+ * El alcance sale de la pantalla: las pills de país y los checkboxes de
+ * la tabla ya son el selector. No hace falta otro adentro del modal.
+ *
+ * Sólo se guardan EXCEPCIONES: si a un país no le falta nada, no queda
+ * ni una fila. Argentina no se toca por tener 100 locales; se nombran
+ * Devoto y Rivadavia dentro de Cafetería, y listo.
+ */
+async function abrirModalContenido(ambitos, etiquetaAmbito) {
 
-    const cursos = await getCursos();
-    const modalId = "modal-modulos";
+    if (!ambitos.length) return;
 
-    const excluidoDe = (curso) => String(curso.noAplicaA || "")
-        .split(",").map((s) => s.trim())
-        .some((s) => s && s.toLowerCase() === local.nombre.toLowerCase());
+    const [cursos, lecciones, disponibilidad] = await Promise.all([
+        getCursos(), getLecciones(), getDisponibilidad(),
+    ]);
+    const modalId = "modal-contenido";
+
+    // Un ítem está EXCLUIDO de un ámbito si su noAplicaA lo nombra. Con
+    // varios ámbitos hay tres estados posibles, no dos: todos lo tienen,
+    // ninguno lo tiene, o mezclado. Mostrar "mezclado" como tildado
+    // sería mentir sobre lo que pasa en la mitad de los locales.
+    const estado = (noAplicaA) => {
+        const lista = String(noAplicaA || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+        const excluidos = ambitos.filter((a) => lista.includes(a.toLowerCase())).length;
+        if (excluidos === 0) return "si";
+        if (excluidos === ambitos.length) return "no";
+        return "mezcla";
+    };
+    const attrs = (est) => est === "si" ? "checked" : est === "mezcla" ? "data-mezcla" : "";
+
+    const productosDe = (nombreCurso) => (CATALOGO_POR_CURSO[nombreCurso] || [[]])[0];
+    const alcances = (nombreCurso) => mapaDisponibilidad(disponibilidad, nombreCurso);
+
+    const bloques = cursos.map((curso) => {
+        const misLecciones = lecciones.filter((l) => String(l.cursoId) === String(curso.id));
+        const misProductos = productosDe(curso.nombre);
+        const alc = alcances(curso.nombre);
+
+        const subLecciones = misLecciones.length ? `
+            <div class="arbol-rama">
+                <label class="arbol-sub">
+                    <input type="checkbox" data-rama="lecciones-${curso.id}">
+                    <span class="arbol-sub-nombre">Lecciones</span>
+                    <span class="arbol-meta">${misLecciones.length}</span>
+                    <button type="button" class="arbol-toggle" data-abrir="lecciones-${curso.id}">Ver</button>
+                </label>
+                <div class="arbol-hijos" id="lecciones-${curso.id}" hidden>
+                    ${misLecciones.map((l) => `
+                        <label class="arbol-hoja">
+                            <input type="checkbox" data-tipo="leccion" data-id="${l.id}"
+                                   data-rama-de="lecciones-${curso.id}" ${attrs(estado(l.noAplicaA))}>
+                            <span>${escaparHtml(l.titulo)}</span>
+                        </label>`).join("")}
+                </div>
+            </div>` : "";
+
+        const subCatalogo = misProductos.length ? `
+            <div class="arbol-rama">
+                <label class="arbol-sub">
+                    <input type="checkbox" data-rama="catalogo-${curso.id}">
+                    <span class="arbol-sub-nombre">Catálogo</span>
+                    <span class="arbol-meta">${misProductos.length}</span>
+                    <button type="button" class="arbol-toggle" data-abrir="catalogo-${curso.id}">Ver</button>
+                </label>
+                <div class="arbol-hijos" id="catalogo-${curso.id}" hidden>
+                    ${misProductos.map((prod) => `
+                        <label class="arbol-hoja">
+                            <input type="checkbox" data-tipo="producto" data-curso="${escaparHtml(curso.nombre)}"
+                                   data-id="${escaparHtml(prod.nombre)}" data-rama-de="catalogo-${curso.id}"
+                                   ${attrs(estado((alc.get(prod.nombre) || {}).noAplicaA))}>
+                            ${prod.foto ? `<img class="arbol-foto" src="${escaparHtml(prod.foto)}" alt="" loading="lazy">` : ""}
+                            <span>${escaparHtml(prod.nombre)}</span>
+                        </label>`).join("")}
+                </div>
+            </div>` : "";
+
+        return `
+            <div class="arbol-modulo">
+                <label class="arbol-raiz">
+                    <input type="checkbox" data-tipo="curso" data-id="${curso.id}" ${attrs(estado(curso.noAplicaA))}>
+                    <span class="arbol-raiz-nombre">${escaparHtml(curso.nombre)}</span>
+                    <span class="arbol-meta">${escaparHtml(curso.categoria)}</span>
+                </label>
+                ${subCatalogo}
+                ${subLecciones}
+            </div>`;
+    }).join("");
 
     const contenidoHtml = `
         <p class="text-sm text-muted" style="margin-bottom:14px">
-            Destildá los módulos que este local <strong>no</strong> tiene. Sus lecciones y su
-            catálogo dejan de aparecerle a la gente de acá, y tampoco cuentan para su progreso.
+            Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong> no tiene.
+            Lo que no toques queda como está.
         </p>
-        <div id="lista-modulos">
-            ${cursos.map((c) => `
-                <label class="modulo-item">
-                    <input type="checkbox" data-curso-id="${c.id}" ${excluidoDe(c) ? "" : "checked"}>
-                    <span class="modulo-nombre">${escaparHtml(c.nombre)}</span>
-                    <span class="text-xs text-muted">${escaparHtml(c.categoria)}</span>
-                </label>
-            `).join("")}
-        </div>
+        <input type="search" id="buscador-arbol" placeholder="Buscar módulo, lección o producto...">
+        <div id="arbol-contenido" style="margin-top:14px">${bloques}</div>
     `;
 
     abrirModal(
-        Modal({ id: modalId, titulo: `Módulos — ${local.nombre}`, contenidoHtml, textoConfirmar: "Guardar" }),
+        Modal({ id: modalId, titulo: `Contenido — ${etiquetaAmbito}`, contenidoHtml, textoConfirmar: "Guardar" }),
         modalId,
         async () => {
             const boton = document.querySelector(`[data-confirm="${modalId}"]`);
-            const chks = [...document.querySelectorAll("#lista-modulos [data-curso-id]")];
+            const chks = [...document.querySelectorAll("#arbol-contenido [data-tipo]")];
 
-            // Solo se escriben los cursos que CAMBIARON. Guardar los 8
-            // siempre serían 8 llamadas a Apps Script para tocar uno.
-            const cambios = chks.map((chk) => {
-                const curso = cursos.find((c) => String(c.id) === chk.dataset.cursoId);
-                const teniaExcluido = excluidoDe(curso);
-                const quedaExcluido = !chk.checked;
-                if (teniaExcluido === quedaExcluido) return null;
-
-                const lista = String(curso.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
-                const sinEste = lista.filter((s) => s.toLowerCase() !== local.nombre.toLowerCase());
-                return {
-                    curso,
-                    noAplicaA: (quedaExcluido ? [...sinEste, local.nombre] : sinEste).join(", "),
-                };
-            }).filter(Boolean);
+            // Sólo lo que cambió. Un tilde que sigue en "mezcla" no se
+            // tocó: aplicar mezcla a todos borraría diferencias que el
+            // usuario no pidió cambiar.
+            const cambios = chks.filter((chk) => {
+                if (chk.dataset.mezcla !== undefined && chk.indeterminate) return false;
+                return chk.checked !== (chk.defaultChecked && chk.dataset.mezcla === undefined);
+            });
 
             if (!cambios.length) { cerrarModal(modalId); return; }
 
             boton.disabled = true;
             for (let i = 0; i < cambios.length; i++) {
+                const chk = cambios[i];
                 boton.textContent = `Guardando ${i + 1}/${cambios.length}...`;
-                await actualizarCurso(cambios[i].curso.id, { noAplicaA: cambios[i].noAplicaA });
+
+                if (chk.dataset.tipo === "curso") {
+                    const curso = cursos.find((c) => String(c.id) === chk.dataset.id);
+                    await actualizarCurso(curso.id, { noAplicaA: conAmbitos(curso.noAplicaA, ambitos, chk.checked) });
+                } else if (chk.dataset.tipo === "leccion") {
+                    const lec = lecciones.find((l) => String(l.id) === chk.dataset.id);
+                    await actualizarLeccion(lec.id, { noAplicaA: conAmbitos(lec.noAplicaA, ambitos, chk.checked) });
+                } else {
+                    const actual = alcances(chk.dataset.curso).get(chk.dataset.id) || {};
+                    await guardarDisponibilidad(chk.dataset.curso, chk.dataset.id,
+                        { noAplicaA: conAmbitos(actual.noAplicaA, ambitos, chk.checked) }, disponibilidad);
+                }
             }
 
-            const quitados = cambios.filter((c) => c.noAplicaA.toLowerCase().includes(local.nombre.toLowerCase()));
             registrarEvento(getUsuarioActual().id, "editar_local",
-                `Módulos de ${local.nombre}: ${quitados.length} quitado(s), ${cambios.length - quitados.length} devuelto(s)`);
-
+                `Contenido de ${etiquetaAmbito}: ${cambios.length} cambio(s)`);
             cerrarModal(modalId);
             navigate("locales");
         },
     );
+
+    // Los "mezcla" arrancan indeterminados: ni tildado ni destildado.
+    document.querySelectorAll("#arbol-contenido [data-mezcla]").forEach((chk) => { chk.indeterminate = true; });
+
+    document.getElementById("arbol-contenido").addEventListener("click", (e) => {
+        const toggle = e.target.closest("[data-abrir]");
+        if (!toggle) return;
+        e.preventDefault();
+        const caja = document.getElementById(toggle.dataset.abrir);
+        caja.hidden = !caja.hidden;
+        toggle.textContent = caja.hidden ? "Ver" : "Ocultar";
+    });
+
+    document.getElementById("arbol-contenido").addEventListener("change", (e) => {
+        // Tocar una rama ("Catálogo", "Lecciones") arrastra a sus hijos.
+        if (e.target.dataset.rama) {
+            document.querySelectorAll(`[data-rama-de="${e.target.dataset.rama}"]`).forEach((chk) => {
+                chk.indeterminate = false;
+                chk.checked = e.target.checked;
+            });
+        }
+        if (e.target.dataset.mezcla !== undefined) e.target.indeterminate = false;
+    });
+
+    document.getElementById("buscador-arbol").addEventListener("input", (e) => {
+        const q = e.target.value.trim().toLowerCase();
+        document.querySelectorAll("#arbol-contenido .arbol-hijos").forEach((c) => { c.hidden = !q; });
+        document.querySelectorAll("#arbol-contenido .arbol-hoja").forEach((hoja) => {
+            hoja.style.display = !q || hoja.textContent.toLowerCase().includes(q) ? "" : "none";
+        });
+        document.querySelectorAll("#arbol-contenido .arbol-modulo").forEach((mod) => {
+            const raiz = mod.querySelector(".arbol-raiz-nombre").textContent.toLowerCase();
+            const hay = !q || raiz.includes(q)
+                || [...mod.querySelectorAll(".arbol-hoja")].some((h) => h.style.display !== "none");
+            mod.style.display = hay ? "" : "none";
+        });
+    });
+}
+
+/** Agrega o saca varios ámbitos de una lista separada por comas. */
+function conAmbitos(actual, ambitos, loTiene) {
+    const lista = String(actual || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const bajos = ambitos.map((a) => a.toLowerCase());
+    const sinEstos = lista.filter((s) => !bajos.includes(s.toLowerCase()));
+    return (loTiene ? sinEstos : [...sinEstos, ...ambitos]).join(", ");
 }
 
 async function abrirModalNuevoLocal() {

@@ -2270,6 +2270,134 @@ table.data-table tbody tr:hover{
     background:var(--surface-2);
 }
 
+/* ── Árbol de contenido de un local (locales.js) ───────────────────
+   Módulo → Catálogo / Lecciones → ítems. La sangría es lo que hace
+   legible de qué depende cada cosa; sin ella son 300 checkboxes
+   sueltos. */
+#arbol-contenido > .arbol-modulo{
+    margin:0 0 10px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    overflow:hidden;
+}
+
+#arbol-contenido .arbol-raiz{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0;
+    padding:12px 14px;
+    background:var(--surface-2);
+    cursor:pointer;
+}
+
+#arbol-contenido .arbol-raiz input{ width:auto; }
+
+.arbol-raiz-nombre{
+    flex:1;
+    font-weight:600;
+    font-size:14px;
+    color:var(--text);
+}
+
+.arbol-meta{
+    font-size:11px;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+}
+
+/* La sangría cuelga de una guía vertical: con 60 productos abiertos,
+   sin la línea se pierde de vista a qué módulo pertenecen. */
+#arbol-contenido .arbol-rama{
+    margin:0 0 0 26px;
+    border-left:1px solid var(--line);
+}
+
+#arbol-contenido .arbol-sub{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0;
+    padding:9px 14px;
+    cursor:pointer;
+}
+
+#arbol-contenido .arbol-sub input{ width:auto; }
+
+.arbol-sub-nombre{
+    flex:1;
+    font-size:13px;
+    color:var(--gold-deep);
+    font-weight:600;
+}
+
+.arbol-toggle{
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    border-radius:6px;
+    padding:3px 9px;
+    font-size:11px;
+    cursor:pointer;
+}
+
+.arbol-toggle:hover{ border-color:var(--gold); color:var(--text); }
+
+#arbol-contenido .arbol-hijos{
+    padding:0 0 8px 16px;
+}
+
+#arbol-contenido .arbol-hoja{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:0;
+    padding:5px 10px;
+    font-size:13px;
+    color:var(--text);
+    border-radius:6px;
+    cursor:pointer;
+}
+
+#arbol-contenido .arbol-hoja input{ width:auto; }
+#arbol-contenido .arbol-hoja:hover{ background:var(--surface-2); }
+
+/* Destildado = no lo tiene. Se atenúa y se tacha para poder recorrer
+   la lista buscando lo que falta, sin leer checkbox por checkbox. */
+#arbol-contenido .arbol-hoja:not(:has(input:checked)) span,
+#arbol-contenido .arbol-raiz:not(:has(input:checked)) .arbol-raiz-nombre{
+    color:var(--muted);
+    text-decoration:line-through;
+}
+
+/* Indeterminado (varios locales con estados distintos) NO se tacha: no
+   es "no lo tiene", es "depende del local". */
+#arbol-contenido input:indeterminate ~ span,
+#arbol-contenido input:indeterminate ~ .arbol-raiz-nombre{
+    color:var(--text);
+    text-decoration:none;
+    font-style:italic;
+}
+
+.arbol-foto{
+    width:26px;
+    height:26px;
+    border-radius:5px;
+    object-fit:cover;
+    background:var(--surface-2);
+    flex-shrink:0;
+}
+
+#buscador-arbol{
+    width:100%;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:40px;
+    padding:11px 18px;
+    color:var(--text);
+    font-size:14px;
+}
+
 /* ── Barra de formato del editor de lecciones ──────────────────────
    (components/leccionEditable.js + services/formato.js) */
 .formato-barra{
