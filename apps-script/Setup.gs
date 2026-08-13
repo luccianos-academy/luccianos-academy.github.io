@@ -402,6 +402,12 @@ var _REGIONES = ['caba', 'gba', 'mdp', 'mar del plata', 'buenos aires',
 
 function _normLocal(s) {
     var t = String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    // En la planilla conviven el ap\u00f3strofo tipogr\u00e1fico (\u2019) y el recto:
+    // "Lucciano\u2019s Oro\u00f1o Santa Fe" se carg\u00f3 con el curvo y el resto con el
+    // recto. Sin unificarlos el reemplazo de abajo no saca el prefijo de
+    // los que usan el curvo, y quedan "lucciano" y "s" como tokens
+    // sueltos que hacen fallar el matcheo sin ning\u00fan aviso.
+    t = t.replace(/[\u2018\u2019\u02bc`\u00b4]/g, "'");
     t = t.replace(/lucciano's/g, ' ').replace(/luccianos/g, ' ');
     t = t.replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 
@@ -761,6 +767,12 @@ var PADRON_SUCURSALES = [
     { id: 118, nombre: "Lucciano's Sawgrass USA" },
     { id: 119, nombre: "Lucciano's The Florida Mall USA" },
     { id: 120, nombre: "Lucciano's Roma Italia", propio: true },
+    // Cargados directamente en producción, no estaban en el padrón.
+    // OJO con el apóstrofo: en la planilla vienen con el tipográfico
+    // (Lucciano’s). Acá van con el recto y matchean igual porque
+    // _normLocal ahora unifica los dos.
+    { id: 123, nombre: "Lucciano's Oroño Santa Fe" },
+    { id: 124, nombre: "Lucciano's Plaza Oeste Buenos Aires" },
 ];
 
 /**

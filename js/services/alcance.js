@@ -32,6 +32,13 @@
 function normalizar(s) {
     return String(s || "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        // El apóstrofo tipográfico (’) y el recto (\') son caracteres
+        // DISTINTOS, y en la planilla conviven los dos: "Lucciano’s Oroño
+        // Santa Fe" se cargó con el curvo y el resto con el recto. Sin
+        // unificarlos, un local escrito de una forma no matchea contra el
+        // mismo nombre escrito de la otra — y esa comparación es la que
+        // decide qué contenido ve cada persona. Fallaba en silencio.
+        .replace(/[\u2018\u2019\u02BC\u0060\u00B4]/g, "'")
         .replace(/\s+/g, " ")
         .trim()
         .toLowerCase();
