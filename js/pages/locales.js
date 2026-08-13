@@ -650,6 +650,12 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
 
     if (!ambitos.length) return;
 
+    // El Supervisor entra a VERIFICAR que un local esté bien
+    // configurado, no a cambiarlo: acá un destildado por error le saca
+    // un módulo entero a toda la gente de ese local y no salta ningún
+    // aviso — se enteran cuando alguien reclama que no ve algo.
+    const soloLectura = getUsuarioActual()?.rol !== "admin";
+
     const [cursos, lecciones, disponibilidad] = await Promise.all([
         getCursos(), getLecciones(), getDisponibilidad(),
     ]);
@@ -666,7 +672,8 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         if (excluidos === ambitos.length) return "no";
         return "mezcla";
     };
-    const attrs = (est) => est === "si" ? "checked" : est === "mezcla" ? "data-mezcla" : "";
+    const attrs = (est) => (est === "si" ? "checked" : est === "mezcla" ? "data-mezcla" : "")
+        + (soloLectura ? " disabled" : "");
 
     const productosDe = (nombreCurso) => (CATALOGO_POR_CURSO[nombreCurso] || [[]])[0];
     const alcances = (nombreCurso) => mapaDisponibilidad(disponibilidad, nombreCurso);
@@ -679,7 +686,7 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         const subLecciones = misLecciones.length ? `
             <div class="arbol-rama">
                 <label class="arbol-sub">
-                    <input type="checkbox" data-rama="lecciones-${curso.id}">
+                    <input type="checkbox" data-rama="lecciones-${curso.id}" ${soloLectura ? "disabled" : ""}>
                     <span class="arbol-sub-nombre">Lecciones</span>
                     <span class="arbol-meta">${misLecciones.length}</span>
                     <button type="button" class="arbol-toggle" data-abrir="lecciones-${curso.id}">Ver</button>
@@ -697,7 +704,7 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         const subCatalogo = misProductos.length ? `
             <div class="arbol-rama">
                 <label class="arbol-sub">
-                    <input type="checkbox" data-rama="catalogo-${curso.id}">
+                    <input type="checkbox" data-rama="catalogo-${curso.id}" ${soloLectura ? "disabled" : ""}>
                     <span class="arbol-sub-nombre">Catálogo</span>
                     <span class="arbol-meta">${misProductos.length}</span>
                     <button type="button" class="arbol-toggle" data-abrir="catalogo-${curso.id}">Ver</button>
@@ -728,16 +735,19 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
 
     const contenidoHtml = `
         <p class="text-sm text-muted" style="margin-bottom:14px">
-            Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong>
-            ${ambitos.length === 1 ? "no tiene" : "no tienen"}. Lo que no toques queda como está.
+            ${soloLectura
+                ? `Esto es lo que ve <strong>${escaparHtml(etiquetaAmbito)}</strong>. Lo tachado no le aparece. Para cambiarlo, pedíselo a un administrador.`
+                : `Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong>
+                   ${ambitos.length === 1 ? "no tiene" : "no tienen"}. Lo que no toques queda como está.`}
         </p>
         <input type="search" id="buscador-arbol" placeholder="Buscar módulo, lección o producto...">
         <div id="arbol-contenido" style="margin-top:14px">${bloques}</div>
     `;
 
     abrirModal(
-        Modal({ id: modalId, titulo: `Contenido — ${etiquetaAmbito}`, contenidoHtml, textoConfirmar: "Guardar" }),
+        Modal({ id: modalId, titulo: `Contenido — ${etiquetaAmbito}`, contenidoHtml, textoConfirmar: soloLectura ? "" : "Guardar" }),
         modalId,
+        soloLectura ? undefined :
         async () => {
             const boton = document.querySelector(`[data-confirm="${modalId}"]`);
             const chks = [...document.querySelectorAll("#arbol-contenido [data-tipo]")];
