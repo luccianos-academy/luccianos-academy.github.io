@@ -92,18 +92,34 @@ function leerCamposLeccion() {
     };
 }
 
-/** Cómo se ve el alcance en la tabla. "Todos" en gris y no en blanco:
- *  es el caso normal y no tiene que competir visualmente con los pocos
- *  que sí están acotados, que son los que hay que revisar. */
-function etiquetaAlcance(aplicaA) {
-    const lista = String(aplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
-    if (!lista.length) return `<span class="text-sm text-muted">Todos</span>`;
-    const corto = lista.map((s) => escaparHtml(s.replace("Lucciano's ", "")));
+/**
+ * Cómo se ve el alcance en la tabla.
+ *
+ * Mira los DOS campos. Antes sólo leía la restricción, así que una
+ * variante acotada por inclusión —la copia que hace "Duplicar para…"—
+ * se mostraba como "Todos", que es exactamente lo contrario de lo que
+ * pasa. Y la original, ya excluida de un país, mostraba el nombre de ese
+ * país sin decir si era el único que la ve o el único que no.
+ *
+ * "Todos" queda en gris: es el caso normal y no tiene que competir con
+ * los pocos acotados, que son los que hay que revisar.
+ */
+function etiquetaAlcance(aplicaA, noAplicaA) {
+    const corto = (v) => String(v || "").split(",").map((s) => s.trim()).filter(Boolean)
+        .map((s) => escaparHtml(s.replace("Lucciano's ", "")));
+
+    const solo = corto(aplicaA);
+    const menos = corto(noAplicaA);
+    if (!solo.length && !menos.length) return `<span class="text-sm text-muted">Todos</span>`;
+
     // Con más de dos se corta: la columna no puede crecer sin empujar
     // las acciones fuera de pantalla. El detalle está a un clic.
-    const visibles = corto.slice(0, 2).join(", ");
-    const resto = corto.length > 2 ? ` +${corto.length - 2}` : "";
-    return `<span class="badge badge-warning">${visibles}${resto}</span>`;
+    const resumir = (lista) => lista.slice(0, 2).join(", ") + (lista.length > 2 ? ` +${lista.length - 2}` : "");
+
+    const partes = [];
+    if (solo.length) partes.push(`<span class="badge badge-success">Solo ${resumir(solo)}</span>`);
+    if (menos.length) partes.push(`<span class="badge badge-warning">Todos menos ${resumir(menos)}</span>`);
+    return partes.join(" ");
 }
 
 export async function Academia() {
@@ -134,7 +150,7 @@ export async function Academia() {
         // Sin lo segundo, un curso con media línea restringida se veía
         // igual que uno sin ninguna restricción, y había que entrar al
         // catálogo de cada uno para enterarse.
-        alcanceLabel: etiquetaAlcance(c.noAplicaA) + (() => {
+        alcanceLabel: etiquetaAlcance(c.aplicaA, c.noAplicaA) + (() => {
             const n = mapaDisponibilidad(disponibilidad, c.nombre).size;
             return n
                 ? `<div class="text-xs text-muted" style="margin-top:4px">${n} producto${n === 1 ? "" : "s"} acotado${n === 1 ? "" : "s"}</div>`
@@ -265,7 +281,7 @@ async function abrirModalLecciones(cursoId) {
     const listaHtml = lecciones.length
         ? lecciones.map((l) => `
             <div class="list item">
-                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.noAplicaA)}</span>
+                <span>${l.orden}. ${l.titulo} ${etiquetaAlcance(l.aplicaA, l.noAplicaA)}</span>
                 <span>
                     <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
                     <button class="btn btn-secondary" data-duplicar-leccion="${l.id}">Duplicar para…</button>

@@ -66,11 +66,16 @@ export async function crearLeccion({
     cursoId, orden = 0, titulo, objetivo = "", duracionMinutos = 0,
     video = "", manual = "", manualLabel = "", imagen = "", procedimiento = "",
     errores = "", buenasPracticas = "", consejo = "", resumen = "", estado = "Activo",
+    // Sin estos dos, "Duplicar para…" creaba la copia SIN alcance: la
+    // variante de Chile le aparecía a todo el mundo, incluida España,
+    // que además veía las dos versiones. El destructuring descarta en
+    // silencio lo que no está nombrado acá.
+    aplicaA = "", noAplicaA = "",
 }) {
     return writeSheet(HOJAS.LECCIONES, {
         cursoId, orden, titulo, objetivo, duracionMinutos,
         video, manual, manualLabel, imagen, procedimiento, errores,
-        buenasPracticas, consejo, resumen, estado,
+        buenasPracticas, consejo, resumen, estado, aplicaA, noAplicaA,
     }, leccionesMock);
 }
 
