@@ -23,6 +23,7 @@ import { navigate } from "../router.js";
 import { escaparHtml } from "../services/html.js";
 import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
+import { aplicaAlUsuario } from "../services/alcance.js";
 
 /** Los mismos campos que ya vive el esquema real de Lecciones (ver
  *  README de apps-script) — antes este formulario solo tenía título y
@@ -435,12 +436,35 @@ async function abrirModalLecciones(cursoId) {
                     copia.orden = leccion.orden;
 
                     await crearLeccion(copia);
-                    await actualizarLeccion(leccion.id, {
-                        noAplicaA: [leccion.noAplicaA, ambito].filter(Boolean).join(", "),
+
+                    // La exclusión va a TODAS las lecciones del curso que
+                    // hoy le llegan a ese ámbito, no sólo a la que se
+                    // tocó. Excluir únicamente la tocada dejaba un hueco
+                    // real: duplicando desde la variante de España para
+                    // Chile, la exclusión caía en la de España —que a
+                    // Chile no le llegaba igual— y la versión GENERAL no
+                    // se enteraba, así que un chileno terminaba viendo la
+                    // general y la suya nueva.
+                    const destinos = ambito.split(",").map((s) => s.trim()).filter(Boolean);
+                    const alcanzaAlAmbito = (otra) => destinos.some((d) => {
+                        const falso = { rol: "colaborador", sucursal: d, encargado: false };
+                        // Si "d" es un país y no un local, sucursal no
+                        // matchea por nombre pero sí por país deducido.
+                        return aplicaAlUsuario(otra, falso) || aplicaAlUsuario(otra, { ...falso, sucursal: `Lucciano's X ${d}` });
                     });
 
+                    const aExcluir = lecciones.filter((otra) =>
+                        String(otra.cursoId) === String(leccion.cursoId) && alcanzaAlAmbito(otra));
+
+                    for (const otra of aExcluir) {
+                        const ya = String(otra.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+                        const nuevos = destinos.filter((d) => !ya.some((y) => y.toLowerCase() === d.toLowerCase()));
+                        if (!nuevos.length) continue;
+                        await actualizarLeccion(otra.id, { noAplicaA: [...ya, ...nuevos].join(", ") });
+                    }
+
                     registrarEvento(getUsuarioActual().id, "crear_leccion",
-                        `Variante de "${leccion.titulo}" para ${ambito}`);
+                        `Variante de "${leccion.titulo}" para ${ambito} (${aExcluir.length} excluida/s)`);
                     cerrarModal(dupId);
                     navigate("academia");
                 },
