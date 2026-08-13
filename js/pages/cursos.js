@@ -33,6 +33,8 @@ import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
 import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
+import { ES_ENTORNO_PRUEBA } from "../config.js";
+import { escaparHtml } from "../services/html.js";
 
 export async function Cursos(params = []) {
 
@@ -215,6 +217,26 @@ function renderVideoBanner(curso) {
         `;
     }
     return "";
+}
+
+/**
+ * Cartelito de qué variante es — SÓLO en entornos de prueba.
+ *
+ * El título no lleva el país a propósito: para alguien de Madrid esa
+ * lección es "Menú Kosher" a secas, y un "(España)" le estaría avisando
+ * que ve la versión de otro. Pero mientras se arma el contenido conviene
+ * distinguirlas de un vistazo sin abrir Academia.
+ *
+ * Va como presentación y no en el título guardado: así no queda escrito
+ * en la planilla, no viaja si se copia contenido a producción, y aplica
+ * también a las variantes creadas antes de esto.
+ */
+function etiquetaVariante(l) {
+    if (!ES_ENTORNO_PRUEBA) return "";
+    const solo = String(l.aplicaA || "").trim();
+    if (!solo) return "";
+    const corto = solo.split(",").map((s) => s.trim().replace("Lucciano's ", "")).join(", ");
+    return `<span class="badge badge-warning" style="margin-left:8px">${escaparHtml(corto)}</span>`;
 }
 
 function renderIntroCurso(curso, lecciones, productos) {
@@ -480,7 +502,7 @@ async function renderDetalleCurso(usuario, cursoId) {
             <div class="leccion-item${vista ? " vista" : ""}${bloqueada ? " bloqueada" : ""}">
                 <div class="leccion-item-header">
                     <span class="leccion-numero">${vista ? Icon("check", { size: 14 }) : l.orden}</span>
-                    <h3>${l.titulo}</h3>
+                    <h3>${l.titulo}</h3>${etiquetaVariante(l)}
                     ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
                 </div>
                 ${cuerpo}

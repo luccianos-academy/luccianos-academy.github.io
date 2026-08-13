@@ -428,11 +428,22 @@ async function abrirModalLecciones(cursoId) {
 
                     const copia = { ...leccion };
                     delete copia.id;
-                    copia.titulo = `${leccion.titulo} (${ambito.split(",")[0].trim().replace("Lucciano's ", "")})`;
+                    // El título NO lleva el país. Para alguien de Madrid
+                    // esa lección es "Menú Kosher" a secas: el sufijo le
+                    // avisaba que está viendo la versión de otro, cuando
+                    // para él es la única que existe. De qué país es cada
+                    // versión es información de gestión, y en la lista de
+                    // Academia ya está a la vista con la insignia "Solo
+                    // España" — que además no se desactualiza si alguien
+                    // cambia el alcance, cosa que un título sí haría.
+                    copia.titulo = leccion.titulo;
                     copia.aplicaA = ambito;
                     copia.noAplicaA = "";
                     // La copia va justo después de la original para que
                     // no aparezca al final de la lista, lejos de su par.
+                    // Mismo orden que la original: con el título ahora
+                    // idéntico, quedar lejos en la lista las volvería
+                    // indistinguibles al recorrerla.
                     copia.orden = leccion.orden;
 
                     await crearLeccion(copia);
