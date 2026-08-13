@@ -1546,7 +1546,9 @@ async function abrirModalUsuarioGenerico(rol, usuarioExistente = null) {
         ${rol === "supervisor" ? `
             <label for="input-capacitador">
                 <input type="checkbox" id="input-capacitador" style="width:auto;display:inline-block;margin-right:8px" ${usuarioExistente?.capacitador ? "checked" : ""}>
-                Es capacitador (mismos permisos que Supervisor, solo cambia la etiqueta)
+                <strong>Solo lectura</strong> — ve toda la red pero no puede editar,
+                deshabilitar ni registrar a nadie. Para quien tiene que revisar la
+                plataforma sin poder alterarla.
             </label>
 
             <label for="input-locales-supervisor" style="margin-top:14px">Locales asignados</label>

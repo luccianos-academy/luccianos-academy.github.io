@@ -118,7 +118,19 @@ function bindMenuAcciones() {
     });
 }
 
-function filaAcciones(local) {
+/**
+ * Un Capacitador es de solo lectura en TODA la app — decisión del
+ * cliente, ver la nota en pages/colaboradores.js. Faltaba aplicarlo
+ * acá: podía editar un local, activarlo o cambiarle el tipo. Es el rol
+ * que se le da a alguien que tiene que RECORRER la plataforma sin poder
+ * alterarla.
+ */
+function puedeGestionarLocales(usuario) {
+    if (usuario?.rol === "admin") return true;
+    return usuario?.rol === "supervisor" && !usuario?.capacitador;
+}
+
+function filaAcciones(local, puedeGestionar) {
     const editarBtn = `<button class="menu-acciones-item" data-editar="${local.id}">Editar</button>`;
     const estadoBtn = local.estado === "Activa"
         ? `<button class="menu-acciones-item" data-desactivar="${local.id}">Desactivar</button>`
@@ -127,13 +139,17 @@ function filaAcciones(local) {
         ? `<button class="menu-acciones-item" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
         : `<button class="menu-acciones-item" data-marcar-propio="${local.id}">Marcar propio</button>`;
     const modulosBtn = `<button class="menu-acciones-item" data-modulos="${local.id}">Contenido que tiene</button>`;
-    return menuAcciones([editarBtn, modulosBtn, estadoBtn, tipoBtn]);
+    // "Contenido que tiene" queda para todos: ya abre en solo lectura si
+    // no sos Admin, y es justo lo que alguien que viene a revisar la
+    // plataforma necesita mirar.
+    return menuAcciones(puedeGestionar ? [editarBtn, modulosBtn, estadoBtn, tipoBtn] : [modulosBtn]);
 }
 
 export async function Locales() {
 
     const usuario = getUsuarioActual();
     const esAdmin = usuario?.rol === "admin";
+    const puedeGestionar = puedeGestionarLocales(usuario);
 
     // El Supervisor entra a VERIFICAR que sus locales estén bien
     // cargados y a corregir lo que haga falta, no a dar de alta locales
@@ -182,7 +198,7 @@ export async function Locales() {
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
         estadoBadge: badgeEstado(l),
-        acciones: filaAcciones(l),
+        acciones: filaAcciones(l, puedeGestionar),
     });
 
     // Propios y franquicias se operan distinto, así que la pregunta más
@@ -264,12 +280,14 @@ export async function Locales() {
         <div class="barra-seleccion" id="barra-seleccion-locales" hidden>
             <span class="barra-seleccion-cuenta" id="cuenta-seleccion-locales">0 seleccionados</span>
             <div class="barra-seleccion-acciones">
+                ${puedeGestionar ? `
                 <button class="btn btn-secondary" id="btn-lote-propio">Marcar como propios</button>
                 <button class="btn btn-secondary" id="btn-lote-franquicia">Marcar como franquicias</button>
                 <!-- Mismo criterio que los dos de arriba: cuando entra un
                      supervisor nuevo hay que pasarle sus locales de a uno
                      por el menú ⋮, y son decenas. -->
                 <button class="btn btn-secondary" id="btn-lote-supervisor">Asignar supervisor</button>
+                ` : ""}
                 <button class="btn btn-primary" id="btn-lote-contenido">Contenido que tienen</button>
             </div>
             <button class="btn btn-sutil" id="btn-limpiar-seleccion-locales">Deseleccionar</button>
