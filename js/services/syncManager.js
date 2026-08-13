@@ -1,6 +1,8 @@
 // Sync Manager for Lucciano's Academy
 // Handles intelligent synchronization between IndexedDB (local) and Apps Script (backend)
 
+import { GAS_URL } from "../config.js";
+
 class SyncManager {
   constructor() {
     this.isSyncing = false;
@@ -12,9 +14,13 @@ class SyncManager {
 
   // Initialize sync manager
   async init() {
-    // Desactivar sync si GAS_URL no está configurado (modo desarrollo)
-    if (typeof window.GAS_URL === 'undefined' || !window.GAS_URL) {
-      console.log('[SYNC] GAS_URL no configurada - sync desactivado');
+    // Antes esto miraba window.GAS_URL, que NUNCA se asigna: config.js
+    // lo exporta como módulo, no como variable global. La condición daba
+    // siempre verdadera y el sync quedaba apagado en todos los entornos
+    // desde que se escribió — por eso la copia local de cada dispositivo
+    // no se actualizaba nunca.
+    if (!GAS_URL) {
+      console.log('[SYNC] Sin backend configurado (modo demo) - sync desactivado');
       return;
     }
 

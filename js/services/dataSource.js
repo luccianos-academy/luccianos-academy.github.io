@@ -63,6 +63,44 @@ export function invalidar(hoja) {
  *  afuera obligaría a quien llame a conocer la lista de hojas. */
 export function invalidarTodo() {
     Object.keys(cache).forEach((hoja) => delete cache[hoja]);
+    // También la marca de frescura de IndexedDB: si no, el botón de
+    // refrescar tiraba el cache de memoria y volvía a leer la MISMA
+    // copia vieja de IndexedDB, sin tocar la red.
+    Object.keys(localStorage)
+        .filter((k) => k.startsWith(SELLO_IDB))
+        .forEach((k) => localStorage.removeItem(k));
+}
+
+/* ── Frescura de IndexedDB ─────────────────────────────────────────
+   IndexedDB se trataba como fresca PARA SIEMPRE: alcanzaba con que
+   tuviera una fila para devolverla sin consultar nunca más la planilla.
+   Refrescarla dependía del syncManager, que estaba apagado (miraba
+   window.GAS_URL, que nunca se asigna). Resultado: un dispositivo que
+   cacheó una vez quedaba congelado — se agregaron 24 sucursales, se
+   renumeraron los ids y se marcaron los propios, y la app seguía
+   mostrando la foto vieja aunque cerraras sesión, porque cerrar sesión
+   no borra IndexedDB.
+
+   Ahora la copia local vale por un rato y después se revalida. Si la
+   red falla se devuelve igual la copia vieja: sin señal, un dato de
+   hace horas es mucho mejor que una pantalla vacía. */
+const SELLO_IDB = "faro_idb_ts_";
+const IDB_TTL_MS = 5 * 60 * 1000;
+
+function idbFresca(hoja) {
+    const ts = Number(localStorage.getItem(SELLO_IDB + hoja) || 0);
+    return ts > 0 && Date.now() - ts < IDB_TTL_MS;
+}
+
+function sellarIdb(hoja) {
+    // El resto del archivo usa catch(err) con binding; se mantiene por
+    // consistencia y porque el catch sin binding no existe en runtimes
+    // viejos, que es justo donde puede fallar la cuota.
+    try {
+        localStorage.setItem(SELLO_IDB + hoja, String(Date.now()));
+    } catch (err) {
+        console.warn("[dataSource] no se pudo sellar la frescura:", err);
+    }
 }
 
 // Fetch con IndexedDB como capa principal
@@ -78,7 +116,8 @@ export async function fetchSheet(hoja, mockRows) {
         return [...cacheado.datos];
     }
 
-    // Tier 2: Check IndexedDB (instant, no network)
+    // Tier 2: IndexedDB (instantáneo, sin red) — sólo si sigue fresca
+    let deIdb = null;
     if (storeName && idbManager && idbManager.db) {
         try {
             const idbDataCruda = await idbManager.getAllRecords(storeName);
@@ -90,33 +129,50 @@ export async function fetchSheet(hoja, mockRows) {
                 // para siempre en ese mismo dispositivo, aunque el borrado
                 // real en el Sheet sí había funcionado. Bug reportado en
                 // vivo: "¿Eliminar en News realmente elimina?".
-                const idbData = idbDataCruda.filter((r) => !r.deleted);
-                console.log(`[dataSource] IndexedDB hit: ${hoja} (${idbData.length} records)`);
-                cache[hoja] = { datos: idbData, ts: Date.now() };
-                return [...idbData];
+                deIdb = idbDataCruda.filter((r) => !r.deleted);
             }
         } catch (err) {
             console.warn(`[dataSource] IndexedDB fetch failed for ${hoja}:`, err);
         }
     }
 
-    // Tier 3: Fallback to Apps Script (network request)
+    if (deIdb && idbFresca(hoja)) {
+        console.log(`[dataSource] IndexedDB hit: ${hoja} (${deIdb.length} records)`);
+        cache[hoja] = { datos: deIdb, ts: Date.now() };
+        return [...deIdb];
+    }
+
+    // Tier 3: la planilla, vía Apps Script
     if (!pedidosEnVuelo[hoja]) {
         console.log(`[dataSource] Fetching from Apps Script: ${hoja}`);
         pedidosEnVuelo[hoja] = obtenerDatosSheet(hoja)
             .then(filas => {
-                // Save to IndexedDB for future use
                 if (storeName && idbManager && idbManager.db && filas && filas.length > 0) {
-                    idbManager.saveRecords(storeName, filas).catch(err => {
-                        console.warn(`[dataSource] Failed to save ${hoja} to IndexedDB:`, err);
-                    });
+                    // Se VACÍA antes de escribir: saveRecords sólo pisa lo
+                    // que coincide por id, así que una fila borrada en la
+                    // planilla sobrevivía en la copia local para siempre.
+                    idbManager.clearStore(storeName)
+                        .then(() => idbManager.saveRecords(storeName, filas))
+                        .catch(err => console.warn(`[dataSource] Failed to save ${hoja} to IndexedDB:`, err));
                 }
+                sellarIdb(hoja);
                 return filas;
             })
             .finally(() => { delete pedidosEnVuelo[hoja]; });
     }
 
-    const filas = (await pedidosEnVuelo[hoja]) || [];
+    let filas;
+    try {
+        filas = (await pedidosEnVuelo[hoja]) || [];
+    } catch (err) {
+        // Sin red: la copia vieja es mejor que una pantalla vacía.
+        if (deIdb) {
+            console.warn(`[dataSource] ${hoja}: sin red, se usa la copia local`, err);
+            cache[hoja] = { datos: deIdb, ts: Date.now() };
+            return [...deIdb];
+        }
+        throw err;
+    }
     cache[hoja] = { datos: filas, ts: Date.now() };
     return [...filas];
 }
