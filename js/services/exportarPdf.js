@@ -225,11 +225,27 @@ const HTML2PDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/
  *  un <script> DENTRO del propio HTML, que corre solo cuando esa
  *  página carga, sin depender de que este script vuelva a tocar su
  *  document más tarde. */
+// A partir de cuántas filas "Descargar PDF" deja de ofrecerse — pedido
+// explícito del usuario: eligió TODOS los locales, tocó Descargar, y la
+// pestaña se quedó pensando sin terminar nunca. html2canvas (lo que usa
+// html2pdf por dentro) redibuja cada fila pixel por pixel a un único
+// canvas gigante — con cientos de filas (todos los locales de la red,
+// cada uno con su equipo) eso no es "lento", es prácticamente inviable:
+// el navegador puede tardar minutos o directamente colgarse, y Chrome
+// tiene además un límite de alto de canvas (~16000px) que un reporte
+// así de largo puede pasar de largo sin avisar. "Convertir a PDF /
+// Imprimir" no tiene ese problema — es el motor de impresión nativo del
+// navegador, pagina solo y no arma ninguna imagen gigante — así que para
+// contenido grande es la única opción ofrecida, con el motivo explicado.
+const LIMITE_FILAS_DESCARGA = 120;
+
 export function exportarAPdf(elementId, titulo) {
     const origen = document.getElementById(elementId);
     if (!origen) return;
 
     const nombreArchivo = titulo.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim() + ".pdf";
+    const filas = origen.querySelectorAll("tbody tr").length;
+    const demasiadoGrande = filas > LIMITE_FILAS_DESCARGA;
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -242,14 +258,17 @@ export function exportarAPdf(elementId, titulo) {
 <body>
 <div id="barra-acciones-popup">
     <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
-    <button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>
+    ${demasiadoGrande
+        ? `<button id="btn-descargar-popup" disabled title="Este reporte tiene ${filas} filas — muy grande para armar de una sola vez. Usá &quot;Convertir a PDF / Imprimir&quot; y elegí &quot;Guardar como PDF&quot;, soporta cualquier tamaño.">⬇ Descargar PDF (reporte muy grande — usá Imprimir)</button>`
+        : `<button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>`}
 </div>
 <div id="contenido-pdf">${origen.innerHTML}</div>
-<script src="${HTML2PDF_CDN}"><\/script>
+${demasiadoGrande ? "" : `<script src="${HTML2PDF_CDN}"><\/script>`}
 <script>
 document.getElementById("btn-imprimir-popup").addEventListener("click", () => window.print());
 
 const btnDescargar = document.getElementById("btn-descargar-popup");
+${demasiadoGrande ? "" : `
 function habilitarDescarga() {
     btnDescargar.disabled = false;
     btnDescargar.textContent = "⬇ Descargar PDF";
@@ -273,13 +292,22 @@ btnDescargar.addEventListener("click", () => {
             jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
         })
         .save()
-        .then(habilitarDescarga)
+        .then(() => {
+            habilitarDescarga();
+            // Pedido explícito del usuario: descargó y no tenía forma de
+            // saber si había funcionado ni dónde había ido a parar — el
+            // navegador no siempre muestra su propio aviso de descarga
+            // de forma visible. Uno propio, con el nombre exacto del
+            // archivo, así sabe qué buscar en su carpeta de Descargas.
+            alert('Se descargó como "' + ${JSON.stringify(nombreArchivo)} + '" en la carpeta de Descargas de tu navegador.');
+        })
         .catch((err) => {
             console.warn("No se pudo generar la descarga directa:", err.message);
             alert('No se pudo generar la descarga directa — probá con "Convertir a PDF / Imprimir" y elegí "Guardar como PDF".');
             habilitarDescarga();
         });
 });
+`}
 <\/script>
 </body>
 </html>`;

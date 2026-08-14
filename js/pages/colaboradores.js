@@ -765,14 +765,19 @@ export async function Colaboradores() {
     // Los 5 pedidos son independientes entre sí — en paralelo (en vez
     // de un await atrás del otro) para no pagar 1-3s reales de red
     // por CADA uno en serie. Resultados/Evaluaciones/Lecciones solo
-    // hacen falta para Supervisor/Capacitador/Encargado (el detalle de
-    // evaluación real y la barra de Lecciones vistas, ver
-    // estadoEvaluacion/filaSemaforoGestion) — Admin usa
-    // filaDeColaborador, que no los toca, así que ni se piden.
+    // Evaluaciones/Lecciones solo hacen falta para Supervisor/
+    // Capacitador/Encargado (el detalle de evaluación real y la barra
+    // de Lecciones vistas, ver estadoEvaluacion/filaSemaforoGestion) —
+    // Admin usa filaDeColaborador, que no los toca. Resultados SÍ se
+    // pide también para Admin: lo necesita kpisSemaforo (Mejor/Menor
+    // rendimiento, Evaluaciones registradas) — antes Admin exportaba
+    // sin ese resumen ("ya está en Reportes"), pero es justo la pieza
+    // que sirve para comparar un local contra otro, que es para lo que
+    // Admin usa "Elegir mis locales" acá.
     const [asignaciones, cursos, resultados, evaluaciones, lecciones] = await Promise.all([
         getAsignaciones(),
         getCursos(),
-        esAdmin ? [] : getResultados(),
+        getResultados(),
         esAdmin ? [] : getEvaluaciones(),
         esAdmin ? [] : getLecciones(),
     ]);
@@ -870,21 +875,18 @@ export async function Colaboradores() {
 
         <div class="imprimible" id="equipo-imprimible">
 
-        ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, usuario.rol === "supervisor") : ""}
+        <!-- El resumen de KPIs (Mejor/Menor rendimiento, Evaluaciones
+             registradas) antes era solo de Supervisor/Capacitador — a
+             Admin se le daba una versión sin eso ("ya está en
+             Reportes"). Pedido explícito del usuario: es justo la
+             pieza que sirve para comparar un local contra otro, que es
+             para lo que usa "Elegir mis locales" acá — así que Admin
+             lo recibe igual ahora. -->
+        ${colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, esAdmin || usuario.rol === "supervisor") : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">
                 ${ROL_TABS.map((t, i) => `<button class="pill-categoria${i === 0 ? " activa" : ""}" data-rol-tab="${t.id}">${t.label}</button>`).join("")}
-            </div>
-            <!-- El resumen con KPIs/semáforo es de Supervisor/Capacitador
-                 (Admin no sigue esa métrica acá, ver comentario más
-                 abajo) — pero Admin también necesita exportar la lista
-                 tal como la está viendo (agrupada, filtrada por local).
-                 Mismo mecanismo (exportarAPdf sobre #equipo-imprimible),
-                 sin el bloque de KPIs que no le corresponde. -->
-            <div class="header" style="margin-bottom:14px">
-                <h3 style="margin:0">Colaboradores</h3>
-                <button class="btn btn-secondary" id="btn-exportar-equipo">🖨 Exportar PDF</button>
             </div>
         ` : ""}
 
