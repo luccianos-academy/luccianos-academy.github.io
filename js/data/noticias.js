@@ -106,9 +106,19 @@ function normalizarNoticia(f) {
                 if (f.adjuntos && String(f.adjuntos).trim()) {
                     const parsed = JSON.parse(f.adjuntos);
                     if (Array.isArray(parsed)) return parsed;
+                    // Se parseó pero no es un array — no debería pasar
+                    // nunca (crearNoticia siempre guarda un array), pero
+                    // si pasa, mejor decirlo que caer en silencio al
+                    // fallback de un solo adjunto.
+                    console.warn(`Noticia ${f.id}: "adjuntos" no es un array, cae a adjuntoUrl (un solo link) —`, f.adjuntos);
                 }
             } catch (e) {
-                // JSON inválido, fallback a adjuntoUrl
+                // Reportado en vivo: "tenía dos enlaces, salió solo uno" —
+                // si esto tira, es exactamente por qué: el fallback de
+                // abajo (adjuntoUrl) SOLO guarda el primer link, el resto
+                // se pierde de la vista aunque la fila tenga los dos bien
+                // guardados. Antes esto fallaba en silencio total.
+                console.warn(`Noticia ${f.id}: no se pudo leer "adjuntos" como JSON, cae a adjuntoUrl (un solo link) —`, e.message, f.adjuntos);
             }
             if (f.adjuntoUrl) {
                 return [{ url: String(f.adjuntoUrl).trim(), label: String(f.adjuntoLabel || "Ver adjunto").trim() }];

@@ -1209,10 +1209,23 @@ export function bindNuevaNews(params = []) {
             } else {
                 await crearNoticia(cambios);
                 registrarEvento(usuario.id, "crear_noticia", `Notificación creada: ${cambios.titulo}`);
-                // Sin await: no bloquea la navegación.
-                Promise.all([getUsuarios(), getSucursales()])
-                    .then(([usuarios, sucursales]) => mandarPushDeNoticia(cambios, usuarios, sucursales))
-                    .catch(() => {});
+                // ANTES esto no se esperaba ("no bloquea la navegación") —
+                // bug real reportado en vivo: creando dos News seguidas, el
+                // push de una de las dos nunca llegó (la News sí quedó
+                // guardada). Sin await, el fetch del push quedaba corriendo
+                // en segundo plano justo cuando se armaba el siguiente
+                // request (la próxima News) — y un error ahí se perdía sin
+                // rastro, el catch de abajo lo tragaba en silencio. Ahora
+                // se espera a que el push termine (éxito o error, sí se
+                // loguea) antes de dejar publicar la siguiente — medio
+                // segundo más de espera es preferible a un push que
+                // desaparece sin explicación.
+                try {
+                    const [usuarios, sucursales] = await Promise.all([getUsuarios(), getSucursales()]);
+                    await mandarPushDeNoticia(cambios, usuarios, sucursales);
+                } catch (err) {
+                    console.warn("No se pudo mandar el push de la noticia:", err.message);
+                }
             }
             actualizarContadorCampana();
             navigate("news");

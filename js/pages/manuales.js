@@ -21,6 +21,7 @@ import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { Icon } from "../components/icons.js";
 import { escaparHtml } from "../services/html.js";
+import { gasRequest } from "../services/google.js";
 
 // "capacitador" no es un rol real (ver data/usuarios.js — es un
 // Supervisor con otra etiqueta), pero necesita su propio checkbox acá
@@ -82,7 +83,12 @@ function camposManualHtml(m = {}, sucursales = []) {
         <div id="lista-archivos-manual" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
             ${(m.archivos && m.archivos.length > 0 ? m.archivos : [{ url: "", label: "" }]).map((a) => filaArchivoHtml(a)).join("")}
         </div>
-        <button type="button" id="btn-agregar-archivo-manual" class="btn btn-secondary" style="padding:12px;font-weight:600;width:100%">+ Agregar otro archivo</button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <button type="button" id="btn-agregar-archivo-manual" class="btn btn-secondary" style="padding:12px;font-weight:600">+ Agregar otro link</button>
+            <input type="file" id="input-archivo-manual" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif" style="display:none">
+            <button type="button" id="btn-subir-archivo-manual" class="btn btn-secondary" style="padding:12px;font-weight:600">📤 Subir archivo</button>
+        </div>
+        <p class="text-xs text-muted" style="margin-top:4px">Subir archivo lo guarda en Drive y completa el link solo — pedido explícito: cargar a mano en Drive, compartirlo y copiar la URL era un trabajo extra que se puede evitar.</p>
 
         <label>Compartir con <span style="color:red">*</span></label>
         <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">${checkboxesHtml}</div>
@@ -288,5 +294,51 @@ async function abrirModalManual(manual = null) {
     document.getElementById("btn-agregar-archivo-manual")?.addEventListener("click", () => {
         listaArchivos.insertAdjacentHTML("beforeend", filaArchivoHtml());
         wireEliminarArchivo();
+    });
+
+    // Subir un archivo directo a Drive en vez de tener que cargarlo a
+    // mano, compartirlo y copiar la URL — mismo mecanismo que ya usa
+    // News (subirArchivo en el backend, genérico, no hace falta
+    // tocar nada del lado del servidor). Pedido explícito del usuario:
+    // "es un laburito que se puede evitar".
+    const inputArchivo = document.getElementById("input-archivo-manual");
+    const btnSubirArchivo = document.getElementById("btn-subir-archivo-manual");
+    btnSubirArchivo?.addEventListener("click", () => inputArchivo?.click());
+
+    inputArchivo?.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const textoOriginal = btnSubirArchivo.textContent;
+        btnSubirArchivo.disabled = true;
+        btnSubirArchivo.textContent = "Subiendo...";
+
+        try {
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                reader.readAsDataURL(file);
+            });
+
+            const resultado = await gasRequest("subirArchivo", {
+                nombreArchivo: file.name,
+                extension: file.name.split(".").pop() || "bin",
+                archivoBase64: base64,
+            });
+
+            if (!resultado || !resultado.ok) {
+                throw new Error(resultado?.error || "No se pudo subir el archivo.");
+            }
+
+            listaArchivos.insertAdjacentHTML("beforeend", filaArchivoHtml({ url: resultado.url, label: file.name }));
+            wireEliminarArchivo();
+        } catch (err) {
+            alert(err.message || "No se pudo subir el archivo.");
+        } finally {
+            inputArchivo.value = "";
+            btnSubirArchivo.disabled = false;
+            btnSubirArchivo.textContent = textoOriginal;
+        }
     });
 }
