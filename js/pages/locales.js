@@ -33,30 +33,62 @@ const CATALOGO_POR_CURSO = {
     "Pastelería": [PRODUCTOS_PASTELERIA],
 };
 
-/** Cuenta cuántos ítems (curso, lección o producto) tienen restringido
- *  a este local y cuántos a su país. Se arma una sola vez por render y
- *  se consulta por fila. */
+/** Cuenta cuántos ítems tienen restringido a este local, separados por
+ *  TIPO (Catálogo/Lecciones/Cursos) — pedido explícito del usuario:
+ *  "que diga ocho del catálogo, tres de lecciones", así se sabe DE QUÉ
+ *  son las restricciones sin tener que entrar a revisar. Cada grupo
+ *  además guarda los nombres y si son propias del local o heredadas
+ *  del país, para el tooltip. Se arma una sola vez por render y se
+ *  consulta por fila. */
+const TIPOS_RESTRICCION = [
+    { key: "Catálogo", etiqueta: "del catálogo" },
+    { key: "Lecciones", etiqueta: "de lecciones" },
+    { key: "Cursos", etiqueta: "de cursos" },
+];
+
 function contarRestricciones(items, local) {
-    let porPais = 0;
-    let porLocal = 0;
-    items.forEach((noAplicaA) => {
+    const porTipo = {};
+    TIPOS_RESTRICCION.forEach(({ key }) => { porTipo[key] = { local: [], pais: [] }; });
+    items.forEach(({ nombre, tipo, noAplicaA }) => {
         const lista = String(noAplicaA || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
         if (!lista.length) return;
-        if (lista.includes(String(local.nombre).toLowerCase())) porLocal++;
-        else if (local.pais && lista.includes(String(local.pais).toLowerCase())) porPais++;
+        if (lista.includes(String(local.nombre).toLowerCase())) porTipo[tipo].local.push(nombre);
+        else if (local.pais && lista.includes(String(local.pais).toLowerCase())) porTipo[tipo].pais.push(nombre);
     });
-    return { porPais, porLocal };
+    return porTipo;
+}
+
+// Corta la lista de nombres a 8: con un local que acumula muchas
+// exclusiones (típico del país entero, ej. "Gluten Free" sacado de
+// toda España), un tooltip de 40 líneas es tan inútil como no tener
+// ninguna — la idea es dar un vistazo, no reemplazar "Contenido que
+// tiene" para una auditoría a fondo.
+function textoDetalle(nombres) {
+    if (nombres.length <= 8) return nombres.join(" · ");
+    return nombres.slice(0, 8).join(" · ") + ` · y ${nombres.length - 8} más`;
 }
 
 function badgeRestricciones(local) {
-    const { porPais, porLocal } = local._restricciones || { porPais: 0, porLocal: 0 };
-    if (!porPais && !porLocal) return `<span class="text-sm text-muted">—</span>`;
-    const partes = [];
-    // El propio del local va primero y en dorado: es el que alguien
-    // configuró para ESTE local y el que se va a querer revisar.
-    if (porLocal) partes.push(`<span class="badge badge-warning" title="Configurado para este local">${porLocal} del local</span>`);
-    if (porPais) partes.push(`<span class="badge badge-muted" title="Heredado de ${escaparHtml(local.pais)}">${porPais} del país</span>`);
-    return partes.join(" ");
+    const porTipo = local._restricciones || {};
+    const badges = TIPOS_RESTRICCION.map(({ key, etiqueta }) => {
+        const grupo = porTipo[key] || { local: [], pais: [] };
+        const total = grupo.local.length + grupo.pais.length;
+        if (!total) return "";
+        const detalle = [];
+        if (grupo.local.length) detalle.push(`Configurado para este local: ${textoDetalle(grupo.local)}`);
+        if (grupo.pais.length) detalle.push(`Heredado de ${local.pais}: ${textoDetalle(grupo.pais)}`);
+        // Dorado si hay algo propio de ESTE local (lo que conviene
+        // revisar primero); gris si es solo heredado del país entero.
+        const tono = grupo.local.length ? "badge-warning" : "badge-muted";
+        // ".mod-tooltip" trae de base subrayado punteado + negrita
+        // (pensado para envolver texto abreviado, ver
+        // services/tooltips.js) — sobre un badge que ya tiene su
+        // propio fondo y borde queda de más, se anula inline. El
+        // mecanismo de hover/tap es el mismo en toda la app, así que
+        // no hace falta nada más para que funcione acá.
+        return `<span class="badge ${tono} mod-tooltip" style="border-bottom:none;font-weight:inherit;cursor:help" data-tooltip-texto="${escaparHtml(detalle.join(" — "))}">${total} ${etiqueta}</span>`;
+    }).filter(Boolean);
+    return badges.length ? badges.join(" ") : `<span class="text-sm text-muted">—</span>`;
 }
 
 function badgeEstado(local) {
@@ -187,14 +219,17 @@ export async function Locales() {
     const misLocales = esAdmin ? [] : await getMisLocales(usuario, locales);
 
     // Todas las restricciones que existen, de las tres fuentes, en una
-    // sola lista. Se recorre una vez y no por fila: con 123 locales,
-    // recalcularlo en cada uno serían 123 pasadas sobre los ~300 ítems.
-    const todosLosNoAplicaA = [
-        ...cursos.map((c) => c.noAplicaA),
-        ...lecciones.map((l) => l.noAplicaA),
-        ...disponibilidad.map((d) => d.noAplicaA),
-    ].filter(Boolean);
-    locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosNoAplicaA, l); });
+    // sola lista — con el NOMBRE de cada una, no solo el texto crudo de
+    // noAplicaA, para que el tooltip de abajo pueda decir "Gluten Free"
+    // en vez de un número pelado. Se arma una vez y no por fila: con
+    // 123 locales, recalcularlo en cada uno serían 123 pasadas sobre
+    // los ~300 ítems.
+    const todosLosItems = [
+        ...cursos.map((c) => ({ nombre: c.nombre, tipo: "Cursos", noAplicaA: c.noAplicaA })),
+        ...lecciones.map((l) => ({ nombre: l.titulo, tipo: "Lecciones", noAplicaA: l.noAplicaA })),
+        ...disponibilidad.map((d) => ({ nombre: d.producto ? `${d.producto} (${d.curso})` : d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA })),
+    ].filter((it) => it.noAplicaA);
+    locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosItems, l); });
 
     const columnas = [
         { key: "seleccion", label: "" },
