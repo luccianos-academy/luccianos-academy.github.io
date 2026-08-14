@@ -77,11 +77,22 @@ function contarRestricciones(items, local) {
 // Módulos), así que ni hace falta agrupar por módulo adentro — solo
 // una lista prolija. Necesita líneas de verdad: el tooltip pasa a
 // white-space:pre-line (css/components.css) para poder mostrarlas.
+// Tope subido de 8 a 20 — pedido explícito del usuario: con 15
+// productos sacados de un local, quería poder verlos TODOS, no 8 más
+// un "y 7 más" que lo obligaba a ir a "Contenido que tiene" igual.
+// Ahora que el tooltip no se corta contra ningún borde (position:fixed,
+// ver css/components.css), una lista más larga ya no se pierde.
+const TOPE_DETALLE = 20;
+
 function textoDetalle(entradas) {
-    const limitadas = entradas.length <= 8 ? entradas : entradas.slice(0, 8);
+    const limitadas = entradas.length <= TOPE_DETALLE ? entradas : entradas.slice(0, TOPE_DETALLE);
     const resto = entradas.length - limitadas.length;
-    const lineas = limitadas.map((e) => e.nombre);
-    if (resto > 0) lineas.push(`y ${resto} más`);
+    // Numerado — pedido explícito: con muchos ítems ("15 productos,
+    // todo muy encimado") localizar uno puntual a ojo es difícil; con
+    // "1. / 2. / 3...", el usuario puede ubicar "el sexto" de un
+    // vistazo en vez de contar renglones sin marca.
+    const lineas = limitadas.map((e, i) => `${i + 1}. ${e.nombre}`);
+    if (resto > 0) lineas.push(`…y ${resto} más`);
     return lineas.join("\n");
 }
 

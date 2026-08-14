@@ -18,35 +18,58 @@
    .mod-tooltip, sin importar el orden en que el usuario navegue.
 =============================*/
 
-/** El cuadro de texto del tooltip se arma centrado sobre el ícono
- *  (::after, ver css/components.css) con hasta 220px de ancho — si el
- *  ícono está cerca de un borde de la pantalla, ese centrado lo saca
- *  del viewport y queda cortado. Esto calcula cuánto hay que correrlo
- *  (--tooltip-nudge) para que el CUADRO quede siempre adentro,
- *  mientras la flechita (que no se corre) se mantiene apuntando al
- *  ícono. Se basa en el max-width fijo (220px) en vez de medir el
- *  ::after ya renderizado — no hace falta exactitud pixel-perfect,
- *  solo garantizar que nunca se pase del borde. */
+/** Calcula dónde va el tooltip EN COORDENADAS DE PANTALLA (position:fixed
+ *  en CSS, ver .mod-tooltip::before/::after) — ya no relativas al
+ *  propio ícono, así que hay que darle las tres: el centro horizontal
+ *  (--tooltip-x) y, según entre o no abajo, la posición vertical de la
+ *  flechita y el cuadro (--tooltip-arrow-y / --tooltip-box-y).
+ *
+ *  Bug real que motivó el cambio a fixed: un .mod-tooltip adentro de
+ *  .table-wrapper (necesita overflow-x:auto para tablas anchas, y esa
+ *  sola propiedad ya le saca "visible" a overflow-y también — no hay
+ *  forma de evitarlo solo con CSS) quedaba CORTADO por ese contenedor
+ *  cuando no había lugar abajo, típicamente con una tabla de pocas
+ *  filas (ej. filtrada a un solo resultado). position:fixed no lo
+ *  arregla solo: hay que decidir en JS si entra abajo o hay que
+ *  abrirlo hacia arriba, y decírselo en píxeles reales.
+ *
+ *  Se estima el alto del cuadro (no se mide el real: en el momento en
+ *  que esto corre casi siempre está con opacity:0 pero ya maquetado,
+ *  así que SÍ se podría medir con getBoundingClientRect — pero como
+ *  también depende de --tooltip-x, que se fija ACÁ MISMO, medir antes
+ *  de fijarlo daría el ancho por defecto (centrado en el viewport) en
+ *  vez del real; más simple y confiable estimar por alto de línea. */
 function corregirPosicionTooltip(el) {
     // 220 es el max-width del CSS (.mod-tooltip::after), pero box-sizing
     // ahí es content-box (default) — el padding (8px 12px) y el borde
     // (1px) se SUMAN a esos 220px en vez de recortarse de adentro. Sin
     // contar ese margen extra (~26px), un tooltip pegado al borde de la
     // pantalla (ej. la columna "Acceso", la última de la tabla) se
-    // pasaba igual pese al cálculo de --tooltip-nudge.
+    // pasaba igual pese al cálculo de --tooltip-x.
     const ANCHO_MAX = 246;
     const PADDING = 10;
+    const GAP = 8; // separación entre el ícono y la flechita
     const rect = el.getBoundingClientRect();
-    const centroX = rect.left + rect.width / 2;
-    const mitad = ANCHO_MAX / 2;
     const vw = window.innerWidth;
-    let nudge = 0;
-    if (centroX - mitad < PADDING) {
-        nudge = PADDING - (centroX - mitad);
-    } else if (centroX + mitad > vw - PADDING) {
-        nudge = (vw - PADDING) - (centroX + mitad);
-    }
-    el.style.setProperty("--tooltip-nudge", `${nudge}px`);
+    const vh = window.innerHeight;
+
+    let x = rect.left + rect.width / 2;
+    const mitad = ANCHO_MAX / 2;
+    if (x - mitad < PADDING) x = mitad + PADDING;
+    else if (x + mitad > vw - PADDING) x = vw - PADDING - mitad;
+
+    // Alto estimado del cuadro: una línea de texto entra en las ~24
+    // líneas de un badge/M1, pero el detalle de restricciones de
+    // Locales puede traer hasta 9 líneas (8 ítems + "y N más") — se
+    // estima con margen de sobra en vez de medir el DOM, más simple.
+    const lineas = String(el.dataset.tooltipTexto || "").split("\n").length;
+    const altoEstimado = 20 + lineas * 17;
+
+    const entraAbajo = rect.bottom + GAP + altoEstimado <= vh - PADDING;
+    el.classList.toggle("arriba", !entraAbajo);
+    el.style.setProperty("--tooltip-x", `${x}px`);
+    el.style.setProperty("--tooltip-arrow-y", `${entraAbajo ? rect.bottom : rect.top}px`);
+    el.style.setProperty("--tooltip-box-y", `${entraAbajo ? rect.bottom + GAP : rect.top - GAP}px`);
 }
 
 export function bindTooltips() {

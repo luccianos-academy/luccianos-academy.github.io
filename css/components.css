@@ -2041,32 +2041,55 @@ table.data-table tbody tr:hover{
     font-weight:700;
 }
 
+/* position:FIXED, no absolute — pedido explícito del usuario, bug
+   encontrado en Locales pero confirmado que pasa "en varias partes de
+   la aplicación": cualquier .mod-tooltip que vive dentro de un
+   contenedor con overflow acotado (ej. .table-wrapper, que necesita
+   overflow-x:auto para poder scrollear tablas anchas — y esa sola
+   propiedad ya fuerza overflow-y a no ser "visible" tampoco, es una
+   regla del CSS, no algo que se pueda evitar con overflow-y:visible a
+   mano) quedaba CORTADO por ese contenedor apenas no había lugar
+   abajo — típicamente con pocas filas (una tabla filtrada a 1
+   resultado), donde el tooltip se abre pero el borde inferior de la
+   tarjeta lo tapa a mitad de camino.
+   position:fixed se ubica respecto de la VENTANA, no del contenedor
+   con scroll — así ningún overflow:hidden/auto de un ancestro lo
+   recorta. A cambio, ya no se puede centrar solo con "top:100%;
+   left:50%" (eso es relativo al propio elemento) — la posición en
+   píxeles de pantalla la calcula corregirPosicionTooltip()
+   (services/tooltips.js) y la deja en --tooltip-x/--tooltip-arrow-y/
+   --tooltip-box-y, recalculada en cada hover/tap. */
 .mod-tooltip::before,
 .mod-tooltip::after{
-    position:absolute;
-    top:calc(100% + 8px);
-    left:50%;
+    position:fixed;
+    left:var(--tooltip-x, 50%);
     opacity:0;
     pointer-events:none;
-    transition:opacity .15s ease, transform .15s ease;
-    z-index:20;
+    transition:opacity .15s ease;
+    z-index:200;
 }
 
-/* La flechita SIEMPRE queda centrada sobre el ícono — es la que marca
-   de dónde sale el tooltip, nunca se corre. */
+/* La flechita apunta al ícono. Por default se abre ABAJO (mismo look
+   de siempre); con la clase .arriba (agregada por JS cuando no hay
+   lugar abajo antes del próximo borde de la pantalla — el caso real
+   que rompía: una tabla de un solo resultado, filtrada) se invierte:
+   la flechita mira hacia abajo y el cuadro cuelga hacia arriba del
+   ícono en vez de hacia abajo. */
 .mod-tooltip::before{
     content:"";
     border:5px solid transparent;
     border-bottom-color:var(--gold);
-    top:100%;
-    transform:translateX(-50%) translateY(-1px);
+    top:var(--tooltip-arrow-y, 0px);
+    transform:translateX(-50%);
 }
 
-/* El cuadro de texto sí puede correrse (--tooltip-nudge, calculado en
-   services/tooltips.js) para no salirse de la pantalla cuando el
-   ícono está cerca de un borde — sin esto, un tooltip centrado sobre
-   un ícono a la izquierda quedaba cortado contra el borde de la
-   pantalla en vez de reacomodarse. */
+.mod-tooltip.arriba::before{
+    border-bottom-color:transparent;
+    border-top-color:var(--gold);
+    top:var(--tooltip-arrow-y, 0px);
+    transform:translateX(-50%) translateY(-100%);
+}
+
 .mod-tooltip::after{
     content:attr(data-tooltip-texto);
     background:var(--card);
@@ -2093,19 +2116,20 @@ table.data-table tbody tr:hover{
     max-width:220px;
     text-align:left;
     box-shadow:var(--shadow);
-    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px)));
+    top:var(--tooltip-box-y, 0px);
+    transform:translateX(-50%);
+}
+
+.mod-tooltip.arriba::after{
+    top:var(--tooltip-box-y, 0px);
+    transform:translateX(-50%) translateY(-100%);
 }
 
 .mod-tooltip:hover::before,
-.mod-tooltip.mostrar-tooltip::before{
-    opacity:1;
-    transform:translateX(-50%) translateY(0);
-}
-
+.mod-tooltip.mostrar-tooltip::before,
 .mod-tooltip:hover::after,
 .mod-tooltip.mostrar-tooltip::after{
     opacity:1;
-    transform:translateX(calc(-50% + var(--tooltip-nudge, 0px))) translateY(0);
 }
 
 /* Variante ⓘ para explicar qué significa una tarjeta/sección
