@@ -10,7 +10,7 @@
 import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
-import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal } from "../data/sucursales.js";
+import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal } from "../data/sucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
@@ -147,7 +147,7 @@ function puedeGestionarLocales(usuario) {
     return usuario?.rol === "supervisor" && !usuario?.capacitador;
 }
 
-function filaAcciones(local, puedeGestionar) {
+function filaAcciones(local, puedeGestionar, esAdmin) {
     const editarBtn = `<button class="menu-acciones-item" data-editar="${local.id}">Editar</button>`;
     const estadoBtn = local.estado === "Activa"
         ? `<button class="menu-acciones-item" data-desactivar="${local.id}">Desactivar</button>`
@@ -156,10 +156,18 @@ function filaAcciones(local, puedeGestionar) {
         ? `<button class="menu-acciones-item" data-marcar-franquicia="${local.id}">Marcar franquicia</button>`
         : `<button class="menu-acciones-item" data-marcar-propio="${local.id}">Marcar propio</button>`;
     const modulosBtn = `<button class="menu-acciones-item" data-modulos="${local.id}">Contenido que tiene</button>`;
+    // Eliminar es Admin-only, mismo criterio que dar de alta un local
+    // nuevo: es un cambio estructural, no una corrección del día a día
+    // (eso es Editar/Desactivar/Marcar propio, que sí puede un
+    // Supervisor). El chequeo real de si se puede borrar sin dejar
+    // gente sin sucursal pasa recién al hacer click — acá solo se
+    // decide quién ve el botón.
+    const eliminarBtn = `<button class="menu-acciones-item menu-acciones-item-danger" data-eliminar-local="${local.id}">Eliminar</button>`;
     // "Contenido que tiene" queda para todos: ya abre en solo lectura si
     // no sos Admin, y es justo lo que alguien que viene a revisar la
     // plataforma necesita mirar.
-    return menuAcciones(puedeGestionar ? [editarBtn, modulosBtn, estadoBtn, tipoBtn] : [modulosBtn]);
+    if (!puedeGestionar) return menuAcciones([modulosBtn]);
+    return menuAcciones(esAdmin ? [editarBtn, modulosBtn, estadoBtn, tipoBtn, eliminarBtn] : [editarBtn, modulosBtn, estadoBtn, tipoBtn]);
 }
 
 export async function Locales() {
@@ -215,7 +223,7 @@ export async function Locales() {
         supervisor: l.supervisor || "—",
         tipoBadge: badgeTipo(l),
         estadoBadge: badgeEstado(l),
-        acciones: filaAcciones(l, puedeGestionar),
+        acciones: filaAcciones(l, puedeGestionar, esAdmin),
     });
 
     // Propios y franquicias se operan distinto, así que la pregunta más
@@ -627,6 +635,38 @@ export function bindLocales() {
         btn.addEventListener("click", async () => {
             await actualizarSucursal(btn.dataset.marcarFranquicia, { esPropio: "NO" });
             registrarEvento(getUsuarioActual().id, "editar_local", `Local marcado como franquicia (id ${btn.dataset.marcarFranquicia})`);
+            navigate("locales");
+        });
+    });
+
+    // Eliminar es irreversible y el nombre del local es la ÚNICA
+    // manera en que Usuarios.sucursal apunta acá — no hay id de por
+    // medio. Si se borra con gente todavía asignada, esas personas
+    // quedan con una sucursal que ya no existe, en silencio: no
+    // rompen, pero "Mi local" les muestra un nombre fantasma y ya no
+    // matchean contra ninguna restricción por local. Por eso el
+    // bloqueo de acá es real, no un simple confirm — hay que reasignar
+    // a esa gente primero.
+    document.querySelectorAll("[data-eliminar-local]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            const id = btn.dataset.eliminarLocal;
+            const [locales, usuarios] = await Promise.all([getSucursales(), getUsuarios()]);
+            const local = locales.find((l) => String(l.id) === String(id));
+            if (!local) return;
+
+            const gente = usuarios.filter((u) => u.rol === "colaborador" && u.sucursal === local.nombre);
+            if (gente.length) {
+                const nombres = gente.slice(0, 5).map((u) => u.nombre).join(", ") + (gente.length > 5 ? "…" : "");
+                alert(`No se puede eliminar "${local.nombre}": todavía tiene ${gente.length} colaborador(es) asignado(s) (${nombres}). Reasignalos a otro local desde Colaboradores y volvé a intentar — el nombre del local es lo único que los vincula, y si se borra quedan con una sucursal fantasma, sin avisar.`);
+                return;
+            }
+
+            if (!confirm(`¿Eliminar "${local.nombre}" definitivamente? No se puede deshacer.
+
+No tiene colaboradores asignados. Si algún Manual o News quedó dirigido puntualmente a este local, esa restricción deja de encontrar a nadie — no rompe nada, pero convendría revisarlos después.`)) return;
+
+            await eliminarSucursal(id);
+            registrarEvento(getUsuarioActual().id, "eliminar_local", `Local eliminado: ${local.nombre} (id ${id})`);
             navigate("locales");
         });
     });
