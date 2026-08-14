@@ -75,7 +75,18 @@ const ESTILOS_IMPRESION = `
        alto — el contenido se acomoda al tamaño de la celda, nunca al
        revés. */
     .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 14px 0; }
-    .card, .kpi-card { background: #fffdf8; border: 1px solid #e2d9c5; border-radius: 8px; padding: 12px 16px; page-break-inside: avoid; }
+    /* "page-break-inside: avoid" SOLO en .kpi-card (las tarjetas
+       chicas — partir un número a la mitad se ve mal), NO en ".card"
+       a secas: acá esa clase también envuelve la tabla entera del
+       Semáforo (vistaSemaforo, reportes.js), y prohibirle partirse
+       era justo lo que causaba la "hoja de tapa": el membrete + las 5
+       tarjetas ocupaban la página 1 con un hueco enorme abajo (todo
+       lo que sobraba de espacio), porque el navegador no podía meter
+       la tabla completa ahí y la mandaba entera a la página 2 en vez
+       de continuarla donde había lugar. Bug real reportado por el
+       usuario probando la impresión. */
+    .card { background: #fffdf8; border: 1px solid #e2d9c5; border-radius: 8px; padding: 12px 16px; }
+    .kpi-card { page-break-inside: avoid; }
     .kpi-card h3 { font-size: 11px; text-transform: uppercase; color: #666; margin: 0 0 6px; letter-spacing: .5px; }
     .kpi-card span { font-size: 22px; font-weight: 700; }
     .kpi-icon { display: none; }
@@ -98,8 +109,16 @@ const ESTILOS_IMPRESION = `
        fuente más grande se corrigió por esto). Sin el "fill: none"
        acá, un <circle> SVG sin fill declarado se pinta negro sólido
        por defecto del navegador — la fila de círculos negros que
-       encontró el usuario exportando el Semáforo. */
-    .anillo { position: relative; flex-shrink: 0; display: inline-block; }
+       encontró el usuario exportando el Semáforo.
+       "display:block; width:fit-content; margin:0 auto" en vez de
+       "inline-block" — pedido explícito: "los círculos todos a la
+       izquierda, queda todo asimétrico". Un inline-block dentro de un
+       <td> se pega al borde izquierdo (el text-align por defecto de
+       la celda), dejando todo el resto del ancho vacío a la derecha;
+       con margin:auto y un ancho propio (fit-content, no el 100% que
+       tomaría un block común) el anillo queda centrado en su celda
+       sin importar cuánto más ancha sea que el círculo. */
+    .anillo { position: relative; flex-shrink: 0; display: block; width: fit-content; margin: 0 auto; }
     .anillo svg { transform: rotate(-90deg); }
     .anillo circle { fill: none; stroke-width: 4; }
     .anillo-track { stroke: #e6ddc9; }
@@ -282,16 +301,29 @@ if (window.html2pdf) {
 btnDescargar.addEventListener("click", () => {
     btnDescargar.disabled = true;
     btnDescargar.textContent = "⬇ Generando...";
-    window.html2pdf()
-        .from(document.getElementById("contenido-pdf"))
-        .set({
-            margin: 10,
-            filename: ${JSON.stringify(nombreArchivo)},
-            image: { type: "jpeg", quality: 0.95 },
-            html2canvas: { scale: 2, backgroundColor: "#ffffff" },
-            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-        })
-        .save()
+    // Reportado en vivo: "Generando..." se queda pegado para siempre
+    // con contenido chico, no solo con reportes enormes — la causa más
+    // probable es una foto de perfil externa (Drive/Google) que
+    // html2canvas intenta cargar y nunca termina de resolver (ni
+    // success ni error), así que ni .then() ni .catch() llegan a
+    // correr nunca. useCORS ayuda con eso, pero la garantía real es
+    // el timeout de acá abajo: pase lo que pase adentro, a los 25s se
+    // desbloquea el botón y avisa, en vez de quedar pegado para
+    // siempre sin ninguna explicación.
+    const conTimeout = Promise.race([
+        window.html2pdf()
+            .from(document.getElementById("contenido-pdf"))
+            .set({
+                margin: 10,
+                filename: ${JSON.stringify(nombreArchivo)},
+                image: { type: "jpeg", quality: 0.95 },
+                html2canvas: { scale: 2, backgroundColor: "#ffffff", useCORS: true },
+                jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+            })
+            .save(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 25000)),
+    ]);
+    conTimeout
         .then(() => {
             habilitarDescarga();
             // Pedido explícito del usuario: descargó y no tenía forma de

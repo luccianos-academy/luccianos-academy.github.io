@@ -5062,6 +5062,15 @@ table.data-table tbody tr:hover{
 .anillo{
     position:relative;
     flex-shrink:0;
+    /* display:block + width:fit-content + margin:auto en vez de solo
+       inline-block — el mismo bug que se vio al exportar a PDF: adentro
+       de una <td> más ancha que el círculo, un inline-block se pega al
+       borde izquierdo (el text-align por defecto de la celda) y deja
+       todo el resto vacío a la derecha. Con esto queda centrado sin
+       importar cuánto más ancha sea la celda que el círculo. */
+    display:block;
+    width:fit-content;
+    margin:0 auto;
 }
 
 .anillo svg{

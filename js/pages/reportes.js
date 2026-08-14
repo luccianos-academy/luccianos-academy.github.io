@@ -448,13 +448,16 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
             const equipo = colaboradores.filter((c) => c.sucursal === nombreSucursal);
             const promedio = promedioDeGrupo(equipo, asignaciones, cursos) ?? 0;
             const cursosAplicables = cursos.filter((cur) => equipo.some((c) => cursoAplicaAPersona(cur, c)));
-            const avatares = equipo.slice(0, 3).map((c) => Avatar({ nombre: c.nombre, foto: c.foto, size: "sm" })).join("");
-            const extra = equipo.length > 3 ? `<span class="pila-mas">+${equipo.length - 3}</span>` : "";
 
+            // La pila de avatares ("Equipo") se sacó — pedido explícito
+            // del usuario: la fila ya es "Sucursal", así que ya se
+            // entiende que es el equipo entero de ese local; una
+            // columna aparte con caras/iniciales no agregaba nada,
+            // y en el PDF (sin fotos reales) se veía como iniciales
+            // sueltas sin sentido.
             const fila = {
                 _promedio: promedio,
                 sucursal: `<div class="fila-avatar-nombre-txt">${nombreSucursal}</div>`,
-                equipo: `<div class="pila-avatares">${avatares}${extra}</div>`,
                 total: String(cursosAplicables.length),
                 resultado: anilloPct(promedio, 46),
                 nivel: badgeNivel(nivelDe(promedio)),
@@ -472,7 +475,6 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
 
     const columnas = [
         { key: "sucursal", label: "Sucursal" },
-        { key: "equipo", label: "Equipo" },
         { key: "total", label: "Total módulos" },
         { key: "resultado", label: "Resultado general" },
         { key: "nivel", label: "Nivel" },
