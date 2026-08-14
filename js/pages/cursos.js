@@ -329,6 +329,7 @@ const POSTER_POR_LECCION = {
 // Lucciano's) tiene que verse igual — no reemplaza al video, se suma.
 const IMAGEN_EXTRA_POR_LECCION = {
     18: "assets/img/chocolateria/cinco_estrellas_alfajor.png",
+    1786746818551: "assets/img/cafeteria/hotchocolate-final-cup.jpg",
 };
 
 // Igual que IMAGEN_EXTRA_POR_LECCION pero para video — se suma DEBAJO
@@ -338,7 +339,12 @@ const IMAGEN_EXTRA_POR_LECCION = {
 // va en fotos (es lo que hay que poder consultar con calma, quieto),
 // el video de preparación/presentación es un plus, no bloqueante —
 // "los videos son opcionales" para esta lección, pedido explícito.
-const VIDEOS_EXTRA_POR_LECCION = {};
+const VIDEOS_EXTRA_POR_LECCION = {
+    1786746818551: [
+        { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
+        { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
+    ],
+};
 
 // Secuencia de capturas de pantalla navegable a mano (botones
 // anterior/siguiente, sin autoplay) — para lecciones de Sistema y
@@ -346,6 +352,15 @@ const VIDEOS_EXTRA_POR_LECCION = {};
 // leer con calma, algo que un video con transición automática no
 // permite.
 const IMAGENES_POR_LECCION = {
+    1786746818551: [
+        { src: "assets/img/cafeteria/hotchocolate-armado-1.jpg", caption: "01 · Verificar los componentes" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-2.jpg", caption: "02 · Colocar el agitador dentro del vaso" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-3.jpg", caption: "03 · Montar el vaso sobre la base motor" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-4.jpg", caption: "04 · Armar la canilla dispensadora" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-5.jpg", caption: "05 · Insertar la canilla en el vaso" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-6.jpg", caption: "06—07 · Ajustar la canilla y colocar la tapa" },
+        { src: "assets/img/cafeteria/hotchocolate-armado-7.jpg", caption: "08 · Verificación final del armado" },
+    ],
     7: [{ src: "assets/img/cursos/heladeria-pase-1.jpg", caption: "Comparar las dos mitades y elegir la de mejor apariencia" }, { src: "assets/img/cursos/heladeria-pase-2.jpg", caption: "Completar la vasqueta" }, { src: "assets/img/cursos/heladeria-pase-3.jpg", caption: "Formar los picos sobre la superficie" }, { src: "assets/img/cursos/heladeria-pase-4.jpg", caption: "Vasqueta terminada, con su cartel de sabor" }, { src: "assets/img/cursos/heladeria-pase-5.jpg", caption: "Cartel de sabor" }, { src: "assets/img/cursos/heladeria-pase-6.jpg", caption: "Colocar en el abatidor" }, { src: "assets/img/cursos/heladeria-pase-7.jpg", caption: "Exhibida en la vitrina" }],
     9: [{ src: "assets/img/cursos/heladeria-bano-chocolate-1.jpg", caption: "Cono antes del baño" }, { src: "assets/img/cursos/heladeria-bano-chocolate-2.jpg", caption: "Primer contacto con el chocolate" }, { src: "assets/img/cursos/heladeria-bano-chocolate-3.jpg", caption: "Girando para cubrir todo el cono" }, { src: "assets/img/cursos/heladeria-bano-chocolate-4.jpg", caption: "Retirando el exceso de chocolate" }, { src: "assets/img/cursos/heladeria-bano-chocolate-5.jpg", caption: "Cono terminado" }],
     5: [{ src: "assets/img/cursos/heladeria-gramajes.png", caption: "Vasos y conos — gramaje por presentación" }, { src: "assets/img/cursos/heladeria-gramajes-potes.jpg", caption: "Potes Take Away, Consumo Ahora e Icepop Take Away" }],

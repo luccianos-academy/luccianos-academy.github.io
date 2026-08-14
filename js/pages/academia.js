@@ -41,6 +41,9 @@ function camposLeccionHtml(l = {}) {
         <label for="input-duracion">Duración (minutos)</label>
         <input type="number" id="input-duracion" min="0" value="${l.duracionMinutos || ""}">
 
+        <label for="input-orden">Orden (posición en la lista — decide dónde aparece, no hace falta que sea correlativo, ej. 16.5 la mete entre la 16 y la 17)</label>
+        <input type="number" id="input-orden" step="0.5" value="${l.orden ?? ""}">
+
         <label for="input-video">Video (link de Drive)</label>
         <input type="text" id="input-video" placeholder="https://drive.google.com/..." value="${l.video || ""}">
 
@@ -81,6 +84,7 @@ function leerCamposLeccion() {
         titulo: document.getElementById("input-titulo").value.trim(),
         objetivo: document.getElementById("input-objetivo").value.trim(),
         duracionMinutos: Number(document.getElementById("input-duracion").value) || 0,
+        orden: Number(document.getElementById("input-orden").value) || 0,
         video: document.getElementById("input-video").value.trim(),
         manual: document.getElementById("input-manual").value.trim(),
         manualLabel: document.getElementById("input-manualLabel").value.trim(),
@@ -348,7 +352,13 @@ async function abrirModalLecciones(cursoId) {
         const cambios = leerCamposLeccion();
         if (!cambios.titulo) return;
 
-        await crearLeccion({ cursoId, orden: lecciones.length + 1, ...cambios });
+        // Si no se tocó el campo Orden (quedó en 0, el default del
+        // formulario vacío), se sigue agregando al final como siempre.
+        // Si se puso un valor a propósito (ej. para meterla primera o
+        // entre dos existentes), gana ese.
+        if (!cambios.orden) cambios.orden = lecciones.length + 1;
+
+        await crearLeccion({ cursoId, ...cambios });
         registrarEvento(getUsuarioActual().id, "crear_leccion", `Lección "${cambios.titulo}" agregada`);
 
         cerrarModal(modalId);

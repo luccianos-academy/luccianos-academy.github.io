@@ -229,19 +229,6 @@ function abrirModalProducto(producto) {
 export function bindGaleriaProductos() {
     const pills = document.querySelectorAll(".galeria-pills > [data-categoria-pill]");
     const tarjetas = document.querySelectorAll(".producto-card");
-    // DEBUG TEMPORAL — sacar apenas se resuelva el bug de la tarjeta de
-    // Chocolate Caliente que no abre en el celular (2026-08-14). Marca
-    // visible en pantalla (no requiere consola, se ve en cualquier
-    // celular) confirmando si esta función corrió y cuántas tarjetas
-    // encontró — sin esto, un "no pasó nada" no dice si el problema es
-    // que nunca se conectó el click o que se conectó y no hizo nada.
-    const marcaDebug = document.querySelector(".galeria-productos");
-    if (marcaDebug) {
-        const aviso = document.createElement("p");
-        aviso.style.cssText = "font-size:11px;color:#e67e22;margin-top:6px";
-        aviso.textContent = `[debug] bind ejecutado, ${tarjetas.length} tarjeta(s) encontradas, ${pills.length} pill(s)`;
-        marcaDebug.appendChild(aviso);
-    }
 
     pills.forEach((pill) => {
         pill.addEventListener("click", () => {
@@ -258,19 +245,8 @@ export function bindGaleriaProductos() {
 
     tarjetas.forEach((card) => {
         card.addEventListener("click", () => {
-            try {
-                const producto = productosActuales[Number(card.dataset.indice)];
-                if (producto) {
-                    abrirModalProducto(producto);
-                } else {
-                    // DEBUG TEMPORAL — sacar apenas se resuelva el bug de
-                    // la tarjeta de Chocolate Caliente que no abre en el
-                    // celular (2026-08-14).
-                    alert(`[debug] no se encontró el producto — indice=${card.dataset.indice}, productosActuales.length=${productosActuales.length}`);
-                }
-            } catch (err) {
-                alert(`[debug] error al abrir el modal: ${err.message}`);
-            }
+            const producto = productosActuales[Number(card.dataset.indice)];
+            if (producto) abrirModalProducto(producto);
         });
     });
 }
