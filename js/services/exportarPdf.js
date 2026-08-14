@@ -130,16 +130,31 @@ const ESTILOS_IMPRESION = `
     th, td { border: 1px solid #e2d9c5; padding: 6px 8px; text-align: left; vertical-align: top; background: #fffdf8; }
     th { background: #efe6d4; text-transform: uppercase; font-size: 9px; color: #333; letter-spacing: .3px; }
 
-    .celda-curso { display: flex; flex-direction: column; gap: 3px; }
+    /* min-height fija + el texto de abajo sin poder pasar a una
+       segunda línea — pedido explícito del usuario: "los pills están
+       todos desfasados, uno chico, otros más grandes". La celda tiene
+       un badge de % arriba y un renglón de evaluación abajo ("✓ 8" /
+       "Sin rendir"), y "Sin rendir" es bastante más largo que "✓ 8" —
+       en una columna angosta eso lo hacía pasar a dos líneas, y esa
+       fila quedaba más alta que las de al lado. Con nowrap la columna
+       se ensancha lo que haga falta en vez de partir el texto, así
+       todas las celdas de la misma fila miden lo mismo. */
+    .celda-curso { display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 34px; justify-content: center; }
+    .celda-curso .text-xs { white-space: nowrap; }
 
-    /* Esta ventana no carga css/components.css — sin esto, la foto de
-       perfil (que en la app toma su tamaño de .publicacion-avatar) no
-       tiene NINGÚN límite acá y se ve a tamaño natural completo (bug
-       real encontrado por el usuario exportando el Semáforo). */
     .fila-avatar-nombre { display: flex; align-items: center; gap: 8px; }
-    .publicacion-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+    /* El avatar (foto o iniciales) es de la PANTALLA — pedido
+       explícito del usuario: "eso solamente es para la plataforma,
+       para la impresión da horrible". Sin fotos reales, cada fila
+       mostraba un círculo con dos iniciales que no aportaba nada al
+       papel; se saca del PDF, la app en vivo no se toca. */
+    .publicacion-avatar { display: none; }
 
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; border: 1px solid currentColor; background: #fff; white-space: nowrap; }
+    /* Ancho fijo (no solo padding) — pedido explícito: los badges de
+       % se veían de tamaños distintos porque "0%" y "100%" tienen
+       distinto largo de texto. Con min-width todos miden lo mismo,
+       centrados, sea cual sea la cantidad de dígitos. */
+    .badge { display: inline-block; min-width: 40px; text-align: center; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; border: 1px solid currentColor; background: #fff; white-space: nowrap; }
     .badge-success { color: #1a7a3c; }
     .badge-warning { color: #a06a00; }
     .badge-danger { color: #b02a2a; }

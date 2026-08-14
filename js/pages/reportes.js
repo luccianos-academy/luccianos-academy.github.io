@@ -378,15 +378,19 @@ function kpiGrande(titulo, valor, subtitulo) {
     `;
 }
 
-/** Mejor/menor rendimiento — nombre + % coloreado, mismo criterio de
- *  "promedio real de la persona" que ya usa toda esta pantalla
- *  (progresoPersona). Sin datos (equipo vacío) no rompe: la tarjeta
- *  queda con un guion en vez de reventar. */
-function kpiPersona(titulo, persona, tono) {
+/** Mejor/menor rendimiento — nombre + % coloreado. Genérico a
+ *  propósito: sirve tanto para una PERSONA (Vista por colaboradores)
+ *  como para un LOCAL (Vista por sucursal) — antes solo aceptaba una
+ *  persona, así que en la vista agrupada por sucursal esta tarjeta
+ *  seguía mostrando el mejor/peor COLABORADOR individual, algo que no
+ *  tiene que ver con lo que esa tabla está comparando. Sin datos
+ *  (equipo vacío) no rompe: la tarjeta queda con un guion en vez de
+ *  reventar. */
+function kpiPersona(titulo, item, tono) {
     return `
         <div class="card kpi-card">
             <h3>${titulo}</h3>
-            ${persona ? `<div class="kpi-persona-nombre">${persona.c.nombre}</div><span class="tono-${tono}">${persona.pct}%</span>` : `<span>—</span>`}
+            ${item ? `<div class="kpi-persona-nombre">${item.nombre}</div><span class="tono-${tono}">${item.pct}%</span>` : `<span>—</span>`}
         </div>
     `;
 }
@@ -397,24 +401,42 @@ function kpiPersona(titulo, persona, tono) {
  *  cada módulo), así que arriba se prioriza otra cosa: cuánta gente
  *  activa hay, el promedio general, quién está mejor/peor, y cuántas
  *  evaluaciones reales se registraron. Todo sale de datos que la
- *  pantalla ya calculaba — no hay ningún número nuevo inventado. */
-export function kpisSemaforo(colaboradores, asignaciones, cursos, resultados) {
+ *  pantalla ya calculaba — no hay ningún número nuevo inventado.
+ *
+ *  "modo" decide qué es "mejor/menor rendimiento": una PERSONA
+ *  ("colaboradores", default) o un LOCAL ("sucursal") — pedido
+ *  explícito del usuario: en la Vista por sucursal, comparar un local
+ *  contra otro no tiene sentido si la tarjeta de arriba sigue hablando
+ *  de personas sueltas. Cada vista (vistaSemaforo, más abajo) le pasa
+ *  el modo que le corresponde. */
+export function kpisSemaforo(colaboradores, asignaciones, cursos, resultados, modo = "colaboradores") {
     const activos = colaboradores.filter((c) => c.activo === "SI").length;
     const resumen = resumenSemaforo(colaboradores, asignaciones, cursos);
-    const conProgreso = colaboradores
-        .map((c) => ({ c, pct: progresoPersona(c, asignaciones, cursos) }))
-        .filter((x) => x.pct !== null);
-    const mejor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct > a.pct ? b : a)) : null;
-    const menor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct < a.pct ? b : a)) : null;
     const idsEquipo = new Set(colaboradores.map((c) => String(c.id)));
     const evaluacionesEquipo = resultados.filter((r) => idsEquipo.has(String(r.colaboradorId))).length;
 
+    let mejor, menor;
+    if (modo === "sucursal") {
+        const nombresLocal = [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))];
+        const conProgreso = nombresLocal
+            .map((nombre) => ({ nombre, pct: promedioDeGrupo(colaboradores.filter((c) => c.sucursal === nombre), asignaciones, cursos) }))
+            .filter((x) => x.pct !== null);
+        mejor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct > a.pct ? b : a)) : null;
+        menor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct < a.pct ? b : a)) : null;
+    } else {
+        const conProgreso = colaboradores
+            .map((c) => ({ nombre: c.nombre, pct: progresoPersona(c, asignaciones, cursos) }))
+            .filter((x) => x.pct !== null);
+        mejor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct > a.pct ? b : a)) : null;
+        menor = conProgreso.length ? conProgreso.reduce((a, b) => (b.pct < a.pct ? b : a)) : null;
+    }
+
     return `
         <div class="cards kpis-semaforo">
-            ${kpiGrande("Colaboradores activos", activos, `de ${colaboradores.length} totales`)}
+            ${kpiGrande(modo === "sucursal" ? "Locales activos" : "Colaboradores activos", modo === "sucursal" ? new Set(colaboradores.map((c) => c.sucursal).filter(Boolean)).size : activos, modo === "sucursal" ? "con equipo cargado" : `de ${colaboradores.length} totales`)}
             ${kpiGrande("Promedio general", `${resumen.promedioGeneral}%`)}
-            ${kpiPersona("Mejor rendimiento", mejor, "success")}
-            ${kpiPersona("Menor rendimiento", menor, "danger")}
+            ${kpiPersona(modo === "sucursal" ? "Mejor sucursal" : "Mejor rendimiento", mejor, "success")}
+            ${kpiPersona(modo === "sucursal" ? "Sucursal a reforzar" : "Menor rendimiento", menor, "danger")}
             ${kpiGrande("Evaluaciones registradas", evaluacionesEquipo, "en total")}
         </div>
     `;
@@ -487,16 +509,29 @@ function tablaPorSucursal(colaboradores, cursos, asignaciones) {
  *  explícito del cliente (referencia visual). Los dos paneles se
  *  arman siempre (no bajo demanda): son tablas, no fetches nuevos,
  *  así que alternar es instantáneo, sin spinner. */
+/** Cada panel lleva SU PROPIO bloque de KPIs (antes era uno solo,
+ *  compartido arriba de los dos) — pedido explícito del usuario: en
+ *  Vista por sucursal, "Mejor/Menor rendimiento" seguía comparando
+ *  personas sueltas en vez de locales, porque el bloque de KPIs no
+ *  sabía en qué vista estaba. Como el toggle de pestañas ya alterna
+ *  la visibilidad de [data-panel-semaforo] (ver bindTabsSemaforo),
+ *  metiendo los KPIs ADENTRO de cada panel el show/hide correcto sale
+ *  gratis, sin wiring nuevo. */
 function vistaSemaforo(colaboradores, asignaciones, cursos, resultados, lecciones, cursosConEvaluacion) {
     return `
-        ${kpisSemaforo(colaboradores, asignaciones, cursos, resultados)}
         <div class="card">
             <div class="tabs-semaforo" id="tabs-semaforo">
                 <button class="tab-semaforo activa" data-vista-semaforo="colaboradores">Vista por colaboradores</button>
                 <button class="tab-semaforo" data-vista-semaforo="sucursal">Vista por sucursal</button>
             </div>
-            <div data-panel-semaforo="colaboradores">${tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados, lecciones, cursosConEvaluacion)}</div>
-            <div data-panel-semaforo="sucursal" style="display:none">${tablaPorSucursal(colaboradores, cursos, asignaciones)}</div>
+            <div data-panel-semaforo="colaboradores">
+                ${kpisSemaforo(colaboradores, asignaciones, cursos, resultados, "colaboradores")}
+                ${tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resultados, lecciones, cursosConEvaluacion)}
+            </div>
+            <div data-panel-semaforo="sucursal" style="display:none">
+                ${kpisSemaforo(colaboradores, asignaciones, cursos, resultados, "sucursal")}
+                ${tablaPorSucursal(colaboradores, cursos, asignaciones)}
+            </div>
         </div>
     `;
 }
