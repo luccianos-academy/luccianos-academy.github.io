@@ -138,8 +138,19 @@ async function descripcionDestinatarios(noti) {
             : "Locales específicos — ninguno seleccionado";
     }
 
+    if (dirigido === "argentina") {
+        const excluidos = String(noti.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
+        return excluidos.length
+            ? `Argentina, salvo ${excluidos.length} local(es): ${excluidos.join(", ")}`
+            : "Argentina";
+    }
+
+    // Un dirigidoA que no matchea ningún modo conocido es el mismo caso
+    // "por defecto no se muestra" de puedeVerNoticia — decirlo así en
+    // vez de adivinar un nombre, para no mostrar "Argentina" sobre una
+    // News que en los hechos no le llegó a nadie.
     const conocido = DIRIGIDO_A.find((d) => d.id === dirigido);
-    return conocido ? conocido.nombre : "Todos los colaboradores";
+    return conocido ? conocido.nombre : "Ningún destinatario reconocido — revisala";
 }
 
 /** Bloque "Enviada a:" del detalle. Solo para quien gestiona News
@@ -224,7 +235,8 @@ function etiquetaGrupo(fecha) {
 function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
-    const dirigidoActual = n.dirigidoA || "";
+    const esNoticiaNueva = !n.id;
+    const dirigidoActual = esNoticiaNueva ? (n.dirigidoA || "argentina") : (n.dirigidoA || "");
     const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
     const esAdmin = usuario.rol === "admin";
@@ -242,9 +254,10 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
     // DIRIGIDO_A en data/noticias.js). News es solo para colaboradores;
     // Supervisión + Admin siempre reciben copia (no son opción).
     const DESC_DIRIGIDO = {
-        "": "A todos los colaboradores de la red.",
-        "encargados-propios": "Solo encargados de locales propios.",
-        "encargados-franquicias": "Solo encargados de franquicias.",
+        "argentina": "A los colaboradores de Argentina — podés excluir locales puntuales abajo.",
+        "": "A todos los colaboradores de la red, de cualquier país.",
+        "encargados-propios": "Solo responsables de local, de locales propios.",
+        "encargados-franquicias": "Solo responsables de local, de franquicias.",
         "colaboradores-local": "Elegí a qué locales enviarla.",
         "usuarios-especificos": "Solo a usuarios específicos que selecciones (Admin only).",
         "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
@@ -312,6 +325,12 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                 <div id="wrap-usuarios-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-usuarios-notif" style="margin-top:0">Seleccionar usuarios</label>
                     ${MultiSelectUsuarios("input-usuarios-notif", n.usuariosEspecificos ? n.usuariosEspecificos.split(",").map((id) => id.trim()).filter(Boolean) : [])}
+                </div>
+
+                <div id="wrap-noaplica-notif" class="form-section-collapsible hidden" style="margin-top:14px">
+                    <label for="input-noaplica-notif" style="margin-top:0">Locales que NO la reciben <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></label>
+                    ${MultiSelectSucursales("input-noaplica-notif", n.noAplicaA ? n.noAplicaA.split(",").map((s) => s.trim()).filter(Boolean) : [])}
+                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">El resto de Argentina la recibe igual — esto es para el caso puntual de un local que no aplica (ej. todavía no abrió, o el aviso no le sirve).</p>
                 </div>
 
                 <div class="form-info-box">
@@ -423,6 +442,8 @@ function leerCamposNotificacion() {
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         // Usuarios específicos: solo cuando se elige esa opción
         usuariosEspecificos: dirigidoA === "usuarios-especificos" ? (document.getElementById("input-usuarios-notif")?.value || "") : "",
+        // Locales excluidos: solo tienen sentido dentro de "Argentina"
+        noAplicaA: dirigidoA === "argentina" ? (document.getElementById("input-noaplica-notif")?.value.trim() || "") : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
         destacado: document.getElementById("input-destacado-news")?.checked || false,
@@ -960,6 +981,7 @@ export function bindNuevaNews(params = []) {
     const id = params && params[0];
 
     bindMultiSelectSucursales("input-sucursal-notif");
+    bindMultiSelectSucursales("input-noaplica-notif");
 
     // Pills de categoría — click rellena el input y resalta la elegida.
     const inputTipo = document.getElementById("input-tipo");
@@ -992,6 +1014,7 @@ export function bindNuevaNews(params = []) {
     // Locales visibles solo con "Locales específicos" — transición suave sin layout shift.
     const wrapSucursal = document.getElementById("wrap-sucursal-notif");
     const wrapUsuarios = document.getElementById("wrap-usuarios-notif");
+    const wrapNoAplica = document.getElementById("wrap-noaplica-notif");
     function actualizarWrapsSurcursalUsuarios() {
         const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
         if (wrapSucursal) {
@@ -1006,6 +1029,13 @@ export function bindNuevaNews(params = []) {
                 wrapUsuarios.classList.remove("hidden");
             } else {
                 wrapUsuarios.classList.add("hidden");
+            }
+        }
+        if (wrapNoAplica) {
+            if (dirigido === "argentina") {
+                wrapNoAplica.classList.remove("hidden");
+            } else {
+                wrapNoAplica.classList.add("hidden");
             }
         }
     }

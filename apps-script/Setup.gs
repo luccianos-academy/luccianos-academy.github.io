@@ -76,6 +76,40 @@ function setupMiembrosCanal() {
 }
 
 /**
+ * setupNoticiasNoAplicaA() — agrega la columna "noAplicaA" a Noticias.
+ *
+ * Locales que quedan afuera de una News dirigida a "Argentina" — el
+ * default nuevo de "¿A quién va dirigida?" (antes era "todos los
+ * colaboradores", que le llegaba también a España, Chile, Uruguay...).
+ * Vacío = ningún local excluido, la reciben todos los de Argentina.
+ *
+ * Sin la columna el código no rompe: lee "" y no hay exclusiones.
+ */
+function setupNoticiasNoAplicaA() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Noticias');
+  if (!hoja) {
+    console.log('No existe la hoja Noticias.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'noaplicaa');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'noAplicaA') {
+      console.log('✓ La columna noAplicaA ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('noAplicaA');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "noAplicaA").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('noAplicaA');
+  console.log('✓ Columna noAplicaA agregada.');
+}
+
+/**
  * setupResponsableTurno() — agrega la columna "responsableTurno" a Usuarios.
  *
  * Es SOLO una etiqueta para la lista de colaboradores: marca a quien

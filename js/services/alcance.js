@@ -29,7 +29,7 @@
 
 /** Compara nombres de local/país escritos de forma despareja en la
  *  planilla: distinta capitalización, tildes o espacios de más. */
-function normalizar(s) {
+export function normalizar(s) {
     return String(s || "")
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         // El apóstrofo tipográfico (’) y el recto (\') son caracteres

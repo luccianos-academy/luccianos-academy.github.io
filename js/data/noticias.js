@@ -24,6 +24,7 @@ import { noticiasMock } from "./mock/noticias.mock.js";
 import { HOJAS } from "../config.js";
 import { getSucursales } from "./sucursales.js";
 import { listaTieneId } from "../services/ids.js";
+import { paisDe, normalizar } from "../services/alcance.js";
 
 // A quién apunta una noticia (campo "dirigidoA"). News es solo para
 // colaboradores — Supervisión y Admin SIEMPRE reciben copia y ven
@@ -31,7 +32,20 @@ import { listaTieneId } from "../services/ids.js";
 // tanto de todo para no perderse nada", Comunicaciones ya cubre
 // operaciones entre supervisores). Por eso no hay opción de dirigir
 // a supervisor/capacitador/admin como público objetivo.
-//   ""                     → todos los colaboradores de la red
+//   "argentina"            → Argentina (país de la persona, no el local
+//                            puntual — mismo criterio que alcance.js),
+//                            con la opción de excluir locales puntuales
+//                            (campo "noAplicaA"). ES EL DEFAULT del
+//                            formulario de una News nueva — antes el
+//                            default era "todos los colaboradores",
+//                            que le llegaba también a España, Chile,
+//                            Uruguay... una News pensada para el día a
+//                            día de Argentina salía para toda la red.
+//   ""                     → todos los colaboradores de TODA la red,
+//                            de cualquier país — sigue existiendo para
+//                            cuando hace falta de verdad (ej. un aviso
+//                            de la marca), pero ya no es lo que se
+//                            tilda sin pensar.
 //   "encargados-propios"   → encargados de locales propios (dinámico, Sucursales.esPropio)
 //   "encargados-franquicias" → encargados de franquicias (por descarte)
 //   "colaboradores-local"  → colaboradores de los locales elegidos (campo "sucursal")
@@ -39,7 +53,8 @@ import { listaTieneId } from "../services/ids.js";
 //                            explícito del usuario: poder probar el
 //                            flujo sin enviarle a ningún colaborador.
 export const DIRIGIDO_A = [
-    { id: "", nombre: "Todos los colaboradores" },
+    { id: "argentina", nombre: "Argentina" },
+    { id: "", nombre: "Todos los colaboradores (todos los países)" },
     { id: "encargados-propios", nombre: "Responsables de local — Locales propios" },
     { id: "encargados-franquicias", nombre: "Responsables de local — Franquicias" },
     { id: "colaboradores-local", nombre: "Locales específicos" },
@@ -112,6 +127,11 @@ function normalizarNoticia(f) {
         // lista de locales separada por comas (mismo componente que
         // Manuales). Compat: filas viejas guardaban esto en "sucursal".
         sucursal: String(f.sucursal || "").trim(),
+        // Solo se usa cuando dirigidoA === "argentina": locales
+        // puntuales que NO la reciben aunque estén en el país (mismo
+        // patrón "la exclusión gana" que Cursos.noAplicaA — ver
+        // services/alcance.js). Lista separada por comas.
+        noAplicaA: String(f.noAplicaA || "").trim(),
         // Compat con noticias viejas que dirigían por rol antes de esta
         // reestructuración — solo se lee, ya no se escribe.
         visiblePara: String(f.visiblePara || "").trim(),
@@ -180,6 +200,19 @@ export function puedeVerNoticia(noticia, usuario, sucursales = []) {
     if (dirigidoA === "colaboradores-local") {
         const locales = String(noticia.sucursal || "").split(",").map((s) => s.trim()).filter(Boolean);
         return locales.includes(usuario.sucursal);
+    }
+
+    // "Argentina" = el país de la persona, no el texto literal del
+    // local (mismo criterio que paisDe en alcance.js: un local que no
+    // dice el país en el nombre igual cae bien porque la columna
+    // "pais" de Sucursales manda). La exclusión (noAplicaA) se compara
+    // normalizada — el apóstrofo tipográfico de algunos locales ya
+    // rompió esta misma comparación una vez en Cursos, no hay que
+    // repetirlo acá.
+    if (dirigidoA === "argentina") {
+        if (paisDe(usuario, sucursales) !== "Argentina") return false;
+        const excluidos = String(noticia.noAplicaA || "").split(",").map(normalizar).filter(Boolean);
+        return !excluidos.includes(normalizar(usuario.sucursal));
     }
 
     if (dirigidoA === "encargados-propios" || dirigidoA === "encargados-franquicias") {
