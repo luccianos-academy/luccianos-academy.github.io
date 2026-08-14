@@ -36,13 +36,20 @@ const ESTILOS_IMPRESION = `
         --gold: #c2a065; --line: #ccc; --muted: #666; --text: #111;
         --black: #1a1712;
     }
-    /* Fondo BLANCO explícito — sin esto, la pestaña hereda el modo
-       oscuro del sistema/navegador (color-scheme del meta tag de
-       abajo ayuda, pero un fondo explícito no depende de que ningún
-       navegador lo respete) y el texto oscuro queda invisible sobre
-       fondo oscuro. Bug real encontrado por el usuario probando. */
-    html { background: #fff; }
-    body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; padding: 28px; margin: 0; }
+    /* Fondo explícito — sin esto, la pestaña hereda el modo oscuro del
+       sistema/navegador (color-scheme del meta tag de abajo ayuda,
+       pero un fondo explícito no depende de que ningún navegador lo
+       respete) y el texto oscuro queda invisible sobre fondo oscuro.
+       Bug real encontrado por el usuario probando.
+       Blanco puro (#fff) se sentía "invasivo" — pedido explícito del
+       usuario: un crema tenue, no un blanco chocante, más acorde a la
+       marca (mismo espíritu cálido que --card/--gold-soft del tema
+       oscuro, ver variables.css). Las tarjetas quedan en un blanco
+       casi puro PERO no #fff plano, para que se noten un escalón por
+       encima del fondo — la clave del look "papel premium" es que
+       ninguno de los dos sea el blanco de pantalla default. */
+    html { background: #f6f1e7; }
+    body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #f6f1e7; padding: 28px; margin: 0; }
 
     /* Membrete — identidad de marca + de qué es este reporte y de
        cuándo, pedido explícito del usuario ("no tiene identidad, no
@@ -59,33 +66,50 @@ const ESTILOS_IMPRESION = `
     .text-sm { font-size: 13px; }
     .text-muted { color: #666; }
 
-    .cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 14px 0; }
-    .card, .kpi-card { background: #fff; border: 1px solid #ccc; border-radius: 8px; padding: 12px 16px; flex: 1 1 150px; page-break-inside: avoid; }
+    /* Grid, NO flex — pedido explícito del usuario: "unas más grandes
+       que otras, no se ve simétrico". Con flex (1 1 150px), una
+       tarjeta con más texto (ej. el nombre de una persona) empuja su
+       propio ancho por encima del resto; con grid, las 5 columnas
+       miden EXACTAMENTE lo mismo pase lo que pase adentro, y
+       align-items:stretch (default de grid) las empareja también en
+       alto — el contenido se acomoda al tamaño de la celda, nunca al
+       revés. */
+    .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 14px 0; }
+    .card, .kpi-card { background: #fffdf8; border: 1px solid #e2d9c5; border-radius: 8px; padding: 12px 16px; page-break-inside: avoid; }
     .kpi-card h3 { font-size: 11px; text-transform: uppercase; color: #666; margin: 0 0 6px; letter-spacing: .5px; }
     .kpi-card span { font-size: 22px; font-weight: 700; }
     .kpi-icon { display: none; }
-    .kpis-semaforo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    /* Vuelve a wrappear con menos de 5 columnas de ancho disponible
+       (ej. una hoja vertical en vez de landscape) — evita el mismo
+       problema de asimetría si algún día se exporta así. */
+    @media (max-width: 720px) { .cards { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); } }
     .kpi-persona-nombre { font-size: 14px; font-weight: 700; color: #111; margin: 4px 0 2px; }
     .tono-success { color: var(--success); }
     .tono-warning { color: var(--warning); }
     .tono-danger { color: var(--danger); }
 
     /* Anillo de % (reportes.js: anilloPct, "Vista por sucursal") —
-       mismas reglas que css/components.css. Sin el "fill: none" acá,
-       un <circle> SVG sin fill declarado se pinta negro sólido por
-       defecto del navegador — la fila de círculos negros que
+       mismas reglas que css/components.css, con el track (círculo de
+       fondo) pasado a un gris cálido en vez de gris frío, para no
+       desentonar con el crema de acá arriba. El número queda
+       CONTENIDO adentro, sin tocar el trazo — pedido explícito del
+       usuario: "que el círculo esté rodeando la información, no que
+       el porcentaje esté sobre el círculo" (un primer intento con
+       fuente más grande se corrigió por esto). Sin el "fill: none"
+       acá, un <circle> SVG sin fill declarado se pinta negro sólido
+       por defecto del navegador — la fila de círculos negros que
        encontró el usuario exportando el Semáforo. */
     .anillo { position: relative; flex-shrink: 0; display: inline-block; }
     .anillo svg { transform: rotate(-90deg); }
     .anillo circle { fill: none; stroke-width: 4; }
-    .anillo-track { stroke: #ddd; }
-    .anillo-valor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
+    .anillo-track { stroke: #e6ddc9; }
+    .anillo-valor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
 
     .table-wrapper { overflow: visible; }
-    table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; font-size: 11px; page-break-inside: auto; background: #fff; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; font-size: 11px; page-break-inside: auto; background: #fffdf8; }
     tr { page-break-inside: avoid; }
-    th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: top; background: #fff; }
-    th { background: #f2f2f2; text-transform: uppercase; font-size: 9px; color: #333; letter-spacing: .3px; }
+    th, td { border: 1px solid #e2d9c5; padding: 6px 8px; text-align: left; vertical-align: top; background: #fffdf8; }
+    th { background: #efe6d4; text-transform: uppercase; font-size: 9px; color: #333; letter-spacing: .3px; }
 
     .celda-curso { display: flex; flex-direction: column; gap: 3px; }
 
