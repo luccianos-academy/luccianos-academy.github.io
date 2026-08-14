@@ -116,6 +116,40 @@ function setupNoticiasSegmentacion() {
 }
 
 /**
+ * setupManualesArchivos() — agrega la columna "archivos" a Manuales.
+ *
+ * JSON de [{url, label}, ...] — un mismo manual puede agrupar más de
+ * un archivo (ej. el PDF para imprimir y el Excel del mismo
+ * procedimiento para descargar). Vacío = manuales viejos, que siguen
+ * funcionando igual leyendo la columna "url" (un solo archivo).
+ *
+ * Sin la columna el código no rompe: lee "" y cae al fallback de "url".
+ */
+function setupManualesArchivos() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Manuales');
+  if (!hoja) {
+    console.log('No existe la hoja Manuales.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'archivos');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'archivos') {
+      console.log('✓ La columna archivos ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('archivos');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "archivos").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('archivos');
+  console.log('✓ Columna archivos agregada. Los manuales ya cargados siguen funcionando con su columna "url" hasta que se editen.');
+}
+
+/**
  * setupResponsableTurno() — agrega la columna "responsableTurno" a Usuarios.
  *
  * Es SOLO una etiqueta para la lista de colaboradores: marca a quien

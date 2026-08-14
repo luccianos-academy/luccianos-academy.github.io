@@ -28,10 +28,31 @@ import { HOJAS } from "../config.js";
 // filtrar por sucursal, ya que gestionan o revisan contenido más
 // allá de un solo local.
 function normalizarManual(f) {
+    // archivos es un array [{url, label}, ...] — un mismo manual puede
+    // agrupar más de un archivo (ej. "Cocina Imprenta": el PDF para
+    // imprimir Y el Excel del mismo procedimiento para descargar).
+    // Puede venir como JSON desde Sheets (columna "archivos") o
+    // convertirse desde el viejo "url" (una sola columna, un solo
+    // archivo) — mismo patrón que Noticias.adjuntos.
+    const archivos = (() => {
+        try {
+            if (f.archivos && String(f.archivos).trim()) {
+                const parsed = JSON.parse(f.archivos);
+                if (Array.isArray(parsed) && parsed.length) return parsed;
+            }
+        } catch (e) {
+            // JSON inválido, cae al fallback de abajo.
+        }
+        const urlLegacy = String(f.url || "").trim();
+        return urlLegacy ? [{ url: urlLegacy, label: "Ver manual" }] : [];
+    })();
+
     return {
         id: f.id,
         titulo: String(f.titulo || "").trim(),
         categoria: String(f.categoria || "").trim(),
+        archivos,
+        // Deprecated — solo compat con lecturas viejas. Usar archivos[0].
         url: String(f.url || "").trim(),
         visiblePara: String(f.visiblePara || "").trim(),
         sucursal: String(f.sucursal || "").trim(),
@@ -98,11 +119,29 @@ export async function getManuales() {
     }
 }
 
-export async function crearManual({ titulo, categoria, url, visiblePara, sucursal }) {
-    return writeSheet(HOJAS.MANUALES, { titulo, categoria: categoria || "", url, visiblePara: visiblePara || "", sucursal: sucursal || "" }, manualesMock);
+export async function crearManual({ titulo, categoria, archivos, visiblePara, sucursal }) {
+    const lista = (archivos || []).filter((a) => a.url);
+    return writeSheet(HOJAS.MANUALES, {
+        titulo,
+        categoria: categoria || "",
+        archivos: lista.length ? JSON.stringify(lista) : "",
+        // "url" se mantiene sincronizado con el primer archivo — algo
+        // que lea esta columna directo (un link viejo guardado en otro
+        // lado, ej.) sigue encontrando el manual.
+        url: lista.length ? lista[0].url : "",
+        visiblePara: visiblePara || "",
+        sucursal: sucursal || "",
+    }, manualesMock);
 }
 
 export async function actualizarManual(id, cambios) {
+    // Si cambios trae "archivos" (array, viene de pages/manuales.js),
+    // se convierte a JSON acá — quien llama no tiene por qué saber
+    // cómo se guarda la columna.
+    if (cambios.archivos) {
+        const lista = cambios.archivos.filter((a) => a.url);
+        cambios = { ...cambios, archivos: lista.length ? JSON.stringify(lista) : "", url: lista.length ? lista[0].url : "" };
+    }
     return updateSheet(HOJAS.MANUALES, id, cambios, manualesMock);
 }
 

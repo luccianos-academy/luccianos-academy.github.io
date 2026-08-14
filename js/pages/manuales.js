@@ -31,6 +31,22 @@ const ROLES_COMPARTIR = [
     { id: "admin",       label: "Admin" },
 ];
 
+function filaArchivoHtml(a = { url: "", label: "" }) {
+    return `
+        <div class="archivo-manual-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+            <div>
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Link (Drive u otro)</label>
+                <input type="text" class="input-archivo-url" placeholder="https://drive.google.com/..." value="${a.url || ""}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+            </div>
+            <div>
+                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta</label>
+                <input type="text" class="input-archivo-label" placeholder="Ej: PDF para imprimir" value="${a.label || ""}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
+            </div>
+            <button type="button" class="btn-eliminar-archivo-manual" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold">×</button>
+        </div>
+    `;
+}
+
 function camposManualHtml(m = {}) {
     const rolesActuales = m.visiblePara ? m.visiblePara.split(",").map((r) => r.trim()) : [];
     const checkboxesHtml = ROLES_COMPARTIR.map((r) => `
@@ -47,8 +63,11 @@ function camposManualHtml(m = {}) {
         <label for="input-categoria">Categoría (opcional)</label>
         <input type="text" id="input-categoria" placeholder="Ej: Cafetería, Atención al Cliente..." value="${m.categoria || ""}">
 
-        <label for="input-url">Link (Drive u otro)</label>
-        <input type="text" id="input-url" placeholder="https://drive.google.com/..." value="${m.url || ""}">
+        <label style="margin-top:0">Archivos <span class="mod-tooltip" data-tooltip-texto="Un mismo manual puede agrupar más de un archivo — ej. el PDF para imprimir y el Excel del mismo procedimiento para descargar.">ⓘ</span></label>
+        <div id="lista-archivos-manual" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
+            ${(m.archivos && m.archivos.length > 0 ? m.archivos : [{ url: "", label: "" }]).map((a) => filaArchivoHtml(a)).join("")}
+        </div>
+        <button type="button" id="btn-agregar-archivo-manual" class="btn btn-secondary" style="padding:12px;font-weight:600;width:100%">+ Agregar otro archivo</button>
 
         <label>Compartir con <span style="color:red">*</span></label>
         <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:4px">${checkboxesHtml}</div>
@@ -80,10 +99,20 @@ function chipsVisibilidadHtml(m) {
 
 function leerCamposManual() {
     const rolesElegidos = Array.from(document.querySelectorAll(".input-compartir-rol:checked")).map((c) => c.value);
+    const archivos = [];
+    document.querySelectorAll(".archivo-manual-item").forEach((item, i) => {
+        const url = item.querySelector(".input-archivo-url")?.value.trim() || "";
+        // Etiqueta vacía con un solo archivo: "Ver manual", igual que
+        // siempre. Con más de uno hace falta distinguirlos — sin
+        // etiqueta un segundo archivo sin nombre confunde más de lo
+        // que ayuda, así que se numera en vez de repetir "Ver manual".
+        const label = item.querySelector(".input-archivo-label")?.value.trim() || (i === 0 ? "Ver manual" : `Archivo ${i + 1}`);
+        if (url) archivos.push({ url, label });
+    });
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         categoria: document.getElementById("input-categoria").value.trim(),
-        url: document.getElementById("input-url").value.trim(),
+        archivos,
         visiblePara: rolesElegidos.join(","),
         sucursal: document.getElementById("input-sucursal-manual").value.trim(),
     };
@@ -109,8 +138,12 @@ export async function Manuales() {
                 <h3 style="margin-top:2px">${m.titulo}</h3>
                 ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${chipsVisibilidadHtml(m)}</div>` : ""}
             </div>
-            <span style="display:flex;gap:8px;flex-shrink:0">
-                <a class="btn btn-secondary" href="${m.url}">Ver manual</a>
+            <span style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+                <!-- Sin target="_blank" a propósito — en la PWA instalada
+                     (iPhone) eso saca a la persona hacia Safari sin forma
+                     fácil de volver (mismo bug ya sacado del resto de
+                     Manuales/Noticias/Recursos). -->
+                ${(m.archivos || []).map((a) => `<a class="btn btn-secondary" href="${a.url}">${a.label || "Ver manual"}</a>`).join("")}
                 ${esAdmin ? `
                     <button class="btn btn-secondary" data-editar-manual="${m.id}">Editar</button>
                     <button class="btn btn-secondary" data-eliminar-manual="${m.id}">Eliminar</button>
@@ -169,14 +202,15 @@ function abrirModalManual(manual = null) {
     abrirModal(Modal({ id: modalId, titulo: manual ? `Editar: ${manual.titulo}` : "Nuevo manual", contenidoHtml, textoConfirmar: manual ? "Guardar" : "Crear" }), modalId, async () => {
 
         const cambios = leerCamposManual();
-        if (!cambios.titulo || !cambios.url) {
-            alert("Completá el título y el link del manual antes de guardar.");
+        if (!cambios.titulo || !cambios.archivos.length) {
+            alert("Completá el título y al menos un link antes de guardar.");
             return;
         }
-        // El link se renderiza directo como <a href> — sin https:// el
-        // navegador lo trata como ruta relativa y da un 404 confuso.
-        if (!/^https?:\/\//i.test(cambios.url)) {
-            alert("El link tiene que empezar con https:// — copiá el link completo desde Drive.");
+        // Los links se renderizan directo como <a href> — sin https:// el
+        // navegador los trata como ruta relativa y da un 404 confuso.
+        const linkInvalido = cambios.archivos.find((a) => !/^https?:\/\//i.test(a.url));
+        if (linkInvalido) {
+            alert(`"${linkInvalido.url}" tiene que empezar con https:// — copiá el link completo desde Drive.`);
             return;
         }
         // Activo = tiene al menos un rol O al menos un local. Solo local
@@ -200,4 +234,23 @@ function abrirModalManual(manual = null) {
     });
 
     bindMultiSelectSucursales("input-sucursal-manual");
+
+    const listaArchivos = document.getElementById("lista-archivos-manual");
+    function wireEliminarArchivo() {
+        listaArchivos.querySelectorAll(".btn-eliminar-archivo-manual").forEach((btn) => {
+            btn.onclick = () => {
+                // Nunca menos de una fila — sin ninguna, no hay dónde
+                // tipear el primer link y el formulario queda mudo.
+                if (listaArchivos.querySelectorAll(".archivo-manual-item").length > 1) {
+                    btn.closest(".archivo-manual-item")?.remove();
+                }
+            };
+        });
+    }
+    wireEliminarArchivo();
+
+    document.getElementById("btn-agregar-archivo-manual")?.addEventListener("click", () => {
+        listaArchivos.insertAdjacentHTML("beforeend", filaArchivoHtml());
+        wireEliminarArchivo();
+    });
 }
