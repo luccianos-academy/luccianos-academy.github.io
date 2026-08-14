@@ -338,13 +338,10 @@ const IMAGEN_EXTRA_POR_LECCION = {
 // es un plus, no bloqueante — "los videos son opcionales" para esta
 // lección, pedido explícito.
 //
-// PENDIENTE: falta el id real de "Preparación" (Armado=1786746818551,
-// Producto terminado=1786749472369, ya cargados abajo) — cuando el
-// usuario la cree y pase el id, va acá:
-//   <id Preparación>: [
-//       { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura que debe tener" },
-//   ],
 const VIDEOS_EXTRA_POR_LECCION = {
+    1786750044129: [
+        { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura que debe tener" },
+    ],
     1786749472369: [
         { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
         { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
