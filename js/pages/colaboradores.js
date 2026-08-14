@@ -704,6 +704,18 @@ export async function Colaboradores() {
         // se agrupa solo por las que ya tienen algún colaborador,
         // igual que ya hace la vista de Supervisor.
         gruposPorSucursal = [...new Set(colaboradores.map((c) => c.sucursal).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        // "Elegir mis locales" — antes solo existía para Capacitador.
+        // Pedido explícito: un Admin con decenas de locales cargados
+        // también necesita poder acotar la pantalla a 3 o 4 puntuales
+        // en vez de scrollear todos juntos, sin que eso le saque
+        // acceso a nada (es una preferencia de este dispositivo, ver
+        // services/preferenciasLocales.js).
+        const elegidosAdmin = getLocalesElegidos(usuario);
+        cantidadLocalesElegidos = elegidosAdmin.length;
+        if (elegidosAdmin.length) {
+            gruposPorSucursal = gruposPorSucursal.filter((n) => elegidosAdmin.includes(n));
+            localesElegidosSinDatos = elegidosAdmin.filter((n) => !gruposPorSucursal.includes(n));
+        }
     } else if (esEncargado) {
         colaboradores = await getColaboradoresPorSucursal(usuario.sucursal);
         // Puede haber más de uno (cobertura de vacaciones, locales
@@ -723,12 +735,14 @@ export async function Colaboradores() {
         // dispositivo — ver services/preferenciasLocales.js): NO le
         // saca acceso a nada, solo recorta cuáles ve por default. Sin
         // preferencia guardada todavía, sigue viendo toda la red.
-        let elegidos = [];
-        if (usuario.capacitador) {
-            elegidos = getLocalesElegidos(usuario);
-            cantidadLocalesElegidos = elegidos.length;
-            if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
-        }
+        // "Elegir mis locales" — antes solo para Capacitador (ve TODA
+        // la red). Un Supervisor común, aunque ya esté acotado a sus
+        // propios locales, puede tener muchos a cargo (zona) y también
+        // quiere poder acotar más — mismo mecanismo, mismo criterio: no
+        // le saca acceso a nada, solo recorta qué ve por default.
+        let elegidos = getLocalesElegidos(usuario);
+        cantidadLocalesElegidos = elegidos.length;
+        if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
         const todos = await getColaboradores();
         colaboradores = todos.filter((c) => nombresLocales.includes(c.sucursal));
         // Un capacitador sin locales elegidos ve TODA la red (~95
@@ -808,7 +822,7 @@ export async function Colaboradores() {
             // vista a un local puntual en vez de scrollear todos juntos).
             return `
                 <div class="section" data-sucursal-seccion="${nombreSucursal}">
-                    <h3>${nombreSucursal} <span class="text-sm text-muted">(${delGrupo.length})</span></h3>
+                    <h3>${nombreSucursal} <span class="text-sm text-muted seccion-conteo">(${delGrupo.length})</span></h3>
                     ${Table(columnasTabla, filas)}
                 </div>
             `;
@@ -836,7 +850,13 @@ export async function Colaboradores() {
             : `<p class="text-sm text-muted">Todavía no hay administradores cargados.</p>`)
         : "";
 
-    const alcanceLabel = esAdmin ? "Todas las sucursales" : usuario.capacitador ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura") : usuario.sucursal || "Tus locales";
+    const alcanceLabel = esAdmin
+        ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s)` : "Todas las sucursales")
+        : usuario.capacitador
+            ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s) · Solo lectura` : "Toda la red · Solo lectura")
+            : usuario.rol === "supervisor"
+                ? (cantidadLocalesElegidos ? `${cantidadLocalesElegidos} local(es) elegido(s)` : "Tus locales")
+                : usuario.sucursal || "Tus locales";
 
     return `
         ${Header(esEncargado ? "Mi local" : "Colaboradores", alcanceLabel)}
@@ -848,7 +868,7 @@ export async function Colaboradores() {
             </p>
         ` : ""}
 
-        ${!esAdmin ? '<div class="imprimible" id="equipo-imprimible">' : ""}
+        <div class="imprimible" id="equipo-imprimible">
 
         ${!esAdmin && colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, usuario.rol === "supervisor") : ""}
 
@@ -856,11 +876,21 @@ export async function Colaboradores() {
             <div class="galeria-pills" style="margin-bottom:14px">
                 ${ROL_TABS.map((t, i) => `<button class="pill-categoria${i === 0 ? " activa" : ""}" data-rol-tab="${t.id}">${t.label}</button>`).join("")}
             </div>
+            <!-- El resumen con KPIs/semáforo es de Supervisor/Capacitador
+                 (Admin no sigue esa métrica acá, ver comentario más
+                 abajo) — pero Admin también necesita exportar la lista
+                 tal como la está viendo (agrupada, filtrada por local).
+                 Mismo mecanismo (exportarAPdf sobre #equipo-imprimible),
+                 sin el bloque de KPIs que no le corresponde. -->
+            <div class="header" style="margin-bottom:14px">
+                <h3 style="margin:0">Colaboradores</h3>
+                <button class="btn btn-secondary" id="btn-exportar-equipo">🖨 Exportar PDF</button>
+            </div>
         ` : ""}
 
         <div class="table-toolbar">
             <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre, email o local...">
-            ${usuario.capacitador ? `<button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button>` : ""}
+            ${(esAdmin || usuario.rol === "supervisor") ? `<button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button>` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
@@ -921,7 +951,7 @@ export async function Colaboradores() {
             ${esAdmin ? `<div data-rol-panel="admin" hidden>${cuerpoAdminsHtml}</div>` : ""}
         </div>
 
-        ${!esAdmin ? "</div>" : ""}
+        </div>
     `;
 }
 
@@ -1015,13 +1045,35 @@ export function bindColaboradores() {
         const panel = panelActivo();
         let visibles = 0;
         panel.querySelectorAll("tbody tr").forEach((fila) => {
-            const coincideTexto = textoBuscable(fila).includes(texto);
+            // En la vista agrupada (Colaboradores de Admin/Supervisor),
+            // el nombre del local está en el título de la SECCIÓN, no en
+            // ninguna celda de la fila (mostrarSucursal=false ahí, sería
+            // redundante repetirlo en las 100 filas de abajo) — así que
+            // buscar "Martinez" no encontraba a nadie de ese local
+            // aunque estuviera en la lista. closest() no hace nada en
+            // las vistas sin agrupar (Supervisores/Admins), que no
+            // tienen ese contenedor.
+            const seccionLocal = fila.closest("[data-sucursal-seccion]")?.dataset.sucursalSeccion || "";
+            const coincideTexto = textoBuscable(fila).includes(texto) || seccionLocal.toLowerCase().includes(texto);
             const esActivo = !!fila.querySelector(".badge-success");
             const coincideEstado = filtroActivo === "todos" || (filtroActivo === "SI") === esActivo;
             const coincideEncargado = !soloEncargados || fila.dataset.encargado === "si";
             const pasa = coincideTexto && coincideEstado && coincideEncargado;
             fila.style.display = pasa ? "" : "none";
             if (pasa) visibles++;
+        });
+        // Con la vista agrupada por local (Admin/Supervisor/Capacitador),
+        // filtrar solo las FILAS dejaba el encabezado de cada local a la
+        // vista igual — filtrar "Inactivos" mostraba los ~100 locales
+        // igual, la mayoría con la sección vacía debajo. Un local sin
+        // ninguna fila que pase el filtro se oculta entero; el contador
+        // del título pasa a reflejar cuántas quedaron visibles, no el
+        // total del local.
+        panel.querySelectorAll("[data-sucursal-seccion]").forEach((seccion) => {
+            const filasVisibles = [...seccion.querySelectorAll("tbody tr")].filter((f) => f.style.display !== "none");
+            seccion.style.display = filasVisibles.length ? "" : "none";
+            const conteo = seccion.querySelector(".seccion-conteo");
+            if (conteo) conteo.textContent = `(${filasVisibles.length})`;
         });
         // Una tabla vacía sin explicación se lee como "acá no hay nadie"
         // —o peor, como que la app está rota— cuando en realidad hay un
@@ -1459,7 +1511,7 @@ async function abrirModalElegirLocales() {
     const actuales = getLocalesElegidos(usuario);
 
     const contenidoHtml = `
-        <p class="text-sm text-muted" style="margin-bottom:10px">Elegí los locales que te interesa seguir de cerca — "Mi equipo" y tu Inicio se van a acotar a esos. Dejalo vacío para seguir viendo toda la red.</p>
+        <p class="text-sm text-muted" style="margin-bottom:10px">Elegí los locales que te interesa seguir de cerca — esta lista se va a acotar a esos. Dejalo vacío para volver a ver todo.</p>
         <label for="input-locales-elegidos">Mis locales</label>
         ${MultiSelectSucursales("input-locales-elegidos", actuales)}
     `;
