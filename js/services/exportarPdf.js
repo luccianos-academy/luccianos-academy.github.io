@@ -102,7 +102,14 @@ const ESTILOS_IMPRESION = `
     .badge-danger { color: #b02a2a; }
     .badge-muted { color: #666; }
 
-    button, .fila-acciones, input[type="checkbox"], .mod-tooltip,
+    /* Acotado a "#contenido-pdf button" y no a "button" a secas — ESTE
+       era el bug real detrás de "no aparecen los botones de Convertir
+       a PDF ni Descargar": un <button> a secas con !important también
+       apagaba los DOS botones propios de este popup (viven afuera de
+       #contenido-pdf, son hermanos — ver más abajo), y !important gana
+       sin importar que #barra-acciones-popup button tenga más
+       especificidad. No hacía falta ninguna extensión de por medio. */
+    #contenido-pdf button, .fila-acciones, input[type="checkbox"], .mod-tooltip,
     .table-toolbar, .galeria-pills, .barra-enviar-mail { display: none !important; }
 
     /* Botones reales para pasar a PDF — pedido explícito del usuario:
@@ -175,78 +182,94 @@ const HTML2PDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/
 
 /** Abre una pestaña nueva con el contenido de "elementId", lista para
  *  imprimir/guardar como PDF — sin arrastrar el sidebar/tema oscuro
- *  de la app. */
+ *  de la app.
+ *
+ *  Antes armaba la pestaña con window.open("", "_blank") +
+ *  document.write() desde ACÁ, y recién después le enganchaba los
+ *  botones metiéndose en su document. Bug real reportado: en el
+ *  navegador del usuario la pestaña abría con el contenido bien, pero
+ *  sin los dos botones (Convertir a PDF / Descargar) — document.write
+ *  inyectando HTML en un about:blank es exactamente el patrón que
+ *  varios bloqueadores de contenido/extensiones de seguridad tratan
+ *  con desconfianza (es el mismo mecanismo que usan popups de ads), y
+ *  puede terminar con partes del DOM recién escrito removidas.
+ *
+ *  Ahora la pestaña es un documento HTML real y AUTOSUFICIENTE: se arma
+ *  como Blob, se le da una URL propia (URL.createObjectURL) y la
+ *  pestaña navega ahí de verdad — no queda nada que el navegador de
+ *  origen tenga que "inyectar" después. Los botones se enganchan con
+ *  un <script> DENTRO del propio HTML, que corre solo cuando esa
+ *  página carga, sin depender de que este script vuelva a tocar su
+ *  document más tarde. */
 export function exportarAPdf(elementId, titulo) {
     const origen = document.getElementById(elementId);
     if (!origen) return;
 
-    const ventana = window.open("", "_blank");
+    const nombreArchivo = titulo.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim() + ".pdf";
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="color-scheme" content="light">
+<title>${titulo}</title>
+<style>${ESTILOS_IMPRESION}</style>
+</head>
+<body>
+<div id="barra-acciones-popup">
+    <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
+    <button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>
+</div>
+<div id="contenido-pdf">${origen.innerHTML}</div>
+<script src="${HTML2PDF_CDN}"><\/script>
+<script>
+document.getElementById("btn-imprimir-popup").addEventListener("click", () => window.print());
+
+const btnDescargar = document.getElementById("btn-descargar-popup");
+function habilitarDescarga() {
+    btnDescargar.disabled = false;
+    btnDescargar.textContent = "⬇ Descargar PDF";
+}
+if (window.html2pdf) {
+    habilitarDescarga();
+} else {
+    document.querySelector('script[src="${HTML2PDF_CDN}"]').addEventListener("load", habilitarDescarga);
+}
+
+btnDescargar.addEventListener("click", () => {
+    btnDescargar.disabled = true;
+    btnDescargar.textContent = "⬇ Generando...";
+    window.html2pdf()
+        .from(document.getElementById("contenido-pdf"))
+        .set({
+            margin: 10,
+            filename: ${JSON.stringify(nombreArchivo)},
+            image: { type: "jpeg", quality: 0.95 },
+            html2canvas: { scale: 2, backgroundColor: "#ffffff" },
+            jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        })
+        .save()
+        .then(habilitarDescarga)
+        .catch((err) => {
+            console.warn("No se pudo generar la descarga directa:", err.message);
+            alert('No se pudo generar la descarga directa — probá con "Convertir a PDF / Imprimir" y elegí "Guardar como PDF".');
+            habilitarDescarga();
+        });
+});
+<\/script>
+</body>
+</html>`;
+
+    const blobUrl = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+    const ventana = window.open(blobUrl, "_blank");
     if (!ventana) {
+        URL.revokeObjectURL(blobUrl);
         alert("El navegador bloqueó la ventana de impresión — permití pop-ups para este sitio e intentá de nuevo.");
         return;
     }
-
-    ventana.document.write(`
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="color-scheme" content="light">
-            <title>${titulo}</title>
-            <style>${ESTILOS_IMPRESION}</style>
-        </head>
-        <body>
-            <div id="barra-acciones-popup">
-                <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
-                <button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>
-            </div>
-            <div id="contenido-pdf">${origen.innerHTML}</div>
-            <script src="${HTML2PDF_CDN}"><\/script>
-        </body>
-        </html>
-    `);
-    ventana.document.close();
-
-    // A propósito NO se llama a print() solo — el usuario pidió ver
-    // la vista previa primero ("para ver que todo está correcto") y
-    // recién ahí decidir imprimir, en vez de saltar directo al
-    // diálogo del navegador.
-    ventana.focus();
-    ventana.document.getElementById("btn-imprimir-popup")?.addEventListener("click", () => ventana.print());
-
-    const btnDescargar = ventana.document.getElementById("btn-descargar-popup");
-    const habilitarDescarga = () => {
-        btnDescargar.disabled = false;
-        btnDescargar.textContent = "⬇ Descargar PDF";
-    };
-    // El script puede tardar en cargar (CDN externo) — si ya estaba en
-    // cache del navegador puede haber "cargado" antes de que este
-    // listener se registre, por eso el chequeo directo de respaldo.
-    if (ventana.html2pdf) {
-        habilitarDescarga();
-    } else {
-        ventana.document.querySelector(`script[src="${HTML2PDF_CDN}"]`).addEventListener("load", habilitarDescarga);
-    }
-
-    btnDescargar.addEventListener("click", () => {
-        btnDescargar.disabled = true;
-        btnDescargar.textContent = "⬇ Generando...";
-        const nombreArchivo = titulo.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim() + ".pdf";
-        ventana.html2pdf()
-            .from(ventana.document.getElementById("contenido-pdf"))
-            .set({
-                margin: 10,
-                filename: nombreArchivo,
-                image: { type: "jpeg", quality: 0.95 },
-                html2canvas: { scale: 2, backgroundColor: "#ffffff" },
-                jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-            })
-            .save()
-            .then(habilitarDescarga)
-            .catch((err) => {
-                console.warn("No se pudo generar la descarga directa:", err.message);
-                alert("No se pudo generar la descarga directa — probá con \"Convertir a PDF / Imprimir\" y elegí \"Guardar como PDF\".");
-                habilitarDescarga();
-            });
-    });
+    // La URL del Blob solo hace falta mientras esa pestaña carga el
+    // documento — una vez cargado, el contenido ya vive en su memoria.
+    // Liberarla antes rompería una recarga manual de esa pestaña, así
+    // que se espera a que termine de cargar.
+    ventana.addEventListener("load", () => URL.revokeObjectURL(blobUrl), { once: true });
 }
