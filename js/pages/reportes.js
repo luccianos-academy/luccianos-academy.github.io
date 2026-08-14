@@ -27,7 +27,7 @@ import { Table } from "../components/table.js";
 import { Avatar } from "../components/avatar.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
-import { getUsuarios } from "../data/usuarios.js";
+import { getUsuarios, etiquetaColaborador } from "../data/usuarios.js";
 import { getSucursales, getMisLocales } from "../data/sucursales.js";
 import { getAsignaciones } from "../data/asignaciones.js";
 import { getResultados } from "../data/resultados.js";
@@ -236,7 +236,7 @@ export function tablaMatrizSemaforo(colaboradores, cursos, asignaciones, resulta
                         ${Avatar({ nombre: c.nombre, foto: c.foto, size: "" })}
                         <div>
                             <div class="fila-avatar-nombre-txt">${c.nombre}</div>
-                            <div class="fila-avatar-nombre-sub">${c.encargado ? "Encargado" : "Colaborador"}</div>
+                            <div class="fila-avatar-nombre-sub">${etiquetaColaborador(c)}</div>
                         </div>
                     </div>
                 `,

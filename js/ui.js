@@ -33,7 +33,7 @@ export function renderLayout(rutaActiva) {
     app.innerHTML = `
         ${vistaComo ? `
             <div class="banner-vista-como">
-                Viendo como <strong>${vistaComo.nombre}</strong> (${vistaComo.rol}${vistaComo.encargado ? " · Encargado" : ""}${vistaComo.capacitador ? " · Capacitador" : ""})
+                Viendo como <strong>${vistaComo.nombre}</strong> (${vistaComo.rol}${vistaComo.encargado ? " · Responsable de local" : ""}${vistaComo.capacitador ? " · Capacitador" : ""})
                 <button class="btn btn-secondary" id="btn-volver-admin">Volver a mi cuenta</button>
             </div>
         ` : ""}

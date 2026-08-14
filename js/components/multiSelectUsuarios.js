@@ -6,7 +6,7 @@
    como destinatarios de una News. Cada usuario elegido queda como chip removible.
 ============================*/
 
-import { getUsuarios } from "../data/usuarios.js";
+import { getUsuarios, etiquetaColaborador } from "../data/usuarios.js";
 import { escaparHtml } from "../services/html.js";
 
 /** Cuántas opciones se listan de una. El resto se alcanza escribiendo:
@@ -18,7 +18,7 @@ const MAX_SUGERENCIAS = 12;
 function etiquetaRol(u) {
     if (u.rol === "admin") return "Admin";
     if (u.rol === "supervisor") return u.capacitador ? "Capacitador" : "Supervisor";
-    return u.encargado ? "Encargado" : "Colaborador";
+    return etiquetaColaborador(u);
 }
 
 export function MultiSelectUsuarios(inputId, valoresIniciales = []) {

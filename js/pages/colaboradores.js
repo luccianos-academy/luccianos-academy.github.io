@@ -50,7 +50,7 @@ import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
-import { getUsuarios, getColaboradores, getColaboradoresPorSucursal, crearUsuario, actualizarUsuario, eliminarUsuario } from "../data/usuarios.js";
+import { getUsuarios, getColaboradores, getColaboradoresPorSucursal, crearUsuario, actualizarUsuario, eliminarUsuario, etiquetaColaborador, ETIQUETA_RESPONSABLE_LOCAL, ETIQUETA_RESPONSABLE_TURNO } from "../data/usuarios.js";
 import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales, getLocalesVisibles, agregarSupervisorASucursal, quitarSupervisorDeSucursal } from "../data/sucursales.js";
 import { getAsignaciones, getAsignacionesPorColaborador, eliminarAsignacion } from "../data/asignaciones.js";
 import { getResultados, getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
@@ -463,9 +463,14 @@ function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, curs
     const progreso = progresoColaborador(c, asignaciones, cursos);
     return {
         ...c,
-        nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
+        nombre: nombreConAvatar(c.nombre, c.foto, etiquetaColaborador(c)),
         seleccion: checkboxMail(c.id, c.email, c.nombre),
-        rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
+        rolLabel: c.encargado || c.responsableTurno ? `Colaborador (${etiquetaColaborador(c)})` : "Colaborador",
+        // El filtro de la pill lee ESTO, no el texto de la fila. Antes
+        // buscaba la cadena "(Encargado)" adentro del HTML, así que
+        // renombrar la etiqueta lo dejaba sin encontrar a nadie sin
+        // avisar — justo lo que este cambio venía a hacer.
+        _datos: { encargado: c.encargado ? "si" : "no" },
         progreso: progreso.pct,
         progresoBadge: badgeProgreso(progreso),
         estadoBadge: badgeAcceso(c),
@@ -628,8 +633,9 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
     const fila = {
         ...c,
         seleccion: checkboxMail(c.id, c.email, c.nombre),
-        nombre: nombreConAvatar(c.nombre, c.foto, c.encargado ? "Encargado" : "Colaborador"),
-        rolLabel: c.encargado ? "Colaborador (Encargado)" : "Colaborador",
+        nombre: nombreConAvatar(c.nombre, c.foto, etiquetaColaborador(c)),
+        rolLabel: c.encargado || c.responsableTurno ? `Colaborador (${etiquetaColaborador(c)})` : "Colaborador",
+        _datos: { encargado: c.encargado ? "si" : "no" },
         progreso: progreso.pct,
         modulosVistos: barraProgreso(progreso.hechos, progreso.total),
         leccionesVistas: barraProgreso(leccionesVistas, leccionesTotal),
@@ -864,11 +870,11 @@ export async function Colaboradores() {
             <button class="pill-categoria activa" data-filtro-activo="todos">Todos</button>
             <button class="pill-categoria" data-filtro-activo="SI">Activos</button>
             <button class="pill-categoria" data-filtro-activo="NO">Inactivos</button>
-            <!-- El filtro "Encargados" sirve para encontrar a los
-                 encargados entre mucha gente. Un Encargado ve sólo su
-                 propio local, donde el único encargado es él: la pill
-                 no filtra nada útil. -->
-            ${esEncargado ? "" : `<button class="pill-categoria" id="btn-filtro-encargados">Encargados</button>`}
+            <!-- Sirve para encontrar a los responsables de local entre
+                 mucha gente. Un responsable de local ve sólo su propio
+                 local, donde el único responsable es él: la pill no
+                 filtra nada útil. -->
+            ${esEncargado ? "" : `<button class="pill-categoria" id="btn-filtro-encargados">Responsables de local</button>`}
         </div>
 
         <!-- A quién responder. Un Encargado no tiene dónde ver quién es
@@ -973,12 +979,12 @@ export function bindColaboradores() {
     let soloEncargados = false;
 
     // Búsqueda por nombre, el segmentador Activos/Inactivos y el
-    // toggle "Encargados" se combinan sobre las mismas filas — cada
+    // toggle de responsables se combinan sobre las mismas filas — cada
     // uno decide si esconde una fila, nunca la muestra si otro ya la
-    // escondió. "Encargado" se detecta por texto ("(Encargado)" en la
-    // columna Rol, ver rolLabel en filaDeColaborador) en vez de por
-    // posición de columna, porque esa columna se corre según si hay
-    // checkbox de mail o columna de sucursal antes.
+    // escondió. Quién es responsable de local sale de data-encargado en
+    // el <tr> (ver _datos en filaDeColaborador), no del texto de la
+    // fila: leerlo del texto ataba el filtro a cómo está escrita la
+    // etiqueta y se rompía sin avisar apenas se la renombraba.
     function aplicarFiltros() {
         const texto = (buscador?.value || "").trim().toLowerCase();
         document.querySelectorAll("#tabla-colaboradores tbody tr").forEach((fila) => {
@@ -990,7 +996,7 @@ export function bindColaboradores() {
             const coincideTexto = nombre.includes(texto);
             const esActivo = !!fila.querySelector(".badge-success");
             const coincideEstado = filtroActivo === "todos" || (filtroActivo === "SI") === esActivo;
-            const coincideEncargado = !soloEncargados || fila.textContent.includes("(Encargado)");
+            const coincideEncargado = !soloEncargados || fila.dataset.encargado === "si";
             fila.style.display = coincideTexto && coincideEstado && coincideEncargado ? "" : "none";
         });
     }
@@ -1439,10 +1445,7 @@ async function abrirModalEditar(colaborador) {
 
         ${campoSucursal.html}
 
-        <label for="input-encargado">
-            <input type="checkbox" id="input-encargado" style="width:auto;display:inline-block;margin-right:8px" ${colaborador.encargado ? "checked" : ""}>
-            Es encargado de sucursal
-        </label>
+        ${camposLiderazgo(colaborador)}
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Editar colaborador", contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
@@ -1451,6 +1454,7 @@ async function abrirModalEditar(colaborador) {
         const email = document.getElementById("input-email").value.trim();
         const sucursal = campoSucursal.leer();
         const encargado = document.getElementById("input-encargado").checked;
+        const responsableTurno = document.getElementById("input-responsable-turno").checked;
 
         if (!nombre || !email) {
             alert("Completá nombre y email antes de guardar — sin email no se puede cargar bien en la planilla.");
@@ -1463,7 +1467,7 @@ async function abrirModalEditar(colaborador) {
 
         await asegurarSucursalAsignada(sucursal, usuario);
         if (campoSucursal.leerSupervisor) await asignarSupervisorASucursal(sucursal, campoSucursal.leerSupervisor());
-        await actualizarUsuario(colaborador.id, { nombre, email, sucursal, encargado: encargado ? "SI" : "NO" });
+        await actualizarUsuario(colaborador.id, { nombre, email, sucursal, encargado: encargado ? "SI" : "NO", responsableTurno: responsableTurno ? "SI" : "NO" });
         registrarEvento(usuario.id, "editar_colaborador", `Datos corregidos de ${nombre} (antes: ${colaborador.nombre})`);
 
         cerrarModal(modalId);
@@ -1471,6 +1475,39 @@ async function abrirModalEditar(colaborador) {
     });
 
     campoSucursal.bind();
+    bindLiderazgo();
+}
+
+/* Las dos etiquetas de liderazgo de un colaborador.
+
+   Son EXCLUYENTES a propósito: el responsable de local ya es el
+   referente de la sucursal, y marcarlo además como responsable de turno
+   no agrega información — deja la lista con dos etiquetas que parecen
+   lo mismo. Se destildan entre sí en vez de avisar con un cartel.
+
+   "Responsable de turno" es SOLO una etiqueta: no abre permisos, no
+   suma cursos de Gestión y no cambia qué ve la persona. Lo que decide
+   todo eso sigue siendo "encargado" — ver data/usuarios.js. */
+function camposLiderazgo(c = {}) {
+    return `
+        <label for="input-encargado">
+            <input type="checkbox" id="input-encargado" style="width:auto;display:inline-block;margin-right:8px" ${c.encargado ? "checked" : ""}>
+            ${ETIQUETA_RESPONSABLE_LOCAL} <span class="text-xs text-muted">— a cargo de la sucursal</span>
+        </label>
+
+        <label for="input-responsable-turno">
+            <input type="checkbox" id="input-responsable-turno" style="width:auto;display:inline-block;margin-right:8px" ${c.responsableTurno ? "checked" : ""}>
+            ${ETIQUETA_RESPONSABLE_TURNO} <span class="text-xs text-muted">— lidera su turno, sin estar a cargo del local</span>
+        </label>
+    `;
+}
+
+function bindLiderazgo() {
+    const local = document.getElementById("input-encargado");
+    const turno = document.getElementById("input-responsable-turno");
+    if (!local || !turno) return;
+    local.addEventListener("change", () => { if (local.checked) turno.checked = false; });
+    turno.addEventListener("change", () => { if (turno.checked) local.checked = false; });
 }
 
 async function abrirModalRegistrar() {
@@ -1489,10 +1526,7 @@ async function abrirModalRegistrar() {
 
         ${campoSucursal.html}
 
-        <label for="input-encargado">
-            <input type="checkbox" id="input-encargado" style="width:auto;display:inline-block;margin-right:8px">
-            Es encargado de sucursal
-        </label>
+        ${camposLiderazgo()}
 
         <p class="text-xs text-muted" style="margin-top:14px">El acceso se da por ${DIAS_ACCESO_INICIAL} días y se renueva solo cada vez que la persona entra, así que no hay que estar extendiéndolo. Si deja de entrar, caduca solo a los ${DIAS_ACCESO_INICIAL} días.</p>
     `;
@@ -1503,6 +1537,7 @@ async function abrirModalRegistrar() {
         const email = document.getElementById("input-email").value.trim();
         const sucursal = campoSucursal.leer();
         const encargado = document.getElementById("input-encargado").checked;
+        const responsableTurno = document.getElementById("input-responsable-turno").checked;
 
         if (!nombre || !email) {
             alert("Completá nombre y email antes de registrar — sin email no se puede cargar bien en la planilla.");
@@ -1523,7 +1558,7 @@ async function abrirModalRegistrar() {
         await asegurarSucursalAsignada(sucursal, usuario);
         if (campoSucursal.leerSupervisor) await asignarSupervisorASucursal(sucursal, campoSucursal.leerSupervisor());
         const fechaVencimientoAcceso = sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL);
-        await crearUsuario({ nombre, email, rol: "colaborador", sucursal, encargado, fechaVencimientoAcceso });
+        await crearUsuario({ nombre, email, rol: "colaborador", sucursal, encargado, responsableTurno, fechaVencimientoAcceso });
         registrarEvento(usuario.id, "registrar_colaborador", `Alta de ${nombre} (acceso por ${DIAS_ACCESO_INICIAL} días)`);
 
         cerrarModal(modalId);
@@ -1531,6 +1566,7 @@ async function abrirModalRegistrar() {
     });
 
     campoSucursal.bind();
+    bindLiderazgo();
 }
 
 /** Alta/edición de Supervisor o Admin — mucho más simple que el modal

@@ -10,7 +10,7 @@
 import { MODULOS, EMPRESA } from "../config.js";
 import { getUsuarioActual, MENU_POR_ROL } from "../services/auth.js";
 import { Icon } from "./icons.js";
-import { obtenerMiUsuario } from "../data/usuarios.js";
+import { obtenerMiUsuario, etiquetaColaborador } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
 import { CampanaBoton, AvatarHeaderBoton } from "./topbar.js";
 
@@ -142,7 +142,7 @@ export function Sidebar(rutaActiva = "inicio") {
     const rolLegible = {
         admin: "Administrador",
         supervisor: usuario.capacitador ? "Capacitador" : "Supervisor",
-        colaborador: usuario.encargado ? "Encargado" : "Colaborador",
+        colaborador: etiquetaColaborador(usuario),
     }[usuario.rol] || usuario.rol;
 
     return `

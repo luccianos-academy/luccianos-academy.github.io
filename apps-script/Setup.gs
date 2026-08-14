@@ -42,6 +42,41 @@ function setupUltimoIngreso() {
 }
 
 /**
+ * setupResponsableTurno() — agrega la columna "responsableTurno" a Usuarios.
+ *
+ * Es SOLO una etiqueta para la lista de colaboradores: marca a quien
+ * lidera su turno sin estar a cargo del local. No abre permisos ni
+ * cambia qué cursos le tocan — lo que decide todo eso sigue siendo la
+ * columna "encargado".
+ *
+ * Sin la columna el código no rompe: lee "" y nadie queda marcado, que
+ * es el estado correcto hasta que alguien la tilde.
+ */
+function setupResponsableTurno() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  if (!hoja) {
+    console.log('No existe la hoja Usuarios.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'responsableturno');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'responsableTurno') {
+      console.log('✓ La columna responsableTurno ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('responsableTurno');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "responsableTurno").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('responsableTurno');
+  console.log('✓ Columna responsableTurno agregada. Se completa desde Colaboradores → Editar.');
+}
+
+/**
  * setupAplicaA() — agrega la columna "aplicaA" a Cursos y Lecciones.
  *
  * Es lo que habilita el alcance de contenido por país y local

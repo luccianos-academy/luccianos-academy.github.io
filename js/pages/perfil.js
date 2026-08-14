@@ -14,7 +14,7 @@ import { getUsuarioActual, verComo } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
 import { getTokensDeUsuario } from "../data/tokens.js";
-import { actualizarUsuario, getUsuarios } from "../data/usuarios.js";
+import { actualizarUsuario, getUsuarios, ETIQUETA_RESPONSABLE_LOCAL, ETIQUETA_RESPONSABLE_TURNO } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
@@ -30,7 +30,7 @@ const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colabora
  *  "Volver a mi cuenta"), solo cambia de dónde se dispara. */
 const ROLES_VISTA_RAPIDA = [
     { id: "colaborador", label: "Colaborador", match: (u) => u.rol === "colaborador" && !u.encargado },
-    { id: "encargado", label: "Encargado", match: (u) => u.rol === "colaborador" && u.encargado },
+    { id: "encargado", label: ETIQUETA_RESPONSABLE_LOCAL, match: (u) => u.rol === "colaborador" && u.encargado },
     { id: "supervisor", label: "Supervisor", match: (u) => u.rol === "supervisor" && !u.capacitador },
     { id: "capacitador", label: "Capacitador", match: (u) => u.rol === "supervisor" && u.capacitador },
 ];
@@ -181,7 +181,7 @@ export async function Perfil() {
             <div class="list">
                 <div class="item"><span>Nombre</span><strong>${usuario.nombre}</strong></div>
                 <div class="item"><span>Email</span><strong style="word-break:break-word;text-align:right">${usuario.email}</strong></div>
-                <div class="item"><span>Rol</span><strong>${ROL_LEGIBLE[usuario.rol] || usuario.rol}${usuario.encargado ? " (Encargado)" : ""}${usuario.capacitador ? " (Capacitador)" : ""}</strong></div>
+                <div class="item"><span>Rol</span><strong>${ROL_LEGIBLE[usuario.rol] || usuario.rol}${usuario.encargado ? ` (${ETIQUETA_RESPONSABLE_LOCAL})` : usuario.responsableTurno ? ` (${ETIQUETA_RESPONSABLE_TURNO})` : ""}${usuario.capacitador ? " (Capacitador)" : ""}</strong></div>
                 ${usuario.sucursal ? `<div class="item"><span>Sucursal</span><strong>${usuario.sucursal}</strong></div>` : ""}
             </div>
         </div>

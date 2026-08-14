@@ -55,11 +55,25 @@ function normalizarRecurso(f) {
 
 export function puedeVerRecurso(recurso, usuario) {
     if (usuario.rol === "admin") return true;
+
+    // Un Capacitador tiene rol "supervisor" en los datos, pero acá NO
+    // cuenta como uno. Los presets de arriba ofrecen "Supervisores" y
+    // "Supervisores y Capacitadores" como opciones separadas: si la
+    // primera los incluyera, la segunda no tendría sentido.
+    //
+    // Antes entraba por roles.includes(usuario.rol), que da true con
+    // "supervisor" — así que un recurso marcado sólo para supervisores
+    // le aparecía igual. El default de abajo sí lo excluía desde
+    // siempre; la inconsistencia estaba en el camino explícito, que es
+    // justamente el que se usa cuando alguien quiere restringir algo.
+    const esCapacitador = usuario.rol === "supervisor" && !!usuario.capacitador;
+
     const visiblePara = String(recurso.visiblePara || "").trim();
-    if (!visiblePara) return usuario.rol === "supervisor" && !usuario.capacitador;
+    if (!visiblePara) return usuario.rol === "supervisor" && !esCapacitador;
+
     const roles = visiblePara.split(",").map((r) => r.trim()).filter(Boolean);
-    const paraCapacitador = roles.includes("capacitador") && usuario.rol === "supervisor" && usuario.capacitador;
-    return roles.includes(usuario.rol) || paraCapacitador;
+    if (esCapacitador) return roles.includes("capacitador");
+    return roles.includes(usuario.rol);
 }
 
 export async function getRecursos() {

@@ -5,6 +5,14 @@
    Un colaborador ES un usuario con rol="colaborador"; "encargado"
    es un atributo booleano sobre ese mismo usuario, no un rol
    aparte (así lo define el póster del proyecto).
+
+   OJO con la etiqueta: en pantalla "encargado" se muestra como
+   "Responsable de local" —sin género, que fue el pedido— pero el
+   CAMPO se sigue llamando "encargado". Renombrar la columna obligaría
+   a tocar la planilla, el backend y las reglas de contenido que ya
+   preguntan por `usuario.encargado` desde una docena de archivos, todo
+   para cambiar un texto. La traducción vive en un solo lugar
+   (etiquetaColaborador) para que no se desparrame de nuevo.
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
@@ -22,6 +30,13 @@ function normalizarUsuario(f) {
         // ver services/auth.js.
         rol: String(f.rol || "").trim().toLowerCase(),
         encargado: String(f.encargado || "").trim().toUpperCase() === "SI",
+        // "Responsable de turno": el que no es responsable de local pero
+        // tiene gente a cargo en su turno. Es SOLO una etiqueta para la
+        // lista de colaboradores — no abre ningún permiso ni cambia qué
+        // cursos le tocan. Si en algún momento tiene que habilitar algo,
+        // que sea una decisión explícita y no un efecto de haberlo
+        // tildado acá.
+        responsableTurno: String(f.responsableTurno || "").trim().toUpperCase() === "SI",
         sucursal: String(f.sucursal || "").trim(),
         activo: String(f.activo || "").trim().toUpperCase() === "NO" ? "NO" : "SI",
         // Vacío = acceso permanente (sin vencimiento). "YYYY-MM-DD" =
@@ -60,6 +75,20 @@ function normalizarUsuario(f) {
     };
 }
 
+/* Los tres textos con los que se nombra a un colaborador en pantalla.
+   Los tres salen de acá para que digan lo mismo en la tabla, en el
+   subtítulo del avatar, en el selector de destinatarios y en Mi Perfil
+   — antes estaban escritos a mano en cada pantalla y renombrar
+   "Encargado" implicaba encontrarlos todos. */
+export const ETIQUETA_RESPONSABLE_LOCAL = "Responsable de local";
+export const ETIQUETA_RESPONSABLE_TURNO = "Responsable de turno";
+
+export function etiquetaColaborador(u) {
+    if (u?.encargado) return ETIQUETA_RESPONSABLE_LOCAL;
+    if (u?.responsableTurno) return ETIQUETA_RESPONSABLE_TURNO;
+    return "Colaborador";
+}
+
 export async function getUsuarios() {
     try {
         const filas = await fetchSheet(HOJAS.USUARIOS, usuariosMock);
@@ -81,7 +110,7 @@ export async function getColaboradoresPorSucursal(sucursal) {
     return colaboradores.filter((c) => c.sucursal === sucursal);
 }
 
-export async function crearUsuario({ nombre, email, rol, sucursal = "", encargado = false, activo = "SI", fechaVencimientoAcceso = "", capacitador = false }) {
+export async function crearUsuario({ nombre, email, rol, sucursal = "", encargado = false, responsableTurno = false, activo = "SI", fechaVencimientoAcceso = "", capacitador = false }) {
     // Un rol fuera de estos tres rompe MENU_POR_ROL/PERMISOS_PAGINA en
     // silencio (búsqueda de clave exacta) — mejor frenar el alta acá
     // que debuggear un usuario "sin menú" después.
@@ -94,6 +123,7 @@ export async function crearUsuario({ nombre, email, rol, sucursal = "", encargad
         rol,
         sucursal,
         encargado: encargado ? "SI" : "NO",
+        responsableTurno: responsableTurno ? "SI" : "NO",
         activo,
         fechaVencimientoAcceso,
         fechaAlta: new Date().toISOString().slice(0, 10),

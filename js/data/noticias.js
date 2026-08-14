@@ -40,8 +40,8 @@ import { listaTieneId } from "../services/ids.js";
 //                            flujo sin enviarle a ningún colaborador.
 export const DIRIGIDO_A = [
     { id: "", nombre: "Todos los colaboradores" },
-    { id: "encargados-propios", nombre: "Encargados — Locales propios" },
-    { id: "encargados-franquicias", nombre: "Encargados — Franquicias" },
+    { id: "encargados-propios", nombre: "Responsables de local — Locales propios" },
+    { id: "encargados-franquicias", nombre: "Responsables de local — Franquicias" },
     { id: "colaboradores-local", nombre: "Locales específicos" },
     { id: "usuarios-especificos", nombre: "Usuarios específicos (Admin only)" },
     { id: "solo-admin", nombre: "Solo Admin (prueba)" },
