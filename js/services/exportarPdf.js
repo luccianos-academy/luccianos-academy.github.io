@@ -130,6 +130,17 @@ const ESTILOS_IMPRESION = `
     th, td { border: 1px solid #e2d9c5; padding: 6px 8px; text-align: left; vertical-align: top; background: #fffdf8; }
     th { background: #efe6d4; text-transform: uppercase; font-size: 9px; color: #333; letter-spacing: .3px; }
 
+    /* Las columnas de módulo (badge/anillo + "No aplica" cuando no
+       corresponde) y Nivel — centradas. Los badges y anillos ya se
+       centran solos (min-width/margin:auto), pero "No aplica" es un
+       <span> de texto plano sin nada de eso: quedaba pegado al borde
+       izquierdo de la celda mientras todo el resto de la columna
+       estaba centrado — pedido explícito del usuario: "el No aplica
+       quedó desalineado, tendría que quedar centrado". data-col (ver
+       components/table.js) identifica la columna sin importar el
+       orden real de las <td>. */
+    td[data-col^="curso_"], td[data-col="nivel"] { text-align: center; }
+
     /* min-height fija + el texto de abajo sin poder pasar a una
        segunda línea — pedido explícito del usuario: "los pills están
        todos desfasados, uno chico, otros más grandes". La celda tiene
