@@ -340,10 +340,10 @@ const IMAGEN_EXTRA_POR_LECCION = {
 //
 const VIDEOS_EXTRA_POR_LECCION = {
     1786750044129: [
-        { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura que debe tener" },
+        { src: "assets/video/hotchocolate-textura-2.mp4", poster: "assets/video/posters/hotchocolate-textura-2-poster.jpg", caption: "Textura que debe tener" },
+        { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura — otro ángulo" },
     ],
     1786749472369: [
-        { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
         { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
     ],
 };
