@@ -150,6 +150,39 @@ function setupManualesArchivos() {
 }
 
 /**
+ * setupManualesPaises() — agrega la columna "paisesA" a Manuales.
+ *
+ * Países a los que aplica el manual. Vacío = SIN restricción de país
+ * (mismo criterio que "sucursal": vacío no acota, no es "nadie lo ve").
+ * Así ningún manual ya cargado cambia de comportamiento.
+ *
+ * Sin la columna el código no rompe: lee "" y no hay restricción.
+ */
+function setupManualesPaises() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Manuales');
+  if (!hoja) {
+    console.log('No existe la hoja Manuales.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'paisesa');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'paisesA') {
+      console.log('✓ La columna paisesA ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('paisesA');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "paisesA").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('paisesA');
+  console.log('✓ Columna paisesA agregada.');
+}
+
+/**
  * setupResponsableTurno() — agrega la columna "responsableTurno" a Usuarios.
  *
  * Es SOLO una etiqueta para la lista de colaboradores: marca a quien

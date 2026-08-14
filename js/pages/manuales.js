@@ -15,10 +15,12 @@ import { Header } from "../components/header.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getManuales, crearManual, actualizarManual, eliminarManual, puedeVerManual } from "../data/manuales.js";
+import { getSucursales } from "../data/sucursales.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { Icon } from "../components/icons.js";
+import { escaparHtml } from "../services/html.js";
 
 // "capacitador" no es un rol real (ver data/usuarios.js — es un
 // Supervisor con otra etiqueta), pero necesita su propio checkbox acá
@@ -47,8 +49,21 @@ function filaArchivoHtml(a = { url: "", label: "" }) {
     `;
 }
 
-function camposManualHtml(m = {}) {
+function camposManualHtml(m = {}, sucursales = []) {
     const rolesActuales = m.visiblePara ? m.visiblePara.split(",").map((r) => r.trim()) : [];
+    // Países disponibles: salen de Sucursales.pais, no de una lista
+    // fija — mismo criterio que ya usa News (pages/news.js). Argentina
+    // primero y PRE-TILDADA en un manual NUEVO — pedido explícito del
+    // usuario: "si pongo un manual, ¿la gente de otros países también
+    // lo ve?" — antes sí, sin darse cuenta. Editando uno YA cargado se
+    // respeta lo que tiene guardado (vacío incluido), no se le fuerza
+    // Argentina de golpe.
+    const paisesDisponibles = [...new Set(sucursales.map((s) => s.pais).filter(Boolean))]
+        .sort((a, b) => a === "Argentina" ? -1 : b === "Argentina" ? 1 : a.localeCompare(b));
+    const esManualNuevo = !m.id;
+    const paisesElegidos = m.paisesA
+        ? m.paisesA.split(",").map((p) => p.trim()).filter(Boolean)
+        : (esManualNuevo ? ["Argentina"] : []);
     const checkboxesHtml = ROLES_COMPARTIR.map((r) => `
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:0">
             <input type="checkbox" class="input-compartir-rol" value="${r.id}" style="width:auto;flex-shrink:0" ${rolesActuales.includes(r.id) ? "checked" : ""}>
@@ -76,6 +91,12 @@ function camposManualHtml(m = {}) {
         <label for="input-sucursal-manual">Locales específicos (opcional)</label>
         ${MultiSelectSucursales("input-sucursal-manual", m.sucursal ? m.sucursal.split(",").map((s) => s.trim()).filter(Boolean) : [])}
         <p class="text-xs text-muted" style="margin-top:4px">Si elegís locales, lo ve todo el personal de esos locales (no hace falta marcar rol). Hay que marcar al menos un rol o un local.</p>
+
+        <label style="margin-top:16px">Países <span class="mod-tooltip" data-tooltip-texto="Argentina viene tildada por ser el país operativo. Sumá otros países si el manual también es para ellos, o destildá todos para que no acote por país (queda solo el Rol/Local de arriba).">ⓘ</span></label>
+        <div class="galeria-pills" id="pills-paises-manual">
+            ${paisesDisponibles.map((p) => `<button type="button" class="pill-categoria${paisesElegidos.includes(p) ? " activa" : ""}" data-pill-pais="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
+        </div>
+        <p class="text-xs text-muted" style="margin-top:4px">Sin ningún país tildado, el manual no se acota por país — se rige solo por Rol/Local.</p>
     `;
 }
 
@@ -94,7 +115,12 @@ function chipsVisibilidadHtml(m) {
         ? `<span class="badge badge-muted">${locales.length} local${locales.length > 1 ? "es" : ""}</span>`
         : "";
 
-    return chipsRoles + chipLocales;
+    const paises = m.paisesA ? m.paisesA.split(",").map((p) => p.trim()).filter(Boolean) : [];
+    const chipPaises = paises.length
+        ? `<span class="badge badge-info" title="${escaparHtml(paises.join(", "))}">${paises.length === 1 ? paises[0] : `${paises.length} países`}</span>`
+        : "";
+
+    return chipsRoles + chipLocales + chipPaises;
 }
 
 function leerCamposManual() {
@@ -109,12 +135,14 @@ function leerCamposManual() {
         const label = item.querySelector(".input-archivo-label")?.value.trim() || (i === 0 ? "Ver manual" : `Archivo ${i + 1}`);
         if (url) archivos.push({ url, label });
     });
+    const paisesElegidos = [...document.querySelectorAll("#pills-paises-manual .pill-categoria.activa")].map((p) => p.dataset.pillPais);
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         categoria: document.getElementById("input-categoria").value.trim(),
         archivos,
         visiblePara: rolesElegidos.join(","),
         sucursal: document.getElementById("input-sucursal-manual").value.trim(),
+        paisesA: paisesElegidos.join(","),
     };
 }
 
@@ -126,7 +154,8 @@ export async function Manuales() {
     // todos), con una etiqueta aparte marcando los restringidos; el
     // resto de los roles directamente no ve en la lista lo que no le
     // corresponde.
-    const items = (await getManuales()).filter((m) => esAdmin || puedeVerManual(m, usuario));
+    const sucursales = esAdmin ? [] : await getSucursales();
+    const items = (await getManuales()).filter((m) => esAdmin || puedeVerManual(m, usuario, sucursales));
 
     const itemsHtml = items.map((m) => `
         <div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -180,7 +209,7 @@ export function bindManuales() {
         btn.addEventListener("click", async () => {
             const items = await getManuales();
             const manual = items.find((m) => String(m.id) === String(btn.dataset.editarManual));
-            if (manual) abrirModalManual(manual);
+            if (manual) await abrirModalManual(manual);
         });
     });
 
@@ -194,10 +223,11 @@ export function bindManuales() {
     });
 }
 
-function abrirModalManual(manual = null) {
+async function abrirModalManual(manual = null) {
 
     const modalId = "modal-manual";
-    const contenidoHtml = camposManualHtml(manual || {});
+    const sucursales = await getSucursales();
+    const contenidoHtml = camposManualHtml(manual || {}, sucursales);
 
     abrirModal(Modal({ id: modalId, titulo: manual ? `Editar: ${manual.titulo}` : "Nuevo manual", contenidoHtml, textoConfirmar: manual ? "Guardar" : "Crear" }), modalId, async () => {
 
@@ -234,6 +264,12 @@ function abrirModalManual(manual = null) {
     });
 
     bindMultiSelectSucursales("input-sucursal-manual");
+
+    // Pills de país — multi-select (cada click suma o saca), mismo
+    // patrón que News.
+    document.querySelectorAll("#pills-paises-manual [data-pill-pais]").forEach((pill) => {
+        pill.addEventListener("click", () => pill.classList.toggle("activa"));
+    });
 
     const listaArchivos = document.getElementById("lista-archivos-manual");
     function wireEliminarArchivo() {

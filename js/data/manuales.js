@@ -10,6 +10,7 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { manualesMock } from "./mock/manuales.mock.js";
 import { HOJAS } from "../config.js";
+import { paisDe, normalizar } from "../services/alcance.js";
 
 // "visiblePara" es una lista separada por comas de roles que pueden
 // VER el manual (no editarlo, eso siempre es solo Admin — ver
@@ -56,10 +57,31 @@ function normalizarManual(f) {
         url: String(f.url || "").trim(),
         visiblePara: String(f.visiblePara || "").trim(),
         sucursal: String(f.sucursal || "").trim(),
+        // Países a los que aplica — pedido explícito del usuario: "si
+        // pongo un manual, ¿la gente de otros países también lo ve?".
+        // Vacío = SIN restricción de país (mismo criterio que
+        // "sucursal" acá abajo: vacío es "no acota", no "no aplica a
+        // nadie" — al revés de dirigidoA en Noticias, donde "" es un
+        // modo explícito). Así ningún manual ya cargado cambia de
+        // comportamiento — solo lo nuevo, que nace con Argentina
+        // pre-tildada (ver pages/manuales.js).
+        paisesA: String(f.paisesA || "").trim(),
     };
 }
 
-export function puedeVerManual(manual, usuario) {
+export function puedeVerManual(manual, usuario, sucursales = []) {
+    // País: mismo criterio que Cursos/Noticias — Admin y Supervisor ven
+    // todo (gestionan el contenido, tienen que poder revisarlo esté
+    // donde esté); esto solo acota a un Colaborador raso. Corre ANTES
+    // de todo lo demás porque es una condición más, no un modo
+    // separado: un manual puede estar restringido por país Y por rol Y
+    // por local, todo a la vez.
+    const paisesA = String(manual.paisesA || "").trim();
+    if (paisesA && usuario.rol === "colaborador") {
+        const paises = paisesA.split(",").map(normalizar).filter(Boolean);
+        if (!paises.includes(normalizar(paisDe(usuario, sucursales)))) return false;
+    }
+
     const visiblePara = String(manual.visiblePara || "").trim();
     const sucursalManual = String(manual.sucursal || "").trim();
 
@@ -119,7 +141,7 @@ export async function getManuales() {
     }
 }
 
-export async function crearManual({ titulo, categoria, archivos, visiblePara, sucursal }) {
+export async function crearManual({ titulo, categoria, archivos, visiblePara, sucursal, paisesA }) {
     const lista = (archivos || []).filter((a) => a.url);
     return writeSheet(HOJAS.MANUALES, {
         titulo,
@@ -131,6 +153,7 @@ export async function crearManual({ titulo, categoria, archivos, visiblePara, su
         url: lista.length ? lista[0].url : "",
         visiblePara: visiblePara || "",
         sucursal: sucursal || "",
+        paisesA: paisesA || "",
     }, manualesMock);
 }
 
