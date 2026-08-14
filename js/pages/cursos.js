@@ -338,18 +338,18 @@ const IMAGEN_EXTRA_POR_LECCION = {
 // es un plus, no bloqueante — "los videos son opcionales" para esta
 // lección, pedido explícito.
 //
-// PENDIENTE: falta el id real de las lecciones "Preparación" y
-// "Producto terminado" (Cafetería se partió en 3 lecciones — Armado
-// ya tiene id 1786746818551, ver IMAGENES_POR_LECCION). Cuando el
-// usuario las cree y pase el id, va acá:
+// PENDIENTE: falta el id real de "Preparación" (Armado=1786746818551,
+// Producto terminado=1786749472369, ya cargados abajo) — cuando el
+// usuario la cree y pase el id, va acá:
 //   <id Preparación>: [
-//       { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
 //       { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura que debe tener" },
 //   ],
-//   <id Producto terminado>: [
-//       { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
-//   ],
-const VIDEOS_EXTRA_POR_LECCION = {};
+const VIDEOS_EXTRA_POR_LECCION = {
+    1786749472369: [
+        { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
+        { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
+    ],
+};
 
 // Secuencia de capturas de pantalla navegable a mano (botones
 // anterior/siguiente, sin autoplay) — para lecciones de Sistema y
