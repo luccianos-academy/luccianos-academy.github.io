@@ -859,7 +859,7 @@ export async function Colaboradores() {
         ` : ""}
 
         <div class="table-toolbar">
-            <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre...">
+            <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre, email o local...">
             ${usuario.capacitador ? `<button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button>` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
@@ -990,6 +990,20 @@ export function bindColaboradores() {
     // el <tr> (ver _datos en filaDeColaborador), no del texto de la
     // fila: leerlo del texto ataba el filtro a cómo está escrita la
     // etiqueta y se rompía sin avisar apenas se la renombraba.
+    // Busca por nombre, email O sucursal — antes solo miraba la celda de
+    // nombre, así que escribir "Devoto" o el mail de alguien no
+    // encontraba nada aunque la persona estuviera ahí. data-col (ver
+    // components/table.js) identifica cada celda por su columna sin
+    // importar en qué posición quedó — con o sin checkbox de mail
+    // adelante, con o sin columna de sucursal, siempre encuentra la
+    // celda correcta.
+    function textoBuscable(fila) {
+        return ["nombre", "email", "sucursal", "sucursalLabel"]
+            .map((col) => fila.querySelector(`[data-col="${col}"]`)?.textContent || "")
+            .join(" ")
+            .toLowerCase();
+    }
+
     function aplicarFiltros() {
         const texto = (buscador?.value || "").trim().toLowerCase();
         // SOLO el panel visible. Antes barría "#tabla-colaboradores
@@ -1001,12 +1015,7 @@ export function bindColaboradores() {
         const panel = panelActivo();
         let visibles = 0;
         panel.querySelectorAll("tbody tr").forEach((fila) => {
-            // La celda de nombre ya no es siempre la primera: si puede
-            // enviar mail, la primera es el checkbox de selección.
-            const primeraCelda = fila.firstElementChild;
-            const celdaNombre = primeraCelda?.querySelector(".mail-check") ? fila.children[1] : primeraCelda;
-            const nombre = celdaNombre?.textContent.toLowerCase() || "";
-            const coincideTexto = nombre.includes(texto);
+            const coincideTexto = textoBuscable(fila).includes(texto);
             const esActivo = !!fila.querySelector(".badge-success");
             const coincideEstado = filtroActivo === "todos" || (filtroActivo === "SI") === esActivo;
             const coincideEncargado = !soloEncargados || fila.dataset.encargado === "si";
