@@ -2082,8 +2082,13 @@ table.data-table tbody tr:hover{
     /* Explicaciones más largas (ej. tarjetas KPI) necesitan poder
        partirse en varias líneas — los labels cortos (ej. "M1") de
        todas formas nunca llegan a los 220px, así que este ancho no
-       les cambia nada. */
-    white-space:normal;
+       les cambia nada. pre-line (no normal): el detalle de
+       restricciones de Locales arma la lista con saltos de línea de
+       verdad (\n en el string), uno por ítem — con "normal" esos
+       saltos se ignoran y todo queda pegado en un solo bloque de
+       texto corrido. pre-line los respeta y sigue permitiendo que una
+       línea larga se parta sola si no entra en los 220px. */
+    white-space:pre-line;
     width:max-content;
     max-width:220px;
     text-align:left;

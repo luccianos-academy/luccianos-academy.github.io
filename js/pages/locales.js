@@ -57,20 +57,32 @@ function contarRestricciones(items, local) {
     items.forEach(({ nombre, tipo, noAplicaA }) => {
         const lista = String(noAplicaA || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
         if (!lista.length) return;
-        if (lista.includes(String(local.nombre).toLowerCase())) porTipo[tipo].local.push(nombre);
-        else if (local.pais && lista.includes(String(local.pais).toLowerCase())) porTipo[tipo].pais.push(nombre);
+        const entrada = { nombre };
+        if (lista.includes(String(local.nombre).toLowerCase())) porTipo[tipo].local.push(entrada);
+        else if (local.pais && lista.includes(String(local.pais).toLowerCase())) porTipo[tipo].pais.push(entrada);
     });
     return porTipo;
 }
 
-// Corta la lista de nombres a 8: con un local que acumula muchas
-// exclusiones (típico del país entero, ej. "Gluten Free" sacado de
-// toda España), un tooltip de 40 líneas es tan inútil como no tener
-// ninguna — la idea es dar un vistazo, no reemplazar "Contenido que
-// tiene" para una auditoría a fondo.
-function textoDetalle(nombres) {
-    if (nombres.length <= 8) return nombres.join(" · ");
-    return nombres.slice(0, 8).join(" · ") + ` · y ${nombres.length - 8} más`;
+// Corta la lista a 8 ítems: con un local que acumula muchas exclusiones
+// (típico del país entero, ej. "Gluten Free" sacado de toda España),
+// un tooltip de 40 líneas es tan inútil como no tener ninguna — la
+// idea es dar un vistazo, no reemplazar "Contenido que tiene" para una
+// auditoría a fondo.
+//
+// Un ítem por línea, sin encabezado de módulo — pedido explícito del
+// usuario: antes el módulo se repetía al lado de CADA producto
+// ("Chocolate (Heladería) · Cookies (Heladería) · ..."), un bloque de
+// texto ilegible. La pill ya dice de qué tipo es (Catálogo/Lecciones/
+// Módulos), así que ni hace falta agrupar por módulo adentro — solo
+// una lista prolija. Necesita líneas de verdad: el tooltip pasa a
+// white-space:pre-line (css/components.css) para poder mostrarlas.
+function textoDetalle(entradas) {
+    const limitadas = entradas.length <= 8 ? entradas : entradas.slice(0, 8);
+    const resto = entradas.length - limitadas.length;
+    const lineas = limitadas.map((e) => e.nombre);
+    if (resto > 0) lineas.push(`y ${resto} más`);
+    return lineas.join("\n");
 }
 
 function badgeRestricciones(local) {
@@ -228,10 +240,15 @@ export async function Locales() {
     // en vez de un número pelado. Se arma una vez y no por fila: con
     // 123 locales, recalcularlo en cada uno serían 123 pasadas sobre
     // los ~300 ítems.
+    // Antes el nombre de Catálogo venía con el módulo pegado adentro
+    // ("Chocolate Lucciano's (Heladería)") — con 8 productos del mismo
+    // módulo el tooltip repetía "(Heladería)" ocho veces seguidas. Se
+    // saca: la pill ya dice "Catálogo", no hace falta repetir de qué
+    // módulo es cada producto ahí adentro también.
     const todosLosItems = [
         ...cursos.map((c) => ({ nombre: c.nombre, tipo: "Cursos", noAplicaA: c.noAplicaA })),
         ...lecciones.map((l) => ({ nombre: l.titulo, tipo: "Lecciones", noAplicaA: l.noAplicaA })),
-        ...disponibilidad.map((d) => ({ nombre: d.producto ? `${d.producto} (${d.curso})` : d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA })),
+        ...disponibilidad.map((d) => ({ nombre: d.producto || d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA })),
     ].filter((it) => it.noAplicaA);
     locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosItems, l); });
 
