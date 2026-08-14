@@ -34,16 +34,21 @@ const CATALOGO_POR_CURSO = {
 };
 
 /** Cuenta cuántos ítems tienen restringido a este local, separados por
- *  TIPO (Catálogo/Lecciones/Cursos) — pedido explícito del usuario:
- *  "que diga ocho del catálogo, tres de lecciones", así se sabe DE QUÉ
- *  son las restricciones sin tener que entrar a revisar. Cada grupo
- *  además guarda los nombres y si son propias del local o heredadas
- *  del país, para el tooltip. Se arma una sola vez por render y se
- *  consulta por fila. */
+ *  TIPO (Módulos/Lecciones/Catálogo) — pedido explícito del usuario:
+ *  "1 módulo, 2 lecciones, 20 catálogo", así se sabe DE QUÉ son las
+ *  restricciones sin tener que entrar a revisar. Cada grupo además
+ *  guarda los nombres, para el tooltip. Se arma una sola vez por
+ *  render y se consulta por fila. */
 const TIPOS_RESTRICCION = [
-    { key: "Catálogo", etiqueta: "del catálogo" },
-    { key: "Lecciones", etiqueta: "de lecciones" },
-    { key: "Cursos", etiqueta: "de cursos" },
+    // "tono" es fijo por TIPO — pedido explícito: "que cada pill tenga
+    // un color distinto, así detectamos de dónde proviene [de qué tipo
+    // es]". Antes el color marcaba local-vs-país; eso se sacó (ver
+    // badgeRestricciones) porque no puede marcar dos cosas a la vez.
+    { key: "Cursos", singular: "módulo", plural: "módulos", tono: "badge-warning" },
+    { key: "Lecciones", singular: "lección", plural: "lecciones", tono: "badge-info" },
+    // "Catálogo" no cambia con la cantidad — pedido explícito: "20
+    // catálogo", no "20 catálogos".
+    { key: "Catálogo", singular: "catálogo", plural: "catálogo", tono: "badge-violeta" },
 ];
 
 function contarRestricciones(items, local) {
@@ -70,23 +75,22 @@ function textoDetalle(nombres) {
 
 function badgeRestricciones(local) {
     const porTipo = local._restricciones || {};
-    const badges = TIPOS_RESTRICCION.map(({ key, etiqueta }) => {
+    const badges = TIPOS_RESTRICCION.map(({ key, singular, plural, tono }) => {
         const grupo = porTipo[key] || { local: [], pais: [] };
         const total = grupo.local.length + grupo.pais.length;
         if (!total) return "";
-        const detalle = [];
-        if (grupo.local.length) detalle.push(`Configurado para este local: ${textoDetalle(grupo.local)}`);
-        if (grupo.pais.length) detalle.push(`Heredado de ${local.pais}: ${textoDetalle(grupo.pais)}`);
-        // Dorado si hay algo propio de ESTE local (lo que conviene
-        // revisar primero); gris si es solo heredado del país entero.
-        const tono = grupo.local.length ? "badge-warning" : "badge-muted";
+        // Sin aclarar "configurado acá" vs "heredado del país" — pedido
+        // explícito: "no hace falta una aclaración, solo saber que no
+        // está activado".
+        const nombres = [...grupo.local, ...grupo.pais];
+        const etiqueta = total === 1 ? singular : plural;
         // ".mod-tooltip" trae de base subrayado punteado + negrita
         // (pensado para envolver texto abreviado, ver
         // services/tooltips.js) — sobre un badge que ya tiene su
         // propio fondo y borde queda de más, se anula inline. El
         // mecanismo de hover/tap es el mismo en toda la app, así que
         // no hace falta nada más para que funcione acá.
-        return `<span class="badge ${tono} mod-tooltip" style="border-bottom:none;font-weight:inherit;cursor:help" data-tooltip-texto="${escaparHtml(detalle.join(" — "))}">${total} ${etiqueta}</span>`;
+        return `<span class="badge ${tono} mod-tooltip" style="border-bottom:none;font-weight:inherit;cursor:help" data-tooltip-texto="${escaparHtml(textoDetalle(nombres))}">${total} ${etiqueta}</span>`;
     }).filter(Boolean);
     return badges.length ? badges.join(" ") : `<span class="text-sm text-muted">—</span>`;
 }

@@ -35,6 +35,17 @@
     --warning-soft:rgba(224,178,61,.16);
     --danger-soft:rgba(229,103,92,.16);
     --muted-soft:rgba(255,255,255,.06);
+
+    /* Dos tonos más, SOLO para distinguir tipo de contenido a simple
+       vista (ej. badges de Lecciones/Catálogo en Locales) — no son
+       estados (éxito/alerta/error) como el resto de la paleta de
+       arriba, por eso viven aparte. Elegidos para no competir con el
+       dorado de marca ni con warning/danger: un azul calmo y un
+       violeta, ambos legibles sobre --bg. */
+    --info:#6fa3d8;
+    --info-soft:rgba(111,163,216,.16);
+    --violeta:#a98fd6;
+    --violeta-soft:rgba(169,143,214,.16);
     --surface-2:rgba(255,255,255,.035);
     --track:var(--line);
     --secondary-bg:#262219;

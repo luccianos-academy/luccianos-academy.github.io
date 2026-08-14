@@ -2290,6 +2290,11 @@ table.data-table tbody tr:hover{
 .badge-warning{ background:var(--warning-soft); color:var(--warning); }
 .badge-danger{ background:var(--danger-soft); color:var(--danger); }
 .badge-muted{ background:var(--muted-soft); color:var(--muted); }
+/* No son estados (esos son los de arriba) — distinguen TIPO de
+   contenido a simple vista (ej. Locales → badges de Módulos/
+   Lecciones/Catálogo). Ver --info/--violeta en variables.css. */
+.badge-info{ background:var(--info-soft); color:var(--info); }
+.badge-violeta{ background:var(--violeta-soft); color:var(--violeta); }
 
 /* PROGRESS RING (colaborador) */
 
