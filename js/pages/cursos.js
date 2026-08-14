@@ -329,22 +329,27 @@ const POSTER_POR_LECCION = {
 // Lucciano's) tiene que verse igual — no reemplaza al video, se suma.
 const IMAGEN_EXTRA_POR_LECCION = {
     18: "assets/img/chocolateria/cinco_estrellas_alfajor.png",
-    1786746818551: "assets/img/cafeteria/hotchocolate-final-cup.jpg",
 };
 
 // Igual que IMAGEN_EXTRA_POR_LECCION pero para video — se suma DEBAJO
 // del carrusel de fotos principal, no lo reemplaza (a diferencia de
 // VIDEOS_MULTIPLES_POR_LECCION, que si está presente gana y no deja
-// ver fotos). Nace para Chocolate Caliente: el paso a paso de armado
-// va en fotos (es lo que hay que poder consultar con calma, quieto),
-// el video de preparación/presentación es un plus, no bloqueante —
-// "los videos son opcionales" para esta lección, pedido explícito.
-const VIDEOS_EXTRA_POR_LECCION = {
-    1786746818551: [
-        { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
-        { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
-    ],
-};
+// ver fotos). Nace para Chocolate Caliente ("Preparación"): el video
+// es un plus, no bloqueante — "los videos son opcionales" para esta
+// lección, pedido explícito.
+//
+// PENDIENTE: falta el id real de las lecciones "Preparación" y
+// "Producto terminado" (Cafetería se partió en 3 lecciones — Armado
+// ya tiene id 1786746818551, ver IMAGENES_POR_LECCION). Cuando el
+// usuario las cree y pase el id, va acá:
+//   <id Preparación>: [
+//       { src: "assets/video/hotchocolate-preparacion.mp4", poster: "assets/video/posters/hotchocolate-preparacion-poster.jpg", caption: "Decoración y armado del vaso" },
+//       { src: "assets/video/hotchocolate-textura.mp4", poster: "assets/video/posters/hotchocolate-textura-poster.jpg", caption: "Textura que debe tener" },
+//   ],
+//   <id Producto terminado>: [
+//       { src: "assets/video/hotchocolate-presentacion.mp4", poster: "assets/video/posters/hotchocolate-presentacion-poster.jpg", caption: "Presentación final del producto" },
+//   ],
+const VIDEOS_EXTRA_POR_LECCION = {};
 
 // Secuencia de capturas de pantalla navegable a mano (botones
 // anterior/siguiente, sin autoplay) — para lecciones de Sistema y
@@ -353,6 +358,7 @@ const VIDEOS_EXTRA_POR_LECCION = {
 // permite.
 const IMAGENES_POR_LECCION = {
     1786746818551: [
+        { src: "assets/img/cafeteria/hotchocolate-final-cup.jpg", caption: "Hot Chocolate — portada" },
         { src: "assets/img/cafeteria/hotchocolate-armado-1.jpg", caption: "01 · Verificar los componentes" },
         { src: "assets/img/cafeteria/hotchocolate-armado-2.jpg", caption: "02 · Colocar el agitador dentro del vaso" },
         { src: "assets/img/cafeteria/hotchocolate-armado-3.jpg", caption: "03 · Montar el vaso sobre la base motor" },

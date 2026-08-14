@@ -3689,11 +3689,20 @@ table.data-table tbody tr:hover{
     flex-shrink:0;
 }
 
+/* Sin max-height, una foto en formato retrato (celular, 9:16 — ej. las
+   piezas de campaña de Cafetería) se estira al ancho completo de la
+   columna de escritorio y termina gigante (hasta 1500px de alto,
+   reportado en vivo por el usuario). Mismo criterio que ya usaba
+   .leccion-video-wrap .leccion-imagen: se limita por altura y se
+   centra, no por ancho. */
 .leccion-imagen{
     max-width:100%;
+    max-height:480px;
+    width:auto;
     border-radius:var(--radius-sm);
-    margin-top:12px;
+    margin:12px auto 0;
     display:block;
+    object-fit:contain;
 }
 
 /* Portada fija con botón de play — ver POSTER_POR_LECCION/bindCursos.
@@ -3773,6 +3782,9 @@ table.data-table tbody tr:hover{
 .leccion-carrusel-viewport{
     position:relative;
     width:100%;
+    /* Mismo motivo que .leccion-imagen: fotos retrato sin tope de
+       alto quedaban gigantes en desktop. */
+    height:480px;
     border-radius:var(--radius-sm);
     overflow:hidden;
     background:#111;
@@ -3781,7 +3793,8 @@ table.data-table tbody tr:hover{
 .leccion-carrusel-img{
     display:none;
     width:100%;
-    height:auto;
+    height:100%;
+    object-fit:contain;
 }
 
 .leccion-carrusel-img.activa{
