@@ -76,37 +76,43 @@ function setupMiembrosCanal() {
 }
 
 /**
- * setupNoticiasNoAplicaA() — agrega la columna "noAplicaA" a Noticias.
+ * setupNoticiasSegmentacion() — agrega "paisesA" y "noAplicaA" a Noticias.
  *
- * Locales que quedan afuera de una News dirigida a "Argentina" — el
- * default nuevo de "¿A quién va dirigida?" (antes era "todos los
- * colaboradores", que le llegaba también a España, Chile, Uruguay...).
- * Vacío = ningún local excluido, la reciben todos los de Argentina.
+ * "paisesA": países elegidos a mano para el nuevo default "País(es)" de
+ * "¿A quién va dirigida?" (antes era "todos los colaboradores", que le
+ * llegaba también a España, Chile, Uruguay... aunque fuera un aviso del
+ * día a día de Argentina). Vacío = ninguno seleccionado.
  *
- * Sin la columna el código no rompe: lee "" y no hay exclusiones.
+ * "noAplicaA": locales puntuales que quedan afuera aunque estén en uno
+ * de esos países. Vacío = sin exclusiones.
+ *
+ * Sin las columnas el código no rompe: lee "" y no hay países ni
+ * exclusiones cargados.
  */
-function setupNoticiasNoAplicaA() {
+function setupNoticiasSegmentacion() {
   const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Noticias');
   if (!hoja) {
     console.log('No existe la hoja Noticias.');
     return;
   }
 
-  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
-  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'noaplicaa');
+  ['paisesA', 'noAplicaA'].forEach(function (columna) {
+    const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    const indice = headers.findIndex(h => String(h).trim().toLowerCase() === columna.toLowerCase());
 
-  if (indice !== -1) {
-    if (headers[indice] === 'noAplicaA') {
-      console.log('✓ La columna noAplicaA ya existe.');
-    } else {
-      hoja.getRange(1, indice + 1).setValue('noAplicaA');
-      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "noAplicaA").`);
+    if (indice !== -1) {
+      if (headers[indice] === columna) {
+        console.log('✓ La columna ' + columna + ' ya existe.');
+      } else {
+        hoja.getRange(1, indice + 1).setValue(columna);
+        console.log('✓ Encabezado corregido ("' + headers[indice] + '" → "' + columna + '").');
+      }
+      return;
     }
-    return;
-  }
 
-  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('noAplicaA');
-  console.log('✓ Columna noAplicaA agregada.');
+    hoja.getRange(1, hoja.getLastColumn() + 1).setValue(columna);
+    console.log('✓ Columna ' + columna + ' agregada.');
+  });
 }
 
 /**

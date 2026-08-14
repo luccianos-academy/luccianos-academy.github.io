@@ -138,11 +138,12 @@ async function descripcionDestinatarios(noti) {
             : "Locales específicos — ninguno seleccionado";
     }
 
-    if (dirigido === "argentina") {
+    if (dirigido === "paises") {
+        const paises = String(noti.paisesA || "").split(",").map((s) => s.trim()).filter(Boolean);
+        if (!paises.length) return "País(es) — ninguno seleccionado, no le llegó a nadie";
         const excluidos = String(noti.noAplicaA || "").split(",").map((s) => s.trim()).filter(Boolean);
-        return excluidos.length
-            ? `Argentina, salvo ${excluidos.length} local(es): ${excluidos.join(", ")}`
-            : "Argentina";
+        const base = paises.join(", ");
+        return excluidos.length ? `${base}, salvo ${excluidos.length} local(es): ${excluidos.join(", ")}` : base;
     }
 
     // Un dirigidoA que no matchea ningún modo conocido es el mismo caso
@@ -232,11 +233,24 @@ function etiquetaGrupo(fecha) {
     return formatearFecha(fecha);
 }
 
-function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
+function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = []) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
     const esNoticiaNueva = !n.id;
-    const dirigidoActual = esNoticiaNueva ? (n.dirigidoA || "argentina") : (n.dirigidoA || "");
+    const dirigidoActual = esNoticiaNueva ? (n.dirigidoA || "paises") : (n.dirigidoA || "");
+
+    // Países disponibles: salen de Sucursales.pais, NO de una lista fija
+    // en el código — mismo criterio que ya usa Locales para sus pills
+    // (js/pages/locales.js). Si mañana abre un país nuevo, aparece solo,
+    // sin tocar este archivo. Argentina primero siempre (es el país
+    // operativo) y PRE-TILDADA en una News nueva — pero es un pill
+    // como cualquier otro: se puede destildar (ej. para armar una News
+    // de "todos menos Argentina").
+    const paisesDisponibles = [...new Set(sucursales.map((s) => s.pais).filter(Boolean))]
+        .sort((a, b) => a === "Argentina" ? -1 : b === "Argentina" ? 1 : a.localeCompare(b));
+    const paisesElegidos = esNoticiaNueva
+        ? (n.paisesA ? n.paisesA.split(",").map((p) => p.trim()).filter(Boolean) : ["Argentina"])
+        : (n.paisesA ? n.paisesA.split(",").map((p) => p.trim()).filter(Boolean) : []);
     const tipoActual = n.tipo && n.tipo !== "noticia" ? n.tipo : "";
     const opcionesCategoria = categoriasRecordadas().map((c) => `<option value="${c}"></option>`).join("");
     const esAdmin = usuario.rol === "admin";
@@ -254,7 +268,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
     // DIRIGIDO_A en data/noticias.js). News es solo para colaboradores;
     // Supervisión + Admin siempre reciben copia (no son opción).
     const DESC_DIRIGIDO = {
-        "argentina": "A los colaboradores de Argentina — podés excluir locales puntuales abajo.",
+        "paises": "Argentina viene pre-tildada (es el país operativo) — sumá otros o destildala, y excluí locales puntuales abajo.",
         "": "A todos los colaboradores de la red, de cualquier país.",
         "encargados-propios": "Solo responsables de local, de locales propios.",
         "encargados-franquicias": "Solo responsables de local, de franquicias.",
@@ -327,10 +341,18 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}) {
                     ${MultiSelectUsuarios("input-usuarios-notif", n.usuariosEspecificos ? n.usuariosEspecificos.split(",").map((id) => id.trim()).filter(Boolean) : [])}
                 </div>
 
+                <div id="wrap-paises-notif" class="form-section-collapsible hidden" style="margin-top:14px">
+                    <label style="margin-top:0">Países</label>
+                    <div class="galeria-pills" id="pills-paises-notif">
+                        ${paisesDisponibles.map((p) => `<button type="button" class="pill-categoria${paisesElegidos.includes(p) ? " activa" : ""}" data-pill-pais="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
+                    </div>
+                    <p class="text-xs text-muted" style="margin-top:8px;margin-bottom:0">Argentina viene tildada por ser el país operativo — desmarcala si esta News no es para acá.</p>
+                </div>
+
                 <div id="wrap-noaplica-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-noaplica-notif" style="margin-top:0">Locales que NO la reciben <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></label>
                     ${MultiSelectSucursales("input-noaplica-notif", n.noAplicaA ? n.noAplicaA.split(",").map((s) => s.trim()).filter(Boolean) : [])}
-                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">El resto de Argentina la recibe igual — esto es para el caso puntual de un local que no aplica (ej. todavía no abrió, o el aviso no le sirve).</p>
+                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">El resto de los países elegidos la recibe igual — esto es para el caso puntual de un local que no aplica (ej. todavía no abrió, o el aviso no le sirve).</p>
                 </div>
 
                 <div class="form-info-box">
@@ -442,8 +464,9 @@ function leerCamposNotificacion() {
         sucursal: dirigidoA === "colaboradores-local" ? document.getElementById("input-sucursal-notif").value.trim() : "",
         // Usuarios específicos: solo cuando se elige esa opción
         usuariosEspecificos: dirigidoA === "usuarios-especificos" ? (document.getElementById("input-usuarios-notif")?.value || "") : "",
-        // Locales excluidos: solo tienen sentido dentro de "Argentina"
-        noAplicaA: dirigidoA === "argentina" ? (document.getElementById("input-noaplica-notif")?.value.trim() || "") : "",
+        // Países y locales excluidos: solo tienen sentido dentro de "País(es)"
+        paisesA: dirigidoA === "paises" ? [...document.querySelectorAll("#pills-paises-notif .pill-categoria.activa")].map((p) => p.dataset.pillPais).join(",") : "",
+        noAplicaA: dirigidoA === "paises" ? (document.getElementById("input-noaplica-notif")?.value.trim() || "") : "",
         detalle: "", // Eliminado — solo se usa resumen
         enlace: document.getElementById("input-enlace").value,
         destacado: document.getElementById("input-destacado-news")?.checked || false,
@@ -958,7 +981,7 @@ export async function NuevaNews(params = []) {
     if (!puedeCrearNoticia(usuario)) return `<p class="text-sm text-muted" style="padding:24px">No tenés permiso para crear News.</p>`;
 
     const id = params[0];
-    const [cursos, noticias] = await Promise.all([getCursos(), id ? getNoticias() : Promise.resolve([])]);
+    const [cursos, noticias, sucursales] = await Promise.all([getCursos(), id ? getNoticias() : Promise.resolve([]), getSucursales()]);
     const noti = id ? noticias.find((n) => String(n.id) === String(id)) : null;
 
     return `
@@ -968,7 +991,7 @@ export async function NuevaNews(params = []) {
             <button type="button" class="compose-ayuda" id="btn-ayuda-news">${Icon("alertas", { size: 16 })} ¿Cómo funciona News?</button>
         </div>
 
-        ${camposNotificacionHtml(noti || {}, cursos, usuario)}
+        ${camposNotificacionHtml(noti || {}, cursos, usuario, sucursales)}
 
         <div class="compose-footer">
             <button class="btn btn-secondary" id="btn-cancelar-news">Cancelar</button>
@@ -1011,12 +1034,26 @@ export function bindNuevaNews(params = []) {
         });
     });
 
+    // Pills de país — multi-select (cada click suma o saca, a
+    // diferencia de las pills de categoría que son de una sola).
+    document.querySelectorAll("#pills-paises-notif [data-pill-pais]").forEach((pill) => {
+        pill.addEventListener("click", () => pill.classList.toggle("activa"));
+    });
+
     // Locales visibles solo con "Locales específicos" — transición suave sin layout shift.
     const wrapSucursal = document.getElementById("wrap-sucursal-notif");
     const wrapUsuarios = document.getElementById("wrap-usuarios-notif");
     const wrapNoAplica = document.getElementById("wrap-noaplica-notif");
+    const wrapPaises = document.getElementById("wrap-paises-notif");
     function actualizarWrapsSurcursalUsuarios() {
         const dirigido = document.querySelector(".input-dirigido-a:checked")?.value || "";
+        if (wrapPaises) {
+            if (dirigido === "paises") {
+                wrapPaises.classList.remove("hidden");
+            } else {
+                wrapPaises.classList.add("hidden");
+            }
+        }
         if (wrapSucursal) {
             if (dirigido === "colaboradores-local") {
                 wrapSucursal.classList.remove("hidden");
@@ -1032,7 +1069,7 @@ export function bindNuevaNews(params = []) {
             }
         }
         if (wrapNoAplica) {
-            if (dirigido === "argentina") {
+            if (dirigido === "paises") {
                 wrapNoAplica.classList.remove("hidden");
             } else {
                 wrapNoAplica.classList.add("hidden");

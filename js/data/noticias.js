@@ -32,15 +32,21 @@ import { paisDe, normalizar } from "../services/alcance.js";
 // tanto de todo para no perderse nada", Comunicaciones ya cubre
 // operaciones entre supervisores). Por eso no hay opción de dirigir
 // a supervisor/capacitador/admin como público objetivo.
-//   "argentina"            → Argentina (país de la persona, no el local
-//                            puntual — mismo criterio que alcance.js),
-//                            con la opción de excluir locales puntuales
-//                            (campo "noAplicaA"). ES EL DEFAULT del
-//                            formulario de una News nueva — antes el
-//                            default era "todos los colaboradores",
-//                            que le llegaba también a España, Chile,
-//                            Uruguay... una News pensada para el día a
-//                            día de Argentina salía para toda la red.
+//   "paises"               → uno o más países elegidos a mano (campo
+//                            "paisesA", país de la persona — no el
+//                            local puntual, mismo criterio que
+//                            alcance.js), con la opción de excluir
+//                            locales puntuales adentro (campo
+//                            "noAplicaA"). ES EL DEFAULT del formulario
+//                            de una News nueva, con Argentina PRE-
+//                            TILDADA porque es el país operativo — pero
+//                            se puede destildar como cualquier otro
+//                            país (ej. para armar una News de "todos
+//                            menos Argentina"). Antes el default era
+//                            "todos los colaboradores", que le llegaba
+//                            también a España, Chile, Uruguay... una
+//                            News pensada para el día a día de
+//                            Argentina salía para toda la red.
 //   ""                     → todos los colaboradores de TODA la red,
 //                            de cualquier país — sigue existiendo para
 //                            cuando hace falta de verdad (ej. un aviso
@@ -53,7 +59,7 @@ import { paisDe, normalizar } from "../services/alcance.js";
 //                            explícito del usuario: poder probar el
 //                            flujo sin enviarle a ningún colaborador.
 export const DIRIGIDO_A = [
-    { id: "argentina", nombre: "Argentina" },
+    { id: "paises", nombre: "País(es)" },
     { id: "", nombre: "Todos los colaboradores (todos los países)" },
     { id: "encargados-propios", nombre: "Responsables de local — Locales propios" },
     { id: "encargados-franquicias", nombre: "Responsables de local — Franquicias" },
@@ -127,10 +133,13 @@ function normalizarNoticia(f) {
         // lista de locales separada por comas (mismo componente que
         // Manuales). Compat: filas viejas guardaban esto en "sucursal".
         sucursal: String(f.sucursal || "").trim(),
-        // Solo se usa cuando dirigidoA === "argentina": locales
-        // puntuales que NO la reciben aunque estén en el país (mismo
-        // patrón "la exclusión gana" que Cursos.noAplicaA — ver
-        // services/alcance.js). Lista separada por comas.
+        // Solo se usa cuando dirigidoA === "paises": qué países la
+        // reciben, separados por comas (ej. "Argentina, España").
+        paisesA: String(f.paisesA || "").trim(),
+        // Locales puntuales que NO la reciben aunque estén en uno de
+        // esos países (mismo patrón "la exclusión gana" que
+        // Cursos.noAplicaA — ver services/alcance.js). Lista separada
+        // por comas.
         noAplicaA: String(f.noAplicaA || "").trim(),
         // Compat con noticias viejas que dirigían por rol antes de esta
         // reestructuración — solo se lee, ya no se escribe.
@@ -202,15 +211,17 @@ export function puedeVerNoticia(noticia, usuario, sucursales = []) {
         return locales.includes(usuario.sucursal);
     }
 
-    // "Argentina" = el país de la persona, no el texto literal del
+    // "País(es)" = el país de la persona, no el texto literal del
     // local (mismo criterio que paisDe en alcance.js: un local que no
     // dice el país en el nombre igual cae bien porque la columna
-    // "pais" de Sucursales manda). La exclusión (noAplicaA) se compara
-    // normalizada — el apóstrofo tipográfico de algunos locales ya
-    // rompió esta misma comparación una vez en Cursos, no hay que
-    // repetirlo acá.
-    if (dirigidoA === "argentina") {
-        if (paisDe(usuario, sucursales) !== "Argentina") return false;
+    // "pais" de Sucursales manda). Sin países elegidos no le llega a
+    // nadie — mismo criterio conservador que el resto de esta función:
+    // sin match explícito, no se muestra. La exclusión (noAplicaA) se
+    // compara normalizada — el apóstrofo tipográfico de algunos locales
+    // ya rompió esta misma comparación una vez en Cursos.
+    if (dirigidoA === "paises") {
+        const paises = String(noticia.paisesA || "").split(",").map(normalizar).filter(Boolean);
+        if (!paises.length || !paises.includes(normalizar(paisDe(usuario, sucursales)))) return false;
         const excluidos = String(noticia.noAplicaA || "").split(",").map(normalizar).filter(Boolean);
         return !excluidos.includes(normalizar(usuario.sucursal));
     }
