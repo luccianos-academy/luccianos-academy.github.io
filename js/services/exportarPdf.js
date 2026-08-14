@@ -22,6 +22,20 @@
 
 const ESTILOS_IMPRESION = `
     * { box-sizing: border-box; }
+    /* Esta ventana no carga css/variables.css — sin estas, cualquier
+       componente que dependa de var(--success)/var(--danger)/etc.
+       (el anillo de % del Semáforo, kpiPersona) cae al comportamiento
+       por defecto del navegador: un <circle> SVG sin "fill" declarado
+       se pinta NEGRO SÓLIDO (no transparente), y un stroke con var()
+       inválida también. El semáforo de colores se veía como una fila
+       de círculos negros idénticos — bug real encontrado por el
+       usuario exportando. Mismos valores que variables.css, legibles
+       igual sobre fondo blanco. */
+    :root {
+        --success: #3fae5e; --warning: #e0b23d; --danger: #e5675c;
+        --gold: #c2a065; --line: #ccc; --muted: #666; --text: #111;
+        --black: #1a1712;
+    }
     /* Fondo BLANCO explícito — sin esto, la pestaña hereda el modo
        oscuro del sistema/navegador (color-scheme del meta tag de
        abajo ayuda, pero un fondo explícito no depende de que ningún
@@ -50,6 +64,22 @@ const ESTILOS_IMPRESION = `
     .kpi-card h3 { font-size: 11px; text-transform: uppercase; color: #666; margin: 0 0 6px; letter-spacing: .5px; }
     .kpi-card span { font-size: 22px; font-weight: 700; }
     .kpi-icon { display: none; }
+    .kpis-semaforo { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+    .kpi-persona-nombre { font-size: 14px; font-weight: 700; color: #111; margin: 4px 0 2px; }
+    .tono-success { color: var(--success); }
+    .tono-warning { color: var(--warning); }
+    .tono-danger { color: var(--danger); }
+
+    /* Anillo de % (reportes.js: anilloPct, "Vista por sucursal") —
+       mismas reglas que css/components.css. Sin el "fill: none" acá,
+       un <circle> SVG sin fill declarado se pinta negro sólido por
+       defecto del navegador — la fila de círculos negros que
+       encontró el usuario exportando el Semáforo. */
+    .anillo { position: relative; flex-shrink: 0; display: inline-block; }
+    .anillo svg { transform: rotate(-90deg); }
+    .anillo circle { fill: none; stroke-width: 4; }
+    .anillo-track { stroke: #ddd; }
+    .anillo-valor { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; }
 
     .table-wrapper { overflow: visible; }
     table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; font-size: 11px; page-break-inside: auto; background: #fff; }
