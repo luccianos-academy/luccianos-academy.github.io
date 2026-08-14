@@ -42,6 +42,40 @@ function setupUltimoIngreso() {
 }
 
 /**
+ * setupMiembrosCanal() — agrega la columna "miembros" a Canales.
+ *
+ * Lista de ids de usuario separada por comas. Vacía = el canal se rige
+ * por "restringidoA" (roles), que es como funcionó siempre. Con gente
+ * adentro, esa lista manda sobre todo lo demás — incluso sobre el pase
+ * de Admin (ver puedeVerCanal en js/data/canales.js).
+ *
+ * Sin la columna el código no rompe: lee "" y ningún canal es privado.
+ */
+function setupMiembrosCanal() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Canales');
+  if (!hoja) {
+    console.log('No existe la hoja Canales.');
+    return;
+  }
+
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === 'miembros');
+
+  if (indice !== -1) {
+    if (headers[indice] === 'miembros') {
+      console.log('✓ La columna miembros ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue('miembros');
+      console.log(`✓ Encabezado corregido ("${headers[indice]}" → "miembros").`);
+    }
+    return;
+  }
+
+  hoja.getRange(1, hoja.getLastColumn() + 1).setValue('miembros');
+  console.log('✓ Columna miembros agregada. Los canales que ya existen quedan como están (públicos por rol).');
+}
+
+/**
  * setupResponsableTurno() — agrega la columna "responsableTurno" a Usuarios.
  *
  * Es SOLO una etiqueta para la lista de colaboradores: marca a quien

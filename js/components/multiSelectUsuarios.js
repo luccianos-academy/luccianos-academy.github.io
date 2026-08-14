@@ -37,7 +37,11 @@ export function MultiSelectUsuarios(inputId, valoresIniciales = []) {
     `;
 }
 
-export async function bindMultiSelectUsuarios(inputId) {
+/* filtrar: acota QUIÉNES se pueden elegir. News no filtra (cualquiera
+   puede ser destinatario), pero un canal de Comunicaciones sí: un
+   colaborador no tiene esa pantalla, así que ofrecerlo sería prometer
+   algo que no va a pasar. */
+export async function bindMultiSelectUsuarios(inputId, filtrar = null) {
     const wrap = document.getElementById(`${inputId}-wrap`);
     const buscar = document.getElementById(`${inputId}-buscar`);
     const list = document.getElementById(`${inputId}-list`);
@@ -59,7 +63,7 @@ export async function bindMultiSelectUsuarios(inputId) {
     // guardados se usa la lista completa, si no una News vieja dirigida
     // a alguien que después se dio de baja mostraría un id pelado en
     // lugar de su nombre.
-    const seleccionables = usuarios.filter((u) => u.activo === "SI");
+    const seleccionables = usuarios.filter((u) => u.activo === "SI" && (!filtrar || filtrar(u)));
 
     let elegidos = hidden.value ? hidden.value.split(",").map((id) => id.trim()).filter(Boolean) : [];
 

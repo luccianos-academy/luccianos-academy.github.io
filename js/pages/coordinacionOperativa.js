@@ -33,7 +33,8 @@ import {
 import {
     getComentariosDePublicacion, crearComentario, toggleLikeComentario, estaLikeadoComentario,
 } from "../data/comentarios.js";
-import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
+import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCanal, eliminarCanal, esCanalPrivado, ICONOS_CANAL, VISIBILIDAD_CANAL } from "../data/canales.js";
+import { MultiSelectUsuarios, bindMultiSelectUsuarios } from "../components/multiSelectUsuarios.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { registrarEvento } from "../data/auditoria.js";
@@ -109,6 +110,7 @@ async function vistaListaCanales() {
                 <span class="notif-item-body">
                     <span class="notif-item-titulo">
                         ${c.nombre}
+                        ${esCanalPrivado(c) ? `<span class="badge badge-muted" title="Solo lo ven las personas elegidas">Privado</span>` : ""}
                         ${ultima?.destacado ? `<span class="canal-item-destacado">${Icon("trofeo", { size: 13 })}</span>` : ""}
                     </span>
                     <span class="notif-item-resumen">${ultima ? ultima.titulo : "Sin publicaciones todavía"}</span>
@@ -742,6 +744,17 @@ async function abrirModalEditarPublicacion(p) {
  *  hasta acá — sin chequeo de rol duplicado adentro. Todo vive en la
  *  hoja "Canales" (data/canales.js), no en el código — un canal
  *  nuevo queda disponible al toque, sin deploy. */
+/** Los ids elegidos en el picker, con el dueño del canal SIEMPRE
+ *  adentro. Sin esto se puede armar un canal y olvidarse de incluirse:
+ *  como la lista de miembros gana incluso sobre el pase de Admin, el
+ *  canal quedaría creado y sin nadie que pueda entrar a arreglarlo. */
+function leerMiembros(inputId, usuario) {
+    const crudo = document.getElementById(inputId)?.value || "";
+    const ids = crudo.split(",").map((x) => x.trim()).filter(Boolean);
+    if (!ids.some((id) => String(id) === String(usuario.id))) ids.unshift(String(usuario.id));
+    return ids;
+}
+
 async function abrirModalGestionarCanales() {
     const modalId = "modal-gestionar-canales";
     const usuario = getUsuarioActual();
@@ -758,10 +771,14 @@ async function abrirModalGestionarCanales() {
                         </div>
                         <div class="canal-gestion-fila-acciones">
                             <select class="input-canal-visibilidad" data-canal-id="${c.id}">
-                                ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === c.restringidoA ? " selected" : ""}>${v.nombre}</option>`).join("")}
+                                ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}"${v.id === (esCanalPrivado(c) ? "personas" : c.restringidoA) ? " selected" : ""}>${v.nombre}</option>`).join("")}
                             </select>
                             <button class="btn btn-secondary" data-guardar-canal="${c.id}">Guardar</button>
                             <button class="btn btn-secondary" data-eliminar-canal="${c.id}">Eliminar</button>
+                        </div>
+                        <div class="canal-gestion-miembros" data-miembros-de="${c.id}"${esCanalPrivado(c) ? "" : " hidden"}>
+                            <label style="font-size:12px;font-weight:600;color:var(--muted);margin:8px 0 6px;display:block">Quiénes lo ven</label>
+                            ${MultiSelectUsuarios(`canal-miembros-${c.id}`, c.miembros)}
                         </div>
                     </div>
                 `).join("")}
@@ -778,6 +795,14 @@ async function abrirModalGestionarCanales() {
                     ${VISIBILIDAD_CANAL.map((v) => `<option value="${v.id}">${v.nombre}</option>`).join("")}
                 </select>
                 <button class="btn btn-primary" id="btn-crear-canal" style="flex:0 0 auto">Crear</button>
+            </div>
+
+            <div id="nuevo-canal-miembros" hidden>
+                <label style="font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 6px;display:block">Quiénes lo ven</label>
+                ${MultiSelectUsuarios("canal-miembros-nuevo", [])}
+                <p class="text-xs text-muted" style="margin-top:6px">
+                    Solo esta gente ve el canal — ningún otro Admin tampoco. Vos quedás adentro siempre, aunque no te elijas.
+                </p>
             </div>
         `;
     }
@@ -803,7 +828,31 @@ async function abrirModalGestionarCanales() {
         await bindAcciones();
     }
 
-    function bindAcciones() {
+    /* Comunicaciones es Admin ↔ Supervisor: un colaborador no tiene esta
+       pantalla, así que ofrecerlo como miembro sería prometerle algo que
+       nunca va a ver. */
+    const elegibleParaCanal = (u) => u.rol === "admin" || u.rol === "supervisor";
+
+    async function bindAcciones() {
+        // El picker de personas solo tiene sentido con "Solo las personas
+        // que elija" — aparece y desaparece con el selector, en vez de
+        // estar siempre a la vista sin hacer nada.
+        document.querySelectorAll(".input-canal-visibilidad").forEach((sel) => {
+            sel.addEventListener("change", () => {
+                const caja = document.querySelector(`[data-miembros-de="${sel.dataset.canalId}"]`);
+                if (caja) caja.hidden = sel.value !== "personas";
+            });
+        });
+
+        const selNuevo = document.getElementById("input-nuevo-canal-visibilidad");
+        selNuevo?.addEventListener("change", () => {
+            document.getElementById("nuevo-canal-miembros").hidden = selNuevo.value !== "personas";
+        });
+
+        await bindMultiSelectUsuarios("canal-miembros-nuevo", elegibleParaCanal);
+        await Promise.all([...document.querySelectorAll("[data-miembros-de]")]
+            .map((caja) => bindMultiSelectUsuarios(`canal-miembros-${caja.dataset.miembrosDe}`, elegibleParaCanal)));
+
         document.querySelectorAll("[data-guardar-canal]").forEach((btn) => {
             btn.addEventListener("click", async () => {
                 const id = btn.dataset.guardarCanal;
@@ -811,7 +860,17 @@ async function abrirModalGestionarCanales() {
                 const selectVisibilidad = document.querySelector(`.input-canal-visibilidad[data-canal-id="${id}"]`);
                 const nombre = input.value.trim();
                 if (!nombre) return;
-                await actualizarCanal(id, { nombre, restringidoA: selectVisibilidad.value });
+                const esPersonas = selectVisibilidad.value === "personas";
+                const miembros = esPersonas ? leerMiembros(`canal-miembros-${id}`, usuario) : [];
+                if (esPersonas && !miembros.length) {
+                    alert("Elegí al menos una persona, o el canal no lo va a ver nadie — ni vos.");
+                    return;
+                }
+                await actualizarCanal(id, {
+                    nombre,
+                    restringidoA: selectVisibilidad.value,
+                    miembros: miembros.join(","),
+                });
                 registrarEvento(usuario.id, "editar_canal", `Canal "${nombre}" actualizado`);
                 await reRender();
             });
@@ -838,12 +897,18 @@ async function abrirModalGestionarCanales() {
             if (!nombre) return;
             const icono = document.querySelector("#nuevo-canal-icono-picker .canal-icono-btn.active")?.dataset.icono || ICONOS_CANAL[0].id;
             const restringidoA = document.getElementById("input-nuevo-canal-visibilidad").value;
-            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA });
+            const esPersonas = restringidoA === "personas";
+            const miembros = esPersonas ? leerMiembros("canal-miembros-nuevo", usuario) : [];
+            if (esPersonas && miembros.length < 2) {
+                alert("Elegí al menos una persona además de vos — un canal de una sola persona no es una conversación.");
+                return;
+            }
+            await crearCanal({ nombre, icono, creadoPor: usuario.nombre, restringidoA, miembros });
             registrarEvento(usuario.id, "crear_canal", `Canal creado: ${nombre}`);
             await reRender();
         });
     }
-    bindAcciones();
+    await bindAcciones();
 
     // Al cerrar este modal, la lista de canales de fondo puede haber
     // cambiado (uno nuevo, uno renombrado) — se refresca la pantalla.

@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.5.0";
+const BACKEND_VERSION = "1.6.0";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -94,7 +94,12 @@ const PERMISOS_ESCRITURA = {
 // Hojas cuya lectura queda restringida (el resto la lee cualquier
 // autenticado). Auditoria: solo gestión. Asignaciones/Resultados: un
 // colaborador solo ve sus propias filas (filtrado en leer()).
-const LECTURA_SOLO_GESTION = ["Auditoria"];
+/* Hojas que un colaborador no puede leer NI CRUDAS. Ojo: no alcanza con
+   que la pantalla no exista para él — sin esto, la fila viaja igual al
+   navegador y basta abrir las herramientas de desarrollo para leerla.
+   Comunicaciones (Canales/Publicaciones) es Admin ↔ Supervisor por
+   definición, así que sacarlas de la respuesta no le quita nada a nadie. */
+const LECTURA_SOLO_GESTION = ["Auditoria", "Canales", "Publicaciones"];
 
 function doPost(e) {
     let resultado;
@@ -551,7 +556,44 @@ function leer(hoja, usuarioActual) {
         return _usuariosVisiblesPara(filas, usuarioActual);
     }
 
+    // Canales privados: la lista de miembros se aplica ACÁ, no solo en el
+    // navegador. La regla está escrita dos veces (acá y en
+    // js/data/canales.js) y eso es a propósito: la del cliente decide qué
+    // se dibuja, la de acá decide qué sale del servidor. Si se toca una,
+    // hay que tocar la otra.
+    if (hoja === "Canales") {
+        return filas.filter((c) => _puedeVerCanal(c, usuarioActual));
+    }
+
+    // Y las publicaciones de adentro, que son el contenido real: sin esto
+    // el canal quedaba oculto pero sus mensajes viajaban igual.
+    if (hoja === "Publicaciones") {
+        const permitidos = {};
+        _leerCrudo("Canales").forEach(function (c) {
+            if (_puedeVerCanal(c, usuarioActual)) permitidos[String(c.id)] = true;
+        });
+        return filas.filter((p) => permitidos[String(p.canal)]);
+    }
+
     return filas;
+}
+
+/** Espejo de puedeVerCanal() de js/data/canales.js. La lista de miembros
+ *  gana sobre todo, incluso sobre el pase de Admin: un canal armado para
+ *  tres personas no lo ve un cuarto por tener rol de administrador. */
+function _puedeVerCanal(canal, usuarioActual) {
+    const miembros = String(canal.miembros || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    if (miembros.length) {
+        return miembros.some(function (id) { return String(id) === String(usuarioActual.id); });
+    }
+    if (usuarioActual.rol === "admin") return true;
+    const restriccion = String(canal.restringidoA || "").trim();
+    if (!restriccion) return true;
+    if (restriccion === "admin") return false;
+    const esCapacitador = usuarioActual.rol === "supervisor" && String(usuarioActual.capacitador || "").trim().toUpperCase() === "SI";
+    if (restriccion === "capacitador") return esCapacitador;
+    if (restriccion === "supervisor") return usuarioActual.rol === "supervisor" && !esCapacitador;
+    return false;
 }
 
 function escribir(hoja, fila, usuarioActual) {

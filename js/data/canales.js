@@ -63,6 +63,7 @@ export const ICONOS_CANAL = [
    las vean hay que elegirlo a propósito. */
 export const VISIBILIDAD_CANAL = [
     { id: "supervisor", nombre: "Solo Supervisores" },
+    { id: "personas", nombre: "Solo las personas que elija" },
     { id: "", nombre: "Supervisores y Capacitadores" },
     { id: "capacitador", nombre: "Solo Capacitadores" },
     { id: "admin", nombre: "Solo Admin (pruebas)" },
@@ -75,10 +76,34 @@ function normalizarCanal(f) {
         icono: ICONOS_CANAL.some((i) => i.id === f.icono) ? f.icono : "comentario",
         creadoPor: String(f.creadoPor || "").trim(),
         restringidoA: String(f.restringidoA || "").trim(),
+        // Lista de ids de usuario separada por comas. Vacía = el canal
+        // se rige por restringidoA (roles), que es como funcionó siempre.
+        // Con gente adentro, esa lista MANDA sobre todo lo demás.
+        miembros: String(f.miembros || "").split(",").map((x) => x.trim()).filter(Boolean),
     };
 }
 
+/** ¿Es un canal de gente elegida a mano? */
+export function esCanalPrivado(canal) {
+    return (canal?.miembros || []).length > 0;
+}
+
 export function puedeVerCanal(canal, usuario) {
+    // La lista de personas se chequea ANTES que el pase de Admin, y es
+    // a propósito. Un canal armado para tres personas puntuales deja de
+    // tener sentido si cualquier otro Admin lo ve igual: el pedido fue
+    // "esas personas son las que pueden verlo", sin excepciones.
+    //
+    // La contra, dicha de frente: nadie puede moderarlo desde afuera. Por
+    // eso quien lo crea entra siempre como miembro (ver crearCanal) — si
+    // no, se podría armar un canal al que después no entra ni su autor.
+    //
+    // OJO: esto ESCONDE el canal, no lo protege. El filtro corre en el
+    // navegador sobre la hoja entera, igual que puedeVerManual: sirve
+    // para que la información no se cruce, no para guardar un secreto.
+    if (esCanalPrivado(canal)) {
+        return canal.miembros.some((id) => String(id) === String(usuario.id));
+    }
     if (usuario.rol === "admin") return true;
     const restriccion = String(canal.restringidoA || "").trim();
     if (!restriccion) return true;
@@ -110,7 +135,9 @@ export async function getCanales() {
  *  resto queda filtrado por puedeVerCanal. */
 export async function getCanalesVisibles(usuario) {
     const todos = await getCanales();
-    if (usuario.rol === "admin") return todos;
+    // Antes acá había un atajo "si es admin, devolvé todos" que salteaba
+    // puedeVerCanal por completo — con canales privados eso los habría
+    // expuesto a cualquier Admin justo por el camino más usado.
     return todos.filter((c) => puedeVerCanal(c, usuario));
 }
 
@@ -119,8 +146,14 @@ export async function canalInfo(canalId) {
     return canales.find((c) => String(c.id) === String(canalId)) || canales[0] || { id: "", nombre: "Sin canal", icono: "comentario", restringidoA: "" };
 }
 
-export async function crearCanal({ nombre, icono, creadoPor, restringidoA }) {
-    return writeSheet(HOJAS.CANALES, { nombre, icono: icono || "comentario", creadoPor: creadoPor || "", restringidoA: restringidoA || "" }, canalesMock);
+export async function crearCanal({ nombre, icono, creadoPor, restringidoA, miembros = [] }) {
+    return writeSheet(HOJAS.CANALES, {
+        nombre,
+        icono: icono || "comentario",
+        creadoPor: creadoPor || "",
+        restringidoA: restringidoA || "",
+        miembros: miembros.join(","),
+    }, canalesMock);
 }
 
 export async function actualizarCanal(id, cambios) {
