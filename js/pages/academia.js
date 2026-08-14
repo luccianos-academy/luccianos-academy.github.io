@@ -31,6 +31,7 @@ import { aplicaAlUsuario } from "../services/alcance.js";
  *  vacío. Reutilizado tanto para "nueva lección" como para "editar". */
 function camposLeccionHtml(l = {}) {
     return `
+        ${l.id ? `<p class="text-xs text-muted" style="margin:-4px 0 10px">ID de esta lección: <strong>${l.id}</strong> — se pide al pedir soporte para engancharle fotos o video especiales (carrusel, decoración) que el formulario normal no cubre.</p>` : ""}
         <label for="input-titulo">Título</label>
         <input type="text" id="input-titulo" placeholder="Título de la lección" value="${l.titulo || ""}">
 

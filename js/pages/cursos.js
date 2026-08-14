@@ -24,6 +24,7 @@ import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/product
 import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
 import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
 import { PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA } from "../data/productosPasteleria.js";
+import { PRODUCTOS_CAFETERIA, CATEGORIAS_CAFETERIA } from "../data/productosCafeteria.js";
 import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getAsignacionesPorColaborador, crearAsignacion, actualizarAsignacion } from "../data/asignaciones.js";
@@ -330,6 +331,15 @@ const IMAGEN_EXTRA_POR_LECCION = {
     18: "assets/img/chocolateria/cinco_estrellas_alfajor.png",
 };
 
+// Igual que IMAGEN_EXTRA_POR_LECCION pero para video — se suma DEBAJO
+// del carrusel de fotos principal, no lo reemplaza (a diferencia de
+// VIDEOS_MULTIPLES_POR_LECCION, que si está presente gana y no deja
+// ver fotos). Nace para Chocolate Caliente: el paso a paso de armado
+// va en fotos (es lo que hay que poder consultar con calma, quieto),
+// el video de preparación/presentación es un plus, no bloqueante —
+// "los videos son opcionales" para esta lección, pedido explícito.
+const VIDEOS_EXTRA_POR_LECCION = {};
+
 // Secuencia de capturas de pantalla navegable a mano (botones
 // anterior/siguiente, sin autoplay) — para lecciones de Sistema y
 // Caja donde la pantalla trae texto/instrucciones que hay que poder
@@ -419,6 +429,7 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
                </div>`
             : (esImagenValida(l.imagen) ? `<img class="leccion-imagen" src="${l.imagen}" alt="${l.titulo}">` : "")}
         ${IMAGEN_EXTRA_POR_LECCION[l.id] ? `<img class="leccion-imagen" style="margin-top:12px" src="${IMAGEN_EXTRA_POR_LECCION[l.id]}" alt="${l.titulo}">` : ""}
+        ${VIDEOS_EXTRA_POR_LECCION[l.id] ? `<div style="margin-top:12px">${renderVideoCarrusel(VIDEOS_EXTRA_POR_LECCION[l.id], l.titulo)}</div>` : ""}
         ${renderProcedimiento(l.procedimiento)}
         ${l.errores ? `<div class="leccion-callout leccion-callout-errores"><strong>Errores frecuentes</strong><p>${l.errores}</p></div>` : ""}
         ${l.buenasPracticas ? `<div class="leccion-callout"><strong>Buenas prácticas</strong><p>${l.buenasPracticas}</p></div>` : ""}
@@ -555,6 +566,7 @@ async function renderDetalleCurso(usuario, cursoId) {
         "Heladería": [PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA],
         "Icepops": [PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS],
         "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
+        "Cafetería": [PRODUCTOS_CAFETERIA, CATEGORIAS_CAFETERIA],
     };
     // Un producto puede no venderse en todos lados (ej. Gluten Free no
     // existe en Chile). La hoja Disponibilidad guarda SOLO las
