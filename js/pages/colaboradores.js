@@ -874,7 +874,7 @@ export async function Colaboradores() {
                  mucha gente. Un responsable de local ve sólo su propio
                  local, donde el único responsable es él: la pill no
                  filtra nada útil. -->
-            ${esEncargado ? "" : `<button class="pill-categoria" id="btn-filtro-encargados">Responsables de local</button>`}
+            ${esEncargado ? "" : `<button class="pill-categoria" id="btn-filtro-encargados" data-solo-tab="colaborador">Responsables de local</button>`}
         </div>
 
         <!-- A quién responder. Un Encargado no tiene dónde ver quién es
@@ -909,6 +909,11 @@ export async function Colaboradores() {
                 <button class="btn btn-sutil" id="btn-limpiar-seleccion">Deseleccionar</button>
             </div>
         ` : ""}
+
+        <p class="text-sm text-muted" id="aviso-sin-resultados" hidden style="margin:10px 0">
+            No hay nadie que coincida con los filtros puestos.
+            <button class="btn-enlace" id="btn-limpiar-filtros">Limpiar filtros</button>
+        </p>
 
         <div id="tabla-colaboradores">
             <div data-rol-panel="colaborador">${cuerpoHtml}</div>
@@ -987,7 +992,15 @@ export function bindColaboradores() {
     // etiqueta y se rompía sin avisar apenas se la renombraba.
     function aplicarFiltros() {
         const texto = (buscador?.value || "").trim().toLowerCase();
-        document.querySelectorAll("#tabla-colaboradores tbody tr").forEach((fila) => {
+        // SOLO el panel visible. Antes barría "#tabla-colaboradores
+        // tbody tr", que envuelve a los tres (Colaboradores /
+        // Supervisores / Admins): la pill de responsables dejaba las
+        // filas de supervisor sin data-encargado y las escondía a todas.
+        // La pestaña de Supervisores aparecía vacía, sin decir por qué,
+        // y parecía que a esa gente no se la podía editar ni eliminar.
+        const panel = panelActivo();
+        let visibles = 0;
+        panel.querySelectorAll("tbody tr").forEach((fila) => {
             // La celda de nombre ya no es siempre la primera: si puede
             // enviar mail, la primera es el checkbox de selección.
             const primeraCelda = fila.firstElementChild;
@@ -997,11 +1010,31 @@ export function bindColaboradores() {
             const esActivo = !!fila.querySelector(".badge-success");
             const coincideEstado = filtroActivo === "todos" || (filtroActivo === "SI") === esActivo;
             const coincideEncargado = !soloEncargados || fila.dataset.encargado === "si";
-            fila.style.display = coincideTexto && coincideEstado && coincideEncargado ? "" : "none";
+            const pasa = coincideTexto && coincideEstado && coincideEncargado;
+            fila.style.display = pasa ? "" : "none";
+            if (pasa) visibles++;
         });
+        // Una tabla vacía sin explicación se lee como "acá no hay nadie"
+        // —o peor, como que la app está rota— cuando en realidad hay un
+        // filtro puesto. Si esconderlo todo fue decisión de un filtro,
+        // se dice, y se ofrece el camino de vuelta.
+        const aviso = document.getElementById("aviso-sin-resultados");
+        const hayFiltro = !!texto || filtroActivo !== "todos" || soloEncargados;
+        if (aviso) aviso.hidden = !(visibles === 0 && hayFiltro);
+    }
+
+    function limpiarFiltros() {
+        if (buscador) buscador.value = "";
+        filtroActivo = "todos";
+        soloEncargados = false;
+        document.querySelectorAll("[data-filtro-activo]").forEach((p) => p.classList.toggle("activa", p.dataset.filtroActivo === "todos"));
+        document.getElementById("btn-filtro-encargados")?.classList.remove("activa");
+        aplicarFiltros();
     }
 
     if (buscador) buscador.addEventListener("input", aplicarFiltros);
+
+    document.getElementById("btn-limpiar-filtros")?.addEventListener("click", limpiarFiltros);
 
     document.getElementById("btn-filtro-encargados")?.addEventListener("click", (e) => {
         soloEncargados = !soloEncargados;
@@ -1037,13 +1070,16 @@ export function bindColaboradores() {
             document.querySelectorAll("[data-toolbar-rol]").forEach((btn) => {
                 btn.hidden = btn.dataset.toolbarRol !== rol;
             });
-            if (buscador) buscador.value = "";
+            // Un filtro puesto en Colaboradores no tiene por qué seguir
+            // aplicando en Supervisores: es la vía por la que la otra
+            // pestaña aparecía vacía. Se limpia todo, no solo el buscador.
+            document.querySelectorAll("[data-solo-tab]").forEach((el) => { el.hidden = el.dataset.soloTab !== rol; });
+            limpiarFiltros();
             const chkTodos = document.getElementById("chk-mail-todos");
             if (chkTodos) chkTodos.checked = false;
             // Cambiar de pestaña destilda todo: una selección hecha sobre
             // Colaboradores no debe aplicarse sin querer a Supervisores.
             document.querySelectorAll(".mail-check").forEach((chk) => { chk.checked = false; });
-            aplicarFiltros();
             refrescarBarraSeleccion();
         });
     });

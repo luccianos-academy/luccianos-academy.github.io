@@ -51,9 +51,19 @@ export const ICONOS_CANAL = [
     { id: "academia", nombre: "Academia" },
 ];
 
+/* El ORDEN importa: el selector de "crear canal" arranca en el primero,
+   así que el primero es el default de todo canal nuevo.
+
+   Va primero "Solo Supervisores" y no "Supervisores y Capacitadores"
+   porque un canal es un espacio de trabajo, y quién está adentro cambia
+   cómo se escribe en él. Las cuentas de solo lectura que miran toda la
+   red (dirección, auditoría) entran como capacitador: que queden
+   incluidas por descuido en la coordinación del día a día no es un
+   problema de permisos, es que la conversación se vuelve otra. Para que
+   las vean hay que elegirlo a propósito. */
 export const VISIBILIDAD_CANAL = [
-    { id: "", nombre: "Supervisores y Capacitadores" },
     { id: "supervisor", nombre: "Solo Supervisores" },
+    { id: "", nombre: "Supervisores y Capacitadores" },
     { id: "capacitador", nombre: "Solo Capacitadores" },
     { id: "admin", nombre: "Solo Admin (pruebas)" },
 ];

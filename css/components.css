@@ -5105,3 +5105,20 @@ table.data-table tbody tr:hover{
     margin-left:6px;
 }
 
+
+/* Botón con cara de enlace — para acciones secundarias que viven
+   adentro de una frase ("Limpiar filtros" en el aviso de tabla vacía).
+   Un btn-secondary ahí pesa demasiado para lo que es y compite con la
+   acción real de la pantalla. */
+.btn-enlace {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--gold);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.btn-enlace:hover { color: var(--gold-deep); }
