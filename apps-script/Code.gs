@@ -797,12 +797,22 @@ function _usuarioDeSesion(email) {
     if (!fila) return null;
 
     let activo = String(fila.activo).toUpperCase() === "NO" ? "NO" : "SI";
+    const rol = String(fila.rol || "").trim().toLowerCase();
 
     // Acceso con vencimiento (colaboradores dados de alta por un
     // Supervisor): si ya pasó la fecha, se desactiva acá mismo — no hay
     // proceso en segundo plano en esta arquitectura.
+    //
+    // Solo para rol colaborador — supervisor/admin se crean SIN
+    // vencimiento a propósito (acceso permanente, ver README). Sin este
+    // chequeo de rol, un supervisor que alguna vez existió como
+    // colaborador (y conservó esa fecha al cambiarle el rol a mano en
+    // la planilla) quedaba atrapado en un loop: el admin lo activaba,
+    // volvía a intentar entrar, este chequeo lo desactivaba de nuevo en
+    // el acto y el login se rechazaba — "lo activo y vuelve a aparecer
+    // inactivo", reportado en vivo 2026-08-15.
     const vencimiento = String(fila.fechaVencimientoAcceso || "").trim();
-    if (activo === "SI" && vencimiento && vencimiento < _fechaHoyISO()) {
+    if (rol === "colaborador" && activo === "SI" && vencimiento && vencimiento < _fechaHoyISO()) {
         activo = "NO";
         _actualizarCrudo("Usuarios", fila.id, { activo: "NO" });
     }
