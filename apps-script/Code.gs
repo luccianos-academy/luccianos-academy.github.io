@@ -439,14 +439,35 @@ function _leerCrudo(hoja) {
     return _filasComoObjetos(_sheet(hoja));
 }
 
+/**
+ * Bug real (reportado en vivo, 2026-08-19): un canal creado con 2
+ * miembros guardó "1,31" en la columna — Sheets, sin que nadie se lo
+ * pida, lo interpretó como el NÚMERO 1,31 (coma decimal, configuración
+ * regional) en vez de dos ids separados por coma. Al leerlo de vuelta,
+ * "1.31" no matchea ni con el id 1 ni con el 31 — el propio creador
+ * del canal quedó afuera de su propio canal, sin ningún error visible.
+ * appendRow()/setValue() dejan que Sheets adivine el tipo de cada
+ * celda; para texto (cualquier lista separada por comas: miembros,
+ * aplicaA, usuariosEspecificos, etc.) eso es exactamente lo que NO se
+ * quiere. Forzar formato "@" (texto plano) ANTES de poner el valor
+ * evita que la adivinanza pise ningún dato de acá en más.
+ */
+function _escribirCeldaSinAdivinar(celda, valor) {
+    if (typeof valor === "string") celda.setNumberFormat("@");
+    celda.setValue(valor);
+}
+
 function _escribirCrudo(hoja, fila) {
     const sheet = _sheet(hoja);
     const headers = sheet.getDataRange().getValues()[0];
     const nuevoId = _proximoId(sheet);
     const filaCompleta = Object.assign({ id: nuevoId }, fila);
 
-    const valores = headers.map((h) => (filaCompleta[h] !== undefined ? _sanitizarCelda(filaCompleta[h]) : ""));
-    sheet.appendRow(valores);
+    const filaDestino = sheet.getLastRow() + 1;
+    headers.forEach((h, i) => {
+        const valor = filaCompleta[h] !== undefined ? _sanitizarCelda(filaCompleta[h]) : "";
+        _escribirCeldaSinAdivinar(sheet.getRange(filaDestino, i + 1), valor);
+    });
     return { ok: true, id: nuevoId };
 }
 
@@ -469,7 +490,7 @@ function _actualizarCrudo(hoja, id, cambios) {
             Object.keys(cambios).forEach((key) => {
                 const col = headers.indexOf(key);
                 if (col === -1) { noEncontradas.push(key); return; }
-                sheet.getRange(i + 1, col + 1).setValue(_sanitizarCelda(cambios[key]));
+                _escribirCeldaSinAdivinar(sheet.getRange(i + 1, col + 1), _sanitizarCelda(cambios[key]));
             });
             if (noEncontradas.length > 0) {
                 return { ok: false, error: "Faltan columnas en \"" + hoja + "\": " + noEncontradas.join(", ") };

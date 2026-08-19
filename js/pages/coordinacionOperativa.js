@@ -37,6 +37,7 @@ import { getCanalesVisibles, canalInfo, puedeVerCanal, crearCanal, actualizarCan
 import { MultiSelectUsuarios, bindMultiSelectUsuarios } from "../components/multiSelectUsuarios.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { mismoId } from "../services/ids.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { mandarPush } from "../services/push.js";
@@ -294,13 +295,36 @@ export function bindCoordinacionOperativa(params = []) {
         abrirModalNuevaPublicacion(e.target.dataset.canal);
     });
 
+    // Optimista: antes esto esperaba el fetch de publicaciones + la
+    // escritura real en la Sheet (~1.5s) + un navigate() que volvía a
+    // pedir todo de nuevo, así que el corazón tardaba en reaccionar y
+    // se sentía "grabado en la planilla" en vez de instantáneo
+    // (reportado en vivo). El botón ya sabe todo lo que necesita para
+    // pintarse solo (si estaba o no activo, el conteo actual) sin
+    // esperar ni al fetch ni a la escritura — la escritura real sigue
+    // yendo, en segundo plano, y solo si falla se deshace el cambio
+    // visual y se avisa.
     document.querySelectorAll("[data-like-publicacion]").forEach((btn) => {
         btn.addEventListener("click", async () => {
-            const publicaciones = await getPublicaciones();
-            const p = publicaciones.find((x) => String(x.id) === String(btn.dataset.likePublicacion));
-            if (!p) return;
-            await toggleLikePublicacion(p, usuario.id);
-            navigate(`coordinacionoperativa/${p.canal}`);
+            const id = btn.dataset.likePublicacion;
+            const yaActivo = btn.classList.contains("activa");
+            const contador = btn.querySelector("[data-like-count]");
+            const cuentaActual = Number(contador.textContent) || 0;
+
+            btn.classList.toggle("activa", !yaActivo);
+            contador.textContent = cuentaActual + (yaActivo ? -1 : 1);
+
+            try {
+                const publicaciones = await getPublicaciones();
+                const p = publicaciones.find((x) => String(x.id) === String(id));
+                if (!p) throw new Error("No se encontró la publicación.");
+                await toggleLikePublicacion(p, usuario.id);
+            } catch (err) {
+                // Deshacer el optimismo: el estado real no cambió.
+                btn.classList.toggle("activa", yaActivo);
+                contador.textContent = cuentaActual;
+                console.warn("No se pudo guardar el like:", err.message);
+            }
         });
     });
 
@@ -484,6 +508,21 @@ function abrirDetallePublicacion(p) {
     });
 }
 
+/** Mismo criterio que descripcionDestinatarios() en news.js — mostrar
+ *  A QUIÉN le va a llegar antes de que sea irreversible (una vez
+ *  publicada, ya salió el push). Pedido explícito del usuario: que
+ *  Canales tenga la misma alerta de confirmación que ya tiene News. */
+async function descripcionDestinatariosCanal(canalObj) {
+    const miembros = String(canalObj.miembros || "").split(",").map((s) => s.trim()).filter(Boolean);
+    if (miembros.length) {
+        const usuarios = await getUsuarios();
+        const nombres = miembros.map((id) => usuarios.find((u) => mismoId(u.id, id))?.nombre || `usuario dado de baja (${id})`);
+        return `${nombres.length} persona(s): ${nombres.join(", ")}`;
+    }
+    const etiqueta = VISIBILIDAD_CANAL.find((v) => v.id === String(canalObj.restringidoA || "").trim());
+    return etiqueta ? etiqueta.nombre : "Todos los que pueden ver este canal";
+}
+
 /** Push automático al publicar en un canal — pedido explícito del
  *  usuario tras probarlo y notar que solo funcionaba en News ("Fase
  *  C" original era solo para News, esto lo suma acá con el mismo
@@ -570,6 +609,15 @@ async function abrirModalNuevaPublicacion(canalId) {
         if (!titulo || !mensaje) return;
 
         const canal = document.getElementById("input-canal-pub").value;
+
+        // Misma alerta que ya tiene News, mismo motivo: acá no se puede
+        // deshacer — una vez publicada, el push ya salió. Se confirma
+        // con los destinatarios REALES del canal elegido, no con una
+        // suposición.
+        const canalElegido = canales.find((c) => String(c.id) === String(canal));
+        const aQuien = canalElegido ? await descripcionDestinatariosCanal(canalElegido) : "quienes puedan ver este canal";
+        if (!confirm(`Se va a publicar en "${canalElegido?.nombre || "este canal"}" y avisar a:\n\n${aQuien}\n\n¿Confirmás?`)) return;
+
         const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
         const adjuntoLabel = document.getElementById("input-adjunto-pub").value.trim() || (adjuntoUrl ? etiquetaAdjuntoPorDefecto() : "");
         const destacado = document.getElementById("input-destacado-pub").checked;

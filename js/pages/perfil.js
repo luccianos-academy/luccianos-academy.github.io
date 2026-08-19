@@ -20,6 +20,11 @@ import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
 import { VERSION, ES_STAGING } from "../config.js";
+import { SECCIONES_DISPONIBLES_ADMIN } from "../components/bottomNav.js";
+import { getAccesosRapidos, setAccesosRapidos } from "../services/preferenciasAccesos.js";
+
+const ACCESOS_RAPIDOS_DEFAULT = ["inicio", "colaboradores", "academia", "perfil"];
+const MAX_ACCESOS_RAPIDOS = 4;
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
 
@@ -155,6 +160,37 @@ function bloqueVistaRapida(candidatos) {
     `;
 }
 
+/** Elegir qué 4 secciones aparecen abajo de la pantalla en el celular
+ *  (bottom nav) — pedido explícito del Admin (2026-08-19): "dame la
+ *  posibilidad de crear acceso directo del botón que yo utilice más".
+ *  Preferencia liviana del dispositivo (localStorage, ver
+ *  preferenciasAccesos.js), no toca ningún permiso. Máximo 4 a
+ *  propósito: es lo que entra cómodo abajo de la pantalla sin
+ *  amontonarse — bindPerfil() destilda el resto en cuanto se llega
+ *  a 4, en vez de dejar tildar de más y fallar recién al guardar. */
+function bloqueAccesosRapidos(usuario) {
+    const guardados = getAccesosRapidos(usuario);
+    const seleccionados = guardados.length === MAX_ACCESOS_RAPIDOS ? guardados : ACCESOS_RAPIDOS_DEFAULT;
+
+    return `
+        <div class="card" style="max-width:420px;margin-top:20px">
+            <h3 style="margin-top:0">Accesos rápidos (celular)</h3>
+            <p class="text-xs text-muted" style="margin-top:4px;margin-bottom:14px">
+                Elegí hasta ${MAX_ACCESOS_RAPIDOS} pantallas para tener a mano abajo de la pantalla, sin abrir el menú.
+            </p>
+            <div class="checkbox-lista" id="lista-accesos-rapidos" style="max-height:none">
+                ${SECCIONES_DISPONIBLES_ADMIN.map((s) => `
+                    <label class="checkbox-item">
+                        <input type="checkbox" name="input-accesos-rapidos" value="${s.id}" ${seleccionados.includes(s.id) ? "checked" : ""}>
+                        ${s.label}
+                    </label>
+                `).join("")}
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-guardar-accesos-rapidos" style="width:100%;margin-top:4px">Guardar</button>
+        </div>
+    `;
+}
+
 export async function Perfil() {
 
     const usuario = getUsuarioActual();
@@ -188,6 +224,8 @@ export async function Perfil() {
 
         ${await bloquePush(usuario)}
 
+        ${esAdmin ? bloqueAccesosRapidos(usuario) : ""}
+
         ${esAdmin ? bloqueVistaRapida(candidatos) : ""}
 
         <p class="text-xs text-muted" style="text-align:center;margin-top:20px">
@@ -201,6 +239,27 @@ export function bindPerfil() {
     const inputArchivoFoto = document.getElementById("input-archivo-foto");
 
     btnSubirFoto?.addEventListener("click", () => inputArchivoFoto?.click());
+
+    // Destilda automáticamente lo que sobre en cuanto se llega a 4 —
+    // más simple e inmediato que dejar tildar de más y recién avisar
+    // al tocar Guardar.
+    const checksAccesos = Array.from(document.querySelectorAll('input[name="input-accesos-rapidos"]'));
+    checksAccesos.forEach((chk) => {
+        chk.addEventListener("change", () => {
+            const tildados = checksAccesos.filter((c) => c.checked);
+            if (tildados.length > MAX_ACCESOS_RAPIDOS) chk.checked = false;
+        });
+    });
+
+    document.getElementById("btn-guardar-accesos-rapidos")?.addEventListener("click", () => {
+        const elegidos = checksAccesos.filter((c) => c.checked).map((c) => c.value);
+        if (elegidos.length !== MAX_ACCESOS_RAPIDOS) {
+            alert(`Elegí exactamente ${MAX_ACCESOS_RAPIDOS} para guardar.`);
+            return;
+        }
+        setAccesosRapidos(getUsuarioActual(), elegidos);
+        alert("Listo — se actualiza la próxima vez que navegues.");
+    });
 
     document.querySelectorAll("[data-ver-como-rol]").forEach((btn) => {
         btn.addEventListener("click", async () => {
