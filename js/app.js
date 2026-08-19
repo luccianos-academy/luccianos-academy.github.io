@@ -5,6 +5,7 @@
 
 import { initRouter } from "./router.js";
 import { bindTooltips } from "./services/tooltips.js";
+import { protegerMedia } from "./services/protegerMedia.js";
 import { bindAvatarFallback } from "./components/avatar.js";
 import { iniciarChequeoDeVersion } from "./services/actualizacion.js";
 import "./services/google.js"; // Cargar antes de syncManager
@@ -54,6 +55,7 @@ async function initApp() {
         console.log('[APP] Initializing Router...');
         initRouter();
         bindTooltips();
+        protegerMedia();
         // Antes de que se pinte cualquier avatar: si una foto no carga,
         // caer a las iniciales en vez del ícono de imagen rota.
         bindAvatarFallback();

@@ -20,6 +20,21 @@
     box-sizing:border-box;
 }
 
+/* Desalentar la descarga casual de fotos/video de marca (contenido
+   bajo confidencialidad) — ver services/protegerMedia.js para el
+   resto (clic derecho, botón nativo de descarga del video). Esto
+   cubre lo que el JS no puede: el menú que aparece al MANTENER
+   APRETADO sobre una imagen en celular ("Guardar imagen"/"Agregar a
+   Fotos") es un gesto táctil nativo del sistema operativo, no un
+   evento de mouse — -webkit-touch-callout es la única forma de
+   apagarlo. user-select evita además arrastrar/seleccionar la imagen
+   como si fuera texto. */
+img, video{
+    -webkit-touch-callout:none;
+    -webkit-user-select:none;
+    user-select:none;
+}
+
 /* Sin esto, cualquier elemento que se pase del ancho del viewport por
    apenas unos píxeles (una tabla ancha sin wrapper, un tooltip, el
    sidebar) vuelve TODA la página scrolleable de costado — en celular
