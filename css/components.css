@@ -1537,6 +1537,35 @@
     gap:10px;
 }
 
+/* Lista de checkboxes (ej. supervisores de un local, puede haber más
+   de uno a cargo) — compacta, con scroll propio si hay muchos, en vez
+   de las .radio-card grandes (pensadas para 2-3 opciones excluyentes,
+   no para elegir varios de una lista larga). */
+.checkbox-lista{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    max-height:180px;
+    overflow-y:auto;
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:10px 12px;
+    margin-bottom:16px;
+}
+
+.checkbox-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    font-size:14px;
+}
+
+.checkbox-item input[type="checkbox"]{
+    width:auto;
+    margin:0;
+}
+
 .radio-card{
     position:relative;
     display:block;

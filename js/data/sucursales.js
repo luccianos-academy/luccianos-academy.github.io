@@ -69,7 +69,7 @@ function normalizarNombre(n) {
     return String(n || "").trim().toLowerCase();
 }
 
-function listaSupervisores(campoSupervisor) {
+export function listaSupervisores(campoSupervisor) {
     return String(campoSupervisor || "").split(",").map((n) => n.trim()).filter(Boolean);
 }
 

@@ -10,7 +10,7 @@
 import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
-import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal } from "../data/sucursales.js";
+import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal, listaSupervisores } from "../data/sucursales.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
@@ -975,6 +975,35 @@ function conAmbitos(actual, ambitos, loTiene) {
     return (loTiene ? sinEstos : [...sinEstos, ...ambitos]).join(", ");
 }
 
+// Un local puede tener MÁS DE UN supervisor a cargo (ej. dos que
+// comparten un local grande, o cobertura de vacaciones — mismo
+// criterio que ya usa "Locales asignados" en el alta de Supervisor
+// desde Colaboradores). Antes acá había un <select> de UNO solo: al
+// editar un local que ya tenía dos supervisores cargados, ninguno
+// matcheaba la comparación exacta del <select>, quedaba mostrando
+// "Sin asignar" seleccionado, y guardar así —sin haber tocado nada a
+// propósito— borraba a los dos en silencio. Checkboxes en vez de
+// <select> arregla las dos cosas: refleja bien a los que ya están, y
+// guardar reescribe la lista completa sin perder a nadie que no se
+// haya destildado a mano.
+function checkboxesSupervisoresHtml(supervisores, seleccionados) {
+    if (!supervisores.length) return `<p class="text-xs text-muted">Todavía no hay supervisores cargados.</p>`;
+    return `
+        <div class="checkbox-lista">
+            ${supervisores.map((s) => `
+                <label class="checkbox-item">
+                    <input type="checkbox" name="input-supervisores" value="${escaparHtml(s.nombre)}" ${seleccionados.includes(s.nombre) ? "checked" : ""}>
+                    ${escaparHtml(s.nombre)}
+                </label>
+            `).join("")}
+        </div>
+    `;
+}
+
+function leerSupervisoresSeleccionados() {
+    return Array.from(document.querySelectorAll('input[name="input-supervisores"]:checked')).map((i) => i.value);
+}
+
 async function abrirModalNuevoLocal() {
 
     const usuarios = await getUsuarios();
@@ -992,11 +1021,8 @@ async function abrirModalNuevoLocal() {
             Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
         </p>
 
-        <label for="input-supervisor">Supervisor</label>
-        <select id="input-supervisor">
-            <option value="">Sin asignar</option>
-            ${supervisores.map((s) => `<option value="${s.nombre}">${s.nombre}</option>`).join("")}
-        </select>
+        <label style="display:block;margin-bottom:6px">Supervisores</label>
+        ${checkboxesSupervisoresHtml(supervisores, [])}
 
         <!-- Mismo componente .radio-card que ya usa News para elegir
              destinatario: los radios nativos sueltos que había acá se
@@ -1022,7 +1048,7 @@ async function abrirModalNuevoLocal() {
 
         const resto = sinPrefijo(document.getElementById("input-nombre").value);
         const nombre = resto ? PREFIJO_LOCAL + resto : "";
-        const supervisor = document.getElementById("input-supervisor").value;
+        const supervisor = leerSupervisoresSeleccionados().join(", ");
         const esPropio = document.getElementById("input-propio").checked;
 
         if (!nombre) {
@@ -1055,18 +1081,15 @@ async function abrirModalEditarLocal(local) {
             Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
         </p>
 
-        <label for="input-supervisor">Supervisor</label>
-        <select id="input-supervisor">
-            <option value="">Sin asignar</option>
-            ${supervisores.map((s) => `<option value="${s.nombre}" ${local.supervisor === s.nombre ? "selected" : ""}>${s.nombre}</option>`).join("")}
-        </select>
+        <label style="display:block;margin-bottom:6px">Supervisores</label>
+        ${checkboxesSupervisoresHtml(supervisores, listaSupervisores(local.supervisor))}
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Editar local: " + local.nombre, contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
 
         const resto = sinPrefijo(document.getElementById("input-nombre").value);
         const nombre = resto ? PREFIJO_LOCAL + resto : "";
-        const supervisor = document.getElementById("input-supervisor").value;
+        const supervisor = leerSupervisoresSeleccionados().join(", ");
 
         if (!nombre) {
             alert("El nombre es requerido.");
