@@ -653,6 +653,25 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
     return fila;
 }
 
+/** Texto del tooltip junto a "Elegir mis locales" — el default de esa
+ *  pantalla ya cambia según quién mira, así que "elegir" significa
+ *  algo distinto para cada uno. Nace de una confusión real reportada:
+ *  un Supervisor asumía que tenía que usar esto para que las tarjetas
+ *  de arriba reflejen su equipo — pero para él eso YA es el default,
+ *  sin tocar nada (ver colaboradoresParaKpis). Donde de verdad hace
+ *  falta es para acotar TODAVÍA MÁS ese default (varios locales
+ *  propios → solo algunos) o, para Admin/Capacitador (ven toda la red
+ *  por default), para acotar a un grupo puntual. */
+function textoAyudaElegirLocales(usuario, esAdmin) {
+    if (esAdmin) {
+        return "Por default ves toda la red. Usá esto para acotar la pantalla y las tarjetas de arriba a algunos locales puntuales.";
+    }
+    if (usuario.capacitador) {
+        return "Por default ves toda la red (sos solo lectura). Usá esto para acotar la pantalla y las tarjetas de arriba a algunos locales puntuales.";
+    }
+    return "Ya ves tus locales por default, sin elegir nada. Usá esto solo si tenés varios a cargo y querés acotar la pantalla y las tarjetas a unos pocos puntuales.";
+}
+
 export async function Colaboradores() {
 
     const usuario = getUsuarioActual();
@@ -908,7 +927,9 @@ export async function Colaboradores() {
 
         <div class="table-toolbar">
             <input type="search" id="buscador-colaboradores" placeholder="Buscar por nombre, email o local...">
-            ${(esAdmin || usuario.rol === "supervisor") ? `<button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button>` : ""}
+            ${(esAdmin || usuario.rol === "supervisor") ? `
+                <button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button><span class="mod-tooltip kpi-ayuda" data-tooltip-texto="${escaparHtml(textoAyudaElegirLocales(usuario, esAdmin))}">ⓘ</span>
+            ` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
