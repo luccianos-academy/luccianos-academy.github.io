@@ -1164,6 +1164,77 @@ function enviarPushPrueba(usuarioActual) {
     return { ok: enviados > 0, enviados, fallidos: fallidos.length };
 }
 
+/**
+ * Aviso automático de vencimiento próximo — pensada para correr sola
+ * una vez por día vía trigger programado (ver instalarTriggerVencimientos
+ * más abajo, se activa una sola vez desde el editor). No la llama el
+ * cliente por HTTP como al resto de los "enviarPush*" — por eso no
+ * pasa por _despachar ni pide usuarioActual/_esGestion: la dispara el
+ * propio Apps Script, no una persona.
+ *
+ * Mismo umbral que ya usa el badge "Vence en N día(s)" en Colaboradores
+ * (DIAS_AVISO_VENCIMIENTO = 7, ver pages/colaboradores.js). Se manda
+ * el push el día EXACTO en que quedan 7 (no "7 o menos"): así no se
+ * repite el mismo aviso toda la semana previa al vencimiento.
+ *
+ * Solo colaboradores — supervisor/admin no tienen vencimiento (ver
+ * _usuarioDeSesion). Entrar a la app alcanza para renovar: el aviso
+ * no hace nada más que empujar a esa acción antes de que sea tarde.
+ */
+function avisarVencimientosProximos() {
+    const DIAS_AVISO = 7;
+    const limite = _sumarDiasISO(_fechaHoyISO(), DIAS_AVISO);
+
+    const usuarios = _leerCrudo("Usuarios").filter((u) =>
+        String(u.rol || "").trim().toLowerCase() === "colaborador" &&
+        String(u.activo || "").trim().toUpperCase() === "SI" &&
+        String(u.fechaVencimientoAcceso || "").trim() === limite
+    );
+    if (!usuarios.length) return;
+
+    const projectId = _propFCM("FCM_PROJECT_ID");
+    const accessToken = _obtenerAccessTokenFCM();
+    const tokens = _leerCrudo("Tokens");
+
+    usuarios.forEach((u) => {
+        tokens
+            .filter((t) => String(t.usuarioId) === String(u.id))
+            .forEach((t) => {
+                const resultado = _enviarUnPush(
+                    t.token,
+                    "Tu acceso vence pronto",
+                    "Entrá a la app en los próximos días para que no se te desactive el acceso.",
+                    "#/inicio",
+                    accessToken,
+                    projectId
+                );
+                if (!resultado.ok && resultado.invalido) _eliminarCrudo("Tokens", t.id);
+            });
+    });
+}
+
+/**
+ * Instalador — correr UNA SOLA VEZ desde el editor: elegir esta
+ * función en el desplegable de arriba (al lado de "Ejecutar") y
+ * tocar Ejecutar. Deja programado avisarVencimientosProximos() para
+ * correr sola todos los días a las 9am. Se puede volver a correr sin
+ * miedo a duplicar el aviso: primero borra cualquier trigger viejo de
+ * la misma función antes de crear el nuevo.
+ */
+function instalarTriggerVencimientos() {
+    ScriptApp.getProjectTriggers()
+        .filter((t) => t.getHandlerFunction() === "avisarVencimientosProximos")
+        .forEach((t) => ScriptApp.deleteTrigger(t));
+
+    ScriptApp.newTrigger("avisarVencimientosProximos")
+        .timeBased()
+        .everyDays(1)
+        .atHour(9)
+        .create();
+
+    Logger.log("Listo — avisarVencimientosProximos va a correr todos los días a las 9am.");
+}
+
 /* ============================================================
    SINCRONIZACIÓN — foto completa de cada hoja
 
