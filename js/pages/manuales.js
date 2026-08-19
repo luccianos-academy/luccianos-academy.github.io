@@ -36,7 +36,7 @@ const ROLES_COMPARTIR = [
 
 function filaArchivoHtml(a = { url: "", label: "" }) {
     return `
-        <div class="archivo-manual-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+        <div class="archivo-manual-item">
             <div>
                 <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Link (Drive u otro)</label>
                 <input type="text" class="input-archivo-url" placeholder="https://drive.google.com/..." value="${a.url || ""}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
@@ -173,7 +173,7 @@ export async function Manuales() {
                 <h3 style="margin-top:2px">${m.titulo}</h3>
                 ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${chipsVisibilidadHtml(m)}</div>` : ""}
             </div>
-            <span style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+            <span class="manual-item-acciones" style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
                 <!-- Sin target="_blank" a propósito — en la PWA instalada
                      (iPhone) eso saca a la persona hacia Safari sin forma
                      fácil de volver (mismo bug ya sacado del resto de

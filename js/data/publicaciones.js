@@ -18,6 +18,7 @@
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
+import { getCanalesVisibles } from "./canales.js";
 import { publicacionesMock } from "./mock/publicaciones.mock.js";
 import { HOJAS } from "../config.js";
 
@@ -51,6 +52,25 @@ export function estaLikeada(publicacion, usuarioId) {
 
 export function estaLeidaPublicacion(publicacion, usuarioId) {
     return listaIds(publicacion.leidoPor).includes(String(usuarioId));
+}
+
+/** Cuántas publicaciones sin leer tiene el usuario, sumando TODOS los
+ *  canales que puede ver — mismo espíritu que el contador de la
+ *  campana de News (topbar.js), pedido explícito: "no lo tengo a mano
+ *  como News". Vive acá (no en la página) para que sidebar.js y
+ *  bottomNav.js puedan pintar un badge sin importar un módulo de
+ *  página completo solo para esto. */
+export async function contarPublicacionesNoLeidas(usuario) {
+    try {
+        const canales = await getCanalesVisibles(usuario);
+        if (!canales.length) return 0;
+        const idsCanales = new Set(canales.map((c) => String(c.id)));
+        const publicaciones = await getPublicaciones();
+        return publicaciones.filter((p) => idsCanales.has(String(p.canal)) && !estaLeidaPublicacion(p, usuario.id)).length;
+    } catch (err) {
+        console.warn("No se pudo contar publicaciones no leídas:", err.message);
+        return 0;
+    }
 }
 
 export async function getPublicaciones() {

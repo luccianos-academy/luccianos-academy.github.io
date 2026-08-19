@@ -13,8 +13,26 @@ import { Icon } from "./icons.js";
 import { obtenerMiUsuario, etiquetaColaborador } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
 import { CampanaBoton, AvatarHeaderBoton } from "./topbar.js";
+import { contarPublicacionesNoLeidas } from "../data/publicaciones.js";
 
 const DIAS_AVISO_VENCIMIENTO_ACCESO = 7;
+
+// Mismo criterio que miUsuarioCache más abajo: se pide una sola vez
+// por usuario (no en cada Sidebar(), que se llama en CADA navegación)
+// y se parcha el DOM apenas resuelve. Admin/Supervisor únicamente —
+// Colaborador no tiene Comunicaciones en su menú (ver MENU_POR_ROL).
+let noLeidasCache = 0;
+let noLeidasPedidoParaId = null;
+
+function asegurarNoLeidasCache(usuario) {
+    if (usuario.rol === "colaborador") return;
+    if (String(noLeidasPedidoParaId) === String(usuario.id)) return;
+    noLeidasPedidoParaId = usuario.id;
+    contarPublicacionesNoLeidas(usuario).then((n) => {
+        noLeidasCache = n;
+        actualizarAvisosEnDOM();
+    });
+}
 
 // Sidebar() es síncrona (se llama en cada navegación, antes de que
 // la página nueva termine de cargar — ver ui.js/router.js), pero el
@@ -70,6 +88,9 @@ function actualizarAvisosEnDOM() {
 
     const linkInicio = nav.querySelector(`a[href="#/inicio"]`);
     if (linkInicio) marcarAviso(linkInicio, accesoPropioVencePronto(), "VENCE");
+
+    const linkComunicaciones = nav.querySelector(`a[href="#/coordinacionoperativa"]`);
+    if (linkComunicaciones) marcarAviso(linkComunicaciones, noLeidasCache > 0, String(noLeidasCache));
 }
 
 function marcarAviso(link, activo, textoBadge) {
@@ -88,6 +109,7 @@ export function Sidebar(rutaActiva = "inicio") {
     const esEncargado = usuario.rol === "colaborador" && usuario.encargado;
 
     asegurarMiUsuarioCache(usuario);
+    asegurarNoLeidasCache(usuario);
 
     // Encargado suma "Mi local" (misma pantalla que usa el Supervisor,
     // acotada a su propia sucursal — incluye el Semáforo de desempeño
@@ -109,6 +131,7 @@ export function Sidebar(rutaActiva = "inicio") {
     // ambos caminos (este render y el parche async) siempre coinciden.
     const avisosPorId = {
         inicio: { activo: accesoPropioVencePronto(), texto: "VENCE" },
+        coordinacionoperativa: { activo: noLeidasCache > 0, texto: String(noLeidasCache) },
     };
 
     // El orden del menú es el de idsDelMenu (o sea, MENU_POR_ROL) —

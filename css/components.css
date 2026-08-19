@@ -1537,6 +1537,24 @@
     gap:10px;
 }
 
+/* Fila de un archivo adjunto de Manuales (link + etiqueta + borrar) —
+   estaba con las 3 columnas fijas puestas inline, así que en celular
+   no había forma de acotarlas a una sola columna sin !important (un
+   estilo inline gana siempre a una regla de clase). Se sacó lo
+   estructural del inline y quedó acá, para que responsive.css sí
+   pueda pisarlo. Reportado en vivo: con 2+ archivos cargados, la fila
+   se salía de la pantalla en celular. */
+.archivo-manual-item{
+    display:grid;
+    grid-template-columns:2fr 1fr auto;
+    gap:12px;
+    align-items:flex-end;
+    padding:12px;
+    background:var(--card);
+    border-radius:8px;
+    border:1px solid var(--line);
+}
+
 /* Lista de checkboxes (ej. supervisores de un local, puede haber más
    de uno a cargo) — compacta, con scroll propio si hay muchos, en vez
    de las .radio-card grandes (pensadas para 2-3 opciones excluyentes,

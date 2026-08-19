@@ -34,6 +34,32 @@
         grid-template-columns:1fr;
     }
 
+    /* Manuales, formulario de carga: con 2+ archivos, forzar 3
+       columnas (link/etiqueta/borrar) en el ancho de un celular
+       sacaba la fila de la pantalla — pedido explícito: "debería
+       estar en columna en ese caso". Una sola columna, apiladas. */
+    .archivo-manual-item{
+        grid-template-columns:1fr;
+    }
+
+    /* Manuales, lista YA cargada: con 2+ archivos, los botones
+       ("Ver manual"/etiqueta de cada uno) se probaban wrappear entre
+       sí, pero al no tener un ancho propio quedaban todos en una fila
+       que se salía de la pantalla en vez de romper línea — reportado
+       en vivo, con captura, sobre la vista ya cargada (no el
+       formulario). width:100% fuerza que la fila SÍ tenga un ancho
+       acotado para que flex-wrap funcione de verdad; column además
+       los deja más cómodos de tocar en celular que en fila apretada. */
+    .manual-item-acciones{
+        width:100%;
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .manual-item-acciones .btn{
+        text-align:center;
+    }
+
     .login-hero-panel{
         display:none;
     }

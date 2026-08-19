@@ -661,6 +661,7 @@
 }
 
 .bottom-nav-item{
+    position:relative;
     display:flex;
     flex-direction:column;
     align-items:center;
@@ -672,6 +673,26 @@
     text-decoration:none;
     font-size:11px;
     font-weight:700;
+}
+
+/* Cantidad de no leídas en Canales — mismo criterio que .badge-new
+   del sidebar, pero como punto flotante sobre el ícono: acá no hay
+   lugar para un texto "N" al lado del label sin romper el ancho fijo
+   de la tab. */
+.bottom-nav-badge{
+    position:absolute;
+    top:2px;
+    right:calc(50% - 22px);
+    min-width:16px;
+    height:16px;
+    padding:0 4px;
+    border-radius:999px;
+    background:var(--danger);
+    color:#fff;
+    font-size:10px;
+    font-weight:800;
+    line-height:16px;
+    text-align:center;
 }
 
 .bottom-nav-item.active{

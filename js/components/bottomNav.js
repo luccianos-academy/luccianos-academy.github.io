@@ -18,6 +18,34 @@
 import { Icon } from "./icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getAccesosRapidos } from "../services/preferenciasAccesos.js";
+import { contarPublicacionesNoLeidas } from "../data/publicaciones.js";
+
+// Mismo criterio que el badge del sidebar (components/sidebar.js) —
+// acá también, para que "Canales" avise sin leer aunque el acceso
+// esté abajo de la pantalla y no en el menú. Se pide una sola vez por
+// usuario, no en cada BottomNav() (se llama en CADA navegación), y se
+// parcha el DOM ya dibujado apenas resuelve.
+let noLeidasCache = 0;
+let noLeidasPedidoParaId = null;
+
+function asegurarNoLeidasCache(usuario) {
+    if (usuario.rol === "colaborador") return;
+    if (String(noLeidasPedidoParaId) === String(usuario.id)) return;
+    noLeidasPedidoParaId = usuario.id;
+    contarPublicacionesNoLeidas(usuario).then((n) => {
+        noLeidasCache = n;
+        const item = document.querySelector('.bottom-nav-item[href="#/coordinacionoperativa"]');
+        if (!item) return;
+        const existente = item.querySelector(".bottom-nav-badge");
+        if (n > 0 && !existente) {
+            item.insertAdjacentHTML("beforeend", `<span class="bottom-nav-badge">${n}</span>`);
+        } else if (n > 0 && existente) {
+            existente.textContent = String(n);
+        } else if (n === 0 && existente) {
+            existente.remove();
+        }
+    });
+}
 
 // Universo de secciones que un Admin puede elegir como acceso rápido
 // propio (ver "Accesos rápidos" en Mi Perfil) — no todo el sidebar,
@@ -61,6 +89,8 @@ export function BottomNav(rutaActiva) {
     let tabs = usuario && TABS_POR_ROL[usuario.rol];
     if (!tabs) return "";
 
+    asegurarNoLeidasCache(usuario);
+
     // Admin puede reemplazar el set fijo por sus propios 4 accesos
     // (ver "Accesos rápidos" en Mi Perfil) — preferencia liviana del
     // dispositivo, no un permiso nuevo. Si guardó menos/más de 4 o
@@ -86,6 +116,7 @@ export function BottomNav(rutaActiva) {
                 <a class="bottom-nav-item${t.id === rutaEfectiva ? " active" : ""}" href="${t.href}">
                     ${Icon(t.icono, { size: 22 })}
                     <span>${t.label}</span>
+                    ${t.id === "coordinacionoperativa" && noLeidasCache > 0 ? `<span class="bottom-nav-badge">${noLeidasCache}</span>` : ""}
                 </a>
             `).join("")}
         </nav>

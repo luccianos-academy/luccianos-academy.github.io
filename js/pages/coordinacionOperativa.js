@@ -341,7 +341,15 @@ function abrirDetallePublicacion(p) {
     const usuario = getUsuarioActual();
     const modalId = "modal-publicacion";
 
-    if (p.requiereConfirmacion && !estaLeidaPublicacion(p, usuario.id)) {
+    // Antes solo se marcaba "leída" si la publicación pedía confirmación
+    // de lectura — para el resto, leidoPor quedaba vacío para siempre.
+    // Ahora se marca SIEMPRE que se abre, sin importar ese flag: es lo
+    // que necesita el contador de "no leídas" (badge en Comunicaciones,
+    // pedido explícito — "no veo que escribieron, no lo tengo a mano
+    // como News"). requiereConfirmacion sigue significando lo mismo
+    // que siempre (obliga a abrir antes de dejar avanzar en otra
+    // parte); esto solo suma tracking al resto.
+    if (!estaLeidaPublicacion(p, usuario.id)) {
         // Sin "await" a propósito — antes esto se esperaba ANTES de
         // siquiera abrir el modal, así que "Ver/comentar" se sentía
         // colgado unos segundos con la pantalla en blanco (reportado
