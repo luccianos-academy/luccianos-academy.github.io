@@ -13,26 +13,19 @@ import { Icon } from "./icons.js";
 import { obtenerMiUsuario, etiquetaColaborador } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
 import { CampanaBoton, AvatarHeaderBoton } from "./topbar.js";
-import { contarPublicacionesNoLeidas } from "../data/publicaciones.js";
+import { asegurarNoLeidas, suscribirseANoLeidas } from "../services/badgeComunicaciones.js";
 
 const DIAS_AVISO_VENCIMIENTO_ACCESO = 7;
 
-// Mismo criterio que miUsuarioCache más abajo: se pide una sola vez
-// por usuario (no en cada Sidebar(), que se llama en CADA navegación)
-// y se parcha el DOM apenas resuelve. Admin/Supervisor únicamente —
-// Colaborador no tiene Comunicaciones en su menú (ver MENU_POR_ROL).
+// Cache COMPARTIDA con bottomNav.js (ver badgeComunicaciones.js) — así
+// marcar una publicación como leída desde cualquier lado actualiza el
+// badge acá también, en vez de quedar cada uno con su propio número
+// congelado (bug real reportado en vivo: "queda pegado en 1").
 let noLeidasCache = 0;
-let noLeidasPedidoParaId = null;
-
-function asegurarNoLeidasCache(usuario) {
-    if (usuario.rol === "colaborador") return;
-    if (String(noLeidasPedidoParaId) === String(usuario.id)) return;
-    noLeidasPedidoParaId = usuario.id;
-    contarPublicacionesNoLeidas(usuario).then((n) => {
-        noLeidasCache = n;
-        actualizarAvisosEnDOM();
-    });
-}
+suscribirseANoLeidas((n) => {
+    noLeidasCache = n;
+    actualizarAvisosEnDOM();
+});
 
 // Sidebar() es síncrona (se llama en cada navegación, antes de que
 // la página nueva termine de cargar — ver ui.js/router.js), pero el
@@ -109,7 +102,7 @@ export function Sidebar(rutaActiva = "inicio") {
     const esEncargado = usuario.rol === "colaborador" && usuario.encargado;
 
     asegurarMiUsuarioCache(usuario);
-    asegurarNoLeidasCache(usuario);
+    asegurarNoLeidas(usuario);
 
     // Encargado suma "Mi local" (misma pantalla que usa el Supervisor,
     // acotada a su propia sucursal — incluye el Semáforo de desempeño

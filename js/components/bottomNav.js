@@ -18,34 +18,27 @@
 import { Icon } from "./icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getAccesosRapidos } from "../services/preferenciasAccesos.js";
-import { contarPublicacionesNoLeidas } from "../data/publicaciones.js";
+import { asegurarNoLeidas, suscribirseANoLeidas } from "../services/badgeComunicaciones.js";
 
-// Mismo criterio que el badge del sidebar (components/sidebar.js) —
-// acá también, para que "Canales" avise sin leer aunque el acceso
-// esté abajo de la pantalla y no en el menú. Se pide una sola vez por
-// usuario, no en cada BottomNav() (se llama en CADA navegación), y se
-// parcha el DOM ya dibujado apenas resuelve.
+// Cache COMPARTIDA con sidebar.js (ver badgeComunicaciones.js) — antes
+// cada uno tenía la suya propia, así que marcar como leída desde
+// cualquier lado no tenía forma de avisarle al otro y el badge quedaba
+// pegado en el primer número calculado, para siempre (bug real
+// reportado en vivo).
 let noLeidasCache = 0;
-let noLeidasPedidoParaId = null;
-
-function asegurarNoLeidasCache(usuario) {
-    if (usuario.rol === "colaborador") return;
-    if (String(noLeidasPedidoParaId) === String(usuario.id)) return;
-    noLeidasPedidoParaId = usuario.id;
-    contarPublicacionesNoLeidas(usuario).then((n) => {
-        noLeidasCache = n;
-        const item = document.querySelector('.bottom-nav-item[href="#/coordinacionoperativa"]');
-        if (!item) return;
-        const existente = item.querySelector(".bottom-nav-badge");
-        if (n > 0 && !existente) {
-            item.insertAdjacentHTML("beforeend", `<span class="bottom-nav-badge">${n}</span>`);
-        } else if (n > 0 && existente) {
-            existente.textContent = String(n);
-        } else if (n === 0 && existente) {
-            existente.remove();
-        }
-    });
-}
+suscribirseANoLeidas((n) => {
+    noLeidasCache = n;
+    const item = document.querySelector('.bottom-nav-item[href="#/coordinacionoperativa"]');
+    if (!item) return;
+    const existente = item.querySelector(".bottom-nav-badge");
+    if (n > 0 && !existente) {
+        item.insertAdjacentHTML("beforeend", `<span class="bottom-nav-badge">${n}</span>`);
+    } else if (n > 0 && existente) {
+        existente.textContent = String(n);
+    } else if (n === 0 && existente) {
+        existente.remove();
+    }
+});
 
 // Universo de secciones que un Admin puede elegir como acceso rápido
 // propio (ver "Accesos rápidos" en Mi Perfil) — no todo el sidebar,
@@ -89,7 +82,7 @@ export function BottomNav(rutaActiva) {
     let tabs = usuario && TABS_POR_ROL[usuario.rol];
     if (!tabs) return "";
 
-    asegurarNoLeidasCache(usuario);
+    asegurarNoLeidas(usuario);
 
     // Admin puede reemplazar el set fijo por sus propios 4 accesos
     // (ver "Accesos rápidos" en Mi Perfil) — preferencia liviana del

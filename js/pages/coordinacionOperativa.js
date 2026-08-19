@@ -38,6 +38,7 @@ import { MultiSelectUsuarios, bindMultiSelectUsuarios } from "../components/mult
 import { getUsuarios } from "../data/usuarios.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { mismoId } from "../services/ids.js";
+import { decrementarNoLeidas, refrescarNoLeidas } from "../services/badgeComunicaciones.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { mandarPush } from "../services/push.js";
@@ -264,6 +265,12 @@ function estaLikeCount(p) {
 export function bindCoordinacionOperativa(params = []) {
     const usuario = getUsuarioActual();
 
+    // Recalcula contra el backend cada vez que se entra a la pantalla
+    // — así una publicación nueva de otra persona (que asegurarNoLeidas,
+    // en sidebar/bottomNav, no vuelve a pedir una vez cacheada por
+    // usuario) sí se refleja en el badge sin tener que cerrar sesión.
+    refrescarNoLeidas(usuario);
+
     document.getElementById("btn-gestionar-canales")?.addEventListener("click", () => abrirModalGestionarCanales());
 
     document.getElementById("btn-ayuda-comunicaciones")?.addEventListener("click", () => {
@@ -363,6 +370,10 @@ function abrirDetallePublicacion(p) {
         const actuales = String(p.leidoPor || "").split(",").map((s) => s.trim()).filter(Boolean);
         actuales.push(String(usuario.id));
         p.leidoPor = actuales.join(",");
+        // El badge de "no leídas" (sidebar + bottom nav) ya sabe que
+        // baja en 1 — sin esto quedaba pegado en el número del primer
+        // cálculo para siempre, bug real reportado en vivo.
+        decrementarNoLeidas(1);
     }
 
     async function contenidoActual() {
