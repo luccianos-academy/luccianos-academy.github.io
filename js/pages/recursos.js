@@ -42,11 +42,18 @@ export async function Recursos() {
     // volver (mismo bug ya encontrado y sacado de Manuales/Noticias/
     // lecciones). Navegando en la misma ventana, el gesto de "volver"
     // (swipe desde el borde) sigue funcionando adentro de la PWA.
+    // "canal-item"/"canal-lista" (como estaba antes) nunca tuvieron
+    // CSS propio — alguien las copió del patrón real de Comunicaciones
+    // (.notif-item, la lista de canales) y les cambió el nombre sin
+    // llevarse el estilo. Resultado: se veía como texto plano corrido,
+    // sin tarjeta ni separación — reportado en vivo con captura,
+    // "se ve horrible". Con las clases reales queda igual de prolijo
+    // que Comunicaciones/Manuales.
     const itemsHtml = recursos.map((r) => `
-        <a class="canal-item" href="${r.url}" rel="noopener">
-            <span class="canal-item-icono">${Icon(r.icono, { size: 20 })}</span>
-            <span class="canal-item-body">
-                <span class="canal-item-nombre">${r.nombre}</span>
+        <a class="notif-item" href="${r.url}" rel="noopener">
+            <span class="notif-item-icono canal-item-icono">${Icon(r.icono, { size: 20 })}</span>
+            <span class="notif-item-body">
+                <span class="notif-item-titulo">${r.nombre}</span>
             </span>
         </a>
     `).join("");
@@ -67,7 +74,7 @@ export async function Recursos() {
             </div>
         ` : ""}
 
-        <div class="section canal-lista">
+        <div class="section notif-lista">
             ${itemsHtml || EmptyState({ titulo: "Todavía no hay recursos cargados", detalle: "Ningún acceso operativo está disponible para tu rol por ahora.", icono: "integraciones" })}
         </div>
     `;
