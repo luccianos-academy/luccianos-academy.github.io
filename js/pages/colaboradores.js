@@ -686,6 +686,14 @@ export async function Colaboradores() {
     let miSupervisor = "";
     let gruposPorSucursal = null; // Admin y Supervisor (con >1 local) ven la lista agrupada
     let colaboradores;
+    // Para Admin, distinto de `colaboradores`: ese se mantiene completo
+    // (lo necesita el chequeo de vencimientos más abajo, que tiene que
+    // barrer TODA la red sin importar qué locales estén elegidos ahora
+    // mismo). Este es el que alimenta las tarjetas de Semáforo — bug
+    // real reportado: "elijo un local y las tarjetas no cambian",
+    // porque antes recibían siempre `colaboradores` completo, nunca
+    // recortado por "Elegir mis locales".
+    let colaboradoresParaKpis;
     let supervisores = [];
     let admins = [];
     let cantidadLocalesElegidos = 0; // Capacitador — ver Header más abajo
@@ -716,8 +724,12 @@ export async function Colaboradores() {
             gruposPorSucursal = gruposPorSucursal.filter((n) => elegidosAdmin.includes(n));
             localesElegidosSinDatos = elegidosAdmin.filter((n) => !gruposPorSucursal.includes(n));
         }
+        colaboradoresParaKpis = elegidosAdmin.length
+            ? colaboradores.filter((c) => elegidosAdmin.includes(c.sucursal))
+            : colaboradores;
     } else if (esEncargado) {
         colaboradores = await getColaboradoresPorSucursal(usuario.sucursal);
+        colaboradoresParaKpis = colaboradores;
         // Puede haber más de uno (cobertura de vacaciones, locales
         // grandes) — la columna es una lista separada por comas.
         const sucursales = await getSucursales();
@@ -745,6 +757,10 @@ export async function Colaboradores() {
         if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
         const todos = await getColaboradores();
         colaboradores = todos.filter((c) => nombresLocales.includes(c.sucursal));
+        // Acá `colaboradores` ya sale filtrado por locales elegidos
+        // (nombresLocales los incluye) — no hace falta un recorte
+        // aparte, a diferencia de Admin.
+        colaboradoresParaKpis = colaboradores;
         // Un capacitador sin locales elegidos ve TODA la red (~95
         // locales), la mayoría sin nadie cargado todavía. Mismo
         // recorte que ya usa la vista de Admin: agrupar solo por los
@@ -882,7 +898,7 @@ export async function Colaboradores() {
              pieza que sirve para comparar un local contra otro, que es
              para lo que usa "Elegir mis locales" acá — así que Admin
              lo recibe igual ahora. -->
-        ${colaboradores.length ? resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, esAdmin || usuario.rol === "supervisor") : ""}
+        ${colaboradoresParaKpis.length ? resumenSemaforoHtml(colaboradoresParaKpis, asignaciones, cursos, resultados, esAdmin || usuario.rol === "supervisor") : ""}
 
         ${esAdmin ? `
             <div class="galeria-pills" style="margin-bottom:14px">

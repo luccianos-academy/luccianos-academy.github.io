@@ -599,8 +599,17 @@ async function renderDetalleCurso(usuario, cursoId) {
         // Una categoría que se quedó sin productos no se muestra: la
         // pill existiría, se tocaría, y la grilla quedaría vacía sin
         // explicar por qué.
+        //
+        // "prod.categorias || [prod.categoria]": mismo fallback que ya
+        // usa categoriasDe() en galeriaProductos.js — Heladería/Icepops
+        // cargan "categorias" (array, un producto puede estar en más de
+        // una), pero Chocolatería/Pastelería solo tienen "categoria"
+        // (string). Sin este fallback acá, ESTE filtro (a diferencia
+        // del de la tarjeta) nunca encontraba nada para esos dos cursos
+        // — daba "ninguna categoría tiene productos" y las pills
+        // desaparecían enteras, aunque las tarjetas sí se vieran bien.
         const categoriasConAlgo = categorias.filter((c) =>
-            visibles.some((prod) => (prod.categorias || []).includes(c)));
+            visibles.some((prod) => (prod.categorias || [prod.categoria]).includes(c)));
         galeriaCurso = [visibles, categoriasConAlgo];
     }
     const galeriaHtml = galeriaCurso && galeriaCurso[0].length
