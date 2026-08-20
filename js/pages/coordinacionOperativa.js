@@ -531,10 +531,20 @@ function abrirDetallePublicacion(p) {
  *  A QUIÉN le va a llegar antes de que sea irreversible (una vez
  *  publicada, ya salió el push). Pedido explícito del usuario: que
  *  Canales tenga la misma alerta de confirmación que ya tiene News. */
-async function descripcionDestinatariosCanal(canalObj) {
+// "usuariosPrecargados" opcional en las dos funciones de abajo — quien
+// publica un mensaje necesita ámbas (mostrar a quién le va a llegar
+// ANTES de confirmar, y de vuelta después para el push real) y sin
+// esto cada una pedía getUsuarios() por su cuenta: dos round-trips
+// completos a la planilla para la MISMA lista, uno atrás del otro, en
+// una sola acción de publicar. Con varias personas activas (o un
+// backend con latencia real, ~1,5s por escritura) eso se sentía como
+// "tiempos de carga larguísimos" — reportado en vivo. Pedirla una
+// sola vez arriba (ver abrirModalNuevaPublicacion) y pasarla a las
+// dos corta ese trabajo a la mitad, sin cambiar qué hace cada una.
+async function descripcionDestinatariosCanal(canalObj, usuariosPrecargados) {
     const miembros = String(canalObj.miembros || "").split(",").map((s) => s.trim()).filter(Boolean);
     if (miembros.length) {
-        const usuarios = await getUsuarios();
+        const usuarios = usuariosPrecargados || await getUsuarios();
         const nombres = miembros.map((id) => usuarios.find((u) => mismoId(u.id, id))?.nombre || `usuario dado de baja (${id})`);
         return `${nombres.length} persona(s): ${nombres.join(", ")}`;
     }
@@ -548,9 +558,9 @@ async function descripcionDestinatariosCanal(canalObj) {
  *  criterio: mandar a quien puede VER el canal, mismo filtro que ya
  *  usa la lista de canales — admin/supervisor según la visibilidad
  *  configurada). No bloquea la publicación si el push falla. */
-async function mandarPushDePublicacion(canalObj, titulo, mensaje) {
+async function mandarPushDePublicacion(canalObj, titulo, mensaje, usuariosPrecargados) {
     try {
-        const usuarios = await getUsuarios();
+        const usuarios = usuariosPrecargados || await getUsuarios();
         const destinatarios = usuarios.filter((u) => puedeVerCanal(canalObj, u)).map((u) => u.id);
         if (destinatarios.length) await mandarPush(destinatarios, titulo, mensaje, `#/coordinacionoperativa/${canalObj.id}`);
     } catch (err) {
@@ -633,8 +643,13 @@ async function abrirModalNuevaPublicacion(canalId) {
         // deshacer — una vez publicada, el push ya salió. Se confirma
         // con los destinatarios REALES del canal elegido, no con una
         // suposición.
+        // Una sola vez para toda la acción (ver la nota arriba de
+        // descripcionDestinatariosCanal/mandarPushDePublicacion) — la
+        // usa el cartel de confirmación de acá abajo Y el push real
+        // más adelante, sin pedirla dos veces.
+        const usuariosDeLaAccion = await getUsuarios();
         const canalElegido = canales.find((c) => String(c.id) === String(canal));
-        const aQuien = canalElegido ? await descripcionDestinatariosCanal(canalElegido) : "quienes puedan ver este canal";
+        const aQuien = canalElegido ? await descripcionDestinatariosCanal(canalElegido, usuariosDeLaAccion) : "quienes puedan ver este canal";
         if (!confirm(`Se va a publicar en "${canalElegido?.nombre || "este canal"}" y avisar a:\n\n${aQuien}\n\n¿Confirmás?`)) return;
 
         const adjuntoUrl = document.getElementById("input-adjunto-url-pub").value.trim();
@@ -648,12 +663,18 @@ async function abrirModalNuevaPublicacion(canalId) {
         });
         registrarEvento(usuario.id, "crear_publicacion", `Publicación creada en #${canal}: ${titulo}`);
         const canalObj = canales.find((c) => String(c.id) === String(canal));
-        // Sin "await" — mismo criterio que news.js: la publicación ya
-        // quedó guardada, no hay razón para dejar el modal en
-        // "Guardando..." mientras el push (varios segundos con
-        // destinatarios reales) todavía viaja. mandarPushDePublicacion
-        // ya atrapa sus propios errores.
-        if (canalObj) mandarPushDePublicacion(canalObj, titulo, mensaje);
+        // CON "await" — este comentario decía "mismo criterio que
+        // news.js" (sin esperar), pero cuando se arregló el bug real
+        // de News ("dos News seguidas, el push de una nunca llegó" —
+        // ver news.js) nunca se replicó acá. Sin esperar, el navigate()
+        // de abajo dispara un re-render completo mientras el fetch del
+        // push todavía está en el aire — si se publica un segundo
+        // mensaje enseguida, el primero puede perderse sin ningún
+        // error visible. Reportado en vivo: "las notificaciones solo
+        // llegan cuando se envía el primer mensaje". mandarPushDePublicacion
+        // ya atrapa sus propios errores, así que esperar no puede
+        // dejar el botón trabado en "Guardando...".
+        if (canalObj) await mandarPushDePublicacion(canalObj, titulo, mensaje, usuariosDeLaAccion);
         cerrarModal(modalId);
         navigate(`coordinacionoperativa/${canal}`);
     });
