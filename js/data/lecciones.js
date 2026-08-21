@@ -37,6 +37,16 @@ function normalizarLeccion(f) {
         consejo: f.consejo || "",
         resumen: f.resumen || "",
         estado: f.estado || "Activo",
+        // "NO" = no cuenta para el % de progreso ni para el examen, sin
+        // botón de "Marcar como vista", siempre visible como contenido
+        // de referencia (ver renderDetalleCurso, pages/cursos.js).
+        // Pedido explícito: lecciones específicas de una máquina que no
+        // todos los locales tienen (ej. una cafetera puntual) — la
+        // alternativa de acotar por local con aplicaA/noAplicaA se
+        // descartó ("hay que modificar cada local según máquina y es
+        // una locura"). Vacío/cualquier otra cosa = obligatoria (default,
+        // así las lecciones ya cargadas antes de este campo no cambian).
+        obligatoria: String(f.obligatoria || "").trim().toUpperCase() === "NO" ? "NO" : "SI",
         // Alcance por país/local — ver services/alcance.js. Existe a
         // nivel LECCIÓN y no solo de curso porque el caso real es ese:
         // Cafetería le aplica a toda la red, pero la lección de batidos
@@ -71,11 +81,12 @@ export async function crearLeccion({
     // que además veía las dos versiones. El destructuring descarta en
     // silencio lo que no está nombrado acá.
     aplicaA = "", noAplicaA = "",
+    obligatoria = "SI",
 }) {
     return writeSheet(HOJAS.LECCIONES, {
         cursoId, orden, titulo, objetivo, duracionMinutos,
         video, manual, manualLabel, imagen, procedimiento, errores,
-        buenasPracticas, consejo, resumen, estado, aplicaA, noAplicaA,
+        buenasPracticas, consejo, resumen, estado, aplicaA, noAplicaA, obligatoria,
     }, leccionesMock);
 }
 

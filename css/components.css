@@ -3719,6 +3719,15 @@ table.data-table tbody tr:hover{
     box-shadow:none;
 }
 
+/* Contenido opcional (ej. una máquina que no todos los locales
+   tienen) — borde punteado en vez del acento sólido de las lecciones
+   numeradas, para que a simple vista se note que no es parte de la
+   secuencia obligatoria. */
+.leccion-item-opcional{
+    border-top-style:dashed;
+    border-top-color:var(--muted);
+}
+
 .leccion-item-header{
     display:flex;
     align-items:center;
@@ -4350,6 +4359,13 @@ table.data-table tbody tr:hover{
 .leccion-item.vista .leccion-numero{
     background:var(--success);
     color:#fff;
+}
+
+/* Ícono en vez de número — no hay una posición en la secuencia que
+   mostrar, es contenido de referencia (ver .leccion-item-opcional). */
+.leccion-numero-opcional{
+    background:var(--bg-soft, var(--card));
+    color:var(--muted);
 }
 
 /* Examen (pages/examen.js) */

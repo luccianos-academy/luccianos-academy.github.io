@@ -41,6 +41,13 @@ function camposLeccionHtml(l = {}) {
         <label for="input-duracion">Duración (minutos)</label>
         <input type="number" id="input-duracion" min="0" value="${l.duracionMinutos || ""}">
 
+        <label style="margin-top:16px">
+            <input type="checkbox" id="input-obligatoria" style="width:auto;display:inline-block;margin-right:8px" ${l.obligatoria !== "NO" ? "checked" : ""}>
+            <strong>Obligatoria</strong> — destildá esto para contenido de referencia que no todos necesitan
+            (ej. una máquina que no todos los locales tienen). Queda visible igual, pero sin botón de
+            "Marcar como vista" y sin contar para el % de progreso ni el examen.
+        </label>
+
         <label for="input-orden">Orden (posición en la lista — decide dónde aparece, no hace falta que sea correlativo, ej. 16.5 la mete entre la 16 y la 17)</label>
         <input type="number" id="input-orden" step="0.5" value="${l.orden ?? ""}">
 
@@ -85,6 +92,7 @@ function leerCamposLeccion() {
         objetivo: document.getElementById("input-objetivo").value.trim(),
         duracionMinutos: Number(document.getElementById("input-duracion").value) || 0,
         orden: Number(document.getElementById("input-orden").value) || 0,
+        obligatoria: document.getElementById("input-obligatoria").checked ? "SI" : "NO",
         video: document.getElementById("input-video").value.trim(),
         manual: document.getElementById("input-manual").value.trim(),
         manualLabel: document.getElementById("input-manualLabel").value.trim(),

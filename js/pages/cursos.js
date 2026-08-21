@@ -478,6 +478,17 @@ async function renderDetalleCurso(usuario, cursoId) {
     // que el total de lecciones del curso sea el de ESTA persona.
     const lecciones = leccionesDeLaPersona(todasLasLecciones, usuario);
 
+    // Lección "No obligatoria" (ej. cada local puede tener una cafetera
+    // distinta): pedido explícito del usuario — sacarla de la ecuación
+    // por completo, no solo que "no bloquee". Queda afuera del conteo
+    // numerado/secuencial y de %, sin botón de marcar, siempre visible
+    // como contenido de referencia (renderizada aparte, más abajo). La
+    // alternativa (acotar por local vía aplicaA/noAplicaA, según qué
+    // máquina tiene cada uno) se descartó a propósito — "hay que
+    // modificar cada local según máquina y es una locura".
+    const leccionesObligatorias = lecciones.filter((l) => l.obligatoria !== "NO");
+    const leccionesOpcionales = lecciones.filter((l) => l.obligatoria === "NO");
+
     const curso = cursos.find((c) => String(c.id) === String(cursoId));
     const esSoloEncargados = curso && curso.categoria === "Gestión" && !usuario.encargado && usuario.rol !== "supervisor";
     // Sin esto, un curso acotado a otro país desaparecía del catálogo
@@ -507,7 +518,11 @@ async function renderDetalleCurso(usuario, cursoId) {
     // Cuántas lecciones ya "vistas" según el progreso guardado — el
     // esquema no tiene un detalle por lección, así que se deriva del
     // % (mismo cálculo que usa el home para "en qué lección vas").
-    const leccionesVistas = Math.min(lecciones.length, Math.round((progreso / 100) * lecciones.length));
+    // Sobre leccionesObligatorias, no sobre lecciones: una opcional no
+    // tiene botón de marcar, así que nunca podría "sumar" acá — pero
+    // si entrara en el total, el % de alguien que las salteó todas
+    // nunca llegaría a 100 aunque completara todo lo que sí le toca.
+    const leccionesVistas = Math.min(leccionesObligatorias.length, Math.round((progreso / 100) * leccionesObligatorias.length));
 
     // Modo prueba: admin (viendo esta misma pantalla como vista previa
     // de Academia, o usando "Ver como"), o un Supervisor real —
@@ -520,7 +535,7 @@ async function renderDetalleCurso(usuario, cursoId) {
     // real a su propio id, como si fueran un colaborador más).
     const puedeMarcarVista = usuario.rol !== "supervisor" && usuario.rol !== "admin";
 
-    const filas = lecciones.map((l, i) => {
+    const filas = leccionesObligatorias.map((l, i) => {
         const vista = i < leccionesVistas;
         const esActual = modoPrueba ? !vista : i === leccionesVistas;
         const bloqueada = modoPrueba ? false : i > leccionesVistas;
@@ -539,7 +554,25 @@ async function renderDetalleCurso(usuario, cursoId) {
         `;
     }).join("");
 
-    const completado = leccionesVistas >= lecciones.length;
+    // Opcionales: siempre visibles enteras (esActual=true, sin
+    // "bloqueada" ni "vista" — no hay secuencia que respetar) y sin
+    // botón de marcar (puedeMarcarVista=false le saca el botón a
+    // renderCuerpoLeccion). El índice que le pasa acá no se usa para
+    // nada real: sin botón "Marcar como vista", nunca se dispara el
+    // handler que lo leería.
+    const filasOpcionales = leccionesOpcionales.map((l, i) => `
+        <div class="leccion-item leccion-item-opcional">
+            <div class="leccion-item-header">
+                <span class="leccion-numero leccion-numero-opcional" title="No obligatoria">${Icon("alertas", { size: 14 })}</span>
+                <h3>${l.titulo}</h3>
+                <span class="badge badge-muted">Opcional</span>
+                ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
+            </div>
+            ${renderCuerpoLeccion(l, true, i, false)}
+        </div>
+    `).join("");
+
+    const completado = leccionesVistas >= leccionesObligatorias.length;
 
     const resultadosCurso = resultados.filter((r) => String(r.cursoId) === String(cursoId));
     const aprobado = resultadosCurso.find((r) => r.aprobado);
@@ -632,7 +665,7 @@ async function renderDetalleCurso(usuario, cursoId) {
         ${Header(curso.nombre, curso.categoria + (curso.obligatorio ? " · Obligatorio" : ""))}
 
         <div class="curso-detalle-cuerpo ${tema || ""}">
-            <div class="section">${renderIntroCurso(curso, lecciones, galeriaCurso ? galeriaCurso[0] : null)}</div>
+            <div class="section">${renderIntroCurso(curso, leccionesObligatorias, galeriaCurso ? galeriaCurso[0] : null)}</div>
 
             ${esVistaPrevia ? `
                 <div class="curso-progreso-sticky">
@@ -641,13 +674,21 @@ async function renderDetalleCurso(usuario, cursoId) {
             ` : `
                 <div class="curso-progreso-sticky">
                     <div class="stat-progress-bar wide"><i style="width:${progreso}%"></i></div>
-                    <p class="text-sm text-muted" style="margin-top:8px">${progreso}% completado · ${leccionesVistas}/${lecciones.length} lecciones</p>
+                    <p class="text-sm text-muted" style="margin-top:8px">${progreso}% completado · ${leccionesVistas}/${leccionesObligatorias.length} lecciones</p>
                 </div>
             `}
 
             ${examenHtml ? `<div class="section">${examenHtml}</div>` : ""}
 
             <div class="section leccion-list">${filas}</div>
+
+            ${filasOpcionales ? `
+                <div class="section leccion-list">
+                    <h2 style="margin-bottom:2px">Contenido opcional</h2>
+                    <p class="text-xs text-muted" style="margin-bottom:12px">No suma al progreso ni al examen — consultalo si te sirve para tu local.</p>
+                    ${filasOpcionales}
+                </div>
+            ` : ""}
 
             ${galeriaHtml}
         </div>
@@ -812,10 +853,16 @@ export function bindCursos(params = []) {
     document.querySelectorAll("[data-marcar-vista]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const usuario = getUsuarioActual();
-            const [lecciones, asignaciones] = await Promise.all([
+            const [todasLasLecciones, asignaciones] = await Promise.all([
                 getLeccionesPorCurso(cursoId),
                 getAsignacionesPorColaborador(usuario.id),
             ]);
+            // Mismo filtro que el render (ver renderDetalleCurso) — una
+            // opcional nunca dispara este handler (no tiene botón), pero
+            // el TOTAL contra el que se calcula el % tiene que ser el
+            // mismo de los dos lados o el número final no coincide con
+            // lo que la persona ve en pantalla.
+            const lecciones = todasLasLecciones.filter((l) => l.obligatoria !== "NO");
             let asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
 
             const idx = Number(btn.dataset.marcarVista);
