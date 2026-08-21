@@ -10,6 +10,7 @@
 =============================*/
 
 import { tieneFormato, formatearTexto } from "../services/formato.js";
+import { escaparHtml } from "../services/html.js";
 
 /** "Nombre: detalle." o "Nombre (detalle)." — separa nombre/detalle
  *  para la lista con bullet; si no matchea ningún patrón, todo el
@@ -22,19 +23,59 @@ function formatearItem(item) {
     return { nombre: item, detalle: "" };
 }
 
-/** Pasos numerados explícitos ("1) ... 2) ... 3) ...") — círculo
- *  numerado, mismo lenguaje visual que la maqueta aprobada para
- *  procesos secuenciales. */
+/**
+ * Pasos numerados explícitos ("1) ... 2) ... 3) ...") — círculo
+ * numerado, mismo lenguaje visual que la maqueta aprobada para
+ * procesos secuenciales. Lo produce pages/academia.js (editor de
+ * lecciones, sección Procedimiento).
+ *
+ * Admite sub-puntos: una línea indentada con "- " (o "* ") justo
+ * debajo de un paso se anida como lista dentro de ESE paso, en vez de
+ * ser otro paso. Sin saltos de línea (formato viejo, guardado como una
+ * sola línea "1) ... 2) ...") no hay forma de distinguir sub-puntos —
+ * se parte como siempre, sin anidar nada.
+ */
 function renderPasosNumerados(texto) {
-    const pasos = texto
-        .split(/\s*\d+\)\s*/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
+    if (!/\n/.test(texto)) {
+        const pasos = texto
+            .split(/\s*\d+\)\s*/)
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
+        return renderListaPasos(pasos.map((p) => ({ texto: p, subpuntos: [] })));
+    }
 
+    const pasos = [];
+    texto.split(/\r?\n/).forEach((cruda) => {
+        if (!cruda.trim()) return;
+        const indentada = /^[ \t]/.test(cruda);
+        const linea = cruda.trim();
+        const mPaso = !indentada && linea.match(/^\d+\)\s*(.*)$/);
+        const mSub = indentada && linea.match(/^[-*]\s+(.*)$/);
+        if (mPaso) {
+            let t = mPaso[1].trim();
+            if (t.endsWith(".")) t = t.slice(0, -1);
+            pasos.push({ texto: t, subpuntos: [] });
+        } else if (mSub && pasos.length) {
+            pasos[pasos.length - 1].subpuntos.push(mSub[1].trim());
+        }
+    });
+
+    return renderListaPasos(pasos);
+}
+
+function renderListaPasos(pasos) {
     return `
         <ol class="leccion-pasos">
-            ${pasos.map((p) => `<li><span class="leccion-paso-num"></span><span>${p}</span></li>`).join("")}
+            ${pasos.map((p) => `
+                <li>
+                    <span class="leccion-paso-num"></span>
+                    <div class="leccion-paso-cuerpo">
+                        <span>${escaparHtml(p.texto)}</span>
+                        ${p.subpuntos.length ? `<ul class="leccion-subpuntos">${p.subpuntos.map((s) => `<li>${escaparHtml(s)}</li>`).join("")}</ul>` : ""}
+                    </div>
+                </li>
+            `).join("")}
         </ol>
     `;
 }
@@ -46,14 +87,23 @@ function renderPasosNumerados(texto) {
 export function renderProcedimiento(texto) {
     if (!texto) return "";
 
+    // "1) paso ... 2) paso ..." (con o sin sub-puntos "- " indentados
+    // debajo de cada uno) es el formato reservado del editor de pasos
+    // de Academia — se chequea ANTES que tieneFormato a propósito: un
+    // sub-punto indentado matchea el mismo patrón "- item" que
+    // tieneFormato() usa para detectar viñetas sueltas, así que sin
+    // este orden un paso con sub-puntos caía en formatearTexto() y
+    // perdía la asociación paso→sub-puntos (todos los "N)" se
+    // aplanaban en un solo párrafo, los sub-puntos quedaban como una
+    // lista genérica sin saber de qué paso eran).
+    if (/^1\)\s/.test(texto.trim())) return renderPasosNumerados(texto);
+
     // Si el texto trae marcas explícitas (**negrita**, "- item", "1.
     // item") se respeta al pie de la letra. Todo lo de abajo es
     // adivinanza sobre texto sin formato, y adivinar encima de algo que
     // el autor ya declaró sería pisarlo: escribir dos oraciones seguidas
     // terminaba dando una lista de dos ítems que nadie pidió.
     if (tieneFormato(texto)) return `<div class="leccion-texto">${formatearTexto(texto)}</div>`;
-
-    if (/^1\)\s/.test(texto.trim())) return renderPasosNumerados(texto);
 
     let items = [];
 

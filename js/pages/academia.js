@@ -42,33 +42,91 @@ import { gasRequest } from "../services/google.js";
  * "1) ... 2) ..." que ya existe y ya se renderiza como lista numerada
  * (ver renderPasosNumerados) — sin tocar cursos.js ni procedimiento.js.
  */
+/**
+ * "N) paso" una por línea, con líneas indentadas "- sub-punto" debajo
+ * de la que corresponden — mismo formato que ya sabe dibujar
+ * components/procedimiento.js (renderPasosNumerados). La validación es
+ * estricta a propósito: si CUALQUIER línea no encaja en el patrón (ej.
+ * una lección vieja con prosa suelta, "1. " con punto en vez de
+ * paréntesis, texto sin marcas), se abandona el parseo por líneas y
+ * todo el campo se muestra como un único paso — mejor no perder ni
+ * revolver nada ya cargado que adivinar mal y separar texto que no
+ * correspondía.
+ */
 function pasosDeProcedimiento(texto) {
     const t = String(texto || "").trim();
-    if (!t) return [""];
+    if (!t) return [{ texto: "", subpuntos: [] }];
+
+    if (/\n/.test(t)) {
+        const lineas = t.split(/\r?\n/).filter((l) => l.trim());
+        const pasos = [];
+        let valido = true;
+        for (const cruda of lineas) {
+            const indentada = /^[ \t]/.test(cruda);
+            const linea = cruda.trim();
+            const mPaso = !indentada && linea.match(/^\d+\)\s*(.*)$/);
+            const mSub = indentada && linea.match(/^[-*]\s+(.*)$/);
+            if (mPaso) {
+                let texto2 = mPaso[1].trim();
+                if (texto2.endsWith(".")) texto2 = texto2.slice(0, -1);
+                pasos.push({ texto: texto2, subpuntos: [] });
+            } else if (mSub && pasos.length) {
+                pasos[pasos.length - 1].subpuntos.push(mSub[1].trim());
+            } else {
+                valido = false;
+                break;
+            }
+        }
+        if (valido && pasos.length) return pasos;
+    }
+
+    // Formato viejo de una sola línea ("1) Paso uno. 2) Paso dos."),
+    // sin sub-puntos — o cualquier texto sin el formato explícito de
+    // pasos, que se muestra entero como un único paso para no perder
+    // nada ya cargado. Se puede partir a mano con "+ Agregar paso".
     if (/^1\)\s/.test(t)) {
         const pasos = t.split(/\s*\d+\)\s*/).map((s) => s.trim()).filter(Boolean)
             .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
-        if (pasos.length) return pasos;
+        if (pasos.length) return pasos.map((texto2) => ({ texto: texto2, subpuntos: [] }));
     }
-    // Texto viejo sin el formato explícito de pasos: se muestra entero
-    // como un único paso para no perder nada ya cargado — se puede
-    // partir a mano con "+ Agregar paso".
-    return [t];
+
+    return [{ texto: t, subpuntos: [] }];
 }
 
 function procedimientoATexto(pasos) {
-    const limpios = pasos.map((p) => p.trim()).filter(Boolean);
-    return limpios.map((p, i) => `${i + 1}) ${p.replace(/\.$/, "")}.`).join(" ");
+    const limpios = pasos
+        .map((p) => ({ texto: p.texto.trim(), subpuntos: (p.subpuntos || []).map((s) => s.trim()).filter(Boolean) }))
+        .filter((p) => p.texto || p.subpuntos.length);
+    return limpios.map((p, i) => {
+        const linea = `${i + 1}) ${p.texto.replace(/\.$/, "")}.`;
+        const subs = p.subpuntos.map((s) => `   - ${s}`).join("\n");
+        return subs ? `${linea}\n${subs}` : linea;
+    }).join("\n");
+}
+
+function subpuntoHtml(texto) {
+    return `
+        <div class="subpunto-item" style="display:flex;gap:8px;align-items:center;margin:6px 0 0 40px">
+            <span style="color:var(--muted);flex-shrink:0">—</span>
+            <input type="text" class="input-subpunto-texto" placeholder="Sub-punto..." value="${escaparHtml(texto)}" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">
+            <button type="button" class="btn-eliminar-subpunto" aria-label="Eliminar este sub-punto" style="flex:0 0 auto;padding:6px 9px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:13px;font-weight:bold">×</button>
+        </div>
+    `;
 }
 
 /** Misma tarjeta tanto al dibujar el estado inicial como al agregar un
  *  paso nuevo por JS — una sola fuente para el markup. */
-function pasoHtml(texto, i) {
+function pasoHtml(paso, i) {
+    const { texto = "", subpuntos = [] } = paso || {};
     return `
-        <div class="paso-item" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:10px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
-            <span class="paso-num" style="flex:0 0 26px;height:26px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-top:2px">${i + 1}</span>
-            <textarea class="input-paso-texto" rows="2" placeholder="Describí este paso..." style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;resize:vertical">${escaparHtml(texto)}</textarea>
-            <button type="button" class="btn-eliminar-paso" aria-label="Eliminar este paso" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold;margin-top:2px">×</button>
+        <div class="paso-item" style="padding:10px 12px;margin-bottom:10px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+            <div style="display:flex;gap:10px;align-items:flex-start">
+                <span class="paso-num" style="flex:0 0 26px;height:26px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-top:2px">${i + 1}</span>
+                <textarea class="input-paso-texto" rows="2" placeholder="Describí este paso..." style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;resize:vertical">${escaparHtml(texto)}</textarea>
+                <button type="button" class="btn-eliminar-paso" aria-label="Eliminar este paso" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold;margin-top:2px">×</button>
+            </div>
+            <div class="subpuntos-lista">${subpuntos.map((s) => subpuntoHtml(s)).join("")}</div>
+            <button type="button" class="btn-agregar-subpunto" style="margin:8px 0 0 40px;background:none;border:none;color:var(--gold-deep);cursor:pointer;font-size:12.5px;font-weight:600;padding:4px 0">+ Agregar sub-punto</button>
         </div>
     `;
 }
@@ -170,12 +228,18 @@ function camposLeccionEditorHtml(l = {}) {
     `;
 }
 
+function leerPasos() {
+    return Array.from(document.querySelectorAll("#lista-pasos .paso-item")).map((item) => ({
+        texto: item.querySelector(".input-paso-texto").value,
+        subpuntos: Array.from(item.querySelectorAll(".input-subpunto-texto")).map((s) => s.value),
+    }));
+}
+
 function leerCamposLeccionEditor() {
-    const pasos = Array.from(document.querySelectorAll(".input-paso-texto")).map((t) => t.value);
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         objetivo: document.getElementById("input-objetivo").value.trim(),
-        procedimiento: procedimientoATexto(pasos),
+        procedimiento: procedimientoATexto(leerPasos()),
         errores: document.getElementById("input-errores").value.trim(),
         buenasPracticas: document.getElementById("input-buenasPracticas").value.trim(),
         consejo: document.getElementById("input-consejo").value.trim(),
@@ -687,22 +751,45 @@ export function bindEditarLeccion(params = []) {
 
     function eliminarPaso(item) {
         if (listaPasos.children.length > 1) item.remove();
-        else item.querySelector(".input-paso-texto").value = "";
+        else {
+            item.querySelector(".input-paso-texto").value = "";
+            item.querySelectorAll(".subpunto-item").forEach((s) => s.remove());
+        }
         renumerarPasos();
     }
 
-    function agregarPaso(texto = "") {
+    // Sub-puntos de un paso puntual — mismo "no perder la fila" que los
+    // pasos, salvo que acá sí se puede llegar a cero: un sub-punto es
+    // opcional por naturaleza, no hace falta dejar uno vacío.
+    function bindSubpuntos(item) {
+        item.querySelectorAll(".btn-eliminar-subpunto").forEach((btn) => {
+            btn.addEventListener("click", () => btn.closest(".subpunto-item")?.remove());
+        });
+        item.querySelector(".btn-agregar-subpunto")?.addEventListener("click", () => {
+            const lista = item.querySelector(".subpuntos-lista");
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = subpuntoHtml("");
+            const sub = wrapper.firstElementChild;
+            lista.appendChild(sub);
+            sub.querySelector(".btn-eliminar-subpunto").addEventListener("click", () => sub.remove());
+            sub.querySelector(".input-subpunto-texto").focus();
+        });
+    }
+
+    function agregarPaso() {
         const wrapper = document.createElement("div");
-        wrapper.innerHTML = pasoHtml(texto, listaPasos.children.length);
+        wrapper.innerHTML = pasoHtml({ texto: "", subpuntos: [] }, listaPasos.children.length);
         const item = wrapper.firstElementChild;
         listaPasos.appendChild(item);
         item.querySelector(".btn-eliminar-paso").addEventListener("click", () => eliminarPaso(item));
+        bindSubpuntos(item);
         renumerarPasos();
         item.querySelector(".input-paso-texto").focus();
     }
 
-    listaPasos?.querySelectorAll(".btn-eliminar-paso").forEach((btn) => {
-        btn.addEventListener("click", () => eliminarPaso(btn.closest(".paso-item")));
+    listaPasos?.querySelectorAll(".paso-item").forEach((item) => {
+        item.querySelector(".btn-eliminar-paso")?.addEventListener("click", () => eliminarPaso(item));
+        bindSubpuntos(item);
     });
     document.getElementById("btn-agregar-paso")?.addEventListener("click", () => agregarPaso());
 
