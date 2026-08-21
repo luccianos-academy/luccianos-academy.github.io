@@ -16,7 +16,6 @@ import { getLecciones, getLeccionesPorCurso, crearLeccion, actualizarLeccion, el
 import { getPreguntasPorCurso, eliminarPregunta } from "../data/evaluaciones.js";
 import { getAsignaciones, eliminarAsignacion } from "../data/asignaciones.js";
 import { getResultados, eliminarResultado } from "../data/resultados.js";
-import { LeccionEditable, bindLeccionEditable } from "../components/leccionEditable.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
@@ -24,85 +23,171 @@ import { escaparHtml } from "../services/html.js";
 import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 import { aplicaAlUsuario } from "../services/alcance.js";
+import { Icon } from "../components/icons.js";
+import { gasRequest } from "../services/google.js";
 
-/** Los mismos campos que ya vive el esquema real de Lecciones (ver
- *  README de apps-script) — antes este formulario solo tenía título y
- *  objetivo, así que crear una lección desde acá dejaba todo el resto
- *  vacío. Reutilizado tanto para "nueva lección" como para "editar". */
-function camposLeccionHtml(l = {}) {
+/**
+ * Editor único de lección — página completa (#/academialeccion), no
+ * modal: mismo patrón que "Nueva News" (pages/news.js). Reemplaza dos
+ * cosas que existían separadas: el "lápiz por bloque" que editaba de a
+ * un campo por vez (components/leccionEditable.js, eliminado) y el
+ * formulario técnico aparte (video/manual/imagen/orden). Pedido
+ * explícito: "como maneja whatsapp, limpio y ordenado, sin vueltas" —
+ * todo el contenido a la vista de entrada, un solo Guardar.
+ *
+ * El Procedimiento deja de ser una caja de texto libre que
+ * components/procedimiento.js debía ADIVINAR cómo mostrar (bullets,
+ * saltos de línea, "Nombre: detalle"...). Acá se edita como una lista
+ * real de pasos y se guarda siempre en el formato explícito
+ * "1) ... 2) ..." que ya existe y ya se renderiza como lista numerada
+ * (ver renderPasosNumerados) — sin tocar cursos.js ni procedimiento.js.
+ */
+function pasosDeProcedimiento(texto) {
+    const t = String(texto || "").trim();
+    if (!t) return [""];
+    if (/^1\)\s/.test(t)) {
+        const pasos = t.split(/\s*\d+\)\s*/).map((s) => s.trim()).filter(Boolean)
+            .map((s) => (s.endsWith(".") ? s.slice(0, -1) : s));
+        if (pasos.length) return pasos;
+    }
+    // Texto viejo sin el formato explícito de pasos: se muestra entero
+    // como un único paso para no perder nada ya cargado — se puede
+    // partir a mano con "+ Agregar paso".
+    return [t];
+}
+
+function procedimientoATexto(pasos) {
+    const limpios = pasos.map((p) => p.trim()).filter(Boolean);
+    return limpios.map((p, i) => `${i + 1}) ${p.replace(/\.$/, "")}.`).join(" ");
+}
+
+/** Misma tarjeta tanto al dibujar el estado inicial como al agregar un
+ *  paso nuevo por JS — una sola fuente para el markup. */
+function pasoHtml(texto, i) {
     return `
-        ${l.id ? `<p class="text-xs text-muted" style="margin:-4px 0 10px">ID de esta lección: <strong>${l.id}</strong> — se pide al pedir soporte para engancharle fotos o video especiales (carrusel, decoración) que el formulario normal no cubre.</p>` : ""}
-        <label for="input-titulo">Título</label>
-        <input type="text" id="input-titulo" placeholder="Título de la lección" value="${l.titulo || ""}">
-
-        <label for="input-objetivo">Objetivo</label>
-        <input type="text" id="input-objetivo" placeholder="¿Qué va a aprender el colaborador?" value="${l.objetivo || ""}">
-
-        <label for="input-duracion">Duración (minutos)</label>
-        <input type="number" id="input-duracion" min="0" value="${l.duracionMinutos || ""}">
-
-        <label style="margin-top:16px">
-            <input type="checkbox" id="input-obligatoria" style="width:auto;display:inline-block;margin-right:8px" ${l.obligatoria !== "NO" ? "checked" : ""}>
-            <strong>Obligatoria</strong> — destildá esto para contenido de referencia que no todos necesitan
-            (ej. una máquina que no todos los locales tienen). Queda visible igual, pero sin botón de
-            "Marcar como vista" y sin contar para el % de progreso ni el examen.
-        </label>
-
-        <label for="input-orden">Orden (posición en la lista — decide dónde aparece, no hace falta que sea correlativo, ej. 16.5 la mete entre la 16 y la 17)</label>
-        <input type="number" id="input-orden" step="0.5" value="${l.orden ?? ""}">
-
-        <label for="input-video">Video (link de Drive)</label>
-        <input type="text" id="input-video" placeholder="https://drive.google.com/..." value="${l.video || ""}">
-
-        <label for="input-manual">Manual (link o texto)</label>
-        <input type="text" id="input-manual" placeholder="https://... o una nota" value="${l.manual || ""}">
-
-        <label for="input-manualLabel">Texto del botón del manual (opcional)</label>
-        <input type="text" id="input-manualLabel" placeholder="Si se deja vacío, dice &quot;Ver manual&quot;" value="${l.manualLabel || ""}">
-
-        <label for="input-imagen">Imagen (link)</label>
-        <input type="text" id="input-imagen" placeholder="https://..." value="${l.imagen || ""}">
-
-        <label for="input-procedimiento">Procedimiento</label>
-        <textarea id="input-procedimiento" rows="3" placeholder="Paso a paso...">${l.procedimiento || ""}</textarea>
-
-        <label for="input-errores">Errores frecuentes</label>
-        <textarea id="input-errores" rows="2" placeholder="Qué se suele hacer mal...">${l.errores || ""}</textarea>
-
-        <label for="input-buenasPracticas">Buenas prácticas</label>
-        <textarea id="input-buenasPracticas" rows="2">${l.buenasPracticas || ""}</textarea>
-
-        <label for="input-consejo">Consejo</label>
-        <textarea id="input-consejo" rows="2">${l.consejo || ""}</textarea>
-
-        <label for="input-resumen">Resumen</label>
-        <textarea id="input-resumen" rows="2">${l.resumen || ""}</textarea>
-
-        <label for="input-estado">Estado</label>
-        <select id="input-estado">
-            <option value="Activo" ${l.estado !== "Inactivo" ? "selected" : ""}>Activo</option>
-            <option value="Inactivo" ${l.estado === "Inactivo" ? "selected" : ""}>Inactivo</option>
-        </select>
+        <div class="paso-item" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:10px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
+            <span class="paso-num" style="flex:0 0 26px;height:26px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-top:2px">${i + 1}</span>
+            <textarea class="input-paso-texto" rows="2" placeholder="Describí este paso..." style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;resize:vertical">${escaparHtml(texto)}</textarea>
+            <button type="button" class="btn-eliminar-paso" aria-label="Eliminar este paso" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold;margin-top:2px">×</button>
+        </div>
     `;
 }
 
-function leerCamposLeccion() {
+function camposLeccionEditorHtml(l = {}) {
+    const pasos = pasosDeProcedimiento(l.procedimiento);
+    return `
+        <div class="form-seccion">
+            <div class="form-seccion-head">
+                <span class="form-seccion-ico">${Icon("academia", { size: 18 })}</span>
+                <h3>1. Contenido</h3>
+            </div>
+
+            <label for="input-titulo" style="margin-top:0">Título</label>
+            <input type="text" id="input-titulo" placeholder="Título de la lección" value="${escaparHtml(l.titulo || "")}">
+
+            <label for="input-objetivo">Objetivo</label>
+            <input type="text" id="input-objetivo" placeholder="¿Qué va a aprender el colaborador?" value="${escaparHtml(l.objetivo || "")}">
+
+            <label style="margin-top:16px">Procedimiento — paso a paso</label>
+            <div id="lista-pasos" class="pasos-lista">${pasos.map((p, i) => pasoHtml(p, i)).join("")}</div>
+            <button type="button" id="btn-agregar-paso" class="btn btn-secondary">+ Agregar paso</button>
+
+            <label for="input-errores" style="margin-top:20px">Errores frecuentes</label>
+            <textarea id="input-errores" rows="3" placeholder="Qué se suele hacer mal...">${l.errores || ""}</textarea>
+
+            <label for="input-buenasPracticas">Buenas prácticas</label>
+            <textarea id="input-buenasPracticas" rows="3">${l.buenasPracticas || ""}</textarea>
+
+            <label for="input-consejo">Consejo</label>
+            <textarea id="input-consejo" rows="2">${l.consejo || ""}</textarea>
+
+            <label for="input-resumen">Resumen</label>
+            <textarea id="input-resumen" rows="2">${l.resumen || ""}</textarea>
+        </div>
+
+        <div class="form-seccion">
+            <div class="form-seccion-head">
+                <span class="form-seccion-ico">${Icon("reportes", { size: 18 })}</span>
+                <h3>2. Adjuntos</h3>
+            </div>
+            <p class="form-seccion-sub">Subilos directo, o pegá el link si ya lo tenés en Drive.</p>
+
+            <label for="input-video" style="margin-top:0">Video</label>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
+                <input type="text" id="input-video" placeholder="https://drive.google.com/..." value="${escaparHtml(l.video || "")}">
+                <input type="file" id="input-video-archivo" accept="video/*" style="display:none">
+                <button type="button" id="btn-subir-video" class="btn btn-secondary">📤 Subir</button>
+            </div>
+
+            <label for="input-imagen" style="margin-top:16px">Imagen</label>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
+                <input type="text" id="input-imagen" placeholder="https://..." value="${escaparHtml(l.imagen || "")}">
+                <input type="file" id="input-imagen-archivo" accept="image/*" style="display:none">
+                <button type="button" id="btn-subir-imagen" class="btn btn-secondary">📤 Subir</button>
+            </div>
+            <div id="preview-imagen" style="margin-top:10px">${l.imagen ? `<img src="${escaparHtml(l.imagen)}" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">` : ""}</div>
+
+            <label for="input-manual" style="margin-top:16px">Manual</label>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center">
+                <input type="text" id="input-manual" placeholder="https://... o una nota" value="${escaparHtml(l.manual || "")}">
+                <input type="file" id="input-manual-archivo" accept=".pdf,.doc,.docx,.ppt,.pptx" style="display:none">
+                <button type="button" id="btn-subir-manual" class="btn btn-secondary">📤 Subir</button>
+            </div>
+            <label for="input-manualLabel">Texto del botón del manual <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></label>
+            <input type="text" id="input-manualLabel" placeholder="Si se deja vacío, dice &quot;Ver manual&quot;" value="${escaparHtml(l.manualLabel || "")}">
+        </div>
+
+        <div class="form-seccion">
+            <div class="form-seccion-head">
+                <span class="form-seccion-ico">${Icon("configuracion", { size: 18 })}</span>
+                <h3>3. Ajustes</h3>
+            </div>
+
+            <div class="form-cols-2">
+                <div class="form-col">
+                    <label for="input-duracion" style="margin-top:0">Duración (minutos)</label>
+                    <input type="number" id="input-duracion" min="0" value="${l.duracionMinutos || ""}">
+
+                    <label for="input-orden">Orden <span class="text-xs text-muted" style="font-weight:400">(ej. 16.5 la mete entre la 16 y la 17)</span></label>
+                    <input type="number" id="input-orden" step="0.5" value="${l.orden ?? ""}">
+                </div>
+                <div class="form-col">
+                    <label class="toggle-switch" style="margin-top:0">
+                        Obligatoria
+                        <input type="checkbox" id="input-obligatoria" ${l.obligatoria !== "NO" ? "checked" : ""}>
+                    </label>
+                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Destildá esto para contenido de referencia que no todos necesitan (ej. una máquina que no todos los locales tienen). Queda visible igual, pero sin botón de "Marcar como vista" y sin contar para el % de progreso ni el examen.</p>
+
+                    <label class="toggle-switch" style="margin-top:20px">
+                        Activa
+                        <input type="checkbox" id="input-activa" ${l.estado !== "Inactivo" ? "checked" : ""}>
+                    </label>
+                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Inactiva = no aparece en el curso, sin borrarla.</p>
+                </div>
+            </div>
+            ${l.id ? `<p class="text-xs text-muted" style="margin-top:16px;margin-bottom:0">ID de esta lección: <strong>${l.id}</strong> — se pide al pedir soporte para engancharle fotos o video especiales (carrusel, decoración) que este formulario no cubre.</p>` : ""}
+        </div>
+    `;
+}
+
+function leerCamposLeccionEditor() {
+    const pasos = Array.from(document.querySelectorAll(".input-paso-texto")).map((t) => t.value);
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         objetivo: document.getElementById("input-objetivo").value.trim(),
-        duracionMinutos: Number(document.getElementById("input-duracion").value) || 0,
-        orden: Number(document.getElementById("input-orden").value) || 0,
-        obligatoria: document.getElementById("input-obligatoria").checked ? "SI" : "NO",
-        video: document.getElementById("input-video").value.trim(),
-        manual: document.getElementById("input-manual").value.trim(),
-        manualLabel: document.getElementById("input-manualLabel").value.trim(),
-        imagen: document.getElementById("input-imagen").value.trim(),
-        procedimiento: document.getElementById("input-procedimiento").value.trim(),
+        procedimiento: procedimientoATexto(pasos),
         errores: document.getElementById("input-errores").value.trim(),
         buenasPracticas: document.getElementById("input-buenasPracticas").value.trim(),
         consejo: document.getElementById("input-consejo").value.trim(),
         resumen: document.getElementById("input-resumen").value.trim(),
-        estado: document.getElementById("input-estado").value,
+        video: document.getElementById("input-video").value.trim(),
+        imagen: document.getElementById("input-imagen").value.trim(),
+        manual: document.getElementById("input-manual").value.trim(),
+        manualLabel: document.getElementById("input-manualLabel").value.trim(),
+        duracionMinutos: Number(document.getElementById("input-duracion").value) || 0,
+        orden: Number(document.getElementById("input-orden").value) || 0,
+        obligatoria: document.getElementById("input-obligatoria").checked ? "SI" : "NO",
+        estado: document.getElementById("input-activa").checked ? "Activo" : "Inactivo",
     };
 }
 
@@ -340,7 +425,7 @@ async function abrirModalLecciones(cursoId) {
                     </div>`;
                 })()}</span>
                 <span>
-                    <button class="btn btn-secondary" data-editar-leccion="${l.id}">Editar</button>
+                    <a class="btn btn-secondary" href="#/academialeccion/${cursoId}/${l.id}">Editar</a>
                     <button class="btn btn-secondary" data-duplicar-leccion="${l.id}">Duplicar para…</button>
                     <button class="btn btn-secondary" data-eliminar-leccion="${l.id}">Eliminar</button>
                 </span>
@@ -351,27 +436,10 @@ async function abrirModalLecciones(cursoId) {
     const contenidoHtml = `
         <a class="btn btn-secondary" href="#/cursos/${cursoId}" title="Ver el curso tal cual lo ve un colaborador">👁 Vista previa del curso</a>
         <div class="list" style="margin-top:14px">${listaHtml}</div>
-        <h3 style="margin-top:20px">Nueva lección</h3>
-        ${camposLeccionHtml()}
+        <a class="btn btn-primary" href="#/academialeccion/${cursoId}" style="margin-top:20px;display:inline-block">+ Nueva lección</a>
     `;
 
-    abrirModal(Modal({ id: modalId, titulo: "Lecciones del curso", contenidoHtml, textoConfirmar: "Agregar lección" }), modalId, async () => {
-
-        const cambios = leerCamposLeccion();
-        if (!cambios.titulo) return;
-
-        // Si no se tocó el campo Orden (quedó en 0, el default del
-        // formulario vacío), se sigue agregando al final como siempre.
-        // Si se puso un valor a propósito (ej. para meterla primera o
-        // entre dos existentes), gana ese.
-        if (!cambios.orden) cambios.orden = lecciones.length + 1;
-
-        await crearLeccion({ cursoId, ...cambios });
-        registrarEvento(getUsuarioActual().id, "crear_leccion", `Lección "${cambios.titulo}" agregada`);
-
-        cerrarModal(modalId);
-        navigate("academia");
-    });
+    abrirModal(Modal({ id: modalId, titulo: "Lecciones del curso", contenidoHtml, textoConfirmar: "" }), modalId);
 
     document.querySelectorAll("[data-reparar-leccion]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -388,19 +456,6 @@ async function abrirModalLecciones(cursoId) {
                 `Se devolvió "${leccion.titulo}" a ${btn.dataset.devolver}`);
             cerrarModal(modalId);
             abrirModalLecciones(cursoId);
-        });
-    });
-
-    document.querySelectorAll("[data-editar-leccion]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            const leccion = lecciones.find((l) => String(l.id) === String(btn.dataset.editarLeccion));
-            if (!leccion) return;
-            // Cierra el modal de la lista antes de abrir el de edición —
-            // los dos usan los mismos ids de campo (input-titulo, etc.),
-            // así que tenerlos abiertos a la vez hace que
-            // document.getElementById() agarre el formulario equivocado.
-            cerrarModal(modalId);
-            abrirModalEditarLeccion(leccion);
         });
     });
 
@@ -578,67 +633,174 @@ async function abrirModalLecciones(cursoId) {
 }
 
 /**
- * Editar una lección VIÉNDOLA como la ve un colaborador.
- *
- * Antes esto abría un formulario de once campos: se editaba a ciegas y
- * había que ir a #/cursos para ver el resultado — dos pantallas para
- * una sola tarea. Ahora se dibuja la lección con el mismo lenguaje
- * visual que la real, y cada bloque tiene su lápiz.
- *
- * Los campos de configuración (video, manual, imagen, orden, duración)
- * siguen en el formulario completo, accesible desde el botón de abajo:
- * no son contenido que se lea, así que verlos renderizados no aporta
- * nada y mezclarlos ensuciaría la vista.
+ * Página completa de edición/creación de lección (#/academialeccion/
+ * :cursoId/:leccionId?) — mismo patrón que "Nueva News"
+ * (pages/news.js: NuevaNews/bindNuevaNews). Todo el contenido y los
+ * campos técnicos en un solo lugar, siempre a la vista, un solo
+ * Guardar — ver la nota grande sobre camposLeccionEditorHtml más
+ * arriba para el porqué.
  */
-async function abrirModalEditarLeccion(leccion) {
+export async function EditarLeccion(params = []) {
+    const [cursoId, leccionId] = params;
+    const cursos = await getCursos();
+    const curso = cursos.find((c) => String(c.id) === String(cursoId));
+    if (!curso) return `<p class="text-sm text-muted" style="padding:24px">Curso no encontrado.</p>`;
 
-    const modalId = "modal-editar-leccion";
-    const contenidoHtml = `
-        <p class="text-xs text-muted" style="margin:0 0 12px">Tocá el lápiz de cada bloque para editarlo. Se guarda de a uno.</p>
-        ${LeccionEditable(leccion)}
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
-            <button class="btn btn-sutil" type="button" id="btn-campos-tecnicos">Video, manual, imagen y orden</button>
+    const leccion = leccionId
+        ? (await getLeccionesPorCurso(cursoId)).find((l) => String(l.id) === String(leccionId))
+        : null;
+
+    return `
+        <div class="compose-page-header">
+            <span class="compose-ico">${Icon("academia", { size: 24 })}</span>
+            <div style="flex:1">
+                <h1>${leccion ? "Editar lección" : "Nueva lección"}</h1>
+                <p>${escaparHtml(curso.titulo || curso.nombre || "")}</p>
+            </div>
+        </div>
+
+        <div class="form-secciones">
+            ${camposLeccionEditorHtml(leccion || {})}
+        </div>
+
+        <div class="compose-footer">
+            <button class="btn btn-secondary" id="btn-cancelar-leccion">Cancelar</button>
+            <button class="btn btn-primary" id="btn-guardar-leccion">${leccion ? "Guardar cambios" : "Crear lección"}</button>
         </div>
     `;
-
-    // Cada sección guarda sola, así que no hay un "Guardar" global que
-    // pueda perder algo: el botón principal solo cierra y recarga la
-    // pantalla de atrás, para que la lista muestre los títulos nuevos.
-    abrirModal(Modal({ id: modalId, titulo: leccion.titulo, contenidoHtml, textoConfirmar: "Listo" }), modalId, async () => {
-        cerrarModal(modalId);
-        navigate("academia");
-    });
-    bindLeccionEditable(leccion, {
-        alGuardar: (campo) => {
-            registrarEvento(getUsuarioActual().id, "editar_leccion", `Lección "${leccion.titulo}" — campo "${campo}" editado`);
-        },
-    });
-
-    document.getElementById("btn-campos-tecnicos")?.addEventListener("click", () => {
-        cerrarModal(modalId);
-        abrirModalCamposTecnicos(leccion);
-    });
 }
 
-/** El formulario completo de siempre, ahora solo para lo que no es
- *  contenido de lectura. Se conserva entero — crear una lección nueva
- *  lo sigue usando tal cual. */
-async function abrirModalCamposTecnicos(leccion) {
-    const modalId = "modal-campos-leccion";
+export function bindEditarLeccion(params = []) {
+    const [cursoId, leccionId] = params;
 
-    abrirModal(Modal({ id: modalId, titulo: `Ajustes: ${leccion.titulo}`, contenidoHtml: camposLeccionHtml(leccion), textoConfirmar: "Guardar" }), modalId, async () => {
+    // --- Pasos del procedimiento: agregar/eliminar, sin perder nunca
+    // la última fila (siempre queda una, vacía si hace falta, así "+
+    // Agregar paso" no es la única forma de tener dónde escribir). ---
+    const listaPasos = document.getElementById("lista-pasos");
 
-        const cambios = leerCamposLeccion();
-        if (!cambios.titulo) return;
+    function renumerarPasos() {
+        listaPasos.querySelectorAll(".paso-item").forEach((item, i) => {
+            const num = item.querySelector(".paso-num");
+            if (num) num.textContent = i + 1;
+        });
+    }
 
-        const r = await actualizarLeccion(leccion.id, cambios);
-        if (!r || r.ok === false) {
-            alert(r?.error || "No se pudo guardar. Probá de nuevo.");
+    function eliminarPaso(item) {
+        if (listaPasos.children.length > 1) item.remove();
+        else item.querySelector(".input-paso-texto").value = "";
+        renumerarPasos();
+    }
+
+    function agregarPaso(texto = "") {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = pasoHtml(texto, listaPasos.children.length);
+        const item = wrapper.firstElementChild;
+        listaPasos.appendChild(item);
+        item.querySelector(".btn-eliminar-paso").addEventListener("click", () => eliminarPaso(item));
+        renumerarPasos();
+        item.querySelector(".input-paso-texto").focus();
+    }
+
+    listaPasos?.querySelectorAll(".btn-eliminar-paso").forEach((btn) => {
+        btn.addEventListener("click", () => eliminarPaso(btn.closest(".paso-item")));
+    });
+    document.getElementById("btn-agregar-paso")?.addEventListener("click", () => agregarPaso());
+
+    // --- Subir video/imagen/manual directo a Drive (mismo mecanismo
+    // que ya usan Manuales y los adjuntos de News) — el link resultante
+    // se carga solo en el campo de texto, que sigue editable a mano
+    // por si ya se tiene un link de Drive hecho. ---
+    function bindSubida(btnId, inputFileId, inputUrlId, { onSubido } = {}) {
+        const btn = document.getElementById(btnId);
+        const inputFile = document.getElementById(inputFileId);
+        const inputUrl = document.getElementById(inputUrlId);
+
+        btn?.addEventListener("click", () => inputFile?.click());
+
+        inputFile?.addEventListener("change", async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "Subiendo...";
+
+            try {
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+                    reader.readAsDataURL(file);
+                });
+
+                const resultado = await gasRequest("subirArchivo", {
+                    nombreArchivo: file.name,
+                    extension: file.name.split(".").pop() || "bin",
+                    archivoBase64: base64,
+                });
+
+                if (!resultado || !resultado.ok) throw new Error(resultado?.error || "No se pudo subir el archivo.");
+
+                inputUrl.value = resultado.url;
+                if (onSubido) onSubido(resultado.url);
+            } catch (err) {
+                alert(err.message || "No se pudo subir el archivo.");
+            } finally {
+                inputFile.value = "";
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        });
+    }
+
+    bindSubida("btn-subir-video", "input-video-archivo", "input-video");
+    bindSubida("btn-subir-imagen", "input-imagen-archivo", "input-imagen", {
+        onSubido: (url) => {
+            const preview = document.getElementById("preview-imagen");
+            if (preview) preview.innerHTML = `<img src="${escaparHtml(url)}" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">`;
+        },
+    });
+    bindSubida("btn-subir-manual", "input-manual-archivo", "input-manual");
+
+    document.getElementById("btn-cancelar-leccion")?.addEventListener("click", () => navigate("academia"));
+
+    const btnGuardar = document.getElementById("btn-guardar-leccion");
+    btnGuardar?.addEventListener("click", async () => {
+        if (btnGuardar.disabled) return;
+
+        const cambios = leerCamposLeccionEditor();
+        if (!cambios.titulo) {
+            alert("Ponele un título a la lección.");
             return;
         }
-        registrarEvento(getUsuarioActual().id, "editar_leccion", `Lección "${cambios.titulo}" editada`);
 
-        cerrarModal(modalId);
-        navigate("academia");
+        const original = btnGuardar.textContent;
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = "Guardando...";
+
+        try {
+            const usuario = getUsuarioActual();
+            if (leccionId) {
+                const r = await actualizarLeccion(leccionId, cambios);
+                if (!r || r.ok === false) throw new Error(r?.error || "No se pudo guardar. Probá de nuevo.");
+                registrarEvento(usuario.id, "editar_leccion", `Lección "${cambios.titulo}" editada`);
+            } else {
+                // Si no se tocó el campo Orden (quedó en 0, el default del
+                // formulario vacío), se agrega al final como siempre. Si
+                // se puso un valor a propósito (ej. meterla primera o
+                // entre dos existentes), gana ese.
+                if (!cambios.orden) {
+                    const todasDelCurso = await getLeccionesPorCurso(cursoId);
+                    cambios.orden = todasDelCurso.length + 1;
+                }
+                await crearLeccion({ cursoId, ...cambios });
+                registrarEvento(usuario.id, "crear_leccion", `Lección "${cambios.titulo}" agregada`);
+            }
+            navigate("academia");
+        } catch (err) {
+            alert(err.message || "No se pudo guardar. Probá de nuevo.");
+            btnGuardar.disabled = false;
+            btnGuardar.textContent = original;
+        }
     });
 }

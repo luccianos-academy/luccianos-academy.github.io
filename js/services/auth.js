@@ -162,6 +162,7 @@ const PERMISOS_PAGINA = {
     // dentro de la página, no acá.
     locales:        ["admin", "supervisor"],
     academia:       ["admin"],
+    academialeccion: ["admin"],
     evaluaciones:   ["admin"],
     reportes:       ["admin"],
     alertas:        ["admin"],

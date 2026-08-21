@@ -28,7 +28,7 @@ import { NotFound } from "./pages/notFound.js";
 import { Locales, bindLocales } from "./pages/locales.js";
 import { Alertas } from "./pages/alertas.js";
 import { Supervisores } from "./pages/supervisores.js";
-import { Academia, bindAcademia } from "./pages/academia.js";
+import { Academia, bindAcademia, EditarLeccion, bindEditarLeccion } from "./pages/academia.js";
 import { Evaluaciones, bindEvaluaciones } from "./pages/evaluaciones.js";
 import { MisEvaluaciones } from "./pages/misEvaluaciones.js";
 import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js";
@@ -60,6 +60,7 @@ const RUTAS = {
     alertas:       { render: Alertas },
     supervisores:  { render: Supervisores },
     academia:      { render: Academia, bind: bindAcademia },
+    academialeccion: { render: EditarLeccion, bind: bindEditarLeccion },
     evaluaciones:  { render: Evaluaciones, bind: bindEvaluaciones },
     misevaluaciones: { render: MisEvaluaciones },
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },

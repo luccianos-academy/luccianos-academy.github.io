@@ -263,71 +263,6 @@
     justify-content:center;
 }
 
-/* Lección editable (components/leccionEditable.js) — la lección como la
-   ve un colaborador, con un lápiz por sección. El lápiz vive dentro de
-   la sección y aparece al pasar por encima o al enfocarlo con teclado;
-   en touch no hay hover, así que ahí queda siempre visible pero tenue,
-   para no competir con el contenido. */
-.leccion-seccion{
-    position:relative;
-    padding:10px 44px 10px 12px;
-    border-radius:var(--radius-sm);
-    border:1px solid transparent;
-    transition:border-color var(--transition), background var(--transition);
-}
-
-.leccion-seccion + .leccion-seccion{ margin-top:6px; }
-
-.leccion-seccion:hover{
-    border-color:var(--line);
-    background:var(--bg);
-}
-
-.leccion-seccion-editar{
-    position:absolute;
-    top:8px;
-    right:8px;
-    /* 44px: mínimo cómodo para tocar en un celular. */
-    width:44px;
-    height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:transparent;
-    border:none;
-    border-radius:50%;
-    color:var(--muted);
-    font-size:16px;
-    cursor:pointer;
-    opacity:.45;
-    transition:opacity var(--transition), color var(--transition);
-}
-
-.leccion-seccion:hover .leccion-seccion-editar,
-.leccion-seccion-editar:focus-visible{
-    opacity:1;
-    color:var(--gold);
-}
-
-.leccion-seccion-input{
-    width:100%;
-    font-family:inherit;
-    font-size:14px;
-}
-
-.leccion-seccion-acciones{
-    display:flex;
-    justify-content:flex-end;
-    gap:8px;
-    margin-top:10px;
-}
-
-@media (hover: none){
-    /* Sin hover no hay forma de descubrir el lápiz: queda fijo. */
-    .leccion-seccion-editar{ opacity:.7; }
-    .leccion-seccion{ border-color:var(--line); }
-}
-
 /* Aviso de versión nueva. Abajo y centrado: no tapa la barra superior
    ni la navegación inferior del celular, y no es modal a propósito —
    se puede seguir trabajando e ignorarlo. */
@@ -2608,45 +2543,6 @@ table.data-table tbody tr:hover{
     padding:11px 18px;
     color:var(--text);
     font-size:14px;
-}
-
-/* ── Barra de formato del editor de lecciones ──────────────────────
-   (components/leccionEditable.js + services/formato.js) */
-.formato-barra{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    flex-wrap:wrap;
-    margin:0 0 8px;
-}
-
-.formato-btn{
-    min-width:34px;
-    height:32px;
-    padding:0 9px;
-    border:1px solid var(--line);
-    border-radius:8px;
-    background:var(--card);
-    color:var(--text);
-    font-size:13px;
-    line-height:1;
-    cursor:pointer;
-    transition:border-color .12s, background .12s;
-}
-
-.formato-btn:hover{
-    border-color:var(--gold);
-    background:var(--surface-2);
-}
-
-.formato-ayuda{
-    margin-left:auto;
-}
-
-@media (max-width:700px){
-    /* En pantalla angosta la ayuda debajo, para que los botones no se
-       aplasten contra el borde. */
-    .formato-ayuda{ margin-left:0; flex-basis:100%; }
 }
 
 /* ── Texto de lección con formato explícito (services/formato.js) ──
