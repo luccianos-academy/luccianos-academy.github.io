@@ -206,15 +206,15 @@ async function abrirModalPreguntas(cursoId) {
 
     document.querySelectorAll("[data-editar-pregunta]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            const pregunta = preguntas.find((p) => String(p.id) === String(btn.dataset.editarPregunta));
-            if (!pregunta) return;
-            // Cierra el modal de la lista antes de abrir el de edición —
-            // los dos usan los mismos ids de campo (input-pregunta, etc.),
-            // así que tenerlos abiertos a la vez hace que
-            // document.getElementById() agarre el formulario equivocado
-            // (mismo motivo documentado en academia.js para lecciones).
+            const indice = preguntas.findIndex((p) => String(p.id) === String(btn.dataset.editarPregunta));
+            if (indice < 0) return;
+            // Cierra el modal de la lista antes de abrir el carrusel de
+            // edición — los dos usan los mismos ids de campo
+            // (input-pregunta, etc.), así que tenerlos abiertos a la vez
+            // hace que document.getElementById() agarre el formulario
+            // equivocado (mismo motivo documentado en academia.js).
             cerrarModal(modalId);
-            abrirModalEditarPregunta(pregunta, cursoId);
+            abrirCarruselPreguntas(cursoId, preguntas, indice);
         });
     });
 
@@ -228,26 +228,104 @@ async function abrirModalPreguntas(cursoId) {
     });
 }
 
-async function abrirModalEditarPregunta(pregunta, cursoId) {
-    const modalId = "modal-editar-pregunta";
-    const contenidoHtml = camposPreguntaHtml(pregunta);
+/**
+ * Editar las preguntas de un curso como un carrusel — Anterior/
+ * Siguiente sin cerrar y reabrir un modal por cada una. Pedido
+ * explícito: "así no tengo que entrar y salir a cada rato... guardar
+ * todos los cambios si me desplazo, o guardar cambio si solo es uno".
+ *
+ * Se guarda solo, sin preguntar, la que se está por dejar atrás — pero
+ * SOLO si algo cambió (comparado contra una foto tomada al mostrarla);
+ * si no se tocó nada, navegar no gasta un guardado de más. El botón
+ * "Guardar cambios" cubre el caso de quedarse en una sola pregunta sin
+ * moverse — navegar no es la única forma de guardar.
+ */
+async function abrirCarruselPreguntas(cursoId, preguntasIniciales, indiceInicial) {
+    const modalId = "modal-carrusel-preguntas";
+    let preguntas = preguntasIniciales.slice();
+    let indice = indiceInicial;
+    let valoresAlMostrar = null;
 
-    abrirModal(Modal({ id: modalId, titulo: "Editar pregunta", contenidoHtml, textoConfirmar: "Guardar cambios" }), modalId, async () => {
+    function huboCambios() {
+        return JSON.stringify(leerCamposPregunta()) !== valoresAlMostrar;
+    }
 
+    async function guardarActual() {
         const datos = leerCamposPregunta();
         const error = validarPregunta(datos);
-        if (error) { alert(error); return; }
+        if (error) { alert(error); return false; }
 
-        const r = await actualizarPregunta(pregunta.id, { cursoId, ...datos });
+        const p = preguntas[indice];
+        const r = await actualizarPregunta(p.id, { cursoId, ...datos });
         if (!r || r.ok === false) {
             alert(r?.error || "No se pudo guardar. Probá de nuevo.");
-            return;
+            return false;
         }
-        registrarEvento(getUsuarioActual().id, "editar_pregunta", `Pregunta ${pregunta.id} editada`);
+        preguntas[indice] = { ...p, ...datos };
+        registrarEvento(getUsuarioActual().id, "editar_pregunta", `Pregunta ${p.id} editada`);
+        return true;
+    }
 
+    function mostrar() {
+        const p = preguntas[indice];
+        const contenidoHtml = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <button type="button" class="btn btn-secondary" id="btn-pregunta-anterior" ${indice === 0 ? "disabled" : ""}>‹ Anterior</button>
+                <span class="text-sm text-muted">Pregunta ${indice + 1} / ${preguntas.length}</span>
+                <button type="button" class="btn btn-secondary" id="btn-pregunta-siguiente" ${indice === preguntas.length - 1 ? "disabled" : ""}>Siguiente ›</button>
+            </div>
+            ${camposPreguntaHtml(p)}
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+                <button type="button" class="btn btn-secondary" id="btn-eliminar-pregunta-actual">Eliminar esta pregunta</button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-pregunta-actual">Guardar cambios</button>
+            </div>
+        `;
+
+        // textoConfirmar vacío a propósito: la navegación/guardado de
+        // este modal es toda propia (Anterior/Siguiente/Guardar), no el
+        // botón único de abrirModal — sin esto, Modal() dibuja su
+        // "Guardar" default, que quedaría sin ningún onConfirm enganchado
+        // (abrirModal no recibe el 3er argumento acá) y no haría nada al
+        // tocarlo.
+        abrirModal(Modal({ id: modalId, titulo: "Editar preguntas", contenidoHtml, textoConfirmar: "" }), modalId);
+        bindCamposPregunta();
+        valoresAlMostrar = JSON.stringify(leerCamposPregunta());
+
+        document.getElementById("btn-pregunta-anterior")?.addEventListener("click", () => moverA(indice - 1));
+        document.getElementById("btn-pregunta-siguiente")?.addEventListener("click", () => moverA(indice + 1));
+
+        document.getElementById("btn-guardar-pregunta-actual").addEventListener("click", async (e) => {
+            const boton = e.currentTarget;
+            boton.disabled = true;
+            boton.textContent = "Guardando...";
+            const ok = await guardarActual();
+            boton.disabled = false;
+            boton.textContent = "Guardar cambios";
+            if (ok) valoresAlMostrar = JSON.stringify(leerCamposPregunta());
+        });
+
+        document.getElementById("btn-eliminar-pregunta-actual").addEventListener("click", async () => {
+            const p = preguntas[indice];
+            await eliminarPregunta(p.id);
+            registrarEvento(getUsuarioActual().id, "eliminar_pregunta", `Pregunta ${p.id} eliminada`);
+            preguntas.splice(indice, 1);
+            if (!preguntas.length) { cerrarModal(modalId); navigate("evaluaciones"); return; }
+            if (indice >= preguntas.length) indice = preguntas.length - 1;
+            cerrarModal(modalId);
+            mostrar();
+        });
+    }
+
+    async function moverA(nuevoIndice) {
+        if (nuevoIndice < 0 || nuevoIndice >= preguntas.length) return;
+        if (huboCambios()) {
+            const ok = await guardarActual();
+            if (!ok) return; // se queda en la actual para que corrija
+        }
+        indice = nuevoIndice;
         cerrarModal(modalId);
-        navigate("evaluaciones");
-    });
+        mostrar();
+    }
 
-    bindCamposPregunta();
+    mostrar();
 }
