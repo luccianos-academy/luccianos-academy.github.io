@@ -17,38 +17,116 @@ import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
 import { escaparHtml } from "../services/html.js";
 
-/** Los mismos 4 campos tanto para cargar una pregunta nueva como para
+/**
+ * Una fila por opción (A, B, C...) con su propio radio para marcar cuál
+ * es la correcta — reemplaza el viejo "opciones separadas por coma" +
+ * "índice de la correcta" como número suelto. Pedido explícito del
+ * usuario tras un error real cargando contenido: "no separado por
+ * comas, puedo cometer un error" — un campo de texto con comas y un
+ * índice numérico aparte son dos lugares donde un error de tipeo arma
+ * una pregunta con la respuesta correcta mal marcada, sin ningún aviso.
+ * Ver skills/evaluaciones-sin-errores para la regla completa.
+ */
+function letraOpcion(i) {
+    return String.fromCharCode(65 + i); // 0→A, 1→B, 2→C...
+}
+
+function opcionHtml(i, texto = "", correcta = false) {
+    return `
+        <div class="opcion-item" style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+            <span class="opcion-letra" style="flex:0 0 28px;height:28px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${letraOpcion(i)}</span>
+            <input type="text" class="input-opcion-texto" placeholder="Texto de la opción ${letraOpcion(i)}" value="${escaparHtml(texto)}" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit">
+            <label style="display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--muted);white-space:nowrap;margin:0">
+                <input type="radio" name="opcion-correcta" class="input-opcion-correcta" style="width:auto" ${correcta ? "checked" : ""}>
+                Correcta
+            </label>
+            <button type="button" class="btn-eliminar-opcion" aria-label="Eliminar esta opción" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold">×</button>
+        </div>
+    `;
+}
+
+/** Los mismos campos tanto para cargar una pregunta nueva como para
  *  editar una existente — antes solo existía "Ver preguntas" (listar +
  *  eliminar), sin forma de corregir una ya cargada sin borrarla y
- *  recrearla. */
+ *  recrearla. Sin p.opciones (pregunta nueva) arranca con 3 filas
+ *  vacías (A/B/C), que es el mínimo típico de una pregunta real. */
 function camposPreguntaHtml(p = {}) {
+    const opciones = p.opciones && p.opciones.length ? p.opciones : ["", "", ""];
     return `
         <label for="input-pregunta">Pregunta</label>
         <input type="text" id="input-pregunta" placeholder="¿Cuál es la pregunta?" value="${escaparHtml(p.pregunta || "")}">
-        <label for="input-opciones">Opciones (separadas por coma)</label>
-        <input type="text" id="input-opciones" placeholder="Opción A, Opción B, Opción C" value="${escaparHtml((p.opciones || []).join(", "))}">
-        <label for="input-correcta">Índice de la opción correcta (0, 1, 2...)</label>
-        <input type="text" id="input-correcta" placeholder="0" value="${p.respuestaCorrecta ?? ""}">
-        <label for="input-puntaje">Puntaje</label>
+
+        <label style="margin-top:16px">Opciones — marcá cuál es la correcta</label>
+        <div id="lista-opciones">${opciones.map((texto, i) => opcionHtml(i, texto, i === p.respuestaCorrecta)).join("")}</div>
+        <button type="button" id="btn-agregar-opcion" class="btn btn-secondary">+ Agregar opción</button>
+
+        <label for="input-puntaje" style="margin-top:16px">Puntaje</label>
         <input type="text" id="input-puntaje" placeholder="10" value="${p.puntaje || ""}">
     `;
 }
 
+/** Arma/renumera las letras y engancha agregar/eliminar fila — se
+ *  llama después de insertar camposPreguntaHtml() en el DOM, tanto en
+ *  "Nueva pregunta" como en "Editar". */
+function bindCamposPregunta() {
+    const lista = document.getElementById("lista-opciones");
+    if (!lista) return;
+
+    function reletrar() {
+        lista.querySelectorAll(".opcion-item").forEach((item, i) => {
+            const letra = item.querySelector(".opcion-letra");
+            if (letra) letra.textContent = letraOpcion(i);
+            const input = item.querySelector(".input-opcion-texto");
+            if (input) input.placeholder = `Texto de la opción ${letraOpcion(i)}`;
+        });
+    }
+
+    function eliminarOpcion(item) {
+        // Nunca menos de 2 — con una sola opción no hay nada que elegir.
+        if (lista.children.length > 2) item.remove();
+        else {
+            item.querySelector(".input-opcion-texto").value = "";
+            item.querySelector(".input-opcion-correcta").checked = false;
+        }
+        reletrar();
+    }
+
+    function agregarOpcion() {
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = opcionHtml(lista.children.length);
+        const item = wrapper.firstElementChild;
+        lista.appendChild(item);
+        item.querySelector(".btn-eliminar-opcion").addEventListener("click", () => eliminarOpcion(item));
+        item.querySelector(".input-opcion-texto").focus();
+    }
+
+    lista.querySelectorAll(".opcion-item").forEach((item) => {
+        item.querySelector(".btn-eliminar-opcion")?.addEventListener("click", () => eliminarOpcion(item));
+    });
+    document.getElementById("btn-agregar-opcion")?.addEventListener("click", () => agregarOpcion());
+}
+
 function leerCamposPregunta() {
+    const filas = Array.from(document.querySelectorAll("#lista-opciones .opcion-item")).map((item) => ({
+        texto: item.querySelector(".input-opcion-texto").value.trim(),
+        correcta: item.querySelector(".input-opcion-correcta").checked,
+    })).filter((f) => f.texto);
+
     return {
         pregunta: document.getElementById("input-pregunta").value.trim(),
-        opciones: document.getElementById("input-opciones").value.split(",").map((o) => o.trim()).filter(Boolean),
-        respuestaCorrecta: Number(document.getElementById("input-correcta").value) || 0,
+        opciones: filas.map((f) => f.texto),
+        respuestaCorrecta: filas.findIndex((f) => f.correcta),
         puntaje: Number(document.getElementById("input-puntaje").value) || 10,
     };
 }
 
-/** null = está todo bien. Mismas 3 validaciones que ya existían para
- *  "Nueva pregunta", reutilizadas acá para que "Editar" no las pierda. */
+/** null = está todo bien. respuestaCorrecta ya viene bien formada desde
+ *  leerCamposPregunta (nunca fuera de rango) — la única forma de que
+ *  esté mal es que no se haya marcado ningún radio "Correcta". */
 function validarPregunta({ pregunta, opciones, respuestaCorrecta }) {
-    if (!pregunta || !opciones.length) return "Completá la pregunta y sus opciones antes de guardar.";
-    if (opciones.length < 2) return "Cargá al menos 2 opciones (separadas por coma) — con una sola no hay nada que elegir.";
-    if (respuestaCorrecta < 0 || respuestaCorrecta >= opciones.length) return `El índice de la opción correcta debe estar entre 0 y ${opciones.length - 1} (cargaste ${opciones.length} opciones).`;
+    if (!pregunta) return "Completá la pregunta antes de guardar.";
+    if (opciones.length < 2) return "Cargá al menos 2 opciones — con una sola no hay nada que elegir.";
+    if (respuestaCorrecta < 0) return "Marcá cuál opción es la correcta (el radio \"Correcta\" de esa fila).";
     return null;
 }
 
@@ -119,6 +197,8 @@ async function abrirModalPreguntas(cursoId) {
         navigate("evaluaciones");
     });
 
+    bindCamposPregunta();
+
     document.querySelectorAll("[data-editar-pregunta]").forEach((btn) => {
         btn.addEventListener("click", () => {
             const pregunta = preguntas.find((p) => String(p.id) === String(btn.dataset.editarPregunta));
@@ -163,4 +243,6 @@ async function abrirModalEditarPregunta(pregunta, cursoId) {
         cerrarModal(modalId);
         navigate("evaluaciones");
     });
+
+    bindCamposPregunta();
 }
