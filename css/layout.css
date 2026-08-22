@@ -41,15 +41,19 @@
 /* Portada "Bienvenido/a" (ver Login() en login.js) — el primer toque
    del usuario en todo el sitio, así el video+audio reales que
    arrancan después ya tienen el gesto que el navegador exige para
-   permitir sonido. Con el theme oscuro (2026-07-25) pasó a mostrar
-   directamente el isologo dorado de marca sobre negro — a diferencia
-   del frame del Torreón que tenía antes, esta imagen YA es oscura y
-   de marca por sí sola, así que no lleva el scrim de oscurecimiento
-   (lo apagaba innecesariamente) y usa "contain" en vez de "cover"
-   (es un isologo centrado, no una foto — recortarlo con cover le
-   comía los bordes del texto en pantallas angostas). El color de
-   fondo es el mismo tono casi-negro de las esquinas del archivo, para
-   que el letterbox de "contain" quede invisible. */
+   permitir sonido.
+
+   2026-08-22: reemplazado el isologo dorado sobre negro por la foto
+   real de Lucciano's Central (Mar del Plata) — pedido explícito del
+   usuario. La primera versión que se probó (recorte con fondo blanco,
+   baja resolución) se descartó por calidad; esta es la foto original
+   de Material/, con un grade sutil (menos brillo/saturación, ver el
+   script que la generó) para que combine con la paleta oscura en vez
+   de leerse como una foto de stock de mediodía.
+
+   Dos capas de background: el degradé oscurece progresivamente hacia
+   abajo (letra y botón siempre legibles), la foto va con "cover" +
+   posición horizontal apuntada a la puerta (ver abajo). */
 .login-gate{
     position:relative;
     width:100%;
@@ -57,20 +61,40 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#020202 url("../assets/img/login/login-gate-bg.png") center / contain no-repeat;
+    background-color:var(--bg);
+    background-image:
+        linear-gradient(180deg, rgba(5,5,5,.15) 0%, rgba(5,5,5,.45) 55%, rgba(5,5,5,.85) 100%),
+        url("../assets/img/login/central-mardelplata.jpg");
+    background-position:center, 72% bottom;
+    background-size:cover, cover;
+    background-repeat:no-repeat, no-repeat;
 }
 
-/* Posicionado a mano (no por el centrado flex del padre): el isologo
-   de fondo ("contain") ocupa una franja centrada verticalmente — si
-   el botón también se centra, cae encima del texto "Lucciano's". Lo
-   bajamos a ~70% de alto, debajo de esa franja, para los anchos de
-   pantalla de celular habituales (~0.45–0.47 ancho/alto). */
+/* La puerta de Central no cae en el mismo % horizontal en un celular
+   angosto que en un monitor ancho — con "cover", cuanto más angosta la
+   pantalla, más se recorta a los costados y más hacia la derecha queda
+   la puerta dentro de lo visible (calculado a mano contra el tamaño
+   real de la foto, 1536×1024). ~72% en celular, ~57% en desktop; el
+   quiebre en 700px es aproximado, no hay una regla exacta para "cuándo
+   deja de ser celular". */
+@media (min-width:700px){
+    .login-gate{ background-position:center, 57% bottom; }
+}
+
+/* A la altura de la puerta de Central (pedido explícito). A
+   diferencia de la posición horizontal, la vertical sale casi igual en
+   celular y desktop (~66%) con este recorte — no hace falta breakpoint
+   acá, solo en left. */
 .login-gate-btn{
     position:absolute;
-    top:70%;
-    left:50%;
+    top:66%;
+    left:72%;
     transform:translate(-50%, -50%);
     animation:pulso-sonido-login 1.8s ease-in-out infinite;
+}
+
+@media (min-width:700px){
+    .login-gate-btn{ left:57%; }
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -79,12 +103,16 @@
 
 /* Portada simplificada de STAGING (ver login.js, ES_STAGING) — mismo
    fondo que la portada real, pero sin el video/audio del Torreón ni la
-   coreografía de revelado: solo el texto de marca arriba (evita pisar
-   el isologo dorado, que ocupa la franja central de la imagen de
-   fondo) y el botón de siempre más abajo. */
+   coreografía de revelado: solo "Bienvenido/a" arriba del cartel
+   "Lucciano's Central" que ya está en la foto de fondo (repetir el
+   nombre en texto quedaba redundante — pedido explícito del usuario) y
+   el botón de siempre más abajo. Posición aproximada: con "cover" el
+   recorte de la foto varía según el ancho de pantalla, así que "justo
+   arriba del cartel" no es exacto en TODOS los anchos — mismo criterio
+   que .login-gate-btn más abajo. */
 .login-gate-staging-marca{
     position:absolute;
-    top:12%;
+    top:16%;
     left:50%;
     transform:translateX(-50%);
     text-align:center;
@@ -93,15 +121,9 @@
 }
 .login-gate-staging-marca span{
     display:block;
-    font-size:15px;
-    color:rgba(255,255,255,.75);
-    letter-spacing:.5px;
-    margin-bottom:4px;
-}
-.login-gate-staging-marca strong{
-    display:block;
-    font-size:22px;
-    font-weight:800;
+    font-size:19px;
+    font-weight:700;
+    letter-spacing:.3px;
 }
 
 /* El video arranca muteado (ver login.js) — este botón deja el audio
@@ -311,16 +333,19 @@
    Selector combinado (.modal.login-modal) a propósito: components.css
    se carga después de layout.css y .modal ya fija background/max-width/
    padding con la misma especificidad — sin el combinado, esas reglas
-   ganaban por orden de cascada y la tarjeta quedaba opaca de nuevo. */
+   ganaban por orden de cascada y la tarjeta quedaba opaca de nuevo.
+   Glass OSCURO (no blanco): era un resabio del theme claro original,
+   de antes del cambio a paleta oscura del 25/07 — nunca se actualizó
+   acá y quedaba como el único bloque claro de toda la pantalla. */
 .modal.login-modal{
     max-width:320px;
     padding:30px 26px;
     text-align:center;
-    background:rgba(255,255,255,.82);
-    backdrop-filter:blur(22px) saturate(160%);
-    -webkit-backdrop-filter:blur(22px) saturate(160%);
-    border:1px solid rgba(255,255,255,.5);
-    box-shadow:0 20px 55px rgba(0,0,0,.4);
+    background:rgba(26,24,21,.78); /* var(--card) con transparencia */
+    backdrop-filter:blur(22px) saturate(140%);
+    -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid rgba(255,255,255,.1);
+    box-shadow:0 20px 55px rgba(0,0,0,.5);
 }
 
 .login-modal-titulo{
@@ -340,14 +365,14 @@
     margin:0 auto;
     padding:6px 22px 6px 8px;
     border-radius:999px;
-    border:1px solid rgba(0,0,0,.12);
-    background:rgba(255,255,255,.5);
+    border:1px solid rgba(255,255,255,.14);
+    background:rgba(255,255,255,.06);
     transition:background .18s ease, border-color .18s ease;
 }
 
 .login-google-pill:hover{
-    background:rgba(255,255,255,.85);
-    border-color:rgba(0,0,0,.2);
+    background:rgba(255,255,255,.12);
+    border-color:rgba(255,255,255,.25);
 }
 
 .login-google-texto{

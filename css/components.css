@@ -1182,6 +1182,28 @@
     border-bottom:none;
 }
 
+/* Filas con contenido de varias líneas (una pregunta larga, una
+   lección con aviso de "huérfana") + un grupo de botones al lado —
+   con align-items:center (la regla de arriba) los botones quedaban
+   centrados contra TODA la altura de la fila: prolijo por casualidad
+   cuando el texto entraba en una línea, pero "flotando" en el medio
+   apenas el texto pasaba a 2-3 líneas, así que fila por fila los
+   botones no quedaban a la misma altura entre sí. Selector de mayor
+   especificidad que ".list .item" (las dos clases en el MISMO
+   elemento — evaluaciones.js y academia.js arman la fila así) para no
+   afectar las filas simples de Mi perfil (".item" sueltos dentro de
+   ".list"), que sí se ven mejor centradas. */
+.list.item{
+    align-items:flex-start;
+}
+
+.list.item > span:last-child{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    flex-shrink:0;
+}
+
 /* SECCIONES */
 
 .section{
@@ -1902,6 +1924,10 @@ table.data-table td{
     padding:18px 14px;
     font-size:15px;
     border-bottom:1px solid var(--line);
+    /* Explícito, no confiar en el default del navegador — un checkbox
+       o un badge dentro de la celda se ve descentrado contra el texto
+       de al lado sin esto. */
+    vertical-align:middle;
 }
 
 table.data-table tr:last-child td{

@@ -106,14 +106,15 @@ export async function Login() {
     // experiencia pensada para la portada real, pero acá solo agrega
     // segundos muertos entre abrir la app y poder tocar "Ingresar"
     // para probar algo. Reusa el mismo fondo (login-gate-bg) de la
-    // portada real, con el texto de marca escrito en vez de depender
-    // de que se lea en la imagen.
+    // portada real. Solo "Bienvenido/a" — el nombre "Lucciano's" ya
+    // está escrito en el cartel de la foto de fondo (Central Mar del
+    // Plata); repetirlo en texto arriba quedaba redundante (pedido
+    // explícito del usuario, 2026-08-22).
     content.innerHTML = (ES_ENTORNO_PRUEBA || yaVioPortada)
         ? `
             <div class="login-gate login-gate-staging" id="login-gate">
                 <div class="login-gate-staging-marca">
-                    <span>Bienvenido/a a</span>
-                    <strong>Lucciano's Academy</strong>
+                    <span>Bienvenido/a</span>
                 </div>
                 <button class="btn btn-primary login-gate-btn" id="btn-login-gate" type="button">Ingresar</button>
             </div>
@@ -381,9 +382,17 @@ function inicializarGoogleSignIn() {
     // Botón sólo-ícono (sin el rótulo en inglés de Google) — el texto
     // "Ingresar" de al lado es propio, así queda un botón más chico y
     // sutil en vez de la píldora blanca ancha por defecto.
+    //
+    // theme:"filled_black" en vez de "outline" — Google solo ofrece 3
+    // temas y "outline" renderiza un círculo BLANCO fijo (no es CSS
+    // nuestro: el botón lo dibuja Google adentro de su propio iframe,
+    // no se puede recolorear desde afuera). Con el resto de la app en
+    // paleta oscura desde el 25/07, ese círculo blanco quedó como el
+    // único elemento claro de toda la pantalla — "filled_black" es la
+    // única opción de las tres que combina.
     window.google.accounts.id.renderButton(
         document.getElementById("google-btn-slot"),
-        { type: "icon", theme: "outline", size: "large", shape: "circle" }
+        { type: "icon", theme: "filled_black", size: "large", shape: "circle" }
     );
 }
 

@@ -59,7 +59,7 @@ export const SECCIONES_DISPONIBLES_ADMIN = [
 const TABS_POR_ROL = {
     colaborador: [
         { id: "inicio", label: "Inicio", icono: "inicio", href: "#/inicio" },
-        { id: "cursos", label: "Aprender", icono: "academia", href: "#/cursos" },
+        { id: "cursos", label: "Academia", icono: "academia", href: "#/cursos" },
         { id: "misevaluaciones", label: "Evaluaciones", icono: "evaluaciones", href: "#/misevaluaciones" },
         { id: "perfil", label: "Perfil", icono: "perfil", href: "#/perfil" },
     ],

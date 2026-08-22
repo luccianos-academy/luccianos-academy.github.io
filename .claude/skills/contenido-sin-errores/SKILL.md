@@ -5,6 +5,10 @@ description: Regla de diseño para cualquier formulario de carga de contenido de
 
 # Contenido sin errores
 
+Ver también [[calidad-visual-premium]] — misma exigencia de "cero
+errores, cien por ciento prolijo", aplicada a cómo se VE la pantalla
+en vez de a cómo se carga el contenido.
+
 ## Origen
 
 2026-08-22, evaluaciones.js tenía "Opciones (separadas por coma)" +
