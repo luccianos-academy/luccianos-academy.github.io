@@ -52,13 +52,12 @@
    de leerse como una foto de stock de mediodía.
 
    Dos capas de background: el degradé oscurece progresivamente hacia
-   abajo (letra y botón siempre legibles), la foto va SIEMPRE centrada
-   ("center" — no hace falta apuntarla a la puerta: con "cover" a
-   centro, la ventana visible en celular ya cubre de sobra la columna
-   reloj/cartel/puerta, que en la foto real está en el 50-66% del
-   ancho). Lo que sí cambia según el ancho de pantalla es DÓNDE cae esa
-   columna dentro de lo visible — eso se resuelve en .login-gate-btn /
-   .login-gate-staging-marca, no acá. */
+   abajo (letra y botón siempre legibles), la foto en celular va corrida
+   un poco hacia la derecha (62% en vez de "center" — pedido explícito
+   tras ver una prueba real: el tótem derecho quedaba cortado en el
+   borde) para que entren los dos tótems de la puerta; en desktop,
+   donde "cover" ya no necesita recortar casi nada a los costados,
+   "center" alcanza. */
 .login-gate{
     position:relative;
     width:100%;
@@ -70,28 +69,31 @@
     background-image:
         linear-gradient(180deg, rgba(5,5,5,.15) 0%, rgba(5,5,5,.45) 55%, rgba(5,5,5,.85) 100%),
         url("../assets/img/login/central-mardelplata.jpg");
-    background-position:center, center bottom;
+    background-position:center, 62% bottom;
     background-size:cover, cover;
     background-repeat:no-repeat, no-repeat;
 }
 
+@media (min-width:700px){
+    .login-gate{ background-position:center, center bottom; }
+}
+
 /* A la altura de la puerta de Central (pedido explícito). Calculado
    contra el tamaño real de la foto (1536×1024, puerta centrada en el
-   58% de su ancho) y la matemática real de "background-size:cover"
-   con posición CENTER:
-   - Celular angosto (recorta bastante a los costados): la puerta queda
-     corrida hacia la derecha de lo visible, ~76%.
-   - Desktop ancho (recorta poco o nada): la puerta queda cerca de su
-     posición natural en la foto, ~58%.
+   58% de su ancho) y la matemática real de "background-size:cover":
+   - Celular (background-position-x:62% arriba, no "center"): la puerta
+     cae en ~49% de lo visible.
+   - Desktop (background-position-x:center): la puerta queda cerca de
+     su posición natural en la foto, ~58%.
    El quiebre en 700px es aproximado — no hay una regla exacta para
    "cuándo deja de ser celular", y esto tampoco es exacto en TODOS los
-   anchos posibles, pero es muchísimo mejor que un 50% fijo (que fue
-   el error real: quedaba centrado en la PANTALLA, no en la puerta,
-   que no está centrada en la foto). */
+   anchos posibles. Si se vuelve a tocar el "background-position" de
+   la foto de arriba, este número hay que recalcularlo junto con él —
+   están atados. */
 .login-gate-btn{
     position:absolute;
     top:66%;
-    left:76%;
+    left:49%;
     transform:translate(-50%, -50%);
     animation:pulso-sonido-login 1.8s ease-in-out infinite;
 }
@@ -114,11 +116,19 @@
    edificio está fotografiado en diagonal), así que se usa el mismo %
    horizontal que ya se calculó para .login-gate-btn (apunta a la
    puerta, que en la foto está casi en la misma vertical que el
-   cartel). Mismo cálculo y mismo quiebre que .login-gate-btn. */
+   cartel). Mismo cálculo y mismo quiebre que .login-gate-btn.
+
+   En desktop además va rotado unos grados — pedido explícito tras ver
+   una prueba real: el cartel "Lucciano's" de la foto no está
+   perfectamente horizontal (la toma es en diagonal, ligero declive
+   hacia la derecha), y el texto en línea recta se notaba "torcido"
+   respecto a él. Solo en desktop porque ahí se ve el cartel casi
+   completo y el ojo lo compara directo; en celular, mucho más
+   recortado/cerca, no hace falta. */
 .login-gate-staging-marca{
     position:absolute;
     top:22%;
-    left:76%;
+    left:49%;
     transform:translateX(-50%);
     text-align:center;
     color:var(--gold);
@@ -126,7 +136,11 @@
 }
 
 @media (min-width:700px){
-    .login-gate-staging-marca{ left:58%; }
+    .login-gate-staging-marca{
+        top:15%;
+        left:58%;
+        transform:translateX(-50%) rotate(2.5deg);
+    }
 }
 /* Misma tipografía cursiva de firma que usa el resto de la app para
    "Lucciano's" (LuccianoScript = Allura, ver base.css /
