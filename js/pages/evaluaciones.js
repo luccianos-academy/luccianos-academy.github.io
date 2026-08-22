@@ -11,10 +11,46 @@ import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { getCursos } from "../data/cursos.js";
-import { getEvaluaciones, crearPregunta, eliminarPregunta } from "../data/evaluaciones.js";
+import { getEvaluaciones, crearPregunta, actualizarPregunta, eliminarPregunta } from "../data/evaluaciones.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { navigate } from "../router.js";
+import { escaparHtml } from "../services/html.js";
+
+/** Los mismos 4 campos tanto para cargar una pregunta nueva como para
+ *  editar una existente — antes solo existía "Ver preguntas" (listar +
+ *  eliminar), sin forma de corregir una ya cargada sin borrarla y
+ *  recrearla. */
+function camposPreguntaHtml(p = {}) {
+    return `
+        <label for="input-pregunta">Pregunta</label>
+        <input type="text" id="input-pregunta" placeholder="¿Cuál es la pregunta?" value="${escaparHtml(p.pregunta || "")}">
+        <label for="input-opciones">Opciones (separadas por coma)</label>
+        <input type="text" id="input-opciones" placeholder="Opción A, Opción B, Opción C" value="${escaparHtml((p.opciones || []).join(", "))}">
+        <label for="input-correcta">Índice de la opción correcta (0, 1, 2...)</label>
+        <input type="text" id="input-correcta" placeholder="0" value="${p.respuestaCorrecta ?? ""}">
+        <label for="input-puntaje">Puntaje</label>
+        <input type="text" id="input-puntaje" placeholder="10" value="${p.puntaje || ""}">
+    `;
+}
+
+function leerCamposPregunta() {
+    return {
+        pregunta: document.getElementById("input-pregunta").value.trim(),
+        opciones: document.getElementById("input-opciones").value.split(",").map((o) => o.trim()).filter(Boolean),
+        respuestaCorrecta: Number(document.getElementById("input-correcta").value) || 0,
+        puntaje: Number(document.getElementById("input-puntaje").value) || 10,
+    };
+}
+
+/** null = está todo bien. Mismas 3 validaciones que ya existían para
+ *  "Nueva pregunta", reutilizadas acá para que "Editar" no las pierda. */
+function validarPregunta({ pregunta, opciones, respuestaCorrecta }) {
+    if (!pregunta || !opciones.length) return "Completá la pregunta y sus opciones antes de guardar.";
+    if (opciones.length < 2) return "Cargá al menos 2 opciones (separadas por coma) — con una sola no hay nada que elegir.";
+    if (respuestaCorrecta < 0 || respuestaCorrecta >= opciones.length) return `El índice de la opción correcta debe estar entre 0 y ${opciones.length - 1} (cargaste ${opciones.length} opciones).`;
+    return null;
+}
 
 export async function Evaluaciones() {
 
@@ -55,51 +91,46 @@ async function abrirModalPreguntas(cursoId) {
     const listaHtml = preguntas.length
         ? preguntas.map((p) => `
             <div class="list item">
-                <span>${p.pregunta} <span class="text-muted text-xs">(${p.puntaje} pts)</span></span>
-                <button class="btn btn-secondary" data-eliminar-pregunta="${p.id}">Eliminar</button>
+                <span>${escaparHtml(p.pregunta)} <span class="text-muted text-xs">(${p.puntaje} pts)</span></span>
+                <span>
+                    <button class="btn btn-secondary" data-editar-pregunta="${p.id}">Editar</button>
+                    <button class="btn btn-secondary" data-eliminar-pregunta="${p.id}">Eliminar</button>
+                </span>
             </div>
         `).join("")
         : `<p class="text-muted text-sm">Este curso todavía no tiene preguntas.</p>`;
 
     const contenidoHtml = `
         <div class="list">${listaHtml}</div>
-        <label for="input-pregunta" style="margin-top:20px">Nueva pregunta</label>
-        <input type="text" id="input-pregunta" placeholder="¿Cuál es la pregunta?">
-        <label for="input-opciones">Opciones (separadas por coma)</label>
-        <input type="text" id="input-opciones" placeholder="Opción A, Opción B, Opción C">
-        <label for="input-correcta">Índice de la opción correcta (0, 1, 2...)</label>
-        <input type="text" id="input-correcta" placeholder="0">
-        <label for="input-puntaje">Puntaje</label>
-        <input type="text" id="input-puntaje" placeholder="10">
+        <h3 style="margin-top:20px">Nueva pregunta</h3>
+        ${camposPreguntaHtml()}
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Preguntas del curso", contenidoHtml, textoConfirmar: "Agregar pregunta" }), modalId, async () => {
 
-        const pregunta = document.getElementById("input-pregunta").value.trim();
-        const opciones = document.getElementById("input-opciones").value.split(",").map((o) => o.trim()).filter(Boolean);
-        const respuestaCorrecta = Number(document.getElementById("input-correcta").value) || 0;
-        const puntaje = Number(document.getElementById("input-puntaje").value) || 10;
+        const datos = leerCamposPregunta();
+        const error = validarPregunta(datos);
+        if (error) { alert(error); return; }
 
-        if (!pregunta || !opciones.length) {
-            alert("Completá la pregunta y sus opciones antes de agregar.");
-            return;
-        }
-        if (opciones.length < 2) {
-            alert("Cargá al menos 2 opciones (separadas por coma) — con una sola no hay nada que elegir.");
-            return;
-        }
-        // Sin este chequeo, un índice fuera de rango (ej: "5" con 3
-        // opciones) crea una pregunta imposible de acertar en el examen.
-        if (respuestaCorrecta < 0 || respuestaCorrecta >= opciones.length) {
-            alert(`El índice de la opción correcta debe estar entre 0 y ${opciones.length - 1} (cargaste ${opciones.length} opciones).`);
-            return;
-        }
-
-        await crearPregunta({ cursoId, pregunta, opciones, respuestaCorrecta, puntaje });
+        await crearPregunta({ cursoId, ...datos });
         registrarEvento(getUsuarioActual().id, "crear_pregunta", `Pregunta agregada al curso ${cursoId}`);
 
         cerrarModal(modalId);
         navigate("evaluaciones");
+    });
+
+    document.querySelectorAll("[data-editar-pregunta]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            const pregunta = preguntas.find((p) => String(p.id) === String(btn.dataset.editarPregunta));
+            if (!pregunta) return;
+            // Cierra el modal de la lista antes de abrir el de edición —
+            // los dos usan los mismos ids de campo (input-pregunta, etc.),
+            // así que tenerlos abiertos a la vez hace que
+            // document.getElementById() agarre el formulario equivocado
+            // (mismo motivo documentado en academia.js para lecciones).
+            cerrarModal(modalId);
+            abrirModalEditarPregunta(pregunta, cursoId);
+        });
     });
 
     document.querySelectorAll("[data-eliminar-pregunta]").forEach((btn) => {
@@ -109,5 +140,27 @@ async function abrirModalPreguntas(cursoId) {
             cerrarModal(modalId);
             navigate("evaluaciones");
         });
+    });
+}
+
+async function abrirModalEditarPregunta(pregunta, cursoId) {
+    const modalId = "modal-editar-pregunta";
+    const contenidoHtml = camposPreguntaHtml(pregunta);
+
+    abrirModal(Modal({ id: modalId, titulo: "Editar pregunta", contenidoHtml, textoConfirmar: "Guardar cambios" }), modalId, async () => {
+
+        const datos = leerCamposPregunta();
+        const error = validarPregunta(datos);
+        if (error) { alert(error); return; }
+
+        const r = await actualizarPregunta(pregunta.id, { cursoId, ...datos });
+        if (!r || r.ok === false) {
+            alert(r?.error || "No se pudo guardar. Probá de nuevo.");
+            return;
+        }
+        registrarEvento(getUsuarioActual().id, "editar_pregunta", `Pregunta ${pregunta.id} editada`);
+
+        cerrarModal(modalId);
+        navigate("evaluaciones");
     });
 }

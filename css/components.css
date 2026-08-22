@@ -3709,6 +3709,33 @@ table.data-table tbody tr:hover{
     display:none;
 }
 
+/* Spinner entre el click en play y el primer frame real (evento
+   "playing") — sin esto, con conexión lenta el video parecía colgado:
+   desaparecía el botón de play y quedaba la portada fija sin ningún
+   indicio de que algo estaba cargando. */
+.leccion-video-cargando{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    border:3px solid rgba(255,255,255,.25);
+    border-top-color:#fff;
+    display:none;
+    animation:leccion-video-girar .8s linear infinite;
+    pointer-events:none;
+}
+
+.leccion-video-wrap.cargando .leccion-video-cargando{
+    display:block;
+}
+
+@keyframes leccion-video-girar{
+    to{ transform:translate(-50%,-50%) rotate(360deg); }
+}
+
 /* Carrusel de capturas navegable a mano (sin autoplay) — ver
    IMAGENES_POR_LECCION/renderCarrusel en cursos.js. */
 .leccion-carrusel{

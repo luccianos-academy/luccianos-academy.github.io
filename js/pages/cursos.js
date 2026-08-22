@@ -416,6 +416,7 @@ function renderVideoCarrusel(videos, titulo) {
             <div class="leccion-video-wrap">
                 <video class="leccion-imagen" data-video-carrusel-el muted controls playsinline preload="none" poster="${videos[0].poster || ""}"></video>
                 <button class="leccion-video-play" type="button" data-video-carrusel-play aria-label="Reproducir video">${Icon("play", { size: 22 })}</button>
+                <span class="leccion-video-cargando" aria-hidden="true"></span>
             </div>
             <button class="leccion-carrusel-btn leccion-carrusel-prev" type="button" data-video-carrusel-prev aria-label="Video anterior" disabled>${Icon("flecha-izq", { size: 20 })}</button>
             <button class="leccion-carrusel-btn leccion-carrusel-next" type="button" data-video-carrusel-next aria-label="Video siguiente" ${videos.length < 2 ? "disabled" : ""}>${Icon("flecha-der", { size: 20 })}</button>
@@ -444,6 +445,7 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
             ? `<div class="leccion-video-wrap">
                 <video class="leccion-imagen" data-src="${VIDEO_POR_LECCION[l.id]}" poster="${POSTER_POR_LECCION[l.id] || ""}" muted controls playsinline preload="none"></video>
                 <button class="leccion-video-play" type="button" data-reproducir-video aria-label="Reproducir video">${Icon("play", { size: 22 })}</button>
+                <span class="leccion-video-cargando" aria-hidden="true"></span>
                </div>`
             : (esImagenValida(l.imagen) ? `<img class="leccion-imagen" src="${l.imagen}" alt="${l.titulo}">` : "")}
         ${IMAGEN_EXTRA_POR_LECCION[l.id] ? `<img class="leccion-imagen" style="margin-top:12px" src="${IMAGEN_EXTRA_POR_LECCION[l.id]}" alt="${l.titulo}">` : ""}
@@ -724,8 +726,19 @@ export function bindCursos(params = []) {
             const video = wrap?.querySelector("video");
             if (!video) return;
             video.src = video.dataset.src;
-            wrap.classList.add("reproduciendo");
+            // "cargando" además de "reproduciendo": entre el click y el
+            // primer frame real (evento "playing") puede pasar un
+            // instante con conexión lenta — antes ahí no había ningún
+            // indicio de que algo estaba pasando (se ocultaba el botón
+            // de play y quedaba la portada fija, como colgado). El
+            // spinner cubre justo esa espera.
+            wrap.classList.add("reproduciendo", "cargando");
             video.play();
+            video.addEventListener("playing", () => wrap.classList.remove("cargando"), { once: true });
+            video.addEventListener("error", () => {
+                wrap.classList.remove("cargando", "reproduciendo");
+                alert("No se pudo cargar el video. Revisá tu conexión y probá de nuevo.");
+            }, { once: true });
             // Antes tenía loop: quedaba dando vueltas para siempre sin
             // forma de pararlo. Ahora termina y vuelve a la portada
             // con el botón de play, como si no se hubiera abierto.
@@ -754,7 +767,7 @@ export function bindCursos(params = []) {
             video.removeAttribute("src");
             video.load();
             video.poster = items[indice].poster || "";
-            videoWrap.classList.remove("reproduciendo");
+            videoWrap.classList.remove("reproduciendo", "cargando");
             contador.textContent = `${indice + 1} / ${items.length}`;
             if (caption) caption.textContent = items[indice].caption;
             btnPrev.disabled = indice === 0;
@@ -769,8 +782,13 @@ export function bindCursos(params = []) {
         });
         btnPlay.addEventListener("click", () => {
             video.src = items[indice].src;
-            videoWrap.classList.add("reproduciendo");
+            videoWrap.classList.add("reproduciendo", "cargando");
             video.play();
+            video.addEventListener("playing", () => videoWrap.classList.remove("cargando"), { once: true });
+            video.addEventListener("error", () => {
+                videoWrap.classList.remove("cargando", "reproduciendo");
+                alert("No se pudo cargar el video. Revisá tu conexión y probá de nuevo.");
+            }, { once: true });
             video.addEventListener("ended", () => videoWrap.classList.remove("reproduciendo"), { once: true });
         });
     });
