@@ -106,16 +106,14 @@ export async function Login() {
     // experiencia pensada para la portada real, pero acá solo agrega
     // segundos muertos entre abrir la app y poder tocar "Ingresar"
     // para probar algo. Reusa el mismo fondo (login-gate-bg) de la
-    // portada real. Solo "Bienvenido/a" — el nombre "Lucciano's" ya
+    // portada real. Sin texto de marca — el nombre "Lucciano's" ya
     // está escrito en el cartel de la foto de fondo (Central Mar del
-    // Plata); repetirlo en texto arriba quedaba redundante (pedido
-    // explícito del usuario, 2026-08-22).
+    // Plata); repetirlo en texto arriba quedaba redundante, y el
+    // "Bienvenido/a" que se probó tampoco convenció visualmente
+    // (pedido explícito del usuario, 2026-08-22: sacarlo directamente).
     content.innerHTML = (ES_ENTORNO_PRUEBA || yaVioPortada)
         ? `
             <div class="login-gate login-gate-staging" id="login-gate">
-                <div class="login-gate-staging-marca">
-                    <span>Bienvenido/a</span>
-                </div>
                 <button class="btn btn-primary login-gate-btn" id="btn-login-gate" type="button">Ingresar</button>
             </div>
         `

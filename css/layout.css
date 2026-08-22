@@ -22,8 +22,14 @@
 }
 
 /* El login usa la portada a pantalla completa, sin el padding que
-   sí necesita el 404 (otro consumidor de .fullscreen). */
-.fullscreen:has(.login-portada){
+   sí necesita el 404 (otro consumidor de .fullscreen). Incluye
+   .login-gate (el gate de "Bienvenido/a", con o sin foto de fondo) —
+   sin esto acá, se colaba el padding:20px de arriba y dejaba un marco
+   del --bg de .fullscreen alrededor de la foto. Antes invisible (el
+   fondo viejo era un isologo dorado casi negro, el marco no se notaba
+   contra él); con la foto de Central se veía clarísimo — reportado
+   como "se ve recortada, con fondo negro" (2026-08-22). */
+.fullscreen:has(.login-portada, .login-gate){
     padding:0;
 }
 
@@ -104,53 +110,6 @@
 
 @media (prefers-reduced-motion: reduce){
     .login-gate-btn{ animation:none; }
-}
-
-/* Portada simplificada de STAGING (ver login.js, ES_STAGING) — mismo
-   fondo que la portada real, pero sin el video/audio del Torreón ni la
-   coreografía de revelado: solo "Bienvenido/a" entre el reloj y el
-   cartel "Lucciano's Central" que ya está en la foto de fondo (repetir
-   el nombre en texto quedaba redundante — pedido explícito del
-   usuario) y el botón de siempre más abajo. El "left" NO es 50% a
-   propósito — el cartel de la foto no cae centrado en la pantalla (el
-   edificio está fotografiado en diagonal), así que se usa el mismo %
-   horizontal que ya se calculó para .login-gate-btn (apunta a la
-   puerta, que en la foto está casi en la misma vertical que el
-   cartel). Mismo cálculo y mismo quiebre que .login-gate-btn.
-
-   En desktop además va rotado unos grados — pedido explícito tras ver
-   una prueba real: el cartel "Lucciano's" de la foto no está
-   perfectamente horizontal (la toma es en diagonal, ligero declive
-   hacia la derecha), y el texto en línea recta se notaba "torcido"
-   respecto a él. Solo en desktop porque ahí se ve el cartel casi
-   completo y el ojo lo compara directo; en celular, mucho más
-   recortado/cerca, no hace falta. */
-.login-gate-staging-marca{
-    position:absolute;
-    top:22%;
-    left:49%;
-    transform:translateX(-50%);
-    text-align:center;
-    color:var(--gold);
-    text-shadow:0 2px 14px rgba(0,0,0,.7);
-}
-
-@media (min-width:700px){
-    .login-gate-staging-marca{
-        top:15%;
-        left:58%;
-        transform:translateX(-50%) rotate(2.5deg);
-    }
-}
-/* Misma tipografía cursiva de firma que usa el resto de la app para
-   "Lucciano's" (LuccianoScript = Allura, ver base.css /
-   .login-reveal-script) — antes iba en la fuente de UI de siempre,
-   que no combinaba con el cartel cursivo de la foto de fondo. */
-.login-gate-staging-marca span{
-    display:block;
-    font-family:'LuccianoScript', cursive;
-    font-size:42px;
-    line-height:1;
 }
 
 /* El video arranca muteado (ver login.js) — este botón deja el audio
