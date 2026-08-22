@@ -105,11 +105,15 @@ function procedimientoATexto(pasos) {
 }
 
 function subpuntoHtml(texto) {
+    // textarea, no input — un sub-punto real ("Por la mañana, café y
+    // pastelería...") es tan largo como un paso; con auto-expandir
+    // (services/autoExpandirTextareas.js) crece solo en vez de
+    // cortarse invisible en una sola línea.
     return `
-        <div class="subpunto-item" style="display:flex;gap:8px;align-items:center;margin:6px 0 0 40px">
-            <span style="color:var(--muted);flex-shrink:0">—</span>
-            <input type="text" class="input-subpunto-texto" placeholder="Sub-punto..." value="${escaparHtml(texto)}" style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit">
-            <button type="button" class="btn-eliminar-subpunto" aria-label="Eliminar este sub-punto" style="flex:0 0 auto;padding:6px 9px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:13px;font-weight:bold">×</button>
+        <div class="subpunto-item" style="display:flex;gap:8px;align-items:flex-start;margin:6px 0 0 40px">
+            <span style="color:var(--muted);flex-shrink:0;margin-top:8px">—</span>
+            <textarea class="input-subpunto-texto" rows="1" placeholder="Sub-punto..." style="flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;resize:vertical">${escaparHtml(texto)}</textarea>
+            <button type="button" class="btn-eliminar-subpunto" aria-label="Eliminar este sub-punto" style="flex:0 0 auto;padding:6px 9px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:13px;font-weight:bold;margin-top:4px">×</button>
         </div>
     `;
 }
@@ -144,7 +148,7 @@ function camposLeccionEditorHtml(l = {}) {
             <input type="text" id="input-titulo" placeholder="Título de la lección" value="${escaparHtml(l.titulo || "")}">
 
             <label for="input-objetivo">Objetivo</label>
-            <input type="text" id="input-objetivo" placeholder="¿Qué va a aprender el colaborador?" value="${escaparHtml(l.objetivo || "")}">
+            <textarea id="input-objetivo" rows="1" placeholder="¿Qué va a aprender el colaborador?">${escaparHtml(l.objetivo || "")}</textarea>
 
             <label style="margin-top:16px">Procedimiento — paso a paso</label>
             <div id="lista-pasos" class="pasos-lista">${pasos.map((p, i) => pasoHtml(p, i)).join("")}</div>

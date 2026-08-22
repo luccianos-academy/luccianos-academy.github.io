@@ -59,6 +59,40 @@ cualquier colección con estructura):
    y un botón "+ Agregar" como único punto de partida) — menos clics
    para el caso normal.
 
+## Cuadros que crecen solos (2026-08-22)
+
+Ampliación del mismo pedido, ya con el editor de listas en uso: "que
+cuando escribo me permita expandir y contraer a necesidad... me
+limita a ver solo lo que está en pantalla", y después, explícito:
+**"eso tiene que estar en todo lo que se pueda escribir, así ya no me
+vuelve a pasar"**.
+
+Dos reglas, ya implementadas en `js/services/autoExpandirTextareas.js`
+(se registra una sola vez en `app.js`, cubre toda la app incluido lo
+que se inserta después por innerHTML — no hace falta tocarlo de nuevo
+por cada formulario nuevo):
+
+1. **Todo `<textarea>` de la app auto-crece con lo que se escribe**
+   (hasta un tope, después scroll interno) — no hace falta ningún
+   cambio extra al crear un formulario nuevo, esto ya corre solo.
+
+2. **Un campo que puede contener una oración real (una pregunta, un
+   objetivo, un paso, un sub-punto, cualquier texto donde el usuario
+   pueda escribir más de ~40-50 caracteres con sentido) va como
+   `<textarea rows="1">`, nunca `<input type="text">`.** Un input de
+   una sola línea esconde el resto del texto sin avisar (así se
+   detectó: las opciones de Evaluaciones cortaban invisible el texto
+   más largo). Reservar `<input type="text">` para lo que es
+   genuinamente corto por naturaleza — título, nombre, categoría,
+   texto de un botón, URL — donde forzar un textarea sería
+   sobre-ingeniería.
+
+Antes de agregar un campo de texto nuevo en cualquier formulario:
+¿esto puede llegar a tener una oración? → `<textarea rows="1">`.
+¿Es un identificador corto? → `<input type="text">`. En caso de duda,
+textarea — el costo de equivocarse para el otro lado (contenido
+cortado sin aviso) es mayor.
+
 ## Cuándo aplica
 
 Cualquier formulario nuevo o tocado en Academia (lecciones, preguntas,

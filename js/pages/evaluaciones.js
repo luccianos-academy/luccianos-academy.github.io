@@ -59,7 +59,7 @@ function camposPreguntaHtml(p = {}) {
     const opciones = p.opciones && p.opciones.length ? p.opciones : ["", "", ""];
     return `
         <label for="input-pregunta">Pregunta</label>
-        <input type="text" id="input-pregunta" placeholder="¿Cuál es la pregunta?" value="${escaparHtml(p.pregunta || "")}">
+        <textarea id="input-pregunta" rows="1" placeholder="¿Cuál es la pregunta?">${escaparHtml(p.pregunta || "")}</textarea>
 
         <label style="margin-top:16px">Opciones — marcá cuál es la correcta</label>
         <div id="lista-opciones">${opciones.map((texto, i) => opcionHtml(i, texto, i === p.respuestaCorrecta)).join("")}</div>
