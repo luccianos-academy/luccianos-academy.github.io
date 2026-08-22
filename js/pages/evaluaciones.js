@@ -32,15 +32,20 @@ function letraOpcion(i) {
 }
 
 function opcionHtml(i, texto = "", correcta = false) {
+    // textarea, no input — una opción larga ("Le hacés una seña y
+    // esperás a que se acerque a pedir...") se cortaba invisible en un
+    // input de una sola línea. Con textarea entra en el auto-expandir
+    // global (services/autoExpandirTextareas.js): crece con lo que se
+    // escribe, como cualquier otro cuadro de texto de la app.
     return `
-        <div class="opcion-item" style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
-            <span class="opcion-letra" style="flex:0 0 28px;height:28px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${letraOpcion(i)}</span>
-            <input type="text" class="input-opcion-texto" placeholder="Texto de la opción ${letraOpcion(i)}" value="${escaparHtml(texto)}" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit">
-            <label style="display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--muted);white-space:nowrap;margin:0">
+        <div class="opcion-item" style="display:flex;gap:10px;align-items:flex-start;margin-bottom:8px">
+            <span class="opcion-letra" style="flex:0 0 28px;height:28px;border-radius:50%;background:var(--gold-soft);color:var(--gold-deep);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin-top:2px">${letraOpcion(i)}</span>
+            <textarea class="input-opcion-texto" rows="1" placeholder="Texto de la opción ${letraOpcion(i)}" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;resize:vertical">${escaparHtml(texto)}</textarea>
+            <label style="display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:12px;color:var(--muted);white-space:nowrap;margin:0;margin-top:6px">
                 <input type="radio" name="opcion-correcta" class="input-opcion-correcta" style="width:auto" ${correcta ? "checked" : ""}>
                 Correcta
             </label>
-            <button type="button" class="btn-eliminar-opcion" aria-label="Eliminar esta opción" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold">×</button>
+            <button type="button" class="btn-eliminar-opcion" aria-label="Eliminar esta opción" style="flex:0 0 auto;padding:8px 11px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:15px;font-weight:bold;margin-top:2px">×</button>
         </div>
     `;
 }
