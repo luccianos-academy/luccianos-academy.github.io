@@ -181,6 +181,49 @@ const ESTILOS_IMPRESION = `
     #contenido-pdf button, .fila-acciones, input[type="checkbox"], .mod-tooltip,
     .table-toolbar, .galeria-pills, .barra-enviar-mail { display: none !important; }
 
+    /* Gestión semanal (pages/gestion.js) — bug real reportado en vivo:
+       el PDF exportado salía como una sola pared de texto sin
+       estructura, sin sucursal, sin decir si cada tarea estaba
+       completa o no. Causa real: .tarea-gestion-header es un <button>
+       (para que el título abra/cierre el desplegable en pantalla) —
+       la regla de arriba, pensada para los botones de ACCIÓN de otras
+       pantallas (Editar/Eliminar/Enviar mail), sin querer también
+       apagaba el título entero de cada tarea acá. Esta selección es
+       MÁS específica (id + clase vs. id + elemento) así que gana por
+       sobre la de arriba sin tocarla. */
+    #contenido-pdf .tarea-gestion-header { display: flex !important; }
+
+    .tarea-gestion { border: 1px solid #e2d9c5; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; background: #fffdf8; page-break-inside: avoid; }
+    .tarea-gestion-header { align-items: center; gap: 10px; width: 100%; background: none; border: none; padding: 0; text-align: left; font-family: inherit; }
+    .tarea-gestion-ico, .tarea-gestion-chevron { display: none; }
+    .tarea-gestion-txt { flex: 1; display: flex; flex-direction: column; }
+    .tarea-gestion-txt strong { font-size: 13px; color: #111; }
+    .tarea-gestion-txt span { font-size: 11px; color: #666; }
+    .tarea-gestion-progreso, .badge-en-uso { display: none; }
+
+    /* Estado — pedido explícito: "que diga tarea completa o no,
+       quién y a qué hora". El span ya trae el texto real ("Hecho
+       HH:MM · Nombre") cuando está completa — para "pendiente" no
+       hay texto propio (en pantalla, el checkbox destildado ya lo
+       dice solo), así que acá se agrega con ::before, sin tocar el
+       texto que también usa la pantalla en vivo. */
+    .tarea-gestion-hora { flex-shrink: 0; font-size: 11px; font-weight: 700; }
+    .tarea-gestion.hecha .tarea-gestion-hora { color: #1a7a3c; }
+    .tarea-gestion:not(.hecha) .tarea-gestion-hora::before { content: "Pendiente"; color: #b02a2a; }
+
+    /* Sub-ítems: siempre expandidos en el PDF (en pantalla arrancan
+       colapsados, .desplegada recién los muestra) — sin esto, un
+       PDF armado sin haber abierto cada tarjeta a mano salía sin
+       ninguno de los detalles. */
+    .tarea-gestion-subitems { display: flex !important; flex-direction: column; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2d9c5; }
+    .subitem-gestion { font-size: 11px; color: #333; padding: 3px 0; }
+    .subitem-gestion:has(input:checked)::before { content: "✓ "; color: #1a7a3c; font-weight: 700; }
+    .subitem-gestion:not(:has(input:checked))::before { content: "— "; color: #999; }
+
+    .tarea-gestion-push, .tarea-gestion-acciones, .aviso-tareas-aplicables, .campo-selector-local, .aviso-solo-lectura,
+    .acciones-gestion-semanal, .tabs-gestion { display: none !important; }
+    .aviso-dia-vacio { font-size: 12px; color: #666; }
+
     /* Botones reales para pasar a PDF — pedido explícito del usuario:
        "quiero que se muestre para ver que todo está correcto y luego
        me dé opción de convertir a PDF", no que salte derecho al

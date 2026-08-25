@@ -562,7 +562,7 @@ function cuerpoGestionHtml() {
         ${catalogoHtml}
 
         <div id="contenido-gestion-imprimible">
-            ${membreteHtml("Guía de Gestión")}
+            ${membreteHtml("Guía de Gestión", sucursalActiva)}
             ${DIAS.map((d) => {
                 const tareasDelDia = TAREAS.filter((t) => t.dias.includes(d));
                 return `
