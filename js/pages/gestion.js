@@ -2,41 +2,28 @@
    Lucciano's Academy
    pages/gestion.js — Responsables de Local y Turno
 
-   Sin ruta en el menú a propósito todavía (se navega escribiendo
-   #/gestion) — falta decidir si termina viviendo dentro de Academia.
-   Tres áreas:
+   Herramienta operativa de un solo propósito: el checklist de tareas
+   por día (arranca Domingo — más actividad, se cuenta para recibir el
+   lunes). Cada tarea tiene una o más "dias" (ej. depósitos: Lunes Y
+   Viernes) — "aplica a mi local" NO es un interruptor aparte, ES tener
+   al menos un día elegido. La pestaña "Tareas" es un catálogo
+   desplegable: tocás una tarea, se despliegan las pills de día ahí
+   mismo, elegís, y pasa a verde ("En uso"). Sin ningún día, queda gris
+   ("Sin usar") y no aparece en ningún día real.
 
-     1. Formación   — texto (liderazgo, feedback, indicadores...).
-                       Solo TÍTULOS de tema por ahora, cada uno
-                       "Próximamente" — sin inventar contenido.
-     2. Gestión semanal — el checklist tipo calendario, por día
-                       (arranca Domingo — más actividad, se cuenta
-                       para recibir el lunes). Cada tarea tiene una o
-                       más "dias" (ej. depósitos: Lunes Y Viernes) —
-                       "aplica a mi local" NO es un interruptor aparte,
-                       ES tener al menos un día elegido. La pestaña
-                       "Tareas" es un catálogo desplegable: tocás una
-                       tarea, se despliegan las pills de día ahí mismo,
-                       elegís, y pasa a verde ("En uso"). Sin ningún
-                       día, queda gris ("Sin usar") y no aparece en
-                       ningún día real.
+   FASE 1 del backend (2026-08-24): el catálogo de tareas (crear/
+   editar/eliminar/mover de día) ya persiste de verdad contra la hoja
+   "GestionTareas" (data/gestionTareas.js) — no más array hardcodeado.
+   El CHECK de "hecho hoy" sigue siendo puramente visual (se resetea al
+   recargar) — eso es Fase 2, falta decidir cómo se guarda por
+   sucursal.
 
-                       FASE 1 del backend (2026-08-24): el catálogo de
-                       tareas (crear/editar/eliminar/mover de día) ya
-                       persiste de verdad contra la hoja "GestionTareas"
-                       (data/gestionTareas.js) — no más array
-                       hardcodeado. El CHECK de "hecho hoy" sigue
-                       siendo puramente visual (se resetea al
-                       recargar) — eso es Fase 2, falta decidir cómo
-                       se guarda por sucursal.
-     3. ¿Qué hago si...? — guía situacional. Estructura fija por
-                       situación (Qué hacer / Qué NO hacer / Cuándo
-                       escalar / Herramienta relacionada), TODAS
-                       marcadas "pendiente de contenido" — el usuario
-                       va a traer el texto real (al menos el de
-                       conflicto con cliente ya existe en un manual)
-                       en una pasada aparte. Nada de esto es política
-                       real todavía, es el molde nomás.
+   Antes convivía acá, con pestañas propias, el molde sin contenido de
+   "Formación" (títulos de tema, todos "Próximamente") y "¿Qué hago
+   si...?" (guía situacional) — se sacaron el 2026-08-25: las
+   lecciones reales ya viven en Academia (curso "Responsables de Local
+   y Turno"), y esta pantalla pasó a ser solo la herramienta de
+   gestión, sin mezclar formación adentro.
 =============================*/
 
 import { Header } from "../components/header.js";
@@ -54,31 +41,7 @@ import {
 } from "../data/gestionTareas.js";
 
 /* ============================
-   1. Formación — solo temas, sin contenido todavía
-=============================*/
-const TEMAS_FORMACION = [
-    { icono: "trofeo", titulo: "Liderazgo y comunicación", detalle: "Cómo dar indicaciones claras y sostener al equipo en el día a día." },
-    { icono: "comentario", titulo: "Feedback a tu equipo", detalle: "Cómo señalar lo que hay que corregir sin que se sienta un reto." },
-    { icono: "idea", titulo: "Resolución de conflictos", detalle: "Herramientas generales para bajar tensión entre compañeros de equipo." },
-    { icono: "dashboard", titulo: "Indicadores, costos y merma", detalle: "Cómo leer ticket promedio, hora pico y merma para decidir mejor." },
-    { icono: "corazon", titulo: "Experiencia del cliente", detalle: "El estándar de atención que se espera de todo el local, no solo de vos." },
-];
-
-function temaFormacionHtml(t) {
-    return `
-        <div class="tema-formacion">
-            <span class="tema-formacion-ico">${Icon(t.icono, { size: 18 })}</span>
-            <span class="tema-formacion-txt">
-                <strong>${t.titulo}</strong>
-                <span>${t.detalle}</span>
-            </span>
-            <span class="badge-proximamente">Próximamente</span>
-        </div>
-    `;
-}
-
-/* ============================
-   2. Gestión semanal — el checklist, por día
+   Gestión semanal — el checklist, por día
 
    La semana arranca DOMINGO a propósito (pedido explícito): es el día
    de más actividad — ahí se cuenta para que el lunes entren los
@@ -459,66 +422,8 @@ function abrirModalTarea({ idEditado = null, tarea = null } = {}) {
 }
 
 /* ============================
-   3. ¿Qué hago si...? — molde fijo, sin contenido todavía
-
-   Mismas 5 columnas para TODAS las situaciones a propósito — así el
-   día que se carga el contenido real, es llenar el molde, no
-   inventar el formato de nuevo cada vez. "fuente" queda documentado
-   acá mismo (no en el HTML) para saber de un vistazo qué situación
-   ya tiene material real esperando y cuál hay que redactar de cero.
-=============================*/
-const SITUACIONES_QUE_HAGO_SI = [
-    {
-        icono: "corazon",
-        titulo: "Conflicto con un cliente",
-        fuente: "Ya existe contenido real en Manuales (Atención al Cliente) — pendiente traerlo acá, no inventar de nuevo.",
-    },
-    {
-        icono: "usuarios",
-        titulo: "Falta de personal",
-        fuente: "Sin fuente todavía — hay que definir el criterio con el usuario, situación por situación.",
-    },
-];
-
-const CAMPOS_QUE_HAGO_SI = [
-    { clave: "queHacer", label: "Qué hacer" },
-    { clave: "queNoHacer", label: "Qué NO hacer" },
-    { clave: "cuandoEscalar", label: "Cuándo escalar" },
-    { clave: "herramienta", label: "Herramienta relacionada" },
-];
-
-function situacionQueHagoSiHtml(s, idx) {
-    return `
-        <div class="situacion-gestion" data-desplegable>
-            <button type="button" class="situacion-gestion-header" data-toggle-desplegable>
-                <span class="tarea-gestion-ico">${Icon(s.icono, { size: 18 })}</span>
-                <span class="tarea-gestion-txt">
-                    <strong>${s.titulo}</strong>
-                    <span>${s.fuente}</span>
-                </span>
-                <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
-            </button>
-            <div class="situacion-gestion-cuerpo" data-subitems>
-                ${CAMPOS_QUE_HAGO_SI.map((c) => `
-                    <div class="situacion-gestion-campo">
-                        <strong>${c.label}</strong>
-                        <p class="situacion-gestion-pendiente">Pendiente de contenido.</p>
-                    </div>
-                `).join("")}
-            </div>
-        </div>
-    `;
-}
-
-/* ============================
    Página
 =============================*/
-const TABS = [
-    { id: "formacion", label: "Formación" },
-    { id: "quehagosi", label: "¿Qué hago si...?" },
-    { id: "semanal", label: "Gestión semanal" },
-];
-
 export async function Gestion() {
     // FASE 1: se lee de la hoja real en cada entrada a la página — el
     // router ya muestra MascotaCarga() mientras esto resuelve, no hace
@@ -532,77 +437,56 @@ export async function Gestion() {
     TAREAS.forEach((t) => registroTareas.set(t.id, t));
 
     return `
-        ${Header("Gestión semanal", "Tareas, formación y guías para el día a día de tu local")}
+        ${Header("Gestión semanal", "Organizá las tareas de tu local, día por día")}
 
-        <div class="tabs-gestion" id="tabs-gestion">
-            ${TABS.map((t, i) => `<button class="tab-gestion${i === 0 ? " activa" : ""}" data-vista-gestion="${t.id}">${t.label}</button>`).join("")}
+        <div class="aviso-maqueta">
+            ${Icon("idea", { size: 16 })}
+            <p>Elegí en qué días aplica cada tarea desde "Tareas", tildala como hecha en la vista de cada día, y avisale al equipo con "Enviar push" cuando haga falta.</p>
         </div>
 
-        <div data-panel-gestion="formacion">
-            <div class="aviso-maqueta">
-                ${Icon("idea", { size: 16 })}
-                <p>Estas guías se van a ir sumando de a poco. Si te falta algo puntual, consultalo con tu supervisor mientras tanto.</p>
-            </div>
-            <div class="section">
-                <div class="lista-temas-formacion">
-                    ${TEMAS_FORMACION.map(temaFormacionHtml).join("")}
-                </div>
-            </div>
-        </div>
-
-        <div data-panel-gestion="semanal" style="display:none">
-            <div class="acciones-gestion-semanal">
-                <button type="button" class="btn btn-secondary" id="btn-exportar-gestion">
-                    ${Icon("descargar", { size: 16 })} Exportar a PDF
+        <div class="acciones-gestion-semanal">
+            <button type="button" class="btn btn-secondary" id="btn-exportar-gestion">
+                ${Icon("descargar", { size: 16 })} Exportar a PDF
+            </button>
+            ${esAdminActual() ? `
+                <button type="button" class="btn btn-primary" id="btn-nueva-tarea">
+                    + Nueva tarea
                 </button>
-                ${esAdminActual() ? `
-                    <button type="button" class="btn btn-primary" id="btn-nueva-tarea">
-                        + Nueva tarea
-                    </button>
-                ` : ""}
-            </div>
+            ` : ""}
+        </div>
 
-            <div class="tabs-gestion" id="tabs-dias-gestion">
-                <button class="tab-gestion activa" data-vista-dia="tareas">Tareas</button>
-                ${DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("")}
-            </div>
+        <div class="tabs-gestion" id="tabs-dias-gestion">
+            <button class="tab-gestion activa" data-vista-dia="tareas">Tareas</button>
+            ${DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("")}
+        </div>
 
-            <!-- "Tareas": catálogo — tocás una, se despliegan sus
-                 días, elegís. Con al menos un día queda verde ("En
-                 uso") y aparece en esos días reales; sin ninguno,
-                 gris ("Sin usar") y no aparece en ningún lado. Vive
-                 FUERA de #contenido-gestion-imprimible: es
-                 configuración, no algo que se exporte en el PDF del
-                 día. -->
-            <div class="section" data-panel-dia="tareas">
-                <p class="aviso-tareas-aplicables">${TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
-                <div class="lista-tareas-gestion" id="lista-aplica-tareas">
-                    ${TAREAS.map(aplicaTareaHtml).join("")}
-                </div>
-            </div>
-
-            <div id="contenido-gestion-imprimible">
-                ${membreteHtml("Guía de Gestión")}
-                ${DIAS.map((d) => {
-                    const tareasDelDia = TAREAS.filter((t) => t.dias.includes(d));
-                    return `
-                    <div class="section" data-panel-dia="${d}" style="display:none">
-                        <h3>${d}</h3>
-                        <div class="lista-tareas-gestion">
-                            ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`)).join("") : avisoDiaVacioHtml()}
-                        </div>
-                    </div>
-                `;
-                }).join("")}
+        <!-- "Tareas": catálogo — tocás una, se despliegan sus
+             días, elegís. Con al menos un día queda verde ("En
+             uso") y aparece en esos días reales; sin ninguno,
+             gris ("Sin usar") y no aparece en ningún lado. Vive
+             FUERA de #contenido-gestion-imprimible: es
+             configuración, no algo que se exporte en el PDF del
+             día. -->
+        <div class="section" data-panel-dia="tareas">
+            <p class="aviso-tareas-aplicables">${TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
+            <div class="lista-tareas-gestion" id="lista-aplica-tareas">
+                ${TAREAS.map(aplicaTareaHtml).join("")}
             </div>
         </div>
 
-        <div data-panel-gestion="quehagosi" style="display:none">
-            <div class="section">
-                <div class="lista-situaciones-gestion">
-                    ${SITUACIONES_QUE_HAGO_SI.map(situacionQueHagoSiHtml).join("")}
+        <div id="contenido-gestion-imprimible">
+            ${membreteHtml("Guía de Gestión")}
+            ${DIAS.map((d) => {
+                const tareasDelDia = TAREAS.filter((t) => t.dias.includes(d));
+                return `
+                <div class="section" data-panel-dia="${d}" style="display:none">
+                    <h3>${d}</h3>
+                    <div class="lista-tareas-gestion">
+                        ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`)).join("") : avisoDiaVacioHtml()}
+                    </div>
                 </div>
-            </div>
+            `;
+            }).join("")}
         </div>
     `;
 }
@@ -815,22 +699,9 @@ function bindTarjetaNueva(nodo) {
 }
 
 export function bindGestion() {
-    // Tabs: mostrar/ocultar paneles, nada más — cada panel ya vino
-    // renderizado entero desde Gestion(), no hay fetch por tab.
-    const tabs = document.getElementById("tabs-gestion");
-    tabs?.querySelectorAll("[data-vista-gestion]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            tabs.querySelectorAll("[data-vista-gestion]").forEach((b) => b.classList.remove("activa"));
-            btn.classList.add("activa");
-            const vista = btn.dataset.vistaGestion;
-            document.querySelectorAll("[data-panel-gestion]").forEach((panel) => {
-                panel.style.display = panel.dataset.panelGestion === vista ? "" : "none";
-            });
-        });
-    });
-
-    // Pills de días (Domingo primero) — mismo patrón que los tabs de
-    // área, anidado adentro de "Gestión semanal".
+    // Pills de días (Domingo primero) — único switcher de la pantalla
+    // desde que se sacaron las pestañas de área ("Formación"/"¿Qué
+    // hago si...?", 2026-08-25).
     const tabsDias = document.getElementById("tabs-dias-gestion");
     tabsDias?.querySelectorAll("[data-vista-dia]").forEach((btn) => {
         btn.addEventListener("click", () => {
