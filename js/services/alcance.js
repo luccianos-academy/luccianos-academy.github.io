@@ -147,7 +147,12 @@ export function cursosDeLaPersona(cursos, persona, sucursales = []) {
  * celda por celda, sin filtrar la lista entera.
  */
 export function cursoAplicaAPersona(curso, persona, sucursales = []) {
-    if (curso?.categoria === "Gestión" && !persona?.encargado) return false;
+    // Bug real reportado en vivo (2026-08-25): faltaba responsableTurno
+    // acá — un Responsable de turno (sin ser también de local) veía el
+    // curso "Responsables de Local y Turno" desde Academia (pages/
+    // cursos.js tiene su propio chequeo, ya arreglado) pero no desde
+    // Inicio, que usa ESTA función. Mismo criterio en los dos lugares.
+    if (curso?.categoria === "Gestión" && !persona?.encargado && !persona?.responsableTurno) return false;
     return aplicaAlUsuario(curso, persona, sucursales);
 }
 
