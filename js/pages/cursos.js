@@ -74,16 +74,19 @@ async function renderListaCursos(usuario) {
     ]);
 
     // Categoría "Gestión" (hoy solo "Responsables de Local y Turno") queda
-    // reservada a colaboradores con encargado:true — un colaborador
-    // raso no debería ver ni poder abrir contenido de gestión de local.
-    // Supervisor entra sin esa restricción (ve todo el catálogo, solo
-    // para repasar contenido — no le genera progreso propio).
+    // reservada a colaboradores con encargado:true O responsableTurno:true
+    // — un colaborador raso no debería ver ni poder abrir contenido de
+    // gestión de local. Supervisor entra sin esa restricción (ve todo
+    // el catálogo, solo para repasar contenido — no le genera progreso
+    // propio). Bug real reportado en vivo (2026-08-25): faltaba
+    // responsableTurno acá — un Responsable de turno (sin ser también
+    // de local) no veía el curso en su catálogo.
     // El alcance por país/local (services/alcance.js) va aparte de la
     // regla de Gestión y no se puede delegar en cursosDeLaPersona():
     // esa función excluye Gestión para todo el que no sea encargado,
     // mientras que acá el Supervisor sí la ve.
     const cursos = todosLosCursos
-        .filter((c) => c.categoria !== "Gestión" || usuario.encargado || usuario.rol === "supervisor")
+        .filter((c) => c.categoria !== "Gestión" || usuario.encargado || usuario.responsableTurno || usuario.rol === "supervisor")
         .filter((c) => aplicaAlUsuario(c, usuario));
 
     const tarjetas = cursos.map((curso) => {
@@ -495,8 +498,11 @@ async function renderDetalleCurso(usuario, cursoId) {
     // Admin queda afuera del bloqueo igual que Supervisor: entra desde
     // "Vista previa" en Academia para cargar/revisar contenido, no
     // porque sea Responsable de local — bug real reportado en vivo
-    // ("de admin no me deja").
-    const esSoloEncargados = curso && curso.categoria === "Gestión" && !usuario.encargado && usuario.rol !== "supervisor" && usuario.rol !== "admin";
+    // ("de admin no me deja"). Responsable de turno (sin ser también
+    // de local) también queda afuera — mismo bug real que en el
+    // filtro del catálogo (renderListaCursos), reportado en vivo
+    // 2026-08-25 ("responsable de turno no ve el módulo").
+    const esSoloEncargados = curso && curso.categoria === "Gestión" && !usuario.encargado && !usuario.responsableTurno && usuario.rol !== "supervisor" && usuario.rol !== "admin";
     // Sin esto, un curso acotado a otro país desaparecía del catálogo
     // pero seguía abriéndose pegando el link — se esconde y se bloquea,
     // no solo se esconde.
