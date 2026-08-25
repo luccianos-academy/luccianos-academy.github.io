@@ -27,8 +27,14 @@ export function AutocompleteSucursal(inputId, valorInicial = "") {
     `;
 }
 
-/** Conecta el filtrado en vivo. Llamar después de insertar el HTML en el DOM. */
-export async function bindAutocompleteSucursal(inputId) {
+/** Conecta el filtrado en vivo. Llamar después de insertar el HTML en el DOM.
+ *  `onSeleccionar(nombre)` es opcional — además de dejar el nombre en
+ *  el input (como siempre), avisa a quien llamó que se eligió un
+ *  local. Sin esto, quien lo usa tendría que releer el input en algún
+ *  otro momento (ej. al enviar un form) — pantallas que reaccionan AL
+ *  elegir (ej. Gestión semanal, que trae los datos de ese local al
+ *  toque) necesitan el aviso inmediato. */
+export async function bindAutocompleteSucursal(inputId, onSeleccionar) {
 
     const input = document.getElementById(inputId);
     const list = document.getElementById(`${inputId}-list`);
@@ -56,6 +62,7 @@ export async function bindAutocompleteSucursal(inputId) {
         if (!item || item.style.opacity === "0.6") return;
         input.value = item.textContent;
         list.classList.remove("open");
+        onSeleccionar?.(item.textContent);
     });
 
     document.addEventListener("click", (e) => {

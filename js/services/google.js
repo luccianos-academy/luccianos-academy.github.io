@@ -136,7 +136,25 @@ export function enviarPushReal(usuarioIds, titulo, cuerpo, url) {
 /** Push real acotado a "Gestión semanal" — a diferencia de
  *  enviarPushReal, NO manda una lista de destinatarios: el backend la
  *  decide solo (los demás Responsables de la MISMA sucursal del que
- *  llama) — ver apps-script/Code.gs, enviarPushGestion. */
+ *  llama + Admin) — ver apps-script/Code.gs, enviarPushGestion. */
 export function enviarPushGestionReal(titulo, cuerpo, url) {
     return gasRequest("enviarPushGestion", { titulo, cuerpo, url });
+}
+
+/** Guarda los días de UNA tarea para la sucursal de quien llama (Fase
+ *  2 de Gestión semanal) — el backend decide de qué sucursal es la
+ *  fila (usuarioActual.sucursal), nunca un valor que mande el
+ *  cliente. Solo Responsable de local/turno pueden llamarla — ver
+ *  apps-script/Code.gs, actualizarDiasGestionSucursal. */
+export function actualizarDiasGestionSucursalReal(tareaId, dias) {
+    return gasRequest("actualizarDiasGestionSucursal", { tareaId, dias });
+}
+
+/** Guarda (o borra, si hecho=false) el check "hecho" de una tarea
+ *  para MI sucursal y un día puntual — el backend decide de qué
+ *  sucursal es la fila, mismo criterio que
+ *  actualizarDiasGestionSucursalReal. Ver apps-script/Code.gs,
+ *  actualizarCheckGestion. */
+export function actualizarCheckGestionReal(tareaId, dia, hecho) {
+    return gasRequest("actualizarCheckGestion", { tareaId, dia, hecho });
 }

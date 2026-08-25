@@ -44,6 +44,15 @@ y las hojas `Manuales`, `Canales`, `Publicaciones`, `Comentarios`,
 funcionó, así que **no la trates como fuente de verdad** — la fuente real
 es lo que el código pide.
 
+#### `GestionTareas` (Fase 1 de "Responsables de Local y Turno", #/gestion)
+
+Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
+
+| `id` | `icono` | `titulo` | `detalle` | `dias` | `subitems` | `fechaModificacion` |
+|---|---|---|---|---|---|---|
+
+`dias` y `subitems` van separados por coma en una sola celda (ej. `Lunes,Viernes` o `Abatidor,Armario,Vitrina`) — mismo criterio ya usado en `aplicaA`/`noAplicaA` de `Cursos`, no un esquema nuevo. `subitems` puede quedar vacío (no todas las tareas tienen sub-ítems). `fechaModificacion` es obligatoria como en cualquier hoja que se escribe desde la app (ver más abajo) — sin ella, `_actualizarCrudo` rechaza la escritura.
+
 Esto importa por cómo escribe el backend: `_actualizarCrudo` busca cada
 campo por **nombre exacto de encabezado**. Si la columna no existe, la
 escritura de ESE campo no tiene dónde ir. Antes se salteaba en silencio
@@ -53,6 +62,24 @@ no aparece", "el fijado no queda"). Hoy `_actualizarCrudo` devuelve
 `{ok:false, error:'Faltan columnas en "X": ...'}` y la app lo muestra:
 **si ves ese mensaje, agregá esa columna y listo**, no busques el bug en
 el código.
+
+#### `GestionTareasSucursal` (Fase 2 de "Responsables de Local y Turno", #/gestion)
+
+Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
+
+| `id` | `tareaId` | `sucursal` | `dias` | `fechaModificacion` |
+|---|---|---|---|---|
+
+Separa el catálogo de tareas (`GestionTareas` — QUÉ tareas existen, solo lo edita Admin) de en qué días le aplica cada una a CADA local — antes ese `dias` vivía en la propia fila de `GestionTareas`, compartido por toda la red (bug real de diseño: el Responsable de un local cambiaba el esquema de TODOS los locales sin darse cuenta). Una fila acá = una combinación tarea+sucursal con al menos un día elegido; si un local nunca tocó una tarea, no hay fila (no hace falta poblar todo el catálogo × todos los locales de antemano). `sucursal` tiene que matchear EXACTO el nombre real de la sucursal (mismo criterio que el resto de la app — ver la trampa del apóstrofo tipográfico en la memoria del proyecto). Escrita solo por `actualizarDiasGestionSucursal` (Code.gs) — nunca por `actualizar` genérico — que fuerza `sucursal` desde `usuarioActual.sucursal` en el servidor, ignorando cualquier valor que mande el cliente.
+
+#### `GestionChecks` (check "hecho" persistido, #/gestion)
+
+Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
+
+| `id` | `tareaId` | `sucursal` | `dia` | `hecho` | `marcadoPor` | `hora` | `fechaModificacion` |
+|---|---|---|---|---|---|---|---|
+
+Antes el tilde de "hecho" era puramente visual — vivía en el navegador de quien lo tocaba, se perdía al recargar, y dos personas viendo el mismo local en dispositivos distintos no se veían entre sí (bug real reportado en vivo: "quien dio el marcado no le aparece al otro"). Una fila acá = una tarea marcada como hecha en un día puntual, para una sucursal puntual; desmarcar BORRA la fila (sin fila = no hecho), mismo criterio que `GestionTareasSucursal`. Guarda el estado GLOBAL de la tarea, no el detalle de cada sub-ítem — una tarea con sub-ítems se persiste completa/incompleta en conjunto, no ítem por ítem. Escrita solo por `actualizarCheckGestion` (Code.gs), mismo criterio de seguridad que `actualizarDiasGestionSucursal` (la sucursal la decide el servidor).
 
 #### `fechaModificacion` — obligatoria en las 8 hojas sincronizadas
 

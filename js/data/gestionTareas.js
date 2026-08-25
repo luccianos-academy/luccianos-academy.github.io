@@ -1,12 +1,20 @@
 /* ============================
    Lucciano's Academy
-   data/gestionTareas.js — Tabla "GestionTareas" (Fase 1 backend de
-   Gestión semanal, #/gestion)
+   data/gestionTareas.js — Tabla "GestionTareas" (catálogo, solo
+   Admin) de Gestión semanal, #/gestion
 
-   Mismo patrón que data/cursos.js. dias/subitems viajan como STRING
+   Desde Fase 2 (2026-08-25) este archivo define SOLO el catálogo —
+   qué tareas existen, con qué ícono/título/sub-ítems. EN QUÉ DÍAS le
+   aplica cada una a cada local vive aparte, por sucursal, en
+   data/gestionTareasSucursal.js — la columna "dias" que todavía
+   pueda quedar en la Sheet de GestionTareas (esquema viejo) no se lee
+   ni se escribe más desde acá, queda inerte a propósito (evitar tocar
+   el esquema de la Sheet a mano sin necesidad).
+
+   Mismo patrón que data/cursos.js. subitems viaja como STRING
    separado por coma en la Sheet (mismo criterio que aplicaA/noAplicaA
-   de Cursos) — acá se normalizan a array para el resto de la app y
-   se aplanan de vuelta a string al escribir.
+   de Cursos) — acá se normaliza a array para el resto de la app y se
+   aplana de vuelta a string al escribir.
 =============================*/
 
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
@@ -30,7 +38,6 @@ function normalizarTarea(f) {
         icono: f.icono || "documento",
         titulo: f.titulo || "",
         detalle: f.detalle || "",
-        dias: aArray(f.dias),
         // Omitido (no array vacío) a propósito: tareaHtml() en gestion.js
         // decide "tiene sub-ítems" con `if (t.subitems)` — un [] vacío es
         // truthy en JS y renderizaría un desplegable sin nada adentro.
@@ -38,13 +45,12 @@ function normalizarTarea(f) {
     };
 }
 
-/** dias/subitems de array a string separado por coma, para la Sheet. */
-function aFilaSheet({ icono, titulo, detalle, dias, subitems }) {
+/** subitems de array a string separado por coma, para la Sheet. */
+function aFilaSheet({ icono, titulo, detalle, subitems }) {
     return {
         icono,
         titulo,
         detalle,
-        dias: (dias || []).join(","),
         subitems: (subitems || []).join(","),
     };
 }

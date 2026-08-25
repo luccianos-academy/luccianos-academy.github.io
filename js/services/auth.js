@@ -139,9 +139,9 @@ export const MENU_POR_ROL = {
     // sumarlo a MENU_POR_ROL.colaborador — no hace falta tocar esto.
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
+        "academia", "gestion", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "locales", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "locales", "gestion", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -184,9 +184,11 @@ const PERMISOS_PAGINA = {
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
     // "Gestión semanal" (#/gestion) — Admin gestiona el catálogo de
-    // tareas; Responsable de local/turno lo usa día a día (ver el
+    // tareas; Supervisor (incluye Capacitador) entra en modo lectura
+    // con el selector de local (Fase 2, 2026-08-25); Responsable de
+    // local/turno lo usa día a día para SU propio local (ver el
     // override de abajo, mismo criterio que "colaboradores"/Mi local).
-    gestion:        ["admin"],
+    gestion:        ["admin", "supervisor"],
 };
 
 export function puedeAccederA(pagina) {

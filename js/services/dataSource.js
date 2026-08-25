@@ -56,6 +56,21 @@ const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes
 
 export function invalidar(hoja) {
     delete cache[hoja];
+    // También la marca de frescura de IndexedDB de ESA hoja — sin
+    // esto, invalidar solo el cache en memoria (20s) no alcanzaba: la
+    // próxima lectura, ya sin cache en memoria, igual encontraba la
+    // copia de IndexedDB "fresca" (hasta 5 min) y la devolvía sin
+    // pegarle al backend. Bug real: el refresco en segundo plano de
+    // Gestión semanal (cada 20s) podía tardar hasta 5 min en ver un
+    // check marcado en OTRO dispositivo, aunque el propio invalidar()
+    // ya se hubiera llamado ahí. Mismo criterio que invalidarTodo(),
+    // acá acotado a una sola hoja.
+    try {
+        localStorage.removeItem(SELLO_IDB + hoja);
+    } catch (err) {
+        // localStorage puede fallar (cuota, modo privado) — no es
+        // motivo para que la invalidación del cache en memoria falle.
+    }
 }
 
 /** Tira TODO el cache en memoria de una. Lo usa el botón de refrescar
