@@ -126,7 +126,17 @@ export function enviarMailReal(destinatarios, asunto, cuerpo) {
 
 /** Push real (Firebase) a una lista de usuarios — el backend busca
  *  sus tokens en la hoja "Tokens" y les manda a todos sus
- *  dispositivos registrados (ver apps-script/Code.gs, enviarPush). */
+ *  dispositivos registrados (ver apps-script/Code.gs, enviarPush).
+ *  Solo Admin/Supervisor — ver enviarPushGestionReal para el caso de
+ *  Responsable de local/turno. */
 export function enviarPushReal(usuarioIds, titulo, cuerpo, url) {
     return gasRequest("enviarPush", { usuarioIds, titulo, cuerpo, url });
+}
+
+/** Push real acotado a "Gestión semanal" — a diferencia de
+ *  enviarPushReal, NO manda una lista de destinatarios: el backend la
+ *  decide solo (los demás Responsables de la MISMA sucursal del que
+ *  llama) — ver apps-script/Code.gs, enviarPushGestion. */
+export function enviarPushGestionReal(titulo, cuerpo, url) {
+    return gasRequest("enviarPushGestion", { titulo, cuerpo, url });
 }

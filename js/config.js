@@ -105,7 +105,7 @@ export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey;
  *  saber de un vistazo qué versión corre en cada entorno y no
  *  confundir REPO con producción. Se sube a mano cada vez que se
  *  pushea un cambio — no hay build step que lo automatice. */
-export const VERSION = "1.45.0";
+export const VERSION = "1.46.0";
 
 export const EMPRESA = {
     nombre: "Lucciano's",
@@ -138,6 +138,9 @@ export const HOJAS = {
     // producto sin fila está disponible en toda la red — ver
     // data/disponibilidad.js.
     DISPONIBILIDAD: "Disponibilidad",
+    // Catálogo de tareas de "Gestión semanal" (Responsables de Local y
+    // Turno, #/gestion) — ver apps-script/README.md para el esquema.
+    GESTION_TAREAS: "GestionTareas",
 };
 
 /**
@@ -164,6 +167,7 @@ export const MODULOS = [
     { id: "configuracion",  nombre: "Configuración",        icono: "configuracion" },
     { id: "integraciones",  nombre: "Integraciones",        icono: "integraciones" },
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
+    { id: "gestion",        nombre: "Gestión semanal",      icono: "calendario" },
     { id: "coordinacionoperativa", nombre: "Comunicaciones", icono: "comentario" },
     { id: "recursos",       nombre: "Recursos",             icono: "integraciones" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },

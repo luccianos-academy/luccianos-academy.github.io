@@ -5234,3 +5234,545 @@ table.data-table tbody tr:hover{
 }
 
 .btn-enlace:hover { color: var(--gold-deep); }
+
+/* GUÍA DE GESTIÓN (pages/gestion.js) — maqueta de visualización, ver
+   el comment grande arriba de ese archivo para el contexto. */
+.aviso-maqueta{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-top:18px;
+    padding:14px 16px;
+    background:var(--info-soft);
+    border:1px solid var(--info);
+    border-radius:var(--radius-sm);
+    color:var(--info);
+}
+.aviso-maqueta svg{ flex-shrink:0; margin-top:1px; }
+.aviso-maqueta p{ margin:0; font-size:13.5px; color:var(--text); }
+
+.lista-tareas-gestion{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:14px;
+}
+
+/* Todas las tareas arrancan sin día (pedido explícito) — un día sin
+   nada cargado todavía no tiene que leerse como "roto" (avisoDiaVacioHtml/
+   actualizarAvisoDiaVacio en gestion.js). */
+.aviso-dia-vacio{
+    margin:0;
+    padding:16px 18px;
+    border:1px dashed var(--line);
+    border-radius:var(--radius-sm);
+    color:var(--muted);
+    font-size:13px;
+    font-style:italic;
+}
+
+.tarea-gestion{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:16px 18px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    cursor:pointer;
+    transition:var(--transition);
+}
+.tarea-gestion:hover{ border-color:var(--gold); }
+
+.tarea-gestion-check{
+    flex-shrink:0;
+    width:20px;
+    height:20px;
+    margin-top:2px;
+    accent-color:var(--gold);
+}
+
+.tarea-gestion-ico{
+    flex-shrink:0;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.tarea-gestion-txt{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.tarea-gestion-txt strong{ font-size:14.5px; color:var(--text); }
+.tarea-gestion-txt span{ font-size:12.5px; color:var(--muted); }
+
+.tarea-gestion.hecha{ border-color:var(--success); background:var(--success-soft); }
+.tarea-gestion.hecha .tarea-gestion-txt strong{ text-decoration:line-through; color:var(--muted); }
+.tarea-gestion.hecha .tarea-gestion-ico{ background:var(--success-soft); color:var(--success); }
+
+/* Tareas desplegables (ej. "Pedido a proveedores") — el encabezado se
+   toca para abrir/cerrar, la tarjeta se marca "hecha" sola cuando se
+   tildó el último sub-ítem (no tiene checkbox propio). */
+.tarea-gestion-desplegable{
+    padding:0;
+    display:block;
+    cursor:default;
+}
+
+.tarea-gestion-header{
+    width:100%;
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:16px 18px;
+    background:none;
+    border:none;
+    color:inherit;
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.tarea-gestion-progreso{
+    flex-shrink:0;
+    align-self:center;
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--gold-deep);
+    background:var(--gold-soft);
+    padding:4px 10px;
+    border-radius:999px;
+}
+
+.tarea-gestion-chevron{
+    flex-shrink:0;
+    align-self:center;
+    color:var(--muted);
+    display:flex;
+    transition:transform var(--transition);
+}
+.tarea-gestion-desplegable.desplegada .tarea-gestion-chevron{ transform:rotate(90deg); }
+
+.tarea-gestion-subitems{
+    display:none;
+    flex-direction:column;
+    padding:0 18px 14px 66px;
+}
+.tarea-gestion-desplegable.desplegada .tarea-gestion-subitems{ display:flex; }
+
+.subitem-gestion{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 0;
+    border-top:1px solid var(--line);
+    font-size:13.5px;
+    color:var(--text);
+    cursor:pointer;
+}
+.subitem-gestion:first-child{ border-top:1px solid var(--line); }
+.subitem-gestion input{ accent-color:var(--gold); width:17px; height:17px; flex-shrink:0; }
+
+.tarea-gestion-desplegable.hecha .tarea-gestion-progreso{ background:var(--success-soft); color:var(--success); }
+
+/* "+ Agregar ítem" al final de cada lista desplegable — para sumar
+   sub-ítems propios sin depender de un pedido de código cada vez. */
+.subitem-gestion-agregar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 0 2px;
+}
+
+.input-subitem-nuevo{
+    flex:1;
+    min-width:0;
+    padding:8px 12px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    color:var(--text);
+    font-size:13px;
+}
+.input-subitem-nuevo:focus{ outline:none; border-color:var(--gold); }
+
+.btn-agregar-subitem{
+    flex-shrink:0;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    border:1px solid var(--gold);
+    background:transparent;
+    color:var(--gold-deep);
+    font-size:18px;
+    line-height:1;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-agregar-subitem:hover{ background:var(--gold-soft); }
+
+/* Tabs "Formación / Gestión semanal / ¿Qué hago si...?" — mismo
+   lenguaje visual que .tabs-semaforo (reportes.js), nombre propio
+   para no acoplar dos páginas sin relación a la misma clase. */
+.tabs-gestion{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:18px;
+}
+
+.tab-gestion{
+    padding:8px 16px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.tab-gestion.activa{
+    background:var(--gold);
+    color:var(--black);
+    border-color:var(--gold);
+}
+
+/* Área "Formación" — solo títulos de tema por ahora, cada uno con un
+   badge "Próximamente" bien visible para que no se confunda con
+   contenido ya cargado. */
+.lista-temas-formacion{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:14px;
+}
+
+.tema-formacion{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:16px 18px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+}
+
+.tema-formacion-ico{
+    flex-shrink:0;
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.tema-formacion-txt{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1; }
+.tema-formacion-txt strong{ font-size:14.5px; color:var(--text); }
+.tema-formacion-txt span{ font-size:12.5px; color:var(--muted); }
+
+.badge-proximamente{
+    flex-shrink:0;
+    align-self:center;
+    font-size:11.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--muted);
+    background:var(--soft);
+    padding:4px 10px;
+    border-radius:999px;
+}
+
+/* Área "¿Qué hago si...?" — mismo patrón desplegable que las tareas
+   con sub-ítems, pero el cuerpo es el molde de 4 campos en vez de un
+   checklist. Todo "Pendiente de contenido" hasta que se cargue la
+   guía real situación por situación. */
+.lista-situaciones-gestion{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    margin-top:14px;
+}
+
+.situacion-gestion{
+    padding:0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+}
+
+.situacion-gestion-header{
+    width:100%;
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:16px 18px;
+    background:none;
+    border:none;
+    color:inherit;
+    font:inherit;
+    text-align:left;
+    cursor:pointer;
+}
+
+.situacion-gestion-cuerpo{
+    display:none;
+    flex-direction:column;
+    gap:14px;
+    padding:0 18px 18px 66px;
+}
+.situacion-gestion.desplegada .situacion-gestion-cuerpo{ display:flex; }
+.situacion-gestion.desplegada .tarea-gestion-chevron{ transform:rotate(90deg); }
+
+.situacion-gestion-campo strong{
+    display:block;
+    font-size:12.5px;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    color:var(--gold-deep);
+    margin-bottom:4px;
+}
+
+.situacion-gestion-pendiente{
+    margin:0;
+    font-size:13.5px;
+    color:var(--muted);
+    font-style:italic;
+}
+
+/* Pills Do/Lu/Ma/.../Sá en cada tarjeta — pedido explícito: una tarea
+   puede tener MÁS de un día ("los depósitos se hacen lunes y
+   viernes"), así que nada de <select> de uno solo. Cada pill prende/
+   apaga ESE día para la tarea sin abrir ningún modal. */
+.tarea-gestion-dia-control{
+    padding:10px 18px 14px;
+    border-top:1px solid var(--line);
+}
+
+.tarea-gestion-dia-label{
+    display:block;
+    font-size:11.5px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    font-weight:700;
+    margin-bottom:8px;
+}
+
+.dias-pills-tarea{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.pill-dia-tarea{
+    padding:5px 10px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:999px;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.pill-dia-tarea:hover{ border-color:var(--gold); }
+.pill-dia-tarea.activa{
+    background:var(--gold);
+    color:var(--black);
+    border-color:var(--gold);
+}
+
+/* Tarea simple (sin sub-ítems) — en columna, para dejar lugar a las
+   pills de día debajo de la fila principal. Misma especificidad "dos
+   clases" que .tarea-gestion-desplegable para pisarle el display:flex
+   de fila sin duplicar el resto. */
+.tarea-gestion.tarea-gestion-simple{
+    display:flex;
+    flex-direction:column;
+    padding:0;
+    cursor:default;
+}
+
+.tarea-gestion-label{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+    padding:16px 18px;
+    cursor:pointer;
+}
+
+/* Botones sobre la pila de días ("Exportar a PDF" / "+ Nueva tarea") —
+   .btn de base (padding:12px 20px) queda grande al lado de las pills
+   chicas de días/área que lo rodean. Achicado a la misma proporción
+   que .tab-gestion para que lea como una sola familia de controles,
+   no tres tamaños distintos apilados. */
+.acciones-gestion-semanal{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:18px;
+    margin-bottom:22px;
+}
+.acciones-gestion-semanal .btn{
+    padding:7px 14px;
+    font-size:12.5px;
+}
+
+/* Modal "Nueva tarea" — sub-tareas sueltas, mismo espíritu que los
+   sub-puntos de un paso en Lecciones (academia.js: subpuntoHtml). */
+.subtarea-nueva-fila{
+    display:flex;
+    gap:8px;
+    align-items:flex-start;
+    margin-bottom:8px;
+}
+.subtarea-nueva-fila textarea{ flex:1; }
+
+.btn-quitar-subtarea-nueva{
+    flex:0 0 auto;
+    padding:8px 12px;
+    background:var(--danger-soft);
+    border:1px solid var(--danger);
+    border-radius:var(--radius-sm);
+    color:var(--danger);
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.btn-agregar-subtarea-nueva{
+    background:none;
+    border:none;
+    color:var(--gold-deep);
+    cursor:pointer;
+    font-size:12.5px;
+    font-weight:600;
+    padding:4px 0;
+}
+
+/* "Enviar push" — solo en la vista por día, avisa a los demás
+   Responsables de local/turno del mismo local si la tarea quedó
+   completa o no, sin que nadie escriba nada. */
+.tarea-gestion-push{
+    padding:10px 18px 0;
+}
+
+.btn-enviar-push{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 14px;
+    background:var(--gold-soft);
+    border:1px solid var(--gold);
+    border-radius:999px;
+    color:var(--gold-deep);
+    font-size:12.5px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-enviar-push:hover{ background:var(--gold); color:var(--black); }
+.btn-enviar-push:disabled{ opacity:.6; cursor:default; }
+
+/* Fila de acciones al pie de cada tarjeta — Editar/Eliminar (Admin),
+   mismos íconos/estilo que ya usa el modal de Publicación
+   (.publicacion-accion-icono). */
+.tarea-gestion-acciones{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 18px 12px;
+    border-top:1px solid var(--line);
+}
+
+.tarea-gestion-acciones .publicacion-accion-icono{
+    width:30px;
+    height:30px;
+}
+
+/* Pestaña "Tareas" — catálogo desplegable (misma base que
+   .tarea-gestion-desplegable: la fila ya trae padding:0, header
+   clickeable, chevron que rota). Acá solo hace falta el color "en
+   uso" — NO reusa .hecha (esa tacha el título, es semántica de
+   "completado", no de "aplica"). */
+.aviso-tareas-aplicables{
+    margin:0 0 14px;
+    font-size:13px;
+    color:var(--muted);
+}
+
+.fila-aplica-tarea.en-uso{
+    border-color:var(--success);
+    background:var(--success-soft);
+}
+
+.badge-en-uso{
+    flex-shrink:0;
+    align-self:center;
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    padding:4px 10px;
+    border-radius:999px;
+    background:var(--soft);
+    color:var(--muted);
+}
+.badge-en-uso.activa{
+    background:var(--success-soft);
+    color:var(--success);
+}
+
+/* Checkboxes de "Días" en el modal Nueva/Editar tarea — fila real por
+   ítem (contenido-sin-errores), no un <select multiple>. */
+.campo-dias-modal{ margin-top:14px; }
+
+.campo-dias-modal-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:6px;
+}
+.campo-dias-modal-header span{ font-size:13px; color:var(--muted); }
+.campo-dias-modal-header button{
+    background:none;
+    border:none;
+    color:var(--gold-deep);
+    font-size:12px;
+    font-weight:600;
+    cursor:pointer;
+    padding:2px 0;
+}
+
+.dias-checkbox-grid{
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:8px;
+}
+
+/* .dias-checkbox-grid > .dia-checkbox-fila (no ".dia-checkbox-fila" a
+   secas) para ganarle en especificidad a ".modal-body label"
+   (display:block + margin-top:14px) — mismo truco ya documentado en
+   .radio-cards > .radio-card. */
+.dias-checkbox-grid > .dia-checkbox-fila{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:8px 10px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    font-size:13.5px;
+    color:var(--text);
+    cursor:pointer;
+    margin:0;
+}
+.dia-checkbox-fila input{ accent-color:var(--gold); width:16px; height:16px; flex-shrink:0; }

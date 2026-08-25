@@ -183,6 +183,10 @@ const PERMISOS_PAGINA = {
     newsnueva: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
+    // "Gestión semanal" (#/gestion) — Admin gestiona el catálogo de
+    // tareas; Responsable de local/turno lo usa día a día (ver el
+    // override de abajo, mismo criterio que "colaboradores"/Mi local).
+    gestion:        ["admin"],
 };
 
 export function puedeAccederA(pagina) {
@@ -191,6 +195,11 @@ export function puedeAccederA(pagina) {
     // Encargado (colaborador con encargado=true) suma acceso a la
     // pantalla de equipo, acotada a su sucursal — ver pages/colaboradores.js.
     if (pagina === "colaboradores" && usuario.rol === "colaborador" && usuario.encargado) return true;
+    // Responsable de local o de turno suma acceso a Gestión semanal —
+    // mismo criterio que "colaboradores" arriba. Es la primera vez que
+    // responsableTurno desbloquea algo (antes era solo una etiqueta
+    // cosmética, ver data/usuarios.js).
+    if (pagina === "gestion" && usuario.rol === "colaborador" && (usuario.encargado || usuario.responsableTurno)) return true;
     const rolesPermitidos = PERMISOS_PAGINA[pagina];
     if (!rolesPermitidos) return true;
     return rolesPermitidos.includes(usuario.rol);

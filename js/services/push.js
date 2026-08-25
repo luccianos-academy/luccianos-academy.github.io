@@ -17,7 +17,7 @@
 
 import { FIREBASE_CONFIG, FIREBASE_VAPID_KEY, PUSH_DISPONIBLE, USE_MOCK_DATA } from "../config.js";
 import { registrarToken } from "../data/tokens.js";
-import { enviarPushReal } from "./google.js";
+import { enviarPushReal, enviarPushGestionReal } from "./google.js";
 
 let appInicializada = false;
 
@@ -77,5 +77,15 @@ export async function activarPush(usuario) {
 export async function mandarPush(usuarioIds, titulo, cuerpo, url) {
     if (USE_MOCK_DATA || !usuarioIds.length) return { ok: false, error: "No disponible en modo demo." };
     return enviarPushReal(usuarioIds, titulo, cuerpo, url);
+}
+
+/** "Enviar push" desde Gestión semanal (#/gestion) — a diferencia de
+ *  mandarPush, no recibe destinatarios: el backend los decide solo
+ *  (ver enviarPushGestion en Code.gs). Así lo puede llamar cualquier
+ *  Responsable de local/turno sin poder abusarlo para avisarle a
+ *  gente ajena a su local. */
+export async function mandarPushGestion(titulo, cuerpo, url) {
+    if (USE_MOCK_DATA) return { ok: false, error: "No disponible en modo demo." };
+    return enviarPushGestionReal(titulo, cuerpo, url);
 }
 

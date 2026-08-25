@@ -21,6 +21,7 @@ import { InicioAdmin } from "./pages/inicioAdmin.js";
 import { InicioSupervisor } from "./pages/inicioSupervisor.js";
 import { InicioColaborador } from "./pages/inicioColaborador.js";
 import { Colaboradores, bindColaboradores } from "./pages/colaboradores.js";
+import { Gestion, bindGestion } from "./pages/gestion.js";
 import { Cursos, bindCursos } from "./pages/cursos.js";
 import { Examen, bindExamen } from "./pages/examen.js";
 import { Perfil, bindPerfil } from "./pages/perfil.js";
@@ -53,6 +54,7 @@ const RUTAS = {
     login:         { render: Login, fullscreen: true },
     inicio:        { render: Inicio },
     colaboradores: { render: Colaboradores, bind: bindColaboradores },
+    gestion:       { render: Gestion, bind: bindGestion },
     cursos:        { render: Cursos, bind: bindCursos },
     examen:        { render: Examen, bind: bindExamen },
     perfil:        { render: Perfil, bind: bindPerfil },

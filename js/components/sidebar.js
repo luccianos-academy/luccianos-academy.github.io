@@ -100,6 +100,7 @@ export function Sidebar(rutaActiva = "inicio") {
 
     const usuario = getUsuarioActual();
     const esEncargado = usuario.rol === "colaborador" && usuario.encargado;
+    const esResponsable = usuario.rol === "colaborador" && (usuario.encargado || usuario.responsableTurno);
 
     asegurarMiUsuarioCache(usuario);
     asegurarNoLeidas(usuario);
@@ -117,6 +118,14 @@ export function Sidebar(rutaActiva = "inicio") {
     if (esEncargado) {
         const posPerfil = idsDelMenu.indexOf("perfil");
         idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "colaboradores");
+    }
+    // Responsable de local o de turno suma "Gestión semanal" — mismo
+    // criterio que "Mi local" arriba, mismo lugar (antes de "perfil").
+    // Sí incluye responsableTurno solo (sin encargado): esa persona no
+    // ve "Mi local", pero sí tiene que poder gestionar sus tareas.
+    if (esResponsable) {
+        const posPerfil = idsDelMenu.indexOf("perfil");
+        idsDelMenu.splice(posPerfil === -1 ? idsDelMenu.length : posPerfil, 0, "gestion");
     }
 
     // { activo, texto } por id de módulo — misma fuente que usa
