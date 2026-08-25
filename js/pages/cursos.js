@@ -451,9 +451,9 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
         ${IMAGEN_EXTRA_POR_LECCION[l.id] ? `<img class="leccion-imagen" style="margin-top:12px" src="${IMAGEN_EXTRA_POR_LECCION[l.id]}" alt="${l.titulo}">` : ""}
         ${VIDEOS_EXTRA_POR_LECCION[l.id] ? `<div style="margin-top:12px">${renderVideoCarrusel(VIDEOS_EXTRA_POR_LECCION[l.id], l.titulo)}</div>` : ""}
         ${renderProcedimiento(l.procedimiento)}
-        ${l.errores ? `<div class="leccion-callout leccion-callout-errores"><strong>Errores frecuentes</strong><p>${l.errores}</p></div>` : ""}
-        ${l.buenasPracticas ? `<div class="leccion-callout"><strong>Buenas prácticas</strong><p>${l.buenasPracticas}</p></div>` : ""}
-        ${l.consejo ? `<div class="leccion-callout leccion-callout-tip"><strong>Consejo</strong><p>${l.consejo}</p></div>` : ""}
+        ${l.errores ? `<div class="leccion-callout leccion-callout-errores"><strong>Errores frecuentes</strong>${renderProcedimiento(l.errores)}</div>` : ""}
+        ${l.buenasPracticas ? `<div class="leccion-callout"><strong>Buenas prácticas</strong>${renderProcedimiento(l.buenasPracticas)}</div>` : ""}
+        ${l.consejo ? `<div class="leccion-callout leccion-callout-tip"><strong>Consejo</strong>${renderProcedimiento(l.consejo)}</div>` : ""}
         ${l.resumen ? `<p class="text-sm text-muted" style="margin-top:10px">${l.resumen}</p>` : ""}
         <div class="leccion-acciones">
             ${tieneVideo ? `<a class="btn btn-secondary" data-video-leccion="${l.id}" href="${l.video}">Ver video</a>` : ""}
