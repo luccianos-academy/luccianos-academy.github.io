@@ -3982,6 +3982,23 @@ table.data-table tbody tr:hover{
     color:var(--text);
 }
 
+/* Adentro de un cuadro de lección (Errores/Buenas prácticas/Consejo)
+   la grilla de tarjetitas queda redundante — el cuadro ya tiene su
+   propio fondo. Ahí se ve como lista simple en columna, mismo
+   lenguaje visual que la lista numerada de al lado. */
+.leccion-callout .leccion-procedimiento-lista{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+.leccion-callout .leccion-procedimiento-lista li{
+    background:none;
+    border:none;
+    padding:0;
+    font-size:inherit;
+    line-height:1.5;
+}
+
 /* Pasos numerados (procesos secuenciales) — círculo negro con número
    dorado, mismo lenguaje visual que la maqueta aprobada. */
 .leccion-pasos{
