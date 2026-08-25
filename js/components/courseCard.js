@@ -24,7 +24,7 @@ const TEMA_POR_CURSO = {
     "Chocolatería": { icono: "chocolate", foto: "assets/img/cursos/chocolateria.jpg" },
     "Sistema y Caja": { icono: "caja", foto: "assets/img/cursos/sistema-caja.jpg", posicion: "left" },
     "Atención al Cliente": { icono: "corazon", foto: "assets/img/cursos/atencion-cliente-hero.jpg", posicion: "left" },
-    "Encargados y Responsables": { icono: "supervisores" },
+    "Responsables de Local y Turno": { icono: "supervisores" },
 };
 
 /** Foto/ícono de un curso — expuesto para reusar el mismo mapeo fuera

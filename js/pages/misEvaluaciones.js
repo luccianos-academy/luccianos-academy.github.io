@@ -61,7 +61,7 @@ export async function MisEvaluaciones() {
     ]);
 
     // Mismo filtro que el resto de la app: "Gestión" (hoy solo
-    // "Encargados y Responsables") es solo para colaboradores con
+    // "Responsables de Local y Turno") es solo para colaboradores con
     // encargado:true (ver pages/cursos.js, pages/inicioColaborador.js).
     const cursosAplicables = cursosDeLaPersona(cursos, usuario);
 

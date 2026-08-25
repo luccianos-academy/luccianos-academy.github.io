@@ -15,5 +15,5 @@ export const cursosMock = [
     { id: 4, nombre: "Pastelería",                      categoria: "Producto",     obligatorio: "SI", orden: 5 },
     { id: 5, nombre: "Chocolatería",                    categoria: "Producto",     obligatorio: "SI", orden: 6 },
     { id: 6, nombre: "Sistema y Caja",                  categoria: "Operaciones",  obligatorio: "SI", orden: 7 },
-    { id: 8, nombre: "Encargados y Responsables",       categoria: "Gestión",      obligatorio: "NO", orden: 8 },
+    { id: 8, nombre: "Responsables de Local y Turno",       categoria: "Gestión",      obligatorio: "NO", orden: 8 },
 ];

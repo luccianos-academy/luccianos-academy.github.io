@@ -80,7 +80,7 @@ export async function InicioColaborador() {
 
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
 
-    // Categoría "Gestión" (hoy solo "Encargados y Responsables") es
+    // Categoría "Gestión" (hoy solo "Responsables de Local y Turno") es
     // solo para colaboradores con encargado:true — mismo filtro que
     // ya usa pages/cursos.js para la lista/gateo. Sin este filtro acá,
     // un colaborador raso veía "8 módulos" en vez de 7 y una tarjeta
