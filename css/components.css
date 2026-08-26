@@ -5795,56 +5795,51 @@ table.data-table tbody tr:hover{
     padding:4px 0;
 }
 
-/* Fila compartida "Enviar push" + "Exportar a PDF", al PIE de las
-   tareas del día activo (después de #contenido-gestion-imprimible) —
-   por FUERA de la tarjeta de la tarea, pedido explícito en dos
-   rondas: "el push está sobre la tarea y en el mockup está por
-   fuera, con una pill linda premium, y exportar justo al lado", y
-   después "está abajo en el mock, no arriba" (reubicada). Arranca
-   oculta (inline style), bindCuerpoGestion() la muestra al tocar una
-   pill de día. */
-.acciones-dia-gestion{
+/* Fila "Enviar push" + "Exportar a PDF", POR TAREA, JUNTAS — sibling
+   suelto después de cada tarjeta (.tarea-gestion-push en tareaHtml,
+   ver gestion.js). Reusa esta clase a propósito: ya estaba en la
+   lista de "ocultar del PDF" de exportarPdf.js, así los botones de
+   acción nunca aparecen en el documento exportado. Pedido explícito,
+   dos rondas: primero sacar el push de ADENTRO de la tarjeta, después
+   "las pusiste una sobre la otra, quiero que estén una al lado de la
+   otra" — Exportar se repite en cada fila (exporta lo mismo, la guía
+   del día completo) en vez de vivir solo, lejos de cualquier push. */
+.tarea-gestion-push{
     display:flex;
+    align-items:center;
     flex-wrap:wrap;
     gap:10px;
-    margin-top:14px;
-    margin-bottom:22px;
-}
-.acciones-dia-gestion .btn{
-    padding:9px 16px;
-    font-size:13px;
 }
 
-/* Pill sólida (mismo par sólido/contorno que "Exportar a PDF" al
-   lado) — antes era un acento chico (fondo tenue) metido adentro de
-   la tarjeta; ahora que vive suelta en su propia fila necesita el
-   mismo peso visual que un botón real, no un detalle discreto. */
-.btn-enviar-push{
+/* Mismo tamaño exacto para las dos — pedido explícito: "me gusta así
+   las pills de enviar push y exportar sean del mismo tamaño". Antes
+   Exportar heredaba el padding/tamaño de fuente de .btn (más grande)
+   y el radio de borde de .btn-secondary (menos redondeado), quedando
+   visualmente más grande y menos "pill" que Enviar push. */
+.btn-enviar-push,
+.btn-exportar-tarea{
     display:inline-flex;
     align-items:center;
     gap:6px;
     padding:9px 16px;
-    background:var(--gold);
-    border:1px solid var(--gold);
     border-radius:999px;
-    color:var(--black);
     font-size:13px;
     font-weight:700;
     cursor:pointer;
     transition:var(--transition);
 }
+.btn-enviar-push{
+    background:var(--gold);
+    border:1px solid var(--gold);
+    color:var(--black);
+}
 .btn-enviar-push:hover{ background:var(--gold-deep); border-color:var(--gold-deep); }
 .btn-enviar-push:disabled{ opacity:.6; cursor:default; }
 
-.push-dia-wrap{
-    display:flex;
-    align-items:center;
-}
-
 /* Banner de confirmación — pedido explícito: "sumar un banner enviar,
    así si presiono por error lo revierte". Reemplaza al botón adentro
-   de #push-dia-wrap (mismo lugar, no un modal aparte) hasta que se
-   toque "Confirmar envío" o "Cancelar". */
+   de .tarea-gestion-push (mismo lugar, no un modal aparte) hasta que
+   se toque "Confirmar envío" o "Cancelar". */
 .banner-confirmar-push{
     display:flex;
     align-items:center;
