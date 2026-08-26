@@ -162,3 +162,42 @@ export function cursoAplicaAPersona(curso, persona, sucursales = []) {
 export function leccionesDeLaPersona(lecciones, persona, sucursales = []) {
     return (lecciones || []).filter((l) => aplicaAlUsuario(l, persona, sucursales));
 }
+
+/**
+ * Misma pregunta que aplicaAlUsuario ("¿esto le corresponde?"), pero
+ * contra una SUCURSAL directa en vez de una persona — Gestión semanal
+ * (pages/gestion.js) filtra tareas para el local que esté activo en
+ * el selector, no para "quien está logueado" (Admin/Supervisor miran
+ * cualquier local ajeno en modo lectura). Es una función aparte y no
+ * un caso más de aplicaAlUsuario a propósito: esa función es la
+ * columna vertebral de Cursos/Lecciones desde hace tiempo y ya
+ * funciona bien — tocarla para sumarle un modo "sin persona" es más
+ * riesgo que las ~15 líneas que se repiten acá.
+ *
+ * Suma un token nuevo al vocabulario de aplicaA/noAplicaA que
+ * Cursos/Lecciones no necesitan: "Propios"/"Franquicias", contra
+ * Sucursales.esPropio (mismo campo que ya usa Canales para "Encargados
+ * — Locales propios/Franquicias"). Se puede combinar con país/local
+ * como cualquier otro token: "Propios, Uruguay" = todos los propios +
+ * toda la red de Uruguay.
+ */
+export function aplicaASucursal(item, sucursal) {
+    const incluye = String(item?.aplicaA || "").trim();
+    const excluye = String(item?.noAplicaA || "").trim();
+    if (!incluye && !excluye) return true;
+    if (!sucursal) return false;
+
+    const miLocal = normalizar(sucursal.nombre);
+    const miPais = normalizar(sucursal.pais);
+    const miTipo = sucursal.esPropio ? "propios" : "franquicias";
+    const meNombra = (lista) => lista
+        .split(",")
+        .map(normalizar)
+        .filter(Boolean)
+        .some((t) => t === miLocal || (miPais && t === miPais) || t === miTipo);
+
+    // Misma prioridad que aplicaAlUsuario: la exclusión gana.
+    if (excluye && meNombra(excluye)) return false;
+    if (!incluye) return true;
+    return meNombra(incluye);
+}

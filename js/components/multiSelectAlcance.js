@@ -65,6 +65,15 @@ export async function bindMultiSelectAlcance(inputId) {
 
     const cuantosEn = (pais) => activas.filter((s) => s.pais === pais).length;
 
+    // "Propios"/"Franquicias" — pedido explícito para Gestión semanal
+    // (services/alcance.js → aplicaASucursal), mismo campo esPropio que
+    // ya usa Canales. Fijos (no salen de los datos como los países)
+    // porque son solo dos y siempre existen los dos, y van primero: es
+    // la elección más común en Gestión semanal, más que país o local
+    // puntual.
+    const tipos = ["Propios", "Franquicias"];
+    const cuantosDeTipo = (tipo) => activas.filter((s) => s.esPropio === (tipo === "Propios")).length;
+
     let elegidas = hidden.value.split(",").map((n) => n.trim()).filter(Boolean);
 
     function renderChips() {
@@ -93,10 +102,18 @@ export async function bindMultiSelectAlcance(inputId) {
         const libre = (n) => !elegidas.includes(n);
         const coincide = (n) => !q || n.toLowerCase().includes(q);
 
+        const tiposOk = tipos.filter((t) => libre(t) && coincide(t));
         const paisesOk = paises.filter((p) => libre(p) && coincide(p));
         const localesOk = locales.filter((n) => libre(n) && coincide(n));
 
         const html = [];
+        if (tiposOk.length) {
+            html.push(`<div class="autocomplete-grupo">Tipo de local</div>`);
+            tiposOk.forEach((t) => {
+                const n = cuantosDeTipo(t);
+                html.push(`<div class="autocomplete-item" data-valor="${escaparHtml(t)}">${escaparHtml(t)} <span class="text-xs text-muted">(${n} ${n === 1 ? "local" : "locales"})</span></div>`);
+            });
+        }
         if (paisesOk.length) {
             html.push(`<div class="autocomplete-grupo">Países</div>`);
             paisesOk.forEach((p) => {

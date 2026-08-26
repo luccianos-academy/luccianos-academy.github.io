@@ -48,10 +48,12 @@ es lo que el código pide.
 
 Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
-| `id` | `icono` | `titulo` | `detalle` | `dias` | `subitems` | `fechaModificacion` |
-|---|---|---|---|---|---|---|
+| `id` | `icono` | `titulo` | `detalle` | `dias` | `subitems` | `aplicaA` | `noAplicaA` | `fechaModificacion` |
+|---|---|---|---|---|---|---|---|---|
 
 `dias` y `subitems` van separados por coma en una sola celda (ej. `Lunes,Viernes` o `Abatidor,Armario,Vitrina`) — mismo criterio ya usado en `aplicaA`/`noAplicaA` de `Cursos`, no un esquema nuevo. `subitems` puede quedar vacío (no todas las tareas tienen sub-ítems). `fechaModificacion` es obligatoria como en cualquier hoja que se escribe desde la app (ver más abajo) — sin ella, `_actualizarCrudo` rechaza la escritura.
+
+`aplicaA`/`noAplicaA` (agregadas 2026-08-26): país/propio-franquicia/local puntual a quien le corresponde la tarea — MISMO campo y semántica que `Cursos`/`Lecciones` (vacío = aplica a TODOS, la exclusión gana), ver `services/alcance.js` → `aplicaASucursal`. Suman dos tokens que Cursos/Lecciones no usan: `Propios`/`Franquicias`, contra `Sucursales.esPropio`. **Sin estas 2 columnas en la Sheet, `_actualizarCrudo` devuelve `{ok:false, error:'Faltan columnas...'}` al editar CUALQUIER tarea** (el cliente siempre manda los dos campos, aunque no se toquen) — agregarlas es paso obligatorio antes de probar este cambio, no opcional.
 
 Esto importa por cómo escribe el backend: `_actualizarCrudo` busca cada
 campo por **nombre exacto de encabezado**. Si la columna no existe, la

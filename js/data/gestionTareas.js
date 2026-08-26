@@ -42,16 +42,25 @@ function normalizarTarea(f) {
         // decide "tiene sub-ítems" con `if (t.subitems)` — un [] vacío es
         // truthy en JS y renderizaría un desplegable sin nada adentro.
         ...(subitems.length ? { subitems } : {}),
+        // A quién le aplica esta tarea — mismo campo/semántica que
+        // Cursos/Lecciones (data/cursos.js): lista separada por coma
+        // de países, locales puntuales, y ahora también "Propios"/
+        // "Franquicias" (ver services/alcance.js → aplicaASucursal).
+        // Vacío = aplica a TODOS. La exclusión (noAplicaA) gana.
+        aplicaA: String(f.aplicaA || "").trim(),
+        noAplicaA: String(f.noAplicaA || "").trim(),
     };
 }
 
 /** subitems de array a string separado por coma, para la Sheet. */
-function aFilaSheet({ icono, titulo, detalle, subitems }) {
+function aFilaSheet({ icono, titulo, detalle, subitems, aplicaA, noAplicaA }) {
     return {
         icono,
         titulo,
         detalle,
         subitems: (subitems || []).join(","),
+        aplicaA: aplicaA || "",
+        noAplicaA: noAplicaA || "",
     };
 }
 

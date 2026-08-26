@@ -52,6 +52,9 @@ import { getChecksPorSucursal, guardarCheckSucursal } from "../data/gestionCheck
 import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
+import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
+import { getSucursales } from "../data/sucursales.js";
+import { aplicaASucursal, normalizar } from "../services/alcance.js";
 
 /* ============================
    Gestión semanal — el checklist, por día
@@ -95,6 +98,21 @@ let sucursalActiva = "";
  *  cargarDatos() y se usa al renderizar tareaHtml() y al guardar un
  *  toggle. Ver data/gestionChecks.js. */
 let checksActivos = {};
+
+/** Lista completa de Sucursales (nombre/país/esPropio) — se necesita
+ *  para filtrar el catálogo por aplicaA/noAplicaA (services/alcance.js
+ *  → aplicaASucursal), que trabaja contra el OBJETO sucursal, no solo
+ *  el nombre que guarda sucursalActiva. Se trae una sola vez por
+ *  visita a la página (Gestion()), no en cada cambio de local — la
+ *  propia capa de datos (dataSource.js) ya cachea la lectura. */
+let sucursales = [];
+
+/** El objeto Sucursal completo de sucursalActiva, o null si no hay
+ *  ninguna elegida todavía (o no se encontró — no debería pasar). */
+function sucursalActivaObj() {
+    if (!sucursalActiva) return null;
+    return sucursales.find((s) => normalizar(s.nombre) === normalizar(sucursalActiva)) || null;
+}
 
 const ICONOS_TAREA = [
     { valor: "documento", label: "Documento" },
@@ -207,6 +225,19 @@ function subitemsSoloLecturaHtml(t) {
     `;
 }
 
+/** Badge de alcance ("Propios", "Uruguay", "Menos Franquicias"...) —
+ *  pedido explícito: distinguir tareas genéricas (todos los locales,
+ *  sin badge — es el caso más común, no hace falta remarcarlo) de las
+ *  acotadas a país/tipo de local. Sin esto, en el catálogo completo
+ *  (Admin sin ningún local elegido) no hay forma de saber de un
+ *  vistazo por qué cierta tarea no le va a aparecer a cierto local.
+ *  Ver services/alcance.js → aplicaASucursal. */
+function alcanceBadgeHtml(t) {
+    if (t.noAplicaA) return `<span class="badge-alcance-tarea" title="Aplica a todos menos: ${escaparHtml(t.noAplicaA)}">Menos ${escaparHtml(t.noAplicaA)}</span>`;
+    if (t.aplicaA) return `<span class="badge-alcance-tarea" title="Solo aplica a: ${escaparHtml(t.aplicaA)}">${escaparHtml(t.aplicaA)}</span>`;
+    return "";
+}
+
 /** Fila de la pestaña "Tareas" — pedido explícito: tocarla DESPLIEGA
  *  los días de la semana ahí mismo (mismo patrón desplegable que
  *  "Pedido a proveedores"), se eligen con las pills, y la tarjeta
@@ -230,6 +261,7 @@ function aplicaTareaHtml(t) {
                     <strong>${t.titulo}</strong>
                     <span>${t.detalle}</span>
                 </span>
+                ${alcanceBadgeHtml(t)}
                 ${sinLocalElegido ? "" : `<span class="badge-en-uso${enUso ? " activa" : ""}">${enUso ? "En uso" : "Sin usar"}</span>`}
                 <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
             </button>
@@ -336,6 +368,9 @@ function contenidoModalTarea({ tarea } = {}) {
             <div id="lista-subtareas-nueva">${(tarea?.subitems || []).map(subtareaNuevaFilaHtml).join("")}</div>
             <button type="button" class="btn-agregar-subtarea-nueva" id="btn-agregar-subtarea-nueva">+ Agregar sub-tarea</button>
         </label>
+        <label>¿A quién le aplica? (vacío = a todos)
+            ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
+        </label>
     `;
 }
 
@@ -351,6 +386,8 @@ function bindModalTarea() {
             e.target.closest(".subtarea-nueva-fila").remove();
         }
     });
+
+    bindMultiSelectAlcance("input-tarea-alcance");
 }
 
 /** Reconstruye en el DOM TODAS las copias de una tarea (una por cada
@@ -412,7 +449,13 @@ async function confirmarTarea(idEditado = null) {
     const subitems = Array.from(document.querySelectorAll(".input-subtarea-nueva-texto"))
         .map((t) => t.value.trim())
         .filter(Boolean);
-    const datos = { icono, titulo, detalle, ...(subitems.length ? { subitems } : {}) };
+    const aplicaA = document.getElementById("input-tarea-alcance")?.value.trim() || "";
+    // noAplicaA no tiene campo propio en este modal (YAGNI — nadie lo
+    // pidió todavía, aplicaA solo ya cubre "Propios"/"Franquicias"/país/
+    // local) — se preserva lo que ya tuviera en vez de pisarlo con "",
+    // por si se cargó a mano en la Sheet.
+    const noAplicaA = registroTareas.get(idEditado)?.noAplicaA || "";
+    const datos = { icono, titulo, detalle, aplicaA, noAplicaA, ...(subitems.length ? { subitems } : {}) };
 
     if (idEditado) {
         const r = await actualizarTareaBackend(idEditado, datos);
@@ -513,6 +556,18 @@ function cuerpoGestionHtml() {
     const acciones = (botonExportar || botonNueva) ? `<div class="acciones-gestion-semanal">${botonExportar}${botonNueva}</div>` : "";
     const hayLocal = !esVistaLectura || !!sucursalActiva;
 
+    // Filtro país/propio-franquicia (services/alcance.js →
+    // aplicaASucursal) — pedido explícito: "puede haber tareas
+    // genéricas de todos los locales, sin embargo puede haber algunas
+    // específicas en propios". SIN local elegido (Admin gestionando
+    // el catálogo entero) se ven TODAS — gestiona todo, no solo lo que
+    // le toca a un local puntual; alcanceBadgeHtml() ahí le muestra a
+    // cuál le aplica cada una. CON local elegido, solo las que
+    // corresponden a ESE local — mismo criterio que ya usan
+    // Cursos/Lecciones.
+    const sucObjActiva = sucursalActivaObj();
+    const tareasParaLocal = hayLocal ? TAREAS.filter((t) => aplicaASucursal(t, sucObjActiva)) : TAREAS;
+
     // "Tareas" (catálogo) se ve SIEMPRE, con local elegido o sin él —
     // Admin no necesita elegir un local para crear/editar/eliminar
     // tareas del catálogo, eso es global. aplicaTareaHtml() ya sabe
@@ -525,8 +580,8 @@ function cuerpoGestionHtml() {
     // decidir (t.dias siempre viene vacío), así que ahí sigue plana.
     const listaTareasHtml = hayLocal
         ? (() => {
-            const activas = TAREAS.filter((t) => t.dias.length > 0);
-            const noActivas = TAREAS.filter((t) => t.dias.length === 0);
+            const activas = tareasParaLocal.filter((t) => t.dias.length > 0);
+            const noActivas = tareasParaLocal.filter((t) => t.dias.length === 0);
             return `
                 ${activas.length ? `
                     <p class="titulo-grupo-tareas">En uso (${activas.length})</p>
@@ -582,7 +637,7 @@ function cuerpoGestionHtml() {
         <div id="contenido-gestion-imprimible">
             ${membreteHtml("Guía de Gestión", sucursalActiva)}
             ${DIAS.map((d) => {
-                const tareasDelDia = TAREAS.filter((t) => t.dias.includes(d));
+                const tareasDelDia = tareasParaLocal.filter((t) => t.dias.includes(d));
                 return `
                 <div class="section" data-panel-dia="${d}" style="display:none">
                     <h3>${d}</h3>
@@ -624,7 +679,7 @@ export async function Gestion() {
     esVistaLectura = usuario?.rol !== "colaborador";
     sucursalActiva = esVistaLectura ? "" : (usuario?.sucursal || "");
 
-    await cargarDatos(sucursalActiva);
+    [sucursales] = await Promise.all([getSucursales(), cargarDatos(sucursalActiva)]);
 
     return `
         ${Header("Gestión semanal", "Organizá las tareas de tu local, día por día")}
@@ -779,6 +834,17 @@ function actualizarFilaAplica(idTarea) {
     const tarea = registroTareas.get(idTarea);
     if (!tarea) return;
     const filaVieja = document.querySelector(`.fila-aplica-tarea[data-tarea-id="${idTarea}"]`);
+
+    // Con un local elegido, respetar el filtro de alcance (aplicaA/
+    // noAplicaA) también acá — si Admin edita el alcance de una tarea
+    // y la deja fuera del local que está mirando en ese momento, sacarla
+    // de la lista en vez de dejarla visible hasta el próximo recargue.
+    const hayLocal = !esVistaLectura || !!sucursalActiva;
+    if (hayLocal && !aplicaASucursal(tarea, sucursalActivaObj())) {
+        filaVieja?.remove();
+        return;
+    }
+
     const estabaDesplegada = filaVieja?.classList.contains("desplegada");
     if (filaVieja) filaVieja.outerHTML = aplicaTareaHtml(tarea);
     else document.getElementById("lista-aplica-tareas")?.insertAdjacentHTML("beforeend", aplicaTareaHtml(tarea));
