@@ -294,6 +294,20 @@ function subitemsSoloLecturaHtml(t) {
     `;
 }
 
+/** Resumen de los días elegidos, en TEXTO ("Lunes, Viernes" o "18 de
+ *  agosto") — pedido explícito: "me gustaría que allí se vea los días
+ *  o fecha seleccionado así no tengo que hacer un paso extra de
+ *  desplegar". Mensual suma el mes actual al lado del número, pedido
+ *  aparte: "que en el mes figure el mes corriente". */
+function resumenDiasTexto(t) {
+    if (!t.dias.length) return "";
+    if (t.frecuencia === "mensual") {
+        const mes = new Date().toLocaleDateString("es-AR", { month: "long" });
+        return t.dias.map((d) => `${d} de ${mes}`).join(", ");
+    }
+    return t.dias.join(", ");
+}
+
 /** Badge de alcance ("Propios", "Uruguay", "Menos Franquicias"...) —
  *  pedido explícito: distinguir tareas genéricas (todos los locales,
  *  sin badge — es el caso más común, no hace falta remarcarlo) de las
@@ -339,6 +353,7 @@ function aplicaTareaHtml(t) {
                 <span class="tarea-gestion-txt">
                     <strong>${t.titulo}</strong>
                     <span>${t.detalle}</span>
+                    ${enUso ? `<span class="tarea-gestion-resumen-dias">${resumenDiasTexto(t)}</span>` : ""}
                 </span>
                 <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 ${badgesHtml ? `<span class="tarea-gestion-badges">${badgesHtml}</span>` : ""}
@@ -693,8 +708,14 @@ function calendarioMensualHtml(tareasMensuales) {
  *  recargar la página. Para Responsable de local/turno es simplemente
  *  "su" cuerpo de siempre, una sola vez. */
 function cuerpoGestionHtml() {
+    // Arranca oculto (style="display:none") — "Tareas" es la pestaña
+    // activa por defecto, y ahí no hay ningún día que exportar. Pedido
+    // explícito: "el botón exportar pdf que solo esté visible cuando
+    // estoy en día de la semana" — bindCuerpoGestion() lo muestra/
+    // oculta según la pestaña que se toque, junto con el resto del
+    // switcher de data-vista-dia.
     const botonExportar = sucursalActiva ? `
-        <button type="button" class="btn btn-secondary" id="btn-exportar-gestion">
+        <button type="button" class="btn btn-secondary" id="btn-exportar-gestion" style="display:none">
             ${Icon("descargar", { size: 16 })} Exportar a PDF
         </button>
     ` : "";
@@ -804,36 +825,45 @@ function cuerpoGestionHtml() {
     // El calendario (grilla visual) es SOLO para Responsable de local/
     // turno — pedido explícito: "yo no ni supervisión necesita ver el
     // calendario, es para responsables". Admin/Supervisor (esVistaLectura)
-    // no tienen el toggle (frecuenciaToggleHtml no los renderiza) y
-    // revisan las tareas mensuales desde "Tareas" (desplegando cada una
-    // ven el día del mes elegido, mismo lugar de siempre) — nunca
-    // llegan a vistaFrecuencia==="mensual", pero el guard extra acá no
-    // hace daño si algún día cambia cómo se llega a esVistaLectura.
+    // en cambio SÍ necesitan poder llegar a un día del mes puntual para
+    // exportarlo — pedido explícito: "cómo exporto una tarea mensual?"
+    // (antes no había forma). Solución acordada: pills chicas, mismo
+    // lenguaje que las tabs de día de siempre, SOLO para los días del
+    // mes que de verdad tengan alguna tarea mensual cargada — sin la
+    // grilla completa (esa sigue siendo solo de Responsable).
     const esVistaMensual = !esVistaLectura && vistaFrecuencia === "mensual";
 
-    const panelesDiaHtml = esVistaMensual
-        ? diasDelMesActual().map((d) => {
-            const tareasDelDia = tareasMensuales.filter((t) => t.dias.includes(d));
-            return `
-                <div class="section" data-panel-dia="${d}" style="display:none">
-                    <h3>Día ${d}</h3>
-                    <div class="lista-tareas-gestion">
-                        ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`, d)).join("") : avisoDiaVacioHtml()}
-                    </div>
-                </div>
-            `;
-        }).join("")
-        : DIAS.map((d) => {
-            const tareasDelDia = tareasSemanales.filter((t) => t.dias.includes(d));
-            return `
-                <div class="section" data-panel-dia="${d}" style="display:none">
-                    <h3>${d}</h3>
-                    <div class="lista-tareas-gestion">
-                        ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`, d)).join("") : avisoDiaVacioHtml()}
-                    </div>
-                </div>
-            `;
-        }).join("");
+    const panelHtml = (d, titulo, tareasDelDia) => `
+        <div class="section" data-panel-dia="${d}" style="display:none">
+            <h3>${titulo}</h3>
+            <div class="lista-tareas-gestion">
+                ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`, d)).join("") : avisoDiaVacioHtml()}
+            </div>
+        </div>
+    `;
+
+    const panelesSemanalesHtml = DIAS.map((d) => panelHtml(d, d, tareasSemanales.filter((t) => t.dias.includes(d)))).join("");
+
+    // Solo los días del mes que YA tienen algo asignado — a diferencia
+    // del calendario de Responsable (que muestra el mes entero, vacíos
+    // incluidos, para poder asignar), acá es puramente para revisar/
+    // exportar lo que cada local ya cargó.
+    const diasMesConContenido = [...new Set(tareasMensuales.flatMap((t) => t.dias))].sort((a, b) => Number(a) - Number(b));
+    const panelesMensualesConContenidoHtml = diasMesConContenido.map((d) => panelHtml(d, `Día ${d}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
+
+    let panelesDiaHtml;
+    let tabsDiaHtml;
+    if (esVistaLectura) {
+        panelesDiaHtml = panelesSemanalesHtml + panelesMensualesConContenidoHtml;
+        tabsDiaHtml = DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("")
+            + diasMesConContenido.map((d) => `<button class="tab-gestion" data-vista-dia="${d}" title="Día ${d} del mes">${d}</button>`).join("");
+    } else if (esVistaMensual) {
+        panelesDiaHtml = diasDelMesActual().map((d) => panelHtml(d, `Día ${d}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
+        tabsDiaHtml = "";
+    } else {
+        panelesDiaHtml = panelesSemanalesHtml;
+        tabsDiaHtml = DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("");
+    }
 
     return `
         ${acciones}
@@ -841,7 +871,7 @@ function cuerpoGestionHtml() {
 
         <div class="tabs-gestion" id="tabs-dias-gestion">
             <button class="tab-gestion activa" data-vista-dia="tareas">Tareas</button>
-            ${esVistaMensual ? "" : DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("")}
+            ${tabsDiaHtml}
         </div>
 
         ${esVistaMensual ? calendarioMensualHtml(tareasMensuales) : ""}
@@ -1219,6 +1249,11 @@ function bindCuerpoGestion() {
             document.querySelectorAll("[data-panel-dia]").forEach((panel) => {
                 panel.style.display = panel.dataset.panelDia === dia ? "" : "none";
             });
+            // "Exportar a PDF" solo tiene sentido con un día real
+            // activo — en "Tareas" no hay nada que exportar (ver la
+            // nota en cuerpoGestionHtml, botonExportar).
+            const btnExportar = document.getElementById("btn-exportar-gestion");
+            if (btnExportar) btnExportar.style.display = dia === "tareas" ? "none" : "";
         });
     });
 
@@ -1263,26 +1298,42 @@ function bindCuerpoGestion() {
             else chk.removeAttribute("checked");
         });
 
-        // La guía exportada es SIEMPRE la semana/mes completo, no "lo
-        // que se estaba mirando en pantalla" — pedido explícito
-        // (reportado en vivo): exportar desde "Tareas" (sin ningún día
-        // activo) daba un PDF vacío, ninguno de los paneles de día
-        // tenía display distinto de "none"; exportar desde un día
-        // puntual solo mostraba ESE día, no la semana entera. Antes de
-        // clonar el HTML (exportarAPdf lo hace de forma síncrona, ver
-        // origen.innerHTML ahí adentro), se muestran los paneles con
-        // contenido real y se ocultan los vacíos ("Sin tareas para
-        // este día todavía") — funciona igual para semanal (paneles
-        // por día de semana) y mensual (paneles por día del mes), es
-        // el mismo mecanismo data-panel-dia para los dos. Se restaura
-        // el estado de pantalla original apenas termina, así quien
-        // estaba mirando "Lunes" lo sigue viendo después de exportar.
-        const paneles = document.querySelectorAll("#contenido-gestion-imprimible .section[data-panel-dia]");
-        const estadoPrevio = new Map();
-        paneles.forEach((panel) => {
-            estadoPrevio.set(panel, panel.style.display);
-            panel.style.display = panel.querySelector(".tarea-gestion") ? "" : "none";
+        // ✓/— de cada sub-ítem: se agrega como texto plano FIJO acá,
+        // no con CSS ":checked" en el documento exportado — reportado
+        // en vivo (2026-08-26): "Descargar PDF" seguía fallando con
+        // sub-ítems aunque ya no usara ":has()". El motor real detrás
+        // de esa descarga (html2canvas) reimplementa su propio motor
+        // de CSS y su soporte de pseudo-clases de estado en general es
+        // poco confiable, no solo ":has()" — texto fijo no le exige
+        // entender nada dinámico. No es "mentirle a la app": el
+        // checkbox está REALMENTE tildado o no, esto solo hace que ese
+        // estado real sea legible para un motor de PDF limitado — se
+        // saca el nodo agregado apenas termina de exportar (exportarAPdf
+        // clona el HTML de forma síncrona, así que esto alcanza).
+        const spansSubitem = document.querySelectorAll("#contenido-gestion-imprimible .subitem-gestion");
+        const marcasAgregadas = [];
+        spansSubitem.forEach((label) => {
+            const input = label.querySelector("input[type=checkbox]");
+            const span = label.querySelector("span");
+            if (!input || !span) return;
+            const marca = document.createElement("span");
+            marca.className = "subitem-gestion-marca";
+            marca.style.color = input.checked ? "#1a7a3c" : "#999";
+            marca.textContent = input.checked ? "✓ " : "— ";
+            span.before(marca);
+            marcasAgregadas.push(marca);
         });
+
+        // Se exporta EXACTAMENTE lo que está en pantalla en este
+        // momento (el día activo), sin trucos — pedido explícito:
+        // "no se le puede mentir a la app diciéndole que todo es el
+        // mismo texto, lo que debe convertir a PDF es el diseño
+        // final, no como viene de la app". Un intento anterior de
+        // forzar todos los días a la vez (para que "Tareas" no diera
+        // un PDF vacío) se revirtió el mismo día por esto — en vez de
+        // eso, el botón directamente no se muestra si no hay un día
+        // activo (ver botonExportar en cuerpoGestionHtml y el
+        // switcher de data-vista-dia en bindCuerpoGestion).
 
         // soloDescarga:true (2026-08-26, revertido el mismo día): la idea
         // era que acá el reporte nunca es grande y el botón "Imprimir"
@@ -1296,7 +1347,7 @@ function bindCuerpoGestion() {
         // respaldo por tamaño, es el respaldo por confiabilidad.
         exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión");
 
-        paneles.forEach((panel) => { panel.style.display = estadoPrevio.get(panel); });
+        marcasAgregadas.forEach((marca) => marca.remove());
     });
 }
 

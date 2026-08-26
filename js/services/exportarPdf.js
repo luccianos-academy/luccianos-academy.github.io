@@ -217,16 +217,18 @@ const ESTILOS_IMPRESION = `
        ninguno de los detalles. */
     .tarea-gestion-subitems { display: flex !important; flex-direction: column; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2d9c5; }
     .subitem-gestion { font-size: 11px; color: #333; padding: 3px 0; }
-    /* ":has()" en vez de estos dos de acá abajo — reportado en vivo
-       (2026-08-26): html2canvas (el motor real detrás de "Descargar
-       PDF") reimplementa su propio parser de CSS, con soporte pobre
-       para selectores nuevos como ":has()" — con tareas de varios
-       sub-ítems se colgaba ahí adentro y terminaba pegado hasta el
-       timeout de 25s, sin generar nada. El span+"::before" con un
-       simple selector de hermano adyacente ("+") pinta EXACTAMENTE lo
-       mismo sin necesitar ":has()" en ningún lado. */
-    .subitem-gestion input:checked + span::before { content: "✓ "; color: #1a7a3c; font-weight: 700; }
-    .subitem-gestion input:not(:checked) + span::before { content: "— "; color: #999; }
+    /* NADA de ":checked" ni ningún otro pseudo de estado acá — un
+       primer intento con ":has(input:checked)" colgaba html2canvas
+       (motor real detrás de "Descargar PDF") con el timeout de 25s; un
+       segundo intento sin ":has()" pero TODAVÍA con ":checked" (vía
+       "input:checked + span::before") reportado en vivo (2026-08-26)
+       que seguía fallando igual. html2canvas reimplementa su propio
+       motor de CSS y su soporte de pseudo-clases de estado (:checked,
+       :has(), etc.) es en general poco confiable, no solo ":has()".
+       El ✓/— ahora se escribe DIRECTO como texto plano en gestion.js
+       (bindExportarGestion), antes de exportar — no hace falta que el
+       motor de PDF entienda nada dinámico, sólo texto fijo. */
+    .subitem-gestion-marca { font-weight: 700; }
 
     .tarea-gestion-push, .tarea-gestion-acciones, .aviso-tareas-aplicables, .campo-selector-local, .aviso-solo-lectura,
     .acciones-gestion-semanal, .tabs-gestion { display: none !important; }
