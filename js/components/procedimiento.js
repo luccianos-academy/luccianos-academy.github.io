@@ -131,7 +131,15 @@ export function renderProcedimiento(texto) {
     }
 
     if (items.length < 3) {
-        return `<p class="text-sm" style="margin-top:10px;color:var(--text);white-space:pre-wrap">${texto}</p>`;
+        // Sin "color" inline a propósito (antes tenía var(--text)
+        // fijo) — reportado en vivo: dentro de un callout de módulo
+        // con tema propio (Heladería/Cafetería/Chocolatería/Icepops,
+        // fondo pastel CLARO) ese color fijo pisaba cualquier ajuste
+        // de contraste que el CSS del callout quisiera aplicar —
+        // texto claro sobre fondo claro, casi invisible. Sin el
+        // inline, hereda el color correcto del contexto que lo
+        // rodea en cada caso (ver .leccion-callout en components.css).
+        return `<p class="text-sm" style="margin-top:10px;white-space:pre-wrap">${texto}</p>`;
     }
 
     return `

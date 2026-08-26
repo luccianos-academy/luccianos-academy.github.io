@@ -4105,12 +4105,54 @@ table.data-table tbody tr:hover{
    invisible sobre ese pastel. Solo aplica al callout BASE (sin
    modificador): -tip/-errores ya pisan el fondo a un tono oscuro
    propio (--success-soft/--danger-soft) y necesitan texto claro,
-   así que quedan afuera de este selector a propósito. */
-.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
-.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
-.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
-.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p{
+   así que quedan afuera de este selector a propósito.
+
+   En el CONTENEDOR (ya no en "... p" nada más) — reportado en vivo
+   (2026-08-26, Cafetería, "Buenas prácticas"): renderProcedimiento()
+   (components/procedimiento.js) no SIEMPRE arma un <p> — según el
+   texto puede salir como <ol class="leccion-pasos"> (pasos numerados),
+   <ul class="leccion-procedimiento-lista"> (3+ ítems) o
+   <div class="leccion-texto"> (texto con **negrita**/viñetas) — un
+   fix que solo cubría "p" dejaba el resto con el color claro de
+   siempre, invisible en el pastel. En el contenedor, CUALQUIER texto
+   sin su propio color explícito hereda el oscuro correcto sin
+   importar qué forma tome. */
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores){
     color:#262626;
+}
+
+/* Estos de acá abajo SÍ tienen su propio color:var(--text)/var(--muted)
+   explícito (definido en otra regla, no heredado) — heredar del
+   contenedor de arriba no les gana en especificidad, hace falta
+   pisarlos uno por uno: "strong" (nombre de cada ítem de la lista y
+   de cada línea de **negrita**), ".leccion-paso-cuerpo > span" (texto
+   de cada paso numerado). */
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span{
+    color:#262626;
+}
+
+/* ".text-muted" (services/formato.js, procedimiento.js: el "— detalle"
+   de cada ítem) y ".leccion-subpuntos li" (sub-puntos de un paso)
+   mismo caso — propio color:var(--muted) explícito. */
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .text-muted,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .text-muted,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .text-muted,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .text-muted,
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-subpuntos li,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-subpuntos li,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-subpuntos li,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-subpuntos li{
+    color:#5c5347;
 }
 
 .leccion-callout-errores{

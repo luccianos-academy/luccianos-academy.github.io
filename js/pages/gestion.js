@@ -1262,6 +1262,28 @@ function bindCuerpoGestion() {
             if (chk.checked) chk.setAttribute("checked", "checked");
             else chk.removeAttribute("checked");
         });
+
+        // La guía exportada es SIEMPRE la semana/mes completo, no "lo
+        // que se estaba mirando en pantalla" — pedido explícito
+        // (reportado en vivo): exportar desde "Tareas" (sin ningún día
+        // activo) daba un PDF vacío, ninguno de los paneles de día
+        // tenía display distinto de "none"; exportar desde un día
+        // puntual solo mostraba ESE día, no la semana entera. Antes de
+        // clonar el HTML (exportarAPdf lo hace de forma síncrona, ver
+        // origen.innerHTML ahí adentro), se muestran los paneles con
+        // contenido real y se ocultan los vacíos ("Sin tareas para
+        // este día todavía") — funciona igual para semanal (paneles
+        // por día de semana) y mensual (paneles por día del mes), es
+        // el mismo mecanismo data-panel-dia para los dos. Se restaura
+        // el estado de pantalla original apenas termina, así quien
+        // estaba mirando "Lunes" lo sigue viendo después de exportar.
+        const paneles = document.querySelectorAll("#contenido-gestion-imprimible .section[data-panel-dia]");
+        const estadoPrevio = new Map();
+        paneles.forEach((panel) => {
+            estadoPrevio.set(panel, panel.style.display);
+            panel.style.display = panel.querySelector(".tarea-gestion") ? "" : "none";
+        });
+
         // soloDescarga:true (2026-08-26, revertido el mismo día): la idea
         // era que acá el reporte nunca es grande y el botón "Imprimir"
         // de respaldo (pensado para reportes de cientos de filas) era
@@ -1273,6 +1295,8 @@ function bindCuerpoGestion() {
         // estaba. Los dos botones se quedan: "Imprimir" no es solo el
         // respaldo por tamaño, es el respaldo por confiabilidad.
         exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión");
+
+        paneles.forEach((panel) => { panel.style.display = estadoPrevio.get(panel); });
     });
 }
 
