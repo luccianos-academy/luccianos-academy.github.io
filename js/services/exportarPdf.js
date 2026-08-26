@@ -217,8 +217,16 @@ const ESTILOS_IMPRESION = `
        ninguno de los detalles. */
     .tarea-gestion-subitems { display: flex !important; flex-direction: column; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2d9c5; }
     .subitem-gestion { font-size: 11px; color: #333; padding: 3px 0; }
-    .subitem-gestion:has(input:checked)::before { content: "✓ "; color: #1a7a3c; font-weight: 700; }
-    .subitem-gestion:not(:has(input:checked))::before { content: "— "; color: #999; }
+    /* ":has()" en vez de estos dos de acá abajo — reportado en vivo
+       (2026-08-26): html2canvas (el motor real detrás de "Descargar
+       PDF") reimplementa su propio parser de CSS, con soporte pobre
+       para selectores nuevos como ":has()" — con tareas de varios
+       sub-ítems se colgaba ahí adentro y terminaba pegado hasta el
+       timeout de 25s, sin generar nada. El span+"::before" con un
+       simple selector de hermano adyacente ("+") pinta EXACTAMENTE lo
+       mismo sin necesitar ":has()" en ningún lado. */
+    .subitem-gestion input:checked + span::before { content: "✓ "; color: #1a7a3c; font-weight: 700; }
+    .subitem-gestion input:not(:checked) + span::before { content: "— "; color: #999; }
 
     .tarea-gestion-push, .tarea-gestion-acciones, .aviso-tareas-aplicables, .campo-selector-local, .aviso-solo-lectura,
     .acciones-gestion-semanal, .tabs-gestion { display: none !important; }

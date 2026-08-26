@@ -1262,10 +1262,17 @@ function bindCuerpoGestion() {
             if (chk.checked) chk.setAttribute("checked", "checked");
             else chk.removeAttribute("checked");
         });
-        // soloDescarga: acá el reporte nunca es grande (un local, una
-        // semana) — el botón "Imprimir" de respaldo para reportes
-        // enormes es ruido, ver la nota en exportarAPdf().
-        exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión", { soloDescarga: true });
+        // soloDescarga:true (2026-08-26, revertido el mismo día): la idea
+        // era que acá el reporte nunca es grande y el botón "Imprimir"
+        // de respaldo (pensado para reportes de cientos de filas) era
+        // ruido — pero reportado en vivo: "Descargar PDF" puede fallar
+        // igual por otros motivos (el timeout de 25s de html2pdf, una
+        // imagen externa que no carga, etc.), y sin "Imprimir" ahí no
+        // quedaba NINGÚN camino que funcionara — el propio mensaje de
+        // error decía "probá con Imprimir" para un botón que ya no
+        // estaba. Los dos botones se quedan: "Imprimir" no es solo el
+        // respaldo por tamaño, es el respaldo por confiabilidad.
+        exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión");
     });
 }
 
