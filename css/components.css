@@ -5584,6 +5584,29 @@ table.data-table tbody tr:hover{
     gap:6px;
 }
 
+/* Sub-ítems de una tarea, en la pestaña "Tareas" — SOLO para mirar
+   qué contiene (ver subitemsSoloLecturaHtml en gestion.js), nada
+   tildable acá. Reusa el mismo rótulo "Días" de arriba (.tarea-
+   gestion-dia-label) para el título "Contiene", así quedan con la
+   misma jerarquía visual dentro de la tarjeta desplegada. */
+.lista-subitems-solo-lectura{
+    margin:0 0 14px;
+    padding:0;
+    list-style:none;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.lista-subitems-solo-lectura li{
+    padding:8px 12px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    color:var(--text);
+    font-size:13px;
+}
+
 .pill-dia-tarea{
     padding:5px 10px;
     background:var(--soft);

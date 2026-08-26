@@ -190,6 +190,23 @@ function botonPushHtml() {
     `;
 }
 
+/** Lista de sub-ítems de una tarea, SOLO LECTURA — pedido explícito:
+ *  "en tareas si cargue sub tareas quiero verlas porque sino no se
+ *  que tiene cargado una tarea". Sin checkbox ni tildado: acá no se
+ *  ejecuta nada, solo se ve qué contiene la tarea (eso pasa en la
+ *  vista por día, ver tareaHtml). */
+function subitemsSoloLecturaHtml(t) {
+    if (!t.subitems || !t.subitems.length) return "";
+    return `
+        <div class="tarea-gestion-dia-control">
+            <span class="tarea-gestion-dia-label">Contiene</span>
+            <ul class="lista-subitems-solo-lectura">
+                ${t.subitems.map((s) => `<li>${s}</li>`).join("")}
+            </ul>
+        </div>
+    `;
+}
+
 /** Fila de la pestaña "Tareas" — pedido explícito: tocarla DESPLIEGA
  *  los días de la semana ahí mismo (mismo patrón desplegable que
  *  "Pedido a proveedores"), se eligen con las pills, y la tarjeta
@@ -217,6 +234,7 @@ function aplicaTareaHtml(t) {
                 <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
             </button>
             <div class="tarea-gestion-subitems">
+                ${subitemsSoloLecturaHtml(t)}
                 ${sinLocalElegido ? `<p class="aviso-tareas-aplicables" style="margin:0">Elegí un local arriba para ver y tocar sus días.</p>` : diasControlHtml(t)}
                 ${accionesTareaHtml()}
             </div>
