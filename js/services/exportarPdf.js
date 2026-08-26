@@ -327,13 +327,24 @@ const HTML2PDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/
 // contenido grande es la única opción ofrecida, con el motivo explicado.
 const LIMITE_FILAS_DESCARGA = 120;
 
-export function exportarAPdf(elementId, titulo) {
+/**
+ * "soloDescarga": pedido explícito del usuario — en pantallas donde el
+ * reporte NUNCA puede ser grande (Gestión semanal: un local, una
+ * semana, nunca se acerca a LIMITE_FILAS_DESCARGA) el botón "Convertir
+ * a PDF / Imprimir" es ruido puro al lado de "Descargar PDF" (que ya
+ * guarda con el nombre correcto). Con esto en true se oculta ese
+ * botón — salvo que el contenido resulte igual demasiado grande, caso
+ * en el que hace falta igual como único camino posible. Reportes/Mi
+ * equipo (donde sí puede haber cientos de filas) no lo pasan, así que
+ * siguen mostrando los dos como siempre. */
+export function exportarAPdf(elementId, titulo, { soloDescarga = false } = {}) {
     const origen = document.getElementById(elementId);
     if (!origen) return;
 
     const nombreArchivo = titulo.replace(/[^\w\sáéíóúñÁÉÍÓÚÑ-]/g, "").trim() + ".pdf";
     const filas = origen.querySelectorAll("tbody tr").length;
     const demasiadoGrande = filas > LIMITE_FILAS_DESCARGA;
+    const ocultarImprimir = soloDescarga && !demasiadoGrande;
 
     const html = `<!DOCTYPE html>
 <html lang="es">
@@ -345,7 +356,7 @@ export function exportarAPdf(elementId, titulo) {
 </head>
 <body>
 <div id="barra-acciones-popup">
-    <button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>
+    ${ocultarImprimir ? "" : `<button id="btn-imprimir-popup">🖨 Convertir a PDF / Imprimir</button>`}
     ${demasiadoGrande
         ? `<button id="btn-descargar-popup" disabled title="Este reporte tiene ${filas} filas — muy grande para armar de una sola vez. Usá &quot;Convertir a PDF / Imprimir&quot; y elegí &quot;Guardar como PDF&quot;, soporta cualquier tamaño.">⬇ Descargar PDF (reporte muy grande — usá Imprimir)</button>`
         : `<button id="btn-descargar-popup" disabled>⬇ Cargando descarga...</button>`}
@@ -353,7 +364,7 @@ export function exportarAPdf(elementId, titulo) {
 <div id="contenido-pdf">${origen.innerHTML}</div>
 ${demasiadoGrande ? "" : `<script src="${HTML2PDF_CDN}"><\/script>`}
 <script>
-document.getElementById("btn-imprimir-popup").addEventListener("click", () => window.print());
+document.getElementById("btn-imprimir-popup")?.addEventListener("click", () => window.print());
 
 const btnDescargar = document.getElementById("btn-descargar-popup");
 ${demasiadoGrande ? "" : `

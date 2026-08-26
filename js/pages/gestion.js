@@ -913,7 +913,10 @@ function bindCuerpoGestion() {
             if (chk.checked) chk.setAttribute("checked", "checked");
             else chk.removeAttribute("checked");
         });
-        exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión");
+        // soloDescarga: acá el reporte nunca es grande (un local, una
+        // semana) — el botón "Imprimir" de respaldo para reportes
+        // enormes es ruido, ver la nota en exportarAPdf().
+        exportarAPdf("contenido-gestion-imprimible", "Guía de Gestión", { soloDescarga: true });
     });
 }
 
