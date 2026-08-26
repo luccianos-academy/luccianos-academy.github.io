@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.8.0";
+const BACKEND_VERSION = "1.9.0";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -157,7 +157,7 @@ function _despachar(body, usuarioActual) {
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
         case "enviarPushGestion": return enviarPushGestion(body.titulo, body.cuerpo, body.url, usuarioActual);
         case "actualizarDiasGestionSucursal": return actualizarDiasGestionSucursal(body.tareaId, body.dias, body.frecuencia, usuarioActual);
-        case "actualizarCheckGestion": return actualizarCheckGestion(body.tareaId, body.dia, body.hecho, usuarioActual);
+        case "actualizarCheckGestion": return actualizarCheckGestion(body.tareaId, body.dia, body.hecho, usuarioActual, body.subitemsMarcados);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
@@ -1368,7 +1368,30 @@ function actualizarDiasGestionSucursal(tareaId, dias, frecuencia, usuarioActual)
  *  completa/incompleta en su conjunto, no ítem por ítem. Simplifica
  *  el modelo y alcanza para lo pedido: saber si YA SE HIZO, no
  *  reconstruir exactamente cuáles de los sub-ítems. */
-function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual) {
+/**
+ * subitemsMarcados (2026-08-26) — antes SOLO se guardaba "hecho: SI/NO"
+ * (la tarea completa o no), nunca el detalle de qué sub-ítem estaba
+ * tildado. Reportado en vivo: una tarea con checklist a MITAD de
+ * camino (3 de 5 tildados, nunca llegó a completa) no tenía ninguna
+ * fila guardada — al volver a abrir la app (o con cualquier recarga)
+ * ese progreso parcial desaparecía, "quedaba todo desmarcado". Ahora
+ * el cliente manda además la lista de índices tildados (string
+ * separado por comas, ej. "0,2,4", mismo criterio que "dias") y esa
+ * lista se guarda pase lo que pase, esté completa la tarea o no —
+ * "hecho" sigue existiendo aparte para no romper las tareas simples
+ * (sin sub-ítems, que no mandan este parámetro).
+ *
+ * subitemsMarcados es OPCIONAL a propósito: las tareas simples (sin
+ * checklist) siguen llamando esto sin el 5to parámetro, igual que
+ * siempre — undefined acá NUNCA toca esa columna.
+ *
+ * OJO: requiere una columna "subitemsMarcados" en la hoja
+ * "GestionChecks" — si no existe, _actualizarCrudo avisa explícito
+ * ("Faltan columnas...") en vez de fallar en silencio; _escribirCrudo
+ * (fila nueva) sí la saltea muda si falta, por eso hace falta
+ * agregarla a mano ANTES de que esto sirva de algo.
+ */
+function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual, subitemsMarcados) {
     if (!usuarioActual.encargado && !usuarioActual.responsableTurno) {
         return { ok: false, error: "Solo Responsable de local o de turno pueden marcar tareas de su local." };
     }
@@ -1383,14 +1406,21 @@ function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual) {
     const ahora = new Date();
     const hora = Utilities.formatDate(ahora, Session.getScriptTimeZone(), "HH:mm");
 
-    if (!hecho) {
-        // Desmarcar borra la fila — sin fila = "no hecho", mismo
-        // criterio que "sin día elegido" en GestionTareasSucursal.
+    const mandaSubitems = subitemsMarcados !== undefined && subitemsMarcados !== null;
+    const listaSubitems = mandaSubitems ? String(subitemsMarcados) : "";
+
+    // Nada que conservar (ni completa ni ningún sub-ítem tildado) —
+    // borra la fila, mismo criterio de siempre. Con sub-ítems a
+    // medias (mandaSubitems=true pero listaSubitems=""), TAMBIÉN se
+    // borra: es "destildé todo", equivalente a nunca haber tildado
+    // nada.
+    if (!hecho && !listaSubitems) {
         if (existente) return _eliminarCrudo("GestionChecks", existente.id);
         return { ok: true };
     }
 
-    const datos = { hecho: "SI", marcadoPor: usuarioActual.nombre || usuarioActual.email, hora: hora, fechaModificacion: ahora.toISOString() };
+    const datos = { hecho: hecho ? "SI" : "NO", marcadoPor: usuarioActual.nombre || usuarioActual.email, hora: hora, fechaModificacion: ahora.toISOString() };
+    if (mandaSubitems) datos.subitemsMarcados = listaSubitems;
     if (existente) return _actualizarCrudo("GestionChecks", existente.id, datos);
     return _escribirCrudo("GestionChecks", Object.assign({ tareaId: tareaId, sucursal: sucursal, dia: dia }, datos));
 }

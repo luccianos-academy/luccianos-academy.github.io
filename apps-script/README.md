@@ -82,10 +82,12 @@ Separa el catálogo de tareas (`GestionTareas` — QUÉ tareas existen, solo lo 
 
 Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
-| `id` | `tareaId` | `sucursal` | `dia` | `hecho` | `marcadoPor` | `hora` | `fechaModificacion` |
-|---|---|---|---|---|---|---|---|
+| `id` | `tareaId` | `sucursal` | `dia` | `hecho` | `marcadoPor` | `hora` | `fechaModificacion` | `subitemsMarcados` |
+|---|---|---|---|---|---|---|---|---|
 
-Antes el tilde de "hecho" era puramente visual — vivía en el navegador de quien lo tocaba, se perdía al recargar, y dos personas viendo el mismo local en dispositivos distintos no se veían entre sí (bug real reportado en vivo: "quien dio el marcado no le aparece al otro"). Una fila acá = una tarea marcada como hecha en un día puntual, para una sucursal puntual; desmarcar BORRA la fila (sin fila = no hecho), mismo criterio que `GestionTareasSucursal`. Guarda el estado GLOBAL de la tarea, no el detalle de cada sub-ítem — una tarea con sub-ítems se persiste completa/incompleta en conjunto, no ítem por ítem. Escrita solo por `actualizarCheckGestion` (Code.gs), mismo criterio de seguridad que `actualizarDiasGestionSucursal` (la sucursal la decide el servidor).
+Antes el tilde de "hecho" era puramente visual — vivía en el navegador de quien lo tocaba, se perdía al recargar, y dos personas viendo el mismo local en dispositivos distintos no se veían entre sí (bug real reportado en vivo: "quien dio el marcado no le aparece al otro"). Una fila acá = una tarea marcada (completa o a medias) en un día puntual, para una sucursal puntual; desmarcar TODO (ni completa ni ningún sub-ítem tildado) BORRA la fila, mismo criterio que `GestionTareasSucursal`. Escrita solo por `actualizarCheckGestion` (Code.gs), mismo criterio de seguridad que `actualizarDiasGestionSucursal` (la sucursal la decide el servidor).
+
+`subitemsMarcados` (agregada 2026-08-26): string con los ÍNDICES de sub-ítems tildados, separados por coma (ej. `"0,2,4"`, mismo criterio que `dias`) — antes una tarea con checklist a MITAD de camino (nunca llegó a completa) no tenía ninguna fila guardada, así que ese progreso se perdía con cualquier recarga de la app ("quedaba todo desmarcado", reportado en vivo). Ahora se guarda pase lo que pase, esté la tarea completa o no; `hecho` sigue existiendo aparte para las tareas simples (sin checklist), que nunca tocan esta columna. **Sin esta columna, `actualizarCheckGestion` devuelve `{ok:false, error:'Faltan columnas...'}` al tildar un sub-ítem de una fila YA existente** (una fila nueva simplemente la ignora en silencio) — agregarla es paso obligatorio antes de que el progreso a medias quede guardado de verdad.
 
 #### `fechaModificacion` — obligatoria en las 8 hojas sincronizadas
 

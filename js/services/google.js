@@ -150,11 +150,17 @@ export function actualizarDiasGestionSucursalReal(tareaId, dias, frecuencia) {
     return gasRequest("actualizarDiasGestionSucursal", { tareaId, dias, frecuencia });
 }
 
-/** Guarda (o borra, si hecho=false) el check "hecho" de una tarea
- *  para MI sucursal y un día puntual — el backend decide de qué
- *  sucursal es la fila, mismo criterio que
+/** Guarda (o borra, si hecho=false y sin sub-ítems) el check "hecho"
+ *  de una tarea para MI sucursal y un día puntual — el backend decide
+ *  de qué sucursal es la fila, mismo criterio que
  *  actualizarDiasGestionSucursalReal. Ver apps-script/Code.gs,
- *  actualizarCheckGestion. */
-export function actualizarCheckGestionReal(tareaId, dia, hecho) {
-    return gasRequest("actualizarCheckGestion", { tareaId, dia, hecho });
+ *  actualizarCheckGestion.
+ *
+ *  subitemsMarcados (2026-08-26, opcional): string "0,2,4" con los
+ *  índices tildados de una tarea con checklist — se guarda SIEMPRE,
+ *  esté completa o no, para que el progreso a medio camino no se
+ *  pierda al recargar la app. undefined para tareas simples (no
+ *  toca esa columna). */
+export function actualizarCheckGestionReal(tareaId, dia, hecho, subitemsMarcados) {
+    return gasRequest("actualizarCheckGestion", { tareaId, dia, hecho, subitemsMarcados });
 }

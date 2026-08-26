@@ -70,16 +70,34 @@ import { aplicaASucursal, normalizar } from "../services/alcance.js";
 =============================*/
 const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
-/** Iniciales para el encabezado de la grilla del calendario mensual —
- *  mismo orden que DIAS (arranca Domingo). */
-const DIAS_INICIAL = ["D", "L", "M", "M", "J", "V", "S"];
+/** SOLO para ORDEN VISUAL (pills/tabs) — pedido explícito: "quiero
+ *  cambiar la semana que sea de lunes a domingo". DIAS (arriba) sigue
+ *  siendo el array canónico para todo lo demás (guardado, el índice
+ *  0=domingo de Date.getDay() en fechaDelDiaSemana/backend, el orden
+ *  en que se guardan los checks) — cambiar SU orden hubiera afectado
+ *  código que ya depende de "domingo primero" en varios lugares no
+ *  visuales. Reordenar solo para mostrar es más simple y no arriesga
+ *  nada de eso. */
+const DIAS_VISUAL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
-/** "Semanal" (pills Do-Sá) o "Mensual" (grilla tipo calendario) —
- *  pedido explícito: tareas como "vencimiento de matafuego el 20" no
- *  encajan en el patrón de día de semana. Estado de módulo (no se
- *  persiste, no hace falta) — Gestion()/bindGestion() lo leen para
- *  decidir qué mostrar en el cuerpo de la página. */
-let vistaFrecuencia = "semanal";
+/** "asignar" (catálogo — elegís qué tareas y con qué frecuencia) o
+ *  "ejecutar" ("Tareas asignadas" — pills de día/fecha, marcar hecha,
+ *  exportar) — pedido explícito, con croquis: "quiero dos secciones...
+ *  así queda dividida la sección y no está tan cargada de información
+ *  que confunde". Reemplaza el toggle Semanal/Mensual + calendario
+ *  visual (2026-08-26, revertido el mismo día) — un local puede tener
+ *  tareas semanales Y mensuales a la vez, no tiene sentido elegir
+ *  entre una u otra para EJECUTAR, solo para asignar. Estado de
+ *  módulo (no se persiste, no hace falta). */
+let vistaSeccion = "asignar";
+
+/** Día (semanal) o día-del-mes (mensual) de la pill activa dentro de
+ *  "Tareas asignadas" — junto con su etiqueta linda ("Lunes 25/8").
+ *  Lo usa el "Enviar push" compartido de abajo del todo del panel
+ *  para saber DE QUÉ panel mandar el aviso, sin tener que buscar cuál
+ *  quedó visible escarbando estilos inline. */
+let diaActivo = null;
+let diaActivoEtiqueta = "";
 
 /** Los números de día (como STRING, para comparar contra t.dias tal
  *  cual vienen de la Sheet) del mes ACTUAL — pedido explícito: sin
@@ -115,10 +133,13 @@ const registroTareas = new Map();
 let esVistaLectura = false;
 let sucursalActiva = "";
 
-/** "tareaId|dia" → {marcadoPor, hora} — checks "hecho" REALES de la
- *  sucursal activa (persistidos, ya no visuales). Se puebla en
- *  cargarDatos() y se usa al renderizar tareaHtml() y al guardar un
- *  toggle. Ver data/gestionChecks.js. */
+/** "tareaId|dia" → {marcadoPor, hora, hecho, subitems: Set<string>} —
+ *  checks REALES de la sucursal activa (persistidos, ya no
+ *  visuales) — hecho=true es "tarea completa"; subitems son los
+ *  índices tildados AUNQUE la tarea no esté completa (progreso a
+ *  medio camino, también persistido — ver data/gestionChecks.js). Se
+ *  puebla en cargarDatos() y se usa al renderizar tareaHtml() y al
+ *  guardar un toggle. */
 let checksActivos = {};
 
 /** Lista completa de Sucursales (nombre/país/esPropio) — se necesita
@@ -179,9 +200,8 @@ function actualizarAvisoDiaVacio(lista) {
  *  que bindDiasControl no necesita saber que existen dos tipos. */
 /** Semanal/Mensual, POR TAREA — pedido explícito: la decide cada
  *  local al asignar (bindFrecuenciaTarea), no Admin al cargar la
- *  tarea. Mismo patrón visual que frecuenciaToggleHtml (el de toda la
- *  página) pero acotado a esta tarjeta. Solo lectura (Admin/Supervisor
- *  mirando otro local) muestra la elegida como texto, sin botones. */
+ *  tarea. Solo lectura (Admin/Supervisor mirando otro local) muestra
+ *  la elegida como texto, sin botones. */
 function frecuenciaTareaHtml(t) {
     const esMensual = t.frecuencia === "mensual";
     if (esVistaLectura) {
@@ -203,6 +223,32 @@ function frecuenciaTareaHtml(t) {
     `;
 }
 
+/** "D/M" (sin ceros a la izquierda, ej. "1/8") de un día de la semana
+ *  DENTRO de la semana actual — pedido explícito: "me gustaría que
+ *  diga Lunes 1/8, Martes 2/8, etc", y después "quiero cambiar la
+ *  semana que sea de lunes a domingo".
+ *
+ *  Ojo acá: hay DOS sistemas de indexado de día distintos en el
+ *  archivo. DIAS/Date.getDay() arrancan domingo=0 (así vino siempre,
+ *  no se tocó — lo usan fechaDelDiaSemana original, Code.gs, las
+ *  claves de GestionChecks). DIAS_VISUAL arranca lunes=0 (solo para
+ *  ORDENAR cómo se muestran las pills). Mezclar los dos sin convertir
+ *  daba una fecha mal calculada para "Domingo": con el índice viejo
+ *  (domingo=0) el cálculo apuntaba al domingo YA PASADO en vez del
+ *  que cierra la semana lunes-a-domingo actual (bug real, reportado
+ *  con captura: la pill decía "Domingo 23/8" en una semana que
+ *  arrancaba el lunes 24/8, cuando debía decir "30/8"). Por eso acá
+ *  todo se calcula en el sistema VISUAL (lunes=0) de punta a punta.
+ */
+function fechaDelDiaSemana(nombreDia) {
+    const hoy = new Date();
+    const idxVisualHoy = (hoy.getDay() + 6) % 7; // Date.getDay(): domingo=0 → acá lunes=0
+    const idxVisualObjetivo = DIAS_VISUAL.indexOf(nombreDia);
+    const fecha = new Date(hoy);
+    fecha.setDate(hoy.getDate() + (idxVisualObjetivo - idxVisualHoy));
+    return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+}
+
 /** Pedido explícito: "que el selector de días me permita poner más de
  *  un día — los depósitos se hacen lunes y viernes". Pills, no un
  *  <select multiple> (mal en celular) — cada una prende/apaga un día,
@@ -213,10 +259,18 @@ function frecuenciaTareaHtml(t) {
  *  data-toggle-dia, mismo bindDiasControl) pero con números de día del
  *  mes (1..último día del mes actual) en vez de nombres de día — es la
  *  única diferencia real entre las dos, así que bindDiasControl no
- *  necesita saber que existen dos tipos. */
+ *  necesita saber que existen dos tipos.
+ *
+ *  SIN fecha al lado acá a propósito — pedido explícito: "en la
+ *  selección de días de la semana la fecha es medio irrelevante
+ *  porque se entiende que son los días de la semana y se va a
+ *  programar cada semana". Esto es un patrón RECURRENTE (todos los
+ *  lunes, no ESTE lunes puntual) — la fecha sí importa en "Tareas
+ *  asignadas" (pillsDiaHtml, cuerpoGestionHtml), que es donde se
+ *  ejecuta/exporta un día real y puntual. */
 function diasControlHtml(t) {
     const esMensual = t.frecuencia === "mensual";
-    const opciones = esMensual ? diasDelMesActual() : DIAS;
+    const opciones = esMensual ? diasDelMesActual() : DIAS_VISUAL;
     // Solo lectura: pills como <span>, sin data-toggle-dia — no hay
     // nada que enganchar, ni forma de tocarlas por accidente.
     return `
@@ -255,24 +309,6 @@ function accionesTareaHtml() {
         <div class="tarea-gestion-acciones">
             <button type="button" class="publicacion-accion-icono" data-editar-tarea title="Editar tarea" aria-label="Editar tarea">${Icon("lapiz", { size: 15 })}</button>
             <button type="button" class="publicacion-accion-icono publicacion-accion-icono-danger" data-eliminar-tarea title="Eliminar tarea" aria-label="Eliminar tarea">${Icon("tacho", { size: 15 })}</button>
-        </div>
-    `;
-}
-
-/** "Enviar push" — pedido explícito: avisarle al equipo del local que
- *  se hizo (o se intentó hacer) una tarea, SIN que nadie tenga que
- *  escribir nada. El mensaje dice "Tarea completa"/"Tarea incompleta"
- *  cuando hay algo tildable en ESA tarjeta (checklist o check propio)
- *  — si no (ej. desde "Tareas", que no tiene nada para tildar), manda
- *  un aviso neutro en vez de "incompleta" siempre por defecto. */
-function botonPushHtml() {
-    // Solo Responsable de local/turno avisa por push — en modo
-    // lectura (Admin/Supervisor mirando otro local) no corresponde:
-    // el aviso tiene que salir de la gente que gestiona ESE local.
-    if (esVistaLectura) return "";
-    return `
-        <div class="tarea-gestion-push">
-            <button type="button" class="btn-enviar-push" data-enviar-push>${Icon("campana", { size: 14 })} Enviar push</button>
         </div>
     `;
 }
@@ -377,11 +413,15 @@ function tareaHtml(t, idUnico, dia) {
     // que hace falta saber cuál para guardar/leer el correcto.
     const atrId = ` data-tarea-id="${t.id}" data-dia="${dia}"`;
     const check = checksActivos[`${t.id}|${dia}`];
-    const hechoTexto = check ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
+    // check ahora existe también para tareas A MEDIAS (algún sub-ítem
+    // tildado, sin llegar a completa) — "hecha"/"Hecho ..." dependen
+    // de check.hecho (completa), no de que la fila exista.
+    const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
 
     if (t.subitems) {
+        const marcados = check?.subitems || new Set();
         return `
-            <div class="tarea-gestion tarea-gestion-desplegable${check ? " hecha" : ""}" data-desplegable${atrId}>
+            <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}" data-desplegable${atrId}>
                 <button type="button" class="tarea-gestion-header" data-toggle-desplegable>
                     <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
                     <span class="tarea-gestion-txt">
@@ -389,27 +429,26 @@ function tareaHtml(t, idUnico, dia) {
                         <span>${t.detalle}</span>
                         <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                     </span>
-                    <span class="tarea-gestion-progreso" data-progreso>${check ? t.subitems.length : 0}/${t.subitems.length}</span>
+                    <span class="tarea-gestion-progreso" data-progreso>${marcados.size}/${t.subitems.length}</span>
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
                 <div class="tarea-gestion-subitems" data-subitems>
                     ${t.subitems.map((s, is) => `
                         <label class="subitem-gestion" for="${id}-${is}">
-                            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${esVistaLectura ? " disabled" : ""}${check ? " checked" : ""}>
+                            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${esVistaLectura ? " disabled" : ""}${marcados.has(String(is)) ? " checked" : ""}>
                             <span>${s}</span>
                         </label>
                     `).join("")}
                 </div>
-                ${botonPushHtml()}
                 ${accionesTareaHtml()}
             </div>
         `;
     }
 
     return `
-        <div class="tarea-gestion tarea-gestion-simple${check ? " hecha" : ""}"${atrId}>
+        <div class="tarea-gestion tarea-gestion-simple${check?.hecho ? " hecha" : ""}"${atrId}>
             <label class="tarea-gestion-label" for="${id}">
-                <input type="checkbox" id="${id}" class="tarea-gestion-check"${esVistaLectura ? " disabled" : ""}${check ? " checked" : ""}>
+                <input type="checkbox" id="${id}" class="tarea-gestion-check"${esVistaLectura ? " disabled" : ""}${check?.hecho ? " checked" : ""}>
                 <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
                 <span class="tarea-gestion-txt">
                     <strong>${t.titulo}</strong>
@@ -417,7 +456,6 @@ function tareaHtml(t, idUnico, dia) {
                     <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                 </span>
             </label>
-            ${botonPushHtml()}
             ${accionesTareaHtml()}
         </div>
     `;
@@ -645,86 +683,17 @@ function selectorLocalHtml() {
     `;
 }
 
-/** Interruptor Semanal/Mensual — pedido explícito: un toggle simple,
- *  no una tercera pestaña más entre las de día (esas son dos formas
- *  distintas de ver/ejecutar, no dos secciones más de contenido).
- *  Solo para Responsable de local/turno — "el calendario es para
- *  responsables", Admin/Supervisor no lo necesitan (ven todo desde
- *  "Tareas", agrupado). */
-function frecuenciaToggleHtml() {
-    if (esVistaLectura) return "";
-    return `
-        <div class="toggle-frecuencia-gestion">
-            <button type="button" class="toggle-frecuencia-btn${vistaFrecuencia === "semanal" ? " activa" : ""}" data-vista-frecuencia="semanal">Semanal</button>
-            <button type="button" class="toggle-frecuencia-btn${vistaFrecuencia === "mensual" ? " activa" : ""}" data-vista-frecuencia="mensual">Mensual</button>
-        </div>
-    `;
-}
-
-/** Grilla tipo calendario del MES ACTUAL — pedido explícito, con
- *  captura del Calendario nativo de iOS como referencia. Sin
- *  navegación a otros meses (es un recordatorio del "ahora", no un
- *  planificador a futuro — ver la nota de diasDelMesActual). Cada
- *  celda es un [data-vista-dia] más, mismo mecanismo que las pills
- *  semanales (ver bindCuerpoGestion) — un punto marca los días que
- *  tienen al menos una tarea mensual asignada en este local. */
-function calendarioMensualHtml(tareasMensuales) {
-    const hoy = new Date();
-    const anio = hoy.getFullYear();
-    const mes = hoy.getMonth();
-    const diaHoy = hoy.getDate();
-    // getDay(): 0=domingo — coincide con que la semana acá arranca
-    // domingo (mismo criterio que DIAS), así el offset no necesita
-    // ningún ajuste.
-    const offsetPrimerDia = new Date(anio, mes, 1).getDay();
-    const ultimoDia = new Date(anio, mes + 1, 0).getDate();
-    const nombreMes = hoy.toLocaleDateString("es-AR", { month: "long" });
-
-    const tieneTarea = (n) => tareasMensuales.some((t) => t.dias.includes(String(n)));
-
-    const celdasVacias = Array.from({ length: offsetPrimerDia }, () => `<span class="dia-mes-celda dia-mes-vacio"></span>`).join("");
-    const celdasDias = Array.from({ length: ultimoDia }, (_, i) => i + 1).map((n) => `
-        <button type="button" class="dia-mes-celda${n === diaHoy ? " dia-mes-hoy" : ""}" data-vista-dia="${n}">
-            <span>${n}</span>
-            ${tieneTarea(n) ? `<span class="dia-mes-punto"></span>` : ""}
-        </button>
-    `).join("");
-
-    return `
-        <div class="calendario-mensual" id="calendario-mensual">
-            <p class="calendario-mensual-titulo">${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)} de ${anio}</p>
-            <div class="calendario-mensual-encabezado">
-                ${DIAS_INICIAL.map((d) => `<span>${d}</span>`).join("")}
-            </div>
-            <div class="calendario-mensual-grilla">
-                ${celdasVacias}${celdasDias}
-            </div>
-        </div>
-    `;
-}
-
 /** Todo lo que depende de qué local está activo — se reconstruye
  *  entero cada vez que cambia el selector (Admin/Supervisor) sin
  *  recargar la página. Para Responsable de local/turno es simplemente
  *  "su" cuerpo de siempre, una sola vez. */
 function cuerpoGestionHtml() {
-    // Arranca oculto (style="display:none") — "Tareas" es la pestaña
-    // activa por defecto, y ahí no hay ningún día que exportar. Pedido
-    // explícito: "el botón exportar pdf que solo esté visible cuando
-    // estoy en día de la semana" — bindCuerpoGestion() lo muestra/
-    // oculta según la pestaña que se toque, junto con el resto del
-    // switcher de data-vista-dia.
-    const botonExportar = sucursalActiva ? `
-        <button type="button" class="btn btn-secondary" id="btn-exportar-gestion" style="display:none">
-            ${Icon("descargar", { size: 16 })} Exportar a PDF
-        </button>
-    ` : "";
     const botonNueva = esAdminActual() ? `
         <button type="button" class="btn btn-primary" id="btn-nueva-tarea">
             + Nueva tarea
         </button>
     ` : "";
-    const acciones = (botonExportar || botonNueva) ? `<div class="acciones-gestion-semanal">${botonExportar}${botonNueva}</div>` : "";
+    const acciones = botonNueva ? `<div class="acciones-gestion-semanal">${botonNueva}</div>` : "";
     const hayLocal = !esVistaLectura || !!sucursalActiva;
 
     // Filtro país/propio-franquicia (services/alcance.js →
@@ -762,27 +731,27 @@ function cuerpoGestionHtml() {
     // hay frecuencia real que agrupar (t.frecuencia no significa nada
     // sin saber de qué local), sigue plana como siempre.
     //
-    // Responsable de local/turno (tiene el toggle Semanal/Mensual de
-    // arriba, ver frecuenciaToggleHtml) ve SOLO la sección que
-    // corresponde a la vista elegida — pedido explícito: "si elijo
-    // semanal se vea solo lo que aplica semanal... actualmente está
-    // todo amontonado". "Sin usar" queda SIEMPRE visible en las dos
-    // vistas (en cualquiera de las dos hace falta poder encontrar una
-    // tarea sin asignar para agarrarla). Admin/Supervisor (esVistaLectura)
-    // NO tienen ese toggle — "el calendario es para responsables", ven
-    // el catálogo entero de un vistazo, sin filtrar.
+    // Agrupada en secciones — pedido explícito: "que cada uno se
+    // agrupe a su sector, no todo en lo mismo". Mensuales SIEMPRE en
+    // su propia sección: una tarea mensual sin ningún día elegido no
+    // existe en la práctica (sacar el último día borra la fila en el
+    // backend, y sin fila la frecuencia vuelve a "semanal" por default
+    // — ver getDiasPorSucursal), así que "Mensuales" es, de hecho,
+    // "las mensuales en uso". Sin local elegido no hay frecuencia real
+    // que agrupar (t.frecuencia no significa nada sin saber de qué
+    // local), sigue plana. Se ve completa para TODOS (Admin/Supervisor/
+    // Responsable) — el filtro por vista que había acá (toggle Semanal/
+    // Mensual) se sacó junto con ese toggle, ver la nota más abajo.
     const listaTareasHtml = hayLocal
         ? (() => {
             const activas = tareasSemanales.filter((t) => t.dias.length > 0);
             const noActivas = tareasSemanales.filter((t) => t.dias.length === 0);
-            const verMensuales = esVistaLectura || vistaFrecuencia === "mensual";
-            const verSemanales = esVistaLectura || vistaFrecuencia === "semanal";
             return `
-                ${verMensuales && tareasMensuales.length ? `
+                ${tareasMensuales.length ? `
                     <p class="titulo-grupo-tareas">Mensuales (${tareasMensuales.length})</p>
                     <div class="lista-tareas-gestion">${tareasMensuales.map(aplicaTareaHtml).join("")}</div>
                 ` : ""}
-                ${verSemanales && activas.length ? `
+                ${activas.length ? `
                     <p class="titulo-grupo-tareas">Semanales en uso (${activas.length})</p>
                     <div class="lista-tareas-gestion">${activas.map(aplicaTareaHtml).join("")}</div>
                 ` : ""}
@@ -795,44 +764,39 @@ function cuerpoGestionHtml() {
         : `<div class="lista-tareas-gestion">${TAREAS.map(aplicaTareaHtml).join("")}</div>`;
 
     const catalogoHtml = `
-        <div class="section" data-panel-dia="tareas">
-            <p class="aviso-tareas-aplicables">${!hayLocal ? "Elegí un local arriba para ver y tocar sus días." : esVistaLectura ? "Así quedaron elegidos los días de cada tarea en este local." : TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
-            <div id="lista-aplica-tareas">
-                ${listaTareasHtml}
-            </div>
+        <p class="aviso-tareas-aplicables">${!hayLocal ? "Elegí un local arriba para ver y tocar sus días." : esVistaLectura ? "Así quedaron elegidos los días de cada tarea en este local." : TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
+        <div id="lista-aplica-tareas">
+            ${listaTareasHtml}
         </div>
     `;
 
     // Sin local elegido (Admin/Supervisor): se ve el catálogo pero no
-    // los tabs de día ni el contenido imprimible — no hay UN esquema
-    // de días sin saber de qué local (cada local tiene el suyo).
+    // hay UN esquema de días sin saber de qué local (cada local tiene
+    // el suyo) — no existe la sección "Tareas asignadas" todavía.
     if (!hayLocal) {
         return `
             ${acciones}
-            <div class="tabs-gestion" id="tabs-dias-gestion">
-                <button class="tab-gestion activa" data-vista-dia="tareas">Tareas</button>
+            <div class="tabs-gestion" id="tabs-seccion-gestion">
+                <button class="tab-gestion activa" data-vista-seccion="asignar">Asignar tareas</button>
             </div>
-            ${catalogoHtml}
+            <div class="section" id="seccion-asignar-tareas">${catalogoHtml}</div>
         `;
     }
 
-    // Semanal/Mensual — dos formas de EJECUTAR (pills de día vs.
-    // calendario), no dos secciones más de contenido. "Tareas" es
-    // ajena a esto (agrupa por sección arriba, ver listaTareasHtml):
-    // acá solo cambia cómo se navegan los días reales. tareasSemanales/
-    // tareasMensuales ya están calculadas más arriba.
-    //
-    // El calendario (grilla visual) es SOLO para Responsable de local/
-    // turno — pedido explícito: "yo no ni supervisión necesita ver el
-    // calendario, es para responsables". Admin/Supervisor (esVistaLectura)
-    // en cambio SÍ necesitan poder llegar a un día del mes puntual para
-    // exportarlo — pedido explícito: "cómo exporto una tarea mensual?"
-    // (antes no había forma). Solución acordada: pills chicas, mismo
-    // lenguaje que las tabs de día de siempre, SOLO para los días del
-    // mes que de verdad tengan alguna tarea mensual cargada — sin la
-    // grilla completa (esa sigue siendo solo de Responsable).
-    const esVistaMensual = !esVistaLectura && vistaFrecuencia === "mensual";
-
+    // DOS SECCIONES — pedido explícito, con croquis a mano: "quiero dos
+    // secciones: Asignar Tareas (elegís las que necesitás, elegís
+    // semanal o mensual, listo) y Tareas Asignadas (días de la semana +
+    // pills con fecha del mes, entrás donde corresponde, marcás y
+    // enviás)". Reemplaza el toggle Semanal/Mensual + calendario visual
+    // que existió unas horas antes el mismo día — un local puede tener
+    // tareas semanales Y mensuales al mismo tiempo, no tenía sentido
+    // elegir entre una u otra para EJECUTAR (solo para asignar, que
+    // sigue siendo por tarea, en "Asignar tareas"). "Así queda dividida
+    // la sección y no está tan cargada de información que confunde"
+    // (palabras del usuario). Válido para Admin/Supervisor/Responsable
+    // por igual: ya no hay ninguna diferencia de UI entre vista lectura
+    // y edición acá, solo si las pills son <button> o <span> (ver
+    // diasControlHtml) y si hay o no botón "+ Nueva tarea"/"Enviar push".
     const panelHtml = (d, titulo, tareasDelDia) => `
         <div class="section" data-panel-dia="${d}" style="display:none">
             <h3>${titulo}</h3>
@@ -842,52 +806,81 @@ function cuerpoGestionHtml() {
         </div>
     `;
 
-    const panelesSemanalesHtml = DIAS.map((d) => panelHtml(d, d, tareasSemanales.filter((t) => t.dias.includes(d)))).join("");
+    // DIAS_VISUAL (lunes primero) acá — "Tareas asignadas" es donde SÍ
+    // importa la fecha real (se ejecuta/exporta un día puntual, ver la
+    // nota en diasControlHtml), pedido explícito: "quiero cambiar la
+    // semana que sea de lunes a domingo".
+    const mesActual = new Date().getMonth() + 1;
+    const panelesSemanalesHtml = DIAS_VISUAL.map((d) => panelHtml(d, `${d} ${fechaDelDiaSemana(d)}`, tareasSemanales.filter((t) => t.dias.includes(d)))).join("");
 
-    // Solo los días del mes que YA tienen algo asignado — a diferencia
-    // del calendario de Responsable (que muestra el mes entero, vacíos
-    // incluidos, para poder asignar), acá es puramente para revisar/
-    // exportar lo que cada local ya cargó.
+    // Solo los días del mes que YA tienen algo asignado — nadie
+    // necesita navegar 31 pills, la mayoría vacías, para encontrar la
+    // única tarea mensual real.
     const diasMesConContenido = [...new Set(tareasMensuales.flatMap((t) => t.dias))].sort((a, b) => Number(a) - Number(b));
-    const panelesMensualesConContenidoHtml = diasMesConContenido.map((d) => panelHtml(d, `Día ${d}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
+    const panelesMensualesHtml = diasMesConContenido.map((d) => panelHtml(d, `${d}/${mesActual}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
 
-    let panelesDiaHtml;
-    let tabsDiaHtml;
-    if (esVistaLectura) {
-        panelesDiaHtml = panelesSemanalesHtml + panelesMensualesConContenidoHtml;
-        tabsDiaHtml = DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("")
-            + diasMesConContenido.map((d) => `<button class="tab-gestion" data-vista-dia="${d}" title="Día ${d} del mes">${d}</button>`).join("");
-    } else if (esVistaMensual) {
-        panelesDiaHtml = diasDelMesActual().map((d) => panelHtml(d, `Día ${d}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
-        tabsDiaHtml = "";
-    } else {
-        panelesDiaHtml = panelesSemanalesHtml;
-        tabsDiaHtml = DIAS.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}</button>`).join("");
-    }
+    const pillsDiaHtml = DIAS_VISUAL.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d} ${fechaDelDiaSemana(d)}</button>`).join("")
+        + diasMesConContenido.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}/${mesActual}</button>`).join("");
+
+    // Push + Exportar, JUNTOS y por FUERA de la tarjeta de la tarea, AL
+    // PIE de las tareas del día (no arriba, pegado a las pills) —
+    // pedido explícito con captura real, dos rondas: primero "el push
+    // está sobre la tarea y en el mockup está por fuera, con una pill
+    // linda premium, y exportar justo al lado" (sacado de la tarjeta),
+    // después "el push y exportar está abajo en el mock, no arriba"
+    // (reubicado debajo de #contenido-gestion-imprimible, mismo lugar
+    // que .acciones-panel en el mockup). Un solo push por PANEL
+    // (resume el estado de todas las tareas de ESE día) en vez de uno
+    // por tarea — arranca oculta, bindCuerpoGestion() la muestra al
+    // tocar una pill de día.
+    //
+    // El botón de push vive envuelto en #push-dia-wrap porque, al
+    // tocarlo, su contenido se reemplaza por un banner de confirmación
+    // en vez de mandar directo — pedido explícito: "sumar un banner
+    // enviar, así si presiono por error lo revierte" (ver
+    // bindPushDiaWrap). Exportar no lo necesita, no manda nada a nadie.
+    // Vacío a propósito: bindPushDiaWrap() lo pinta apenas se
+    // engancha (mismo criterio que un componente que se hidrata solo,
+    // evita pintar el botón acá Y de nuevo al bindear).
+    const botonPushDia = esVistaLectura ? "" : `<div class="push-dia-wrap" id="push-dia-wrap"></div>`;
+    const botonExportarDia = sucursalActiva ? `
+        <button type="button" class="btn btn-secondary" id="btn-exportar-gestion">${Icon("descargar", { size: 16 })} Exportar a PDF</button>
+    ` : "";
+    const accionesDiaHtml = (botonPushDia || botonExportarDia) ? `
+        <div class="acciones-dia-gestion" id="acciones-dia-gestion" style="display:none">
+            ${botonPushDia}${botonExportarDia}
+        </div>
+    ` : "";
 
     return `
         ${acciones}
-        ${frecuenciaToggleHtml()}
 
-        <div class="tabs-gestion" id="tabs-dias-gestion">
-            <button class="tab-gestion activa" data-vista-dia="tareas">Tareas</button>
-            ${tabsDiaHtml}
+        <div class="tabs-gestion" id="tabs-seccion-gestion">
+            <button class="tab-gestion${vistaSeccion === "asignar" ? " activa" : ""}" data-vista-seccion="asignar">Asignar tareas</button>
+            <button class="tab-gestion${vistaSeccion === "ejecutar" ? " activa" : ""}" data-vista-seccion="ejecutar">Tareas asignadas</button>
         </div>
 
-        ${esVistaMensual ? calendarioMensualHtml(tareasMensuales) : ""}
+        <!-- "Asignar tareas": catálogo — tocás una, se despliegan
+             frecuencia + días, elegís. Con al menos un día queda
+             verde ("En uso"); sin ninguno, gris ("Sin usar"). -->
+        <div class="section" id="seccion-asignar-tareas"${vistaSeccion === "asignar" ? "" : ' style="display:none"'}>
+            ${catalogoHtml}
+        </div>
 
-        <!-- "Tareas": catálogo — tocás una, se despliegan sus
-             días, elegís. Con al menos un día queda verde ("En
-             uso") y aparece en esos días reales; sin ninguno,
-             gris ("Sin usar") y no aparece en ningún lado. Vive
-             FUERA de #contenido-gestion-imprimible: es
-             configuración, no algo que se exporte en el PDF del
-             día. -->
-        ${catalogoHtml}
-
-        <div id="contenido-gestion-imprimible">
-            ${membreteHtml("Guía de Gestión", sucursalActiva)}
-            ${panelesDiaHtml}
+        <!-- "Tareas asignadas": pills de día/fecha — tocás una, ves
+             las tareas de ESE día, las marcás hechas. Push/Exportar
+             van AL PIE, después del contenido exportable
+             (#contenido-gestion-imprimible), mismo orden que el
+             mockup — "Asignar tareas" no tiene nada de esto. -->
+        <div id="seccion-tareas-asignadas"${vistaSeccion === "ejecutar" ? "" : ' style="display:none"'}>
+            <div class="tabs-gestion" id="tabs-dias-gestion">
+                ${pillsDiaHtml}
+            </div>
+            <div id="contenido-gestion-imprimible">
+                ${membreteHtml("Guía de Gestión", sucursalActiva)}
+                ${panelesSemanalesHtml}${panelesMensualesHtml}
+            </div>
+            ${accionesDiaHtml}
         </div>
     `;
 }
@@ -1035,11 +1028,10 @@ function bindDiasControl(contenedor) {
 /** Semanal/Mensual POR TAREA — pedido explícito: "yo cargo la tarea,
  *  ellos deciden si es mensual o semanal, no tengo que estar
  *  modificando nada". Cada local elige acá, al desplegar la tarea en
- *  "Tareas" — mismo lugar donde ya elige los días, mismo espíritu que
- *  el toggle de página (frecuenciaToggleHtml) pero acotado a ESTA
- *  tarea. Cambiarla con días ya elegidos los borra (no tienen sentido
- *  en el otro patrón) — mismo aviso que ya existía cuando esto vivía
- *  en el modal de Admin, ahora acá. */
+ *  "Asignar tareas" — mismo lugar donde ya elige los días. Cambiarla
+ *  con días ya elegidos los borra (no tienen sentido en el otro
+ *  patrón) — mismo aviso que ya existía cuando esto vivía en el modal
+ *  de Admin, ahora acá. */
 function bindFrecuenciaTarea(contenedor) {
     contenedor.querySelectorAll("[data-elegir-frecuencia]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -1086,10 +1078,11 @@ function bindTarjetaDesplegable(tarjeta) {
     // una lista capturada al abrir la página) — así "16/16" en vez de
     // "0/8" cuando se agregaron ítems nuevos, sin pedirlo por código.
     function actualizarProgreso() {
-        const subitems = contenedorSubitems.querySelectorAll(".subitem-gestion-check");
-        const hechos = Array.from(subitems).filter((s) => s.checked).length;
-        progreso.textContent = `${hechos}/${subitems.length}`;
-        const completa = subitems.length > 0 && hechos === subitems.length;
+        const subitems = Array.from(contenedorSubitems.querySelectorAll(".subitem-gestion-check"));
+        const marcados = [];
+        subitems.forEach((s, is) => { if (s.checked) marcados.push(is); });
+        progreso.textContent = `${marcados.length}/${subitems.length}`;
+        const completa = subitems.length > 0 && marcados.length === subitems.length;
         const yaEstabaCompleta = tarjeta.classList.contains("hecha");
         tarjeta.classList.toggle("hecha", completa);
         const hora = tarjeta.querySelector("[data-hora]");
@@ -1101,15 +1094,17 @@ function bindTarjetaDesplegable(tarjeta) {
             if (completa && !yaEstabaCompleta) hora.textContent = `Hecho ${horaAhora()}`;
             else if (!completa) hora.textContent = "";
         }
-        // Se guarda DE VERDAD solo cuando el estado completo/incompleto
-        // cambió — se persiste la tarea entera (completa o no), no
-        // sub-ítem por sub-ítem (ver data/gestionChecks.js).
-        if (completa !== yaEstabaCompleta) {
-            guardarCheckSucursal(tarjeta.dataset.tareaId, tarjeta.dataset.dia, completa, sucursalActiva).then((r) => {
-                if (r?.ok) return;
-                alert(r?.error || "No se pudo guardar — probá de nuevo.");
-            });
-        }
+        // Se guarda en CADA toque, no solo al llegar a completa —
+        // reportado en vivo (2026-08-26): con una tarea a mitad de
+        // camino (nunca llegó a completa) no había NINGUNA fila
+        // guardada, así que ese progreso se perdía con cualquier
+        // recarga de la app ("quedaba todo desmarcado"). Ahora se
+        // manda siempre la lista real de índices tildados junto con
+        // el booleano — ver data/gestionChecks.js.
+        guardarCheckSucursal(tarjeta.dataset.tareaId, tarjeta.dataset.dia, completa, sucursalActiva, marcados.map(String)).then((r) => {
+            if (r?.ok) return;
+            alert(r?.error || "No se pudo guardar — probá de nuevo.");
+        });
     }
 
     // Un solo listener por delegación cubre todos los checkboxes.
@@ -1167,54 +1162,100 @@ function bindEliminarTarea(boton) {
     });
 }
 
-/** "Enviar push" — arma el título/cuerpo según el estado ACTUAL en
- *  pantalla (todos los sub-ítems tildados, o el propio check si es
- *  una tarea simple) y lo manda vía mandarPushGestion, que NO recibe
- *  destinatarios — el backend decide solo (los demás Responsables de
- *  local/turno de la MISMA sucursal). Así lo puede usar cualquier
- *  Responsable de local/turno sin que el cliente tenga que saber (ni
- *  pueda manipular) a quién le llega. No depende de que el
- *  check esté persistido (eso es Fase 2) — mide lo que hay tildado
- *  ahora mismo, tal como se pidió. */
-function bindEnviarPush(boton) {
-    boton.addEventListener("click", async () => {
-        const tarjeta = boton.closest(".tarea-gestion");
-        const idTarea = tarjeta.dataset.tareaId;
-        const tarea = registroTareas.get(idTarea);
-        if (!tarea) return;
+/** Botón normal de "Enviar push" — estado por defecto de #push-dia-
+ *  wrap. Separado en su propia función porque bindPushDiaWrap() lo
+ *  vuelve a pintar cada vez que se cancela la confirmación o termina
+ *  un envío (ver más abajo). */
+function pushDiaBotonHtml() {
+    return `<button type="button" class="btn-enviar-push" id="btn-enviar-push-dia">${Icon("campana", { size: 14 })} Enviar push</button>`;
+}
 
-        const subitems = Array.from(tarjeta.querySelectorAll(".subitem-gestion-check"));
-        const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
-        // Desde "Tareas" (catálogo) no hay nada tildable en la tarjeta
-        // — ahí no corresponde decir "incompleta" por defecto, es un
-        // aviso neutro nomás.
-        const hayEstado = subitems.length > 0 || !!checkPropio;
-        const completa = subitems.length ? subitems.every((s) => s.checked) : !!checkPropio?.checked;
+/** Banner de confirmación — pedido explícito: "sumar un banner
+ *  enviar, así si presiono por error lo revierte". Reemplaza al botón
+ *  DENTRO de #push-dia-wrap en vez de abrir un modal aparte: mismo
+ *  lugar, un toque menos que cancelar un popup. */
+function pushDiaBannerHtml() {
+    return `
+        <div class="banner-confirmar-push">
+            <span>¿Enviar push a todo el equipo?</span>
+            <div class="banner-confirmar-push-botones">
+                <button type="button" class="btn-cancelar-push" id="btn-cancelar-push">Cancelar</button>
+                <button type="button" class="btn-confirmar-push" id="btn-confirmar-push">Confirmar envío</button>
+            </div>
+        </div>
+    `;
+}
 
-        const textoOriginal = boton.textContent;
-        let enviado = false;
+/** "Enviar push" — UN wrap compartido al pie de las tareas del día
+ *  (no uno por tarea, ver el comentario en cuerpoGestionHtml). Tocar
+ *  "Enviar push" NO manda nada todavía: cambia el botón por un banner
+ *  de confirmación (pushDiaBannerHtml) — solo "Confirmar envío" arma
+ *  el título/cuerpo según el estado ACTUAL de TODAS las tareas del
+ *  panel del día activo (diaActivo/diaActivoEtiqueta, ver el handler
+ *  de data-vista-dia más abajo) y lo manda vía mandarPushGestion, que
+ *  NO recibe destinatarios — el backend decide solo (los demás
+ *  Responsables de local/turno de la MISMA sucursal). No depende de
+ *  que el check esté persistido (eso es Fase 2) — mide lo que hay
+ *  tildado ahora mismo, tal como se pidió.
+ *
+ *  Pedido explícito: "el nombre de usuario debería estar al enviar el
+ *  push, esté completa o incompleta la tarea, porque así se sabe
+ *  quién envió ese push" — va en el TÍTULO, no al final del cuerpo:
+ *  reportado en vivo que con la tarea incompleta (cuerpo ya largo,
+ *  "Tareas incompletas ⚠️ — revisá qué falta en la app.") la firma
+ *  quedaba afuera de la vista previa colapsada de Android, que corta
+ *  el cuerpo a una sola línea. El título no se corta así. */
+function bindPushDiaWrap(wrap) {
+    function pintarBoton() {
+        wrap.innerHTML = pushDiaBotonHtml();
+        wrap.querySelector("#btn-enviar-push-dia").addEventListener("click", pintarBanner);
+    }
+
+    function pintarBanner() {
+        wrap.innerHTML = pushDiaBannerHtml();
+        wrap.querySelector("#btn-cancelar-push").addEventListener("click", pintarBoton);
+        wrap.querySelector("#btn-confirmar-push").addEventListener("click", enviar);
+    }
+
+    async function enviar() {
+        const boton = wrap.querySelector("#btn-confirmar-push");
+        if (!diaActivo) { pintarBoton(); return; }
+        const panel = document.querySelector(`[data-panel-dia="${diaActivo}"]`);
+        if (!panel) { pintarBoton(); return; }
+
+        const checks = Array.from(panel.querySelectorAll(".subitem-gestion-check, .tarea-gestion-check"));
+        // Sin nada tildable en el panel (día vacío) no corresponde
+        // decir "incompleta" por defecto, es un aviso neutro nomás.
+        const hayEstado = checks.length > 0;
+        const completa = hayEstado && checks.every((c) => c.checked);
+
+        const usuario = getUsuarioActual();
+        const titulo = usuario?.nombre ? `${usuario.nombre} · ${diaActivoEtiqueta || "Gestión de tareas"}` : (diaActivoEtiqueta || "Gestión de tareas");
+
         boton.disabled = true;
         boton.textContent = "Enviando...";
         try {
             const cuerpo = !hayEstado
-                ? "Aviso desde Gestión semanal."
-                : completa ? "Tarea completa ✅" : "Tarea incompleta ⚠️ — revisá qué falta en la app.";
-            const r = await mandarPushGestion(tarea.titulo, cuerpo, "#/gestion");
+                ? "Aviso desde Gestión de tareas."
+                : completa ? "Tareas completas ✅" : "Tareas incompletas ⚠️ — revisá qué falta en la app.";
+            const r = await mandarPushGestion(titulo, cuerpo, "#/gestion");
             if (!r?.ok) {
                 alert(r?.error || "No se pudo enviar el push — probá de nuevo.");
+                pintarBoton();
                 return;
             }
             // Confirmación visible de que SÍ salió — antes quedaba
             // mudo en el caso de éxito, indistinguible de "no hizo
             // nada" (pedido explícito: "no se sabe si se envió").
-            enviado = true;
-            boton.textContent = "✓ Enviado";
-            setTimeout(() => { boton.textContent = textoOriginal; }, 2000);
-        } finally {
-            boton.disabled = false;
-            if (!enviado) boton.textContent = textoOriginal;
+            wrap.innerHTML = `<button type="button" class="btn-enviar-push" disabled>✓ Enviado</button>`;
+            setTimeout(pintarBoton, 2000);
+        } catch (err) {
+            alert("No se pudo enviar el push — probá de nuevo.");
+            pintarBoton();
         }
-    });
+    }
+
+    pintarBoton();
 }
 
 /** Le engancha a un nodo (recién insertado por confirmarTarea o
@@ -1226,7 +1267,6 @@ function bindTarjetaNueva(nodo) {
     nodo.querySelectorAll(".tarea-gestion-dia-control").forEach(bindFrecuenciaTarea);
     nodo.querySelectorAll("[data-editar-tarea]").forEach(bindEditarTarea);
     nodo.querySelectorAll("[data-eliminar-tarea]").forEach(bindEliminarTarea);
-    nodo.querySelectorAll("[data-enviar-push]").forEach(bindEnviarPush);
     if (nodo.matches("[data-desplegable]")) bindTarjetaDesplegable(nodo);
 }
 
@@ -1234,41 +1274,41 @@ function bindTarjetaNueva(nodo) {
  *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
  *  cambia de local en el selector (mismo contenido, nodos nuevos). */
 function bindCuerpoGestion() {
-    // Pills de días (Domingo primero) Y celdas del calendario mensual
-    // comparten el mismo mecanismo — data-vista-dia activa, muestra el
-    // [data-panel-dia] que matchea, oculta el resto. Sin escopar a un
-    // solo contenedor (antes solo #tabs-dias-gestion): la grilla
-    // mensual vive en OTRO contenedor aparte (#calendario-mensual, con
-    // pinta de calendario, no de fila de pills), pero es el mismo
-    // patrón exacto — un solo listener para los dos.
-    document.querySelectorAll("#cuerpo-gestion [data-vista-dia]").forEach((btn) => {
+    // Pills de "Tareas asignadas" (día de semana + fecha, o día del mes
+    // + fecha) — data-vista-dia activa, muestra el [data-panel-dia] que
+    // matchea, oculta el resto. Vive DENTRO de #seccion-tareas-asignadas,
+    // así que solo importa mientras esa sección está visible.
+    document.querySelectorAll("#tabs-dias-gestion [data-vista-dia]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            document.querySelectorAll("#cuerpo-gestion [data-vista-dia]").forEach((b) => b.classList.remove("activa"));
+            document.querySelectorAll("#tabs-dias-gestion [data-vista-dia]").forEach((b) => b.classList.remove("activa"));
             btn.classList.add("activa");
-            const dia = btn.dataset.vistaDia;
+            diaActivo = btn.dataset.vistaDia;
+            diaActivoEtiqueta = btn.textContent.trim();
             document.querySelectorAll("[data-panel-dia]").forEach((panel) => {
-                panel.style.display = panel.dataset.panelDia === dia ? "" : "none";
+                panel.style.display = panel.dataset.panelDia === diaActivo ? "" : "none";
             });
-            // "Exportar a PDF" solo tiene sentido con un día real
-            // activo — en "Tareas" no hay nada que exportar (ver la
-            // nota en cuerpoGestionHtml, botonExportar).
-            const btnExportar = document.getElementById("btn-exportar-gestion");
-            if (btnExportar) btnExportar.style.display = dia === "tareas" ? "none" : "";
+            // Push + Exportar solo tienen sentido con un día real activo.
+            const accionesDia = document.getElementById("acciones-dia-gestion");
+            if (accionesDia) accionesDia.style.display = "";
         });
     });
 
-    // Semanal/Mensual — pedido explícito: tareas tipo "vencimiento de
-    // matafuego el 20" no encajan en el patrón de día de semana. Re-
-    // renderiza todo #cuerpo-gestion (mismo patrón que elegirLocalGestion),
-    // no hace falta traer nada nuevo del backend, es puro cambio de vista.
-    document.querySelectorAll("[data-vista-frecuencia]").forEach((btn) => {
+    // "Asignar tareas" / "Tareas asignadas" — pedido explícito, con
+    // croquis: dos secciones separadas en vez de todo amontonado en
+    // una. Solo muestra/oculta (no hace falta re-renderizar ni traer
+    // nada del backend, la data ya está toda en memoria). Al volver a
+    // "Asignar tareas" se ocultan Push/Exportar — no hay ningún día
+    // activo relevante ahí.
+    document.querySelectorAll("[data-vista-seccion]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            if (btn.dataset.vistaFrecuencia === vistaFrecuencia) return;
-            vistaFrecuencia = btn.dataset.vistaFrecuencia;
-            const cuerpo = document.getElementById("cuerpo-gestion");
-            if (!cuerpo) return;
-            cuerpo.innerHTML = cuerpoGestionHtml();
-            bindCuerpoGestion();
+            if (btn.dataset.vistaSeccion === vistaSeccion) return;
+            vistaSeccion = btn.dataset.vistaSeccion;
+            document.querySelectorAll("[data-vista-seccion]").forEach((b) => b.classList.remove("activa"));
+            btn.classList.add("activa");
+            document.getElementById("seccion-asignar-tareas").style.display = vistaSeccion === "asignar" ? "" : "none";
+            document.getElementById("seccion-tareas-asignadas").style.display = vistaSeccion === "ejecutar" ? "" : "none";
+            const accionesDia = document.getElementById("acciones-dia-gestion");
+            if (accionesDia && vistaSeccion === "asignar") accionesDia.style.display = "none";
         });
     });
 
@@ -1278,7 +1318,8 @@ function bindCuerpoGestion() {
     document.querySelectorAll("[data-desplegable]").forEach(bindTarjetaDesplegable);
     document.querySelectorAll("[data-editar-tarea]").forEach(bindEditarTarea);
     document.querySelectorAll("[data-eliminar-tarea]").forEach(bindEliminarTarea);
-    document.querySelectorAll("[data-enviar-push]").forEach(bindEnviarPush);
+    const pushDiaWrap = document.getElementById("push-dia-wrap");
+    if (pushDiaWrap) bindPushDiaWrap(pushDiaWrap);
 
     // "+ Nueva tarea" (admin) — mismo patrón que ya existe en
     // Lecciones: encabezado + sub-tareas sueltas.
@@ -1396,19 +1437,20 @@ async function actualizarChecksEnDOM() {
     document.querySelectorAll("#contenido-gestion-imprimible .tarea-gestion[data-tarea-id][data-dia]").forEach((tarjeta) => {
         const clave = `${tarjeta.dataset.tareaId}|${tarjeta.dataset.dia}`;
         const check = checksActivos[clave];
-        const hechoTexto = check ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
+        const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
         const hora = tarjeta.querySelector("[data-hora]");
         if (hora) hora.textContent = hechoTexto;
-        tarjeta.classList.toggle("hecha", !!check);
+        tarjeta.classList.toggle("hecha", !!check?.hecho);
 
         const checkSimple = tarjeta.querySelector(".tarea-gestion-check");
-        if (checkSimple) checkSimple.checked = !!check;
+        if (checkSimple) checkSimple.checked = !!check?.hecho;
 
         const subitems = tarjeta.querySelectorAll(".subitem-gestion-check");
         if (subitems.length) {
-            subitems.forEach((s) => { s.checked = !!check; });
+            const marcados = check?.subitems || new Set();
+            subitems.forEach((s, is) => { s.checked = marcados.has(String(is)); });
             const progreso = tarjeta.querySelector("[data-progreso]");
-            if (progreso) progreso.textContent = `${check ? subitems.length : 0}/${subitems.length}`;
+            if (progreso) progreso.textContent = `${marcados.size}/${subitems.length}`;
         }
     });
 }

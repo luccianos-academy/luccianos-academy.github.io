@@ -5536,6 +5536,25 @@ table.data-table tbody tr:hover{
     border-color:var(--gold);
 }
 
+/* #tabs-seccion-gestion = "Asignar tareas"/"Tareas asignadas" — el
+   cambio de sección real, mockup confirmado por el usuario. Reusa
+   .tab-gestion (mismos colores/estados) pero pedía su propio peso:
+   con el mismo tamaño que las pills de día de más abajo (#tabs-dias-
+   gestion) las dos filas de tabs leían como una sola familia sin
+   jerarquía — acá no se distinguía "en qué sección estoy" de "qué día
+   estoy mirando". flex:1 (dos botones, ancho parejo, ocupan todo el
+   ancho) + tipografía más grande es lo que las separa, mismo criterio
+   que .tab-seccion del mockup aprobado. */
+#tabs-seccion-gestion{
+    flex-wrap:nowrap;
+}
+#tabs-seccion-gestion .tab-gestion{
+    flex:1;
+    text-align:center;
+    padding:12px 14px;
+    font-size:14px;
+}
+
 /* Área "Formación" — solo títulos de tema por ahora, cada uno con un
    badge "Próximamente" bien visible para que no se confunda con
    contenido ya cargado. */
@@ -5776,29 +5795,99 @@ table.data-table tbody tr:hover{
     padding:4px 0;
 }
 
-/* "Enviar push" — solo en la vista por día, avisa a los demás
-   Responsables de local/turno del mismo local si la tarea quedó
-   completa o no, sin que nadie escriba nada. */
-.tarea-gestion-push{
-    padding:10px 18px 0;
+/* Fila compartida "Enviar push" + "Exportar a PDF", al PIE de las
+   tareas del día activo (después de #contenido-gestion-imprimible) —
+   por FUERA de la tarjeta de la tarea, pedido explícito en dos
+   rondas: "el push está sobre la tarea y en el mockup está por
+   fuera, con una pill linda premium, y exportar justo al lado", y
+   después "está abajo en el mock, no arriba" (reubicada). Arranca
+   oculta (inline style), bindCuerpoGestion() la muestra al tocar una
+   pill de día. */
+.acciones-dia-gestion{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-top:14px;
+    margin-bottom:22px;
+}
+.acciones-dia-gestion .btn{
+    padding:9px 16px;
+    font-size:13px;
 }
 
+/* Pill sólida (mismo par sólido/contorno que "Exportar a PDF" al
+   lado) — antes era un acento chico (fondo tenue) metido adentro de
+   la tarjeta; ahora que vive suelta en su propia fila necesita el
+   mismo peso visual que un botón real, no un detalle discreto. */
 .btn-enviar-push{
     display:inline-flex;
     align-items:center;
     gap:6px;
-    padding:7px 14px;
-    background:var(--gold-soft);
+    padding:9px 16px;
+    background:var(--gold);
     border:1px solid var(--gold);
     border-radius:999px;
-    color:var(--gold-deep);
-    font-size:12.5px;
+    color:var(--black);
+    font-size:13px;
     font-weight:700;
     cursor:pointer;
     transition:var(--transition);
 }
-.btn-enviar-push:hover{ background:var(--gold); color:var(--black); }
+.btn-enviar-push:hover{ background:var(--gold-deep); border-color:var(--gold-deep); }
 .btn-enviar-push:disabled{ opacity:.6; cursor:default; }
+
+.push-dia-wrap{
+    display:flex;
+    align-items:center;
+}
+
+/* Banner de confirmación — pedido explícito: "sumar un banner enviar,
+   así si presiono por error lo revierte". Reemplaza al botón adentro
+   de #push-dia-wrap (mismo lugar, no un modal aparte) hasta que se
+   toque "Confirmar envío" o "Cancelar". */
+.banner-confirmar-push{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    padding:8px 8px 8px 14px;
+    background:var(--gold-soft);
+    border:1px solid var(--gold);
+    border-radius:999px;
+}
+.banner-confirmar-push span{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+}
+.banner-confirmar-push-botones{
+    display:flex;
+    gap:8px;
+}
+.btn-cancelar-push{
+    padding:6px 12px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-cancelar-push:hover{ border-color:var(--text); color:var(--text); }
+.btn-confirmar-push{
+    padding:6px 14px;
+    border-radius:999px;
+    border:1px solid var(--gold);
+    background:var(--gold);
+    color:var(--black);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-confirmar-push:hover{ background:var(--gold-deep); border-color:var(--gold-deep); }
 
 /* Fila de acciones al pie de cada tarjeta — Editar/Eliminar (Admin),
    mismos íconos/estilo que ya usa el modal de Publicación
