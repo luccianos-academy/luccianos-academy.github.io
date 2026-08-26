@@ -20,10 +20,9 @@ import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
 import { VERSION, ES_STAGING } from "../config.js";
-import { SECCIONES_DISPONIBLES_ADMIN } from "../components/bottomNav.js";
+import { seccionesDisponibles, TABS_POR_ROL } from "../components/bottomNav.js";
 import { getAccesosRapidos, setAccesosRapidos } from "../services/preferenciasAccesos.js";
 
-const ACCESOS_RAPIDOS_DEFAULT = ["inicio", "colaboradores", "academia", "perfil"];
 const MAX_ACCESOS_RAPIDOS = 4;
 
 const ROL_LEGIBLE = { admin: "Administrador", supervisor: "Supervisor", colaborador: "Colaborador" };
@@ -162,15 +161,22 @@ function bloqueVistaRapida(candidatos) {
 
 /** Elegir qué 4 secciones aparecen abajo de la pantalla en el celular
  *  (bottom nav) — pedido explícito del Admin (2026-08-19): "dame la
- *  posibilidad de crear acceso directo del botón que yo utilice más".
- *  Preferencia liviana del dispositivo (localStorage, ver
- *  preferenciasAccesos.js), no toca ningún permiso. Máximo 4 a
- *  propósito: es lo que entra cómodo abajo de la pantalla sin
- *  amontonarse — bindPerfil() destilda el resto en cuanto se llega
- *  a 4, en vez de dejar tildar de más y fallar recién al guardar. */
+ *  posibilidad de crear acceso directo del botón que yo utilice más",
+ *  extendido a Colaborador/Supervisor (2026-08-25): "que se pongan lo
+ *  que ellos quieran". Preferencia liviana del dispositivo
+ *  (localStorage, ver preferenciasAccesos.js), no toca ningún
+ *  permiso — el universo de opciones (seccionesDisponibles) SÍ
+ *  respeta lo que cada usuario puntual puede ver (ej. "Gestión
+ *  semanal" solo aparece si es encargado/responsableTurno/
+ *  supervisor). Máximo 4 a propósito: es lo que entra cómodo abajo de
+ *  la pantalla sin amontonarse — bindPerfil() destilda el resto en
+ *  cuanto se llega a 4, en vez de dejar tildar de más y fallar recién
+ *  al guardar. */
 function bloqueAccesosRapidos(usuario) {
+    const disponibles = seccionesDisponibles(usuario);
     const guardados = getAccesosRapidos(usuario);
-    const seleccionados = guardados.length === MAX_ACCESOS_RAPIDOS ? guardados : ACCESOS_RAPIDOS_DEFAULT;
+    const defaultDelRol = (TABS_POR_ROL[usuario.rol] || []).map((t) => t.id);
+    const seleccionados = guardados.length === MAX_ACCESOS_RAPIDOS ? guardados : defaultDelRol;
 
     return `
         <div class="card" style="max-width:420px;margin-top:20px">
@@ -179,7 +185,7 @@ function bloqueAccesosRapidos(usuario) {
                 Elegí hasta ${MAX_ACCESOS_RAPIDOS} pantallas para tener a mano abajo de la pantalla, sin abrir el menú.
             </p>
             <div class="checkbox-lista" id="lista-accesos-rapidos" style="max-height:none">
-                ${SECCIONES_DISPONIBLES_ADMIN.map((s) => `
+                ${disponibles.map((s) => `
                     <label class="checkbox-item">
                         <input type="checkbox" name="input-accesos-rapidos" value="${s.id}" ${seleccionados.includes(s.id) ? "checked" : ""}>
                         ${s.label}
@@ -224,7 +230,7 @@ export async function Perfil() {
 
         ${await bloquePush(usuario)}
 
-        ${esAdmin ? bloqueAccesosRapidos(usuario) : ""}
+        ${bloqueAccesosRapidos(usuario)}
 
         ${esAdmin ? bloqueVistaRapida(candidatos) : ""}
 
