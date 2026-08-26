@@ -146,8 +146,8 @@ export function enviarPushGestionReal(titulo, cuerpo, url) {
  *  fila (usuarioActual.sucursal), nunca un valor que mande el
  *  cliente. Solo Responsable de local/turno pueden llamarla — ver
  *  apps-script/Code.gs, actualizarDiasGestionSucursal. */
-export function actualizarDiasGestionSucursalReal(tareaId, dias) {
-    return gasRequest("actualizarDiasGestionSucursal", { tareaId, dias });
+export function actualizarDiasGestionSucursalReal(tareaId, dias, frecuencia) {
+    return gasRequest("actualizarDiasGestionSucursal", { tareaId, dias, frecuencia });
 }
 
 /** Guarda (o borra, si hecho=false) el check "hecho" de una tarea

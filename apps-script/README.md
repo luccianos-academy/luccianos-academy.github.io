@@ -55,6 +55,8 @@ Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
 `aplicaA`/`noAplicaA` (agregadas 2026-08-26): país/propio-franquicia/local puntual a quien le corresponde la tarea — MISMO campo y semántica que `Cursos`/`Lecciones` (vacío = aplica a TODOS, la exclusión gana), ver `services/alcance.js` → `aplicaASucursal`. Suman dos tokens que Cursos/Lecciones no usan: `Propios`/`Franquicias`, contra `Sucursales.esPropio`. **Sin estas 2 columnas en la Sheet, `_actualizarCrudo` devuelve `{ok:false, error:'Faltan columnas...'}` al editar CUALQUIER tarea** (el cliente siempre manda los dos campos, aunque no se toquen) — agregarlas es paso obligatorio antes de probar este cambio, no opcional.
 
+`frecuencia`: se probó acá un rato el mismo día (2026-08-26) pero se movió a `GestionTareasSucursal` (ver más abajo) — pedido explícito del usuario, Admin: "yo cargo la tarea, ellos deciden si es mensual o semanal". Si llegaste a agregar esa columna acá, podés dejarla — queda inerte, el código ya no la lee ni la escribe.
+
 Esto importa por cómo escribe el backend: `_actualizarCrudo` busca cada
 campo por **nombre exacto de encabezado**. Si la columna no existe, la
 escritura de ESE campo no tiene dónde ir. Antes se salteaba en silencio
@@ -69,10 +71,12 @@ el código.
 
 Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
-| `id` | `tareaId` | `sucursal` | `dias` | `fechaModificacion` |
-|---|---|---|---|---|
+| `id` | `tareaId` | `sucursal` | `dias` | `frecuencia` | `fechaModificacion` |
+|---|---|---|---|---|---|
 
 Separa el catálogo de tareas (`GestionTareas` — QUÉ tareas existen, solo lo edita Admin) de en qué días le aplica cada una a CADA local — antes ese `dias` vivía en la propia fila de `GestionTareas`, compartido por toda la red (bug real de diseño: el Responsable de un local cambiaba el esquema de TODOS los locales sin darse cuenta). Una fila acá = una combinación tarea+sucursal con al menos un día elegido; si un local nunca tocó una tarea, no hay fila (no hace falta poblar todo el catálogo × todos los locales de antemano). `sucursal` tiene que matchear EXACTO el nombre real de la sucursal (mismo criterio que el resto de la app — ver la trampa del apóstrofo tipográfico en la memoria del proyecto). Escrita solo por `actualizarDiasGestionSucursal` (Code.gs) — nunca por `actualizar` genérico — que fuerza `sucursal` desde `usuarioActual.sucursal` en el servidor, ignorando cualquier valor que mande el cliente.
+
+`frecuencia` (agregada 2026-08-26, movida acá desde `GestionTareas` el mismo día): `semanal` (default, celda vacía cae acá) o `mensual` — decide cómo se interpreta `dias` PARA ESE LOCAL: nombres de día ("Lunes") si es semanal, números de día del mes ("20") si es mensual. Vive acá y no en el catálogo a propósito — pedido explícito del usuario, Admin: "yo cargo la tarea, ellos deciden si es mensual o semanal, no tengo que estar modificando nada, solo cargo la tarea". **Sin esta columna, `actualizarDiasGestionSucursal` devuelve `{ok:false, error:'Faltan columnas...'}` al tocar cualquier pill de día** — agregarla es paso obligatorio antes de probar este cambio.
 
 #### `GestionChecks` (check "hecho" persistido, #/gestion)
 

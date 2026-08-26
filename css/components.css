@@ -5304,7 +5304,12 @@ table.data-table tbody tr:hover{
     justify-content:center;
 }
 
-.tarea-gestion-txt{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+/* flex:1 1 0 — reclama el espacio disponible entre el ícono y lo que
+   venga después (chevron/progreso), en vez de quedar apretado a su
+   ancho de contenido; eso hacía que un título largo se envolviera
+   antes de lo necesario. min-width:0 sigue haciendo falta para que
+   ESE flex:1 pueda de verdad achicarse por debajo de su contenido. */
+.tarea-gestion-txt{ display:flex; flex-direction:column; gap:3px; min-width:0; flex:1 1 0%; }
 .tarea-gestion-txt strong{ font-size:14.5px; color:var(--text); }
 .tarea-gestion-txt span{ font-size:12.5px; color:var(--muted); }
 
@@ -5324,6 +5329,7 @@ table.data-table tbody tr:hover{
 .tarea-gestion-header{
     width:100%;
     display:flex;
+    flex-wrap:wrap;
     align-items:flex-start;
     gap:14px;
     padding:16px 18px;
@@ -5333,6 +5339,21 @@ table.data-table tbody tr:hover{
     font:inherit;
     text-align:left;
     cursor:pointer;
+}
+
+/* Badges (frecuencia/alcance/en-uso, ver aplicaTareaHtml) SIEMPRE en
+   su propia fila entera (flex-basis:100% los fuerza a la línea
+   siguiente del flex-wrap de arriba) — nunca al lado del título.
+   Reportado en vivo con captura: con un título largo que se envuelve
+   a 2 líneas, badges centrados en la misma fila que el título quedaban
+   flotando en el medio, tapando la segunda línea. padding-left los
+   alinea debajo del título (ancho del ícono + su gap), no del borde. */
+.tarea-gestion-badges{
+    flex-basis:100%;
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    padding-left:48px;
 }
 
 .tarea-gestion-progreso{
@@ -5346,14 +5367,15 @@ table.data-table tbody tr:hover{
     border-radius:999px;
 }
 
-/* Hora en que se tildó como hecha — vacío hasta que se marca, mismo
-   criterio visual que el resto de los "badges" al lado del título.
-   Puramente visual por ahora (igual que el propio check, ver
-   comentario en gestion.js) — sin :empty porque el elemento vive
-   siempre en el DOM, solo cambia su texto. */
+/* Hora en que se tildó como hecha — vacío hasta que se marca. Vive
+   DENTRO de .tarea-gestion-txt (tercera línea, debajo de título y
+   detalle), no como badge aparte al lado — reportado en vivo con
+   captura: como hermano de .tarea-gestion-txt, centrado en la fila
+   completa, un título+detalle largo lo dejaba flotando tapado en el
+   medio del texto envuelto. Adentro de la columna no hay ambigüedad
+   posible. Sin :empty porque el elemento vive siempre en el DOM, solo
+   cambia su texto. */
 .tarea-gestion-hora{
-    flex-shrink:0;
-    align-self:center;
     font-size:12px;
     color:var(--success);
 }
@@ -5764,6 +5786,157 @@ table.data-table tbody tr:hover{
 .badge-en-uso.activa{
     background:var(--success-soft);
     color:var(--success);
+}
+
+/* Alcance de una tarea (Propios/Franquicias/país) — ver
+   alcanceBadgeHtml() en gestion.js. Mismo look que .badge-en-uso pero
+   en dorado, para no confundirse con "En uso"/"Sin usar" (que hablan
+   de otra cosa: si tiene días elegidos). Sin badge = aplica a todos,
+   el caso más común — no hace falta remarcar lo normal. */
+.badge-alcance-tarea{
+    flex-shrink:0;
+    align-self:center;
+    font-size:11px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:999px;
+    background:var(--gold-soft);
+    color:var(--gold);
+    white-space:nowrap;
+    max-width:140px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+/* Interruptor Semanal/Mensual (frecuenciaToggleHtml, gestion.js) —
+   mismo lenguaje visual que .tab-gestion pero agrupado en un solo
+   control de dos mitades (como un segmented control), para que se lea
+   como "una elección entre dos", no como dos pestañas sueltas más al
+   lado de "Tareas"/días. */
+.toggle-frecuencia-gestion{
+    display:inline-flex;
+    margin-top:14px;
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:3px;
+    gap:3px;
+}
+
+.toggle-frecuencia-btn{
+    padding:6px 16px;
+    border-radius:999px;
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.toggle-frecuencia-btn.activa{
+    background:var(--gold);
+    color:var(--black);
+}
+
+/* Calendario mensual (calendarioMensualHtml, gestion.js) — referencia
+   explícita del usuario: el Calendario nativo de iOS. Solo el mes
+   actual, sin navegación (es un recordatorio del "ahora", no un
+   planificador a futuro — ver la nota en diasDelMesActual). */
+/* max-width — sin esto, en desktop las 7 columnas (1fr cada una) se
+   estiran hasta ocupar todo el ancho disponible del panel, y cada
+   celda circular termina gigante. Pensado en celular (referencia:
+   Calendario nativo de iOS), no en pantalla completa de PC. */
+.calendario-mensual{
+    margin-top:18px;
+    padding:16px;
+    max-width:380px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+}
+
+.calendario-mensual-titulo{
+    font-size:13px;
+    font-weight:700;
+    color:var(--gold);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+    margin-bottom:12px;
+}
+
+.calendario-mensual-encabezado{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    margin-bottom:6px;
+}
+
+.calendario-mensual-encabezado span{
+    text-align:center;
+    font-size:11px;
+    font-weight:700;
+    color:var(--muted);
+}
+
+.calendario-mensual-grilla{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:4px;
+}
+
+.dia-mes-celda{
+    position:relative;
+    aspect-ratio:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:none;
+    border-radius:50%;
+    background:transparent;
+    color:var(--text);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:var(--transition);
+}
+
+.dia-mes-celda:hover{
+    background:var(--card);
+}
+
+.dia-mes-celda.activa{
+    background:var(--gold);
+    color:var(--black);
+    font-weight:800;
+}
+
+/* "Hoy" — mismo criterio visual que el Calendario de iOS (referencia
+   del usuario): un anillo, no un relleno — el relleno sólido queda
+   reservado para "seleccionado ahora mismo" (.activa). Si las dos
+   coinciden (hoy Y seleccionado), gana .activa por orden de cascada. */
+.dia-mes-celda.dia-mes-hoy{
+    border:2px solid var(--gold);
+    color:var(--gold);
+    font-weight:800;
+}
+
+.dia-mes-vacio{
+    aspect-ratio:1;
+}
+
+.dia-mes-punto{
+    position:absolute;
+    bottom:4px;
+    left:50%;
+    transform:translateX(-50%);
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:var(--gold);
+}
+
+.dia-mes-celda.activa .dia-mes-punto{
+    background:var(--black);
 }
 
 /* Checkboxes de "Días" en el modal Nueva/Editar tarea — fila real por

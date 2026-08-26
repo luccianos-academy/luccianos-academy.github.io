@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.6.0";
+const BACKEND_VERSION = "1.7.0";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -60,6 +60,12 @@ const PERMISOS_ESCRITURA = {
     Sucursales:   { crear: ["admin", "supervisor"],              actualizar: ["admin", "supervisor"],              eliminar: ["admin"] },
     Cursos:       { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
     Lecciones:    { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
+    // Catálogo de tareas de "Gestión semanal" (Responsables de Local y
+    // Turno, #/gestion) — Fase 1: mismo criterio que Cursos/Lecciones,
+    // el contenido lo carga Admin. Lectura abierta a cualquier
+    // autenticado (no está en LECTURA_SOLO_GESTION) — cualquier rol
+    // que entre a esa pantalla necesita poder leer el catálogo.
+    GestionTareas: { crear: ["admin"],                           actualizar: ["admin"],                            eliminar: ["admin"] },
     Evaluaciones: { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
     Manuales:     { crear: ["admin"],                            actualizar: ["admin"],                            eliminar: ["admin"] },
     Noticias:     { crear: ["admin"],                            actualizar: ["admin", "colaborador"],            eliminar: ["admin"] },
@@ -149,6 +155,9 @@ function _despachar(body, usuarioActual) {
         case "eliminar":   return eliminar(body.hoja, body.id, usuarioActual);
         case "enviarMail": return enviarMailDesdeApp(body.destinatarios, body.asunto, body.cuerpo, usuarioActual);
         case "enviarPush": return enviarPush(body.usuarioIds, body.titulo, body.cuerpo, body.url, usuarioActual);
+        case "enviarPushGestion": return enviarPushGestion(body.titulo, body.cuerpo, body.url, usuarioActual);
+        case "actualizarDiasGestionSucursal": return actualizarDiasGestionSucursal(body.tareaId, body.dias, body.frecuencia, usuarioActual);
+        case "actualizarCheckGestion": return actualizarCheckGestion(body.tareaId, body.dia, body.hecho, usuarioActual);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
@@ -847,6 +856,13 @@ function _usuarioDeSesion(email) {
         email: String(fila.email || "").trim().toLowerCase(),
         rol: String(fila.rol || "").trim().toLowerCase(),
         encargado: String(fila.encargado || "").trim().toUpperCase() === "SI",
+        // Faltaba acá (bug real, 2026-08-25): _usuarioDeSesion arma el
+        // usuario en CADA request — enviarPushGestion y
+        // actualizarDiasGestionSucursal miran este flag, así que sin
+        // él un Responsable de turno (sin ser también de local)
+        // fallaba siempre esas acciones, sin relación con su sucursal
+        // ni con nada que hiciera mal.
+        responsableTurno: String(fila.responsableTurno || "").trim().toUpperCase() === "SI",
         capacitador: String(fila.capacitador || "").trim().toUpperCase() === "SI",
         sucursal: String(fila.sucursal || "").trim(),
         foto: String(fila.foto || "").trim(),
@@ -1120,14 +1136,11 @@ function _enviarUnPush(token, titulo, cuerpo, url, accessToken, projectId) {
  * ahí). Limpia solo los tokens que FCM confirma inválidos; un error
  * de red/timeout puntual NO borra el token (podría ser transitorio).
  */
-function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
-    if (!_esGestion(usuarioActual)) {
-        return { ok: false, error: "Solo Admin o Supervisor pueden mandar notificaciones push." };
-    }
-    if (!titulo || !(usuarioIds || []).length) {
-        return { ok: false, error: "Falta título o destinatarios." };
-    }
-
+/** El envío real — sin ACL acá, cada acción que llama a esto valida
+ *  el permiso ANTES (enviarPush: solo Admin/Supervisor con lista
+ *  libre; enviarPushGestion: cualquiera con destinatarios que decide
+ *  el servidor, no el cliente). */
+function _enviarPushATodos(usuarioIds, titulo, cuerpo, url) {
     const projectId = _propFCM("FCM_PROJECT_ID");
     const accessToken = _obtenerAccessTokenFCM();
 
@@ -1147,6 +1160,150 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
     });
 
     return { ok: true, enviados, fallidos: fallidos.length, destinatarios: tokens.length };
+}
+
+function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
+    if (!_esGestion(usuarioActual)) {
+        return { ok: false, error: "Solo Admin o Supervisor pueden mandar notificaciones push." };
+    }
+    if (!titulo || !(usuarioIds || []).length) {
+        return { ok: false, error: "Falta título o destinatarios." };
+    }
+    return _enviarPushATodos(usuarioIds, titulo, cuerpo, url);
+}
+
+/** Push acotado para "Gestión semanal" (#/gestion) — a diferencia de
+ *  enviarPush (solo Admin/Supervisor, acepta CUALQUIER lista de
+ *  destinatarios que mande el cliente), esta la puede llamar
+ *  cualquier Responsable de local/turno, pero el SERVIDOR decide los
+ *  destinatarios — el cliente no manda ninguna lista de ids, así no
+ *  hay forma de usarla para avisarle a alguien ajeno a su local.
+ *  Destinatarios: los demás Responsables de local/turno de SU MISMA
+ *  sucursal. (Hasta 2026-08-24 sumaba también a todo Admin como
+ *  testigo mientras se confirmaba que llegaba — ya confirmado con
+ *  cuentas reales de Responsable de local y de turno, se sacó.) */
+function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
+    const puedeUsar = _esGestion(usuarioActual) || usuarioActual.encargado || usuarioActual.responsableTurno;
+    if (!puedeUsar) {
+        return { ok: false, error: "Solo Responsable de local/turno (o Admin/Supervisor) pueden avisar desde acá." };
+    }
+    if (!titulo) return { ok: false, error: "Falta título." };
+
+    const miSucursal = String(usuarioActual.sucursal || "").trim().toLowerCase();
+    const usuarios = _filasComoObjetos(_sheet("Usuarios"));
+    const otrosResponsables = usuarios.filter(function (u) {
+        if (String(u.id) === String(usuarioActual.id)) return false; // el propio ya se suma aparte, ver abajo
+        return miSucursal
+            && String(u.sucursal || "").trim().toLowerCase() === miSucursal
+            && (String(u.encargado || "").toUpperCase() === "SI" || String(u.responsableTurno || "").toUpperCase() === "SI");
+    }).map(function (u) { return u.id; });
+
+    // Pedido explícito del usuario (2026-08-25): "ese push debe ir
+    // directo a quien lo envía... para asegurarse de que el mensaje
+    // efectivamente salió" — antes se excluía a uno mismo a propósito;
+    // ahora SIEMPRE se suma el propio id, así quien manda el aviso
+    // recibe su propia confirmación en el celular, sin depender de
+    // tener otra cuenta a mano para verificar que la notificación
+    // realmente llegó a algún lado.
+    const destinatarios = [usuarioActual.id].concat(otrosResponsables);
+    return _enviarPushATodos(destinatarios, titulo, cuerpo, url);
+}
+
+/** "Días" de una tarea, POR SUCURSAL (Fase 2 de Gestión semanal,
+ *  2026-08-25) — separado del catálogo de tareas (hoja
+ *  "GestionTareas", solo Admin), que define QUÉ tareas existen
+ *  (título/ícono/subitems), no en qué días le aplican a cada local.
+ *  Cada sucursal tiene su propio esquema en la hoja
+ *  "GestionTareasSucursal" (id | tareaId | sucursal | dias |
+ *  frecuencia | fechaModificacion) — una fila por combinación
+ *  tarea+sucursal que tenga AL MENOS un día elegido; sin fila = "sin
+ *  usar" en esa sucursal, no hace falta escribir filas vacías para
+ *  todo el catálogo por todos los locales. "frecuencia" (2026-08-26)
+ *  es "semanal" o "mensual" — decide si "dias" son nombres de día
+ *  ("Lunes") o números de día del mes ("20") PARA ESE LOCAL. Vive acá
+ *  y no en el catálogo (GestionTareas) a propósito: la decide cada
+ *  Responsable al asignar, no Admin al cargar la tarea.
+ *
+ *  El SERVIDOR decide de qué sucursal es la fila que se toca —
+ *  usuarioActual.sucursal, nunca un valor que mande el cliente — así
+ *  un Responsable de local no puede, ni por error ni a propósito,
+ *  pisar el esquema de otro local. Mismo criterio de seguridad que
+ *  enviarPushGestion. Admin/Supervisor/Capacitador NO escriben acá —
+ *  ven cualquier sucursal en modo lectura desde el cliente (leyendo
+ *  esta misma hoja entera, sin filtro server-side: no es información
+ *  sensible), pero el esquema de cada local es potestad de SU
+ *  Responsable, a propósito. */
+function actualizarDiasGestionSucursal(tareaId, dias, frecuencia, usuarioActual) {
+    if (!usuarioActual.encargado && !usuarioActual.responsableTurno) {
+        return { ok: false, error: "Solo Responsable de local o de turno pueden editar los días de su local." };
+    }
+    const sucursal = String(usuarioActual.sucursal || "").trim();
+    if (!sucursal) {
+        return { ok: false, error: "Tu usuario no tiene un local asignado." };
+    }
+    if (!tareaId) return { ok: false, error: "Falta la tarea." };
+
+    const filas = _leerCrudo("GestionTareasSucursal");
+    const existente = filas.find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === sucursal;
+    });
+    const diasTexto = (dias || []).join(",");
+    // "semanal" o "mensual" — pedido explícito (2026-08-26): la
+    // frecuencia la decide CADA LOCAL al asignar, no el catálogo
+    // (Admin solo carga título/ícono/detalle, "no tengo que estar
+    // modificando nada"). Mismo criterio que "dias": vive acá, por
+    // sucursal, no en GestionTareas.
+    const frecuenciaTexto = frecuencia === "mensual" ? "mensual" : "semanal";
+    const ahora = new Date().toISOString();
+
+    if (existente) {
+        if (!diasTexto) return _eliminarCrudo("GestionTareasSucursal", existente.id);
+        return _actualizarCrudo("GestionTareasSucursal", existente.id, { dias: diasTexto, frecuencia: frecuenciaTexto, fechaModificacion: ahora });
+    }
+    if (!diasTexto) return { ok: true }; // nada que crear si ya arranca vacío
+    return _escribirCrudo("GestionTareasSucursal", { tareaId: tareaId, sucursal: sucursal, dias: diasTexto, frecuencia: frecuenciaTexto, fechaModificacion: ahora });
+}
+
+/** El check de "hecho" de una tarea, POR SUCURSAL Y POR DÍA — antes
+ *  era puramente visual (vivía en el navegador de quien lo tocaba, se
+ *  perdía al recargar y nunca se veía entre dispositivos distintos:
+ *  bug real reportado en vivo, "quien dio el marcado no le aparece al
+ *  otro"). Hoja "GestionChecks" (id | tareaId | sucursal | dia |
+ *  hecho | marcadoPor | hora | fechaModificacion) — una fila por
+ *  combinación tarea+sucursal+día. Mismo criterio de seguridad que
+ *  actualizarDiasGestionSucursal: el servidor decide la sucursal
+ *  desde usuarioActual, nunca el cliente.
+ *
+ *  Guarda el estado GLOBAL de la tarea (completa o no), no el detalle
+ *  de cada sub-ítem — una tarea con sub-ítems se guarda como
+ *  completa/incompleta en su conjunto, no ítem por ítem. Simplifica
+ *  el modelo y alcanza para lo pedido: saber si YA SE HIZO, no
+ *  reconstruir exactamente cuáles de los sub-ítems. */
+function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual) {
+    if (!usuarioActual.encargado && !usuarioActual.responsableTurno) {
+        return { ok: false, error: "Solo Responsable de local o de turno pueden marcar tareas de su local." };
+    }
+    const sucursal = String(usuarioActual.sucursal || "").trim();
+    if (!sucursal) return { ok: false, error: "Tu usuario no tiene un local asignado." };
+    if (!tareaId || !dia) return { ok: false, error: "Falta la tarea o el día." };
+
+    const filas = _leerCrudo("GestionChecks");
+    const existente = filas.find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === sucursal && String(f.dia) === String(dia);
+    });
+    const ahora = new Date();
+    const hora = Utilities.formatDate(ahora, Session.getScriptTimeZone(), "HH:mm");
+
+    if (!hecho) {
+        // Desmarcar borra la fila — sin fila = "no hecho", mismo
+        // criterio que "sin día elegido" en GestionTareasSucursal.
+        if (existente) return _eliminarCrudo("GestionChecks", existente.id);
+        return { ok: true };
+    }
+
+    const datos = { hecho: "SI", marcadoPor: usuarioActual.nombre || usuarioActual.email, hora: hora, fechaModificacion: ahora.toISOString() };
+    if (existente) return _actualizarCrudo("GestionChecks", existente.id, datos);
+    return _escribirCrudo("GestionChecks", Object.assign({ tareaId: tareaId, sucursal: sucursal, dia: dia }, datos));
 }
 
 function enviarPushPrueba(usuarioActual) {

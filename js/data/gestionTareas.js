@@ -49,6 +49,13 @@ function normalizarTarea(f) {
         // Vacío = aplica a TODOS. La exclusión (noAplicaA) gana.
         aplicaA: String(f.aplicaA || "").trim(),
         noAplicaA: String(f.noAplicaA || "").trim(),
+        // NO se lee "frecuencia" acá — se probó un rato viviendo en el
+        // catálogo (2026-08-26) pero se movió a data/gestionTareasSucursal.js:
+        // pedido explícito del usuario, Admin: "yo cargo la tarea, ellos
+        // deciden si es mensual o semanal, no tengo que estar
+        // modificando nada". Una columna "frecuencia" puede haber
+        // quedado en la Sheet de ese intento — queda inerte a propósito,
+        // mismo criterio que la columna vieja "dias" (ver arriba).
     };
 }
 
