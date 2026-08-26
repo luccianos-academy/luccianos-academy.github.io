@@ -65,7 +65,12 @@ export async function bindAutocompleteSucursal(inputId, onSeleccionar) {
         onSeleccionar?.(item.textContent);
     });
 
-    document.addEventListener("click", (e) => {
+    // "pointerdown" y no "click" — mismo fix que multiSelectAlcance.js:
+    // dentro de un contenedor que también scrollea, un intento de tocar
+    // afuera para cerrar la lista puede interpretarse como un gesto de
+    // scroll y nunca disparar "click", dejando la lista abierta sin
+    // forma de cerrarla. "pointerdown" dispara apenas el dedo toca.
+    document.addEventListener("pointerdown", (e) => {
         if (!e.target.closest(`#${inputId}, #${inputId}-list`)) {
             list.classList.remove("open");
         }

@@ -151,8 +151,24 @@ export async function bindMultiSelectAlcance(inputId) {
         list.classList.remove("open");
     });
 
-    document.addEventListener("click", (e) => {
+    // "pointerdown" y no "click" — pedido explícito: dentro de un modal
+    // que también scrollea (ej. "Nueva tarea" de Gestión semanal), la
+    // lista abierta (hasta 220px) puede tapar el resto del formulario;
+    // al intentar tocar afuera para cerrarla, cualquier mínimo
+    // movimiento del dedo hace que el navegador lo interprete como un
+    // gesto de scroll y NUNCA dispara "click" — quedaba atrapada sin
+    // forma de cerrarla ("no se puede usar, me obliga a salir de la
+    // pantalla"). "pointerdown" dispara apenas el dedo TOCA la
+    // pantalla, antes de que un posible arrastre lo cambie de opinión.
+    document.addEventListener("pointerdown", (e) => {
         if (!wrap.contains(e.target)) list.classList.remove("open");
+    });
+
+    // Mismo caso: si la persona SÍ logra scrollear el modal con la
+    // lista abierta, que se cierre sola en vez de quedar flotando
+    // sobre contenido que ya se movió.
+    wrap.closest(".modal-body, .modal")?.addEventListener("scroll", () => {
+        list.classList.remove("open");
     });
 
     renderChips();
