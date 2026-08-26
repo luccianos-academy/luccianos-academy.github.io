@@ -676,7 +676,13 @@
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:center;
+    /* flex-start y no center: con un label de una sola línea
+       ("Inicio") al lado de uno que se parte en dos ("Gestión
+       semanal"), centrar el bloque completo corre el ícono más abajo
+       en el de una línea — quedan los 4 íconos en distinta altura.
+       Ancladados arriba, todos los íconos quedan a la misma altura
+       sin importar cuántas líneas ocupe el texto de abajo. */
+    justify-content:flex-start;
     gap:3px;
     flex:1;
     padding:9px 4px 10px;
@@ -684,6 +690,7 @@
     text-decoration:none;
     font-size:11px;
     font-weight:700;
+    text-align:center;
 }
 
 /* Cantidad de no leídas en Canales — mismo criterio que .badge-new
