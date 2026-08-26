@@ -47,9 +47,14 @@ img, video{
    ROMPE todo position:sticky que haya adentro — se pegan a esta caja en
    vez de al viewport y en la práctica no se pegan a nada. Así estaban
    fallando la barra de selección múltiple y la topbar mobile.
-   "clip" tapa igual sin crear contenedor de scroll. Se deja "hidden"
-   antes como respaldo para navegadores viejos (Safari <16), donde lo
-   único que se pierde es que sticky sigue sin andar. */
+   SOLO en "html", no en "body" también: tenerlo en los DOS a la vez
+   (como estaba antes) crea DOS contenedores de scroll anidados en vez
+   de uno — según el navegador cuál de los dos gana es ambiguo, y en
+   Android (confirmado con captura real: la topbar se despega y deja un
+   hueco negro arriba al scrollear) terminaba rompiendo el sticky igual
+   que "hidden". Con la regla en un solo elemento (la raíz) no hay
+   ambigüedad: "html" es el único que scrollea, todo lo sticky se pega
+   a él. "body" queda sin ninguna regla de overflow. */
 html{
     overflow-x:hidden;
     overflow-x:clip;
@@ -59,8 +64,6 @@ body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     background:var(--bg);
     color:var(--text);
-    overflow-x:hidden;
-    overflow-x:clip;   /* ver la nota en html{} — hidden rompe sticky */
     width:100%;
 }
 
