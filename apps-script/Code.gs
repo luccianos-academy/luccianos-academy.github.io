@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.7.0";
+const BACKEND_VERSION = "1.8.0";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -1182,6 +1182,23 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
  *  sucursal. (Hasta 2026-08-24 sumaba también a todo Admin como
  *  testigo mientras se confirmaba que llegaba — ya confirmado con
  *  cuentas reales de Responsable de local y de turno, se sacó.) */
+/** ids de Usuarios que son Responsable de local o de turno (encargado
+ *  o responsableTurno) en UNA sucursal — extraído de enviarPushGestion
+ *  (2026-08-26) porque _revisarRecordatoriosGestion necesita
+ *  exactamente el mismo cálculo, sin depender de un usuarioActual (el
+ *  trigger de tiempo no tiene sesión). "excluirId" es opcional (lo usa
+ *  enviarPushGestion para no duplicar a quien ya se suma aparte). */
+function _responsablesDeSucursal(sucursal, excluirId) {
+    const suc = String(sucursal || "").trim().toLowerCase();
+    if (!suc) return [];
+    const usuarios = _filasComoObjetos(_sheet("Usuarios"));
+    return usuarios.filter(function (u) {
+        if (excluirId && String(u.id) === String(excluirId)) return false;
+        return String(u.sucursal || "").trim().toLowerCase() === suc
+            && (String(u.encargado || "").toUpperCase() === "SI" || String(u.responsableTurno || "").toUpperCase() === "SI");
+    }).map(function (u) { return u.id; });
+}
+
 function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
     const puedeUsar = _esGestion(usuarioActual) || usuarioActual.encargado || usuarioActual.responsableTurno;
     if (!puedeUsar) {
@@ -1189,14 +1206,7 @@ function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
     }
     if (!titulo) return { ok: false, error: "Falta título." };
 
-    const miSucursal = String(usuarioActual.sucursal || "").trim().toLowerCase();
-    const usuarios = _filasComoObjetos(_sheet("Usuarios"));
-    const otrosResponsables = usuarios.filter(function (u) {
-        if (String(u.id) === String(usuarioActual.id)) return false; // el propio ya se suma aparte, ver abajo
-        return miSucursal
-            && String(u.sucursal || "").trim().toLowerCase() === miSucursal
-            && (String(u.encargado || "").toUpperCase() === "SI" || String(u.responsableTurno || "").toUpperCase() === "SI");
-    }).map(function (u) { return u.id; });
+    const otrosResponsables = _responsablesDeSucursal(usuarioActual.sucursal, usuarioActual.id);
 
     // Pedido explícito del usuario (2026-08-25): "ese push debe ir
     // directo a quien lo envía... para asegurarse de que el mensaje
@@ -1207,6 +1217,85 @@ function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
     // realmente llegó a algún lado.
     const destinatarios = [usuarioActual.id].concat(otrosResponsables);
     return _enviarPushATodos(destinatarios, titulo, cuerpo, url);
+}
+
+/* ============================================================
+   RECORDATORIOS AUTOMÁTICOS de Gestión semanal (2026-08-26)
+
+   Pedido explícito: "las tareas que recibirían push son las semanales
+   fijando un horario 10am, las que son mensuales un día antes 10am y
+   luego el mismo día 10am". Corre vía un TRIGGER DE TIEMPO instalado
+   a mano (ver instalarTriggerRecordatoriosGestion más abajo, se corre
+   UNA sola vez desde el editor de Apps Script) — no hay forma de
+   instalarlo desde acá (Claude Code no tiene acceso a tu cuenta de
+   Google).
+
+   No guarda estado propio (qué ya avisó hoy): revisa el día real cada
+   vez que corre. Con el trigger disparando una vez por día está bien
+   así de simple — si algún día se dispara dos veces el mismo día
+   (poco probable, pero Apps Script no garantiza el minuto exacto,
+   solo la hora), mandaría el mismo aviso dos veces. Aceptado como
+   límite conocido, no se resuelve acá.
+
+   OJO ZONA HORARIA: "hoy"/"mañana" salen de Session.getScriptTimeZone()
+   — la del PROYECTO de Apps Script, UNA sola para toda la red. Con
+   locales reales en Uruguay/Chile/España/USA/Italia (varios husos
+   horarios), "10am" es exacto para la zona del proyecto (Argentina) y
+   puede caer en otra hora local en el resto — límite conocido, no
+   resuelto acá.
+============================================================ */
+
+const _DIAS_SEMANA_GESTION = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+function _revisarRecordatoriosGestion() {
+    const hoy = new Date();
+    const manana = new Date(hoy.getTime() + 24 * 60 * 60 * 1000);
+    const diaSemanaHoy = _DIAS_SEMANA_GESTION[hoy.getDay()];
+    const diaMesHoy = String(hoy.getDate());
+    const diaMesManana = String(manana.getDate());
+
+    const catalogo = {};
+    _leerCrudo("GestionTareas").forEach(function (t) { catalogo[String(t.id)] = t; });
+
+    _leerCrudo("GestionTareasSucursal").forEach(function (fila) {
+        const tarea = catalogo[String(fila.tareaId)];
+        if (!tarea || !tarea.titulo) return;
+        const dias = String(fila.dias || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+        if (!dias.length) return;
+
+        const destinatarios = _responsablesDeSucursal(fila.sucursal, null);
+        if (!destinatarios.length) return;
+
+        if (fila.frecuencia !== "mensual") {
+            if (dias.indexOf(diaSemanaHoy) === -1) return;
+            _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
+            return;
+        }
+        if (dias.indexOf(diaMesManana) !== -1) {
+            _enviarPushATodos(destinatarios, tarea.titulo, "Mañana: " + (tarea.detalle || "recordatorio de tarea mensual."), "#/gestion");
+        }
+        if (dias.indexOf(diaMesHoy) !== -1) {
+            _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
+        }
+    });
+}
+
+/** Correr UNA SOLA VEZ desde el editor de Apps Script (elegir esta
+ *  función en el desplegable de arriba de "Ejecutar", tocar Ejecutar)
+ *  para instalar el trigger diario a las 10am — no hace falta tocar
+ *  nada más. Si ya existe uno para esta función no crea otro, así que
+ *  correrla de más no rompe nada. */
+function instalarTriggerRecordatoriosGestion() {
+    const yaExiste = ScriptApp.getProjectTriggers().some(function (t) {
+        return t.getHandlerFunction() === "_revisarRecordatoriosGestion";
+    });
+    if (yaExiste) return "Ya existe un trigger para _revisarRecordatoriosGestion — no se creó otro.";
+    ScriptApp.newTrigger("_revisarRecordatoriosGestion")
+        .timeBased()
+        .everyDays(1)
+        .atHour(10)
+        .create();
+    return "Trigger creado — corre todos los días entre las 10:00 y 11:00 (hora del proyecto: " + Session.getScriptTimeZone() + ").";
 }
 
 /** "Días" de una tarea, POR SUCURSAL (Fase 2 de Gestión semanal,

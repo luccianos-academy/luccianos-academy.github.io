@@ -105,7 +105,7 @@ export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey;
  *  saber de un vistazo qué versión corre en cada entorno y no
  *  confundir REPO con producción. Se sube a mano cada vez que se
  *  pushea un cambio — no hay build step que lo automatice. */
-export const VERSION = "1.59.0";
+export const VERSION = "1.95.0";
 
 export const EMPRESA = {
     nombre: "Lucciano's",
@@ -174,7 +174,7 @@ export const MODULOS = [
     { id: "configuracion",  nombre: "Configuración",        icono: "configuracion" },
     { id: "integraciones",  nombre: "Integraciones",        icono: "integraciones" },
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
-    { id: "gestion",        nombre: "Gestión semanal",      icono: "calendario" },
+    { id: "gestion",        nombre: "Gestión de tareas",    icono: "calendario" },
     { id: "coordinacionoperativa", nombre: "Comunicaciones", icono: "comentario" },
     { id: "recursos",       nombre: "Recursos",             icono: "integraciones" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },

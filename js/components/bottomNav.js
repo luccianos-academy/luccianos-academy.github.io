@@ -48,7 +48,7 @@ export const SECCIONES_DISPONIBLES_ADMIN = [
     { id: "colaboradores", label: "Equipo", icono: "usuarios", href: "#/colaboradores" },
     { id: "locales", label: "Locales", icono: "locales", href: "#/locales" },
     { id: "academia", label: "Academia", icono: "academia", href: "#/academia" },
-    { id: "gestion", label: "Gestión semanal", icono: "calendario", href: "#/gestion" },
+    { id: "gestion", label: "Gestión de tareas", icono: "calendario", href: "#/gestion" },
     { id: "coordinacionoperativa", label: "Canales", icono: "comentario", href: "#/coordinacionoperativa" },
     { id: "recursos", label: "Recursos", icono: "integraciones", href: "#/recursos" },
     { id: "manuales", label: "Manuales", icono: "reportes", href: "#/manuales" },
@@ -61,7 +61,7 @@ export const SECCIONES_DISPONIBLES_SUPERVISOR = [
     { id: "colaboradores", label: "Equipo", icono: "usuarios", href: "#/colaboradores" },
     { id: "locales", label: "Locales", icono: "locales", href: "#/locales" },
     { id: "cursos", label: "Academia", icono: "academia", href: "#/cursos" },
-    { id: "gestion", label: "Gestión semanal", icono: "calendario", href: "#/gestion" },
+    { id: "gestion", label: "Gestión de tareas", icono: "calendario", href: "#/gestion" },
     { id: "coordinacionoperativa", label: "Canales", icono: "comentario", href: "#/coordinacionoperativa" },
     { id: "recursos", label: "Recursos", icono: "integraciones", href: "#/recursos" },
     { id: "manuales", label: "Manuales", icono: "reportes", href: "#/manuales" },
@@ -89,7 +89,7 @@ export function seccionesDisponibles(usuario) {
 
     const lista = [...SECCIONES_DISPONIBLES_COLABORADOR_BASE];
     if (usuario.encargado) lista.splice(1, 0, { id: "colaboradores", label: "Mi local", icono: "usuarios", href: "#/colaboradores" });
-    if (usuario.encargado || usuario.responsableTurno) lista.splice(1, 0, { id: "gestion", label: "Gestión semanal", icono: "calendario", href: "#/gestion" });
+    if (usuario.encargado || usuario.responsableTurno) lista.splice(1, 0, { id: "gestion", label: "Gestión de tareas", icono: "calendario", href: "#/gestion" });
     return lista;
 }
 

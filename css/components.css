@@ -5250,6 +5250,17 @@ table.data-table tbody tr:hover{
 }
 .aviso-maqueta svg{ flex-shrink:0; margin-top:1px; }
 .aviso-maqueta p{ margin:0; font-size:13.5px; color:var(--text); }
+/* Banner de Gestión de tareas (gestion.js): título + varios párrafos,
+   no un solo bloque de texto corrido — más fácil de escanear.
+   ".aviso-maqueta p.aviso-maqueta-titulo" (dos clases) y no la clase
+   sola, para ganarle en especificidad a ".aviso-maqueta p" (margin:0)
+   sin necesitar !important. */
+.aviso-maqueta p.aviso-maqueta-titulo{
+    font-weight:800;
+    font-size:14px;
+    margin-bottom:6px;
+}
+.aviso-maqueta p + p{ margin-top:8px; }
 
 .lista-tareas-gestion{
     display:flex;
