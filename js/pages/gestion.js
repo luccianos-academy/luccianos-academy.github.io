@@ -1606,8 +1606,21 @@ function bindTarjetaDesplegable(tarjeta) {
             }
             if (btnGuardar) {
                 btnGuardar.classList.remove("pendiente");
-                btnGuardar.textContent = "✓ Guardado";
-                setTimeout(() => { btnGuardar.textContent = textoOriginal; }, 2000);
+                // "✓ Guardado" a secas — sin distinguir "guardé tu
+                // avance parcial" de "la tarea quedó terminada" — podía
+                // leerse como "listo, ya está" aunque falten ítems sin
+                // responder (ej. 7/10, quedó Pendiente en el PDF). Acá
+                // sí se limita: solo dice "✓ Guardado" cuando la tarea
+                // quedó completa DE VERDAD; si no, dice cuánto falta,
+                // sin tilde — para que nadie (en especial un
+                // Responsable de turno con prisa) confunda "guardé lo
+                // que llevo" con "terminé". Pedido explícito: "hay que
+                // limitar a responsables de turno a que no terminen la
+                // tarea [sin cargar todo] — si o si tienen que cargar
+                // la tarea para que aparezca su nombre, sino queda
+                // como pendiente".
+                btnGuardar.textContent = completa ? "✓ Guardado" : `Guardado — faltan ${filas.length - marcados.length}`;
+                setTimeout(() => { btnGuardar.textContent = textoOriginal; }, completa ? 2000 : 3500);
             }
         });
     }
