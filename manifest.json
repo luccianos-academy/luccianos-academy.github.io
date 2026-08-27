@@ -1,6 +1,6 @@
 {
     "name": "Lucciano's Academy",
-    "short_name": "Lucciano's",
+    "short_name": "Lucciano's Academy",
     "description": "Plataforma de capacitación y gestión operativa de Lucciano's.",
     "start_url": "./index.html",
     "display": "standalone",
