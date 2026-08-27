@@ -55,6 +55,7 @@ import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/au
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 import { getSucursales } from "../data/sucursales.js";
 import { aplicaASucursal, normalizar } from "../services/alcance.js";
+import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, esIncidencia, esIncidenciaGrave } from "../services/subitems.js";
 
 /* ============================
    Gestión semanal — el checklist, por día
@@ -131,13 +132,15 @@ const registroTareas = new Map();
 let esVistaLectura = false;
 let sucursalActiva = "";
 
-/** "tareaId|dia" → {marcadoPor, hora, hecho, subitems: Set<string>} —
- *  checks REALES de la sucursal activa (persistidos, ya no
- *  visuales) — hecho=true es "tarea completa"; subitems son los
- *  índices tildados AUNQUE la tarea no esté completa (progreso a
- *  medio camino, también persistido — ver data/gestionChecks.js). Se
- *  puebla en cargarDatos() y se usa al renderizar tareaHtml() y al
- *  guardar un toggle. */
+/** "tareaId|dia" → {marcadoPor, hora, hecho, marcas: Map<indice, marca>}
+ *  — checks REALES de la sucursal activa (persistidos, ya no
+ *  visuales) — hecho=true es "tarea completa"; marcas son las
+ *  respuestas de cada sub-ítem AUNQUE la tarea no esté completa
+ *  (progreso a medio camino, también persistido), una por índice —
+ *  ver services/subitems.js para la forma de cada `marca` según su
+ *  tipo (checkbox/estado3/numerico) y data/gestionChecks.js para
+ *  cómo se guarda. Se puebla en cargarDatos() y se usa al renderizar
+ *  tareaHtml() y al guardar un toggle. */
 let checksActivos = {};
 
 /** Lista completa de Sucursales (nombre/país/esPropio) — se necesita
@@ -322,7 +325,15 @@ function subitemsSoloLecturaHtml(t) {
         <div class="tarea-gestion-dia-control">
             <span class="tarea-gestion-dia-label">Contiene</span>
             <ul class="lista-subitems-solo-lectura">
-                ${t.subitems.map((s) => `<li>${s}</li>`).join("")}
+                ${t.subitems.map((s) => {
+                    const { titulo, tipo } = parsearSubitem(s);
+                    // El texto guardado va codificado con "::" para
+                    // 3 estados/numérico (ver services/subitems.js) —
+                    // acá solo se ve el título limpio + una etiqueta
+                    // chica, nunca el string crudo.
+                    const etiqueta = tipo === TIPOS_SUBITEM.ESTADO3 ? " (3 estados)" : tipo === TIPOS_SUBITEM.NUMERICO ? " ($)" : "";
+                    return `<li>${escaparHtml(titulo)}${etiqueta}</li>`;
+                }).join("")}
             </ul>
         </div>
     `;
@@ -401,6 +412,88 @@ function aplicaTareaHtml(t) {
     `;
 }
 
+/** UNA fila de sub-ítem, según su tipo (ver services/subitems.js) —
+ *  pedido explícito, con maqueta confirmada: "arqueo de caja" no
+ *  entra en un checklist binario, necesita poder marcar una
+ *  incidencia SIN escribir texto.
+ *  - checkbox (default): el de siempre, sin cambios.
+ *  - estado3: tres círculos (✓ verde / ! amarillo / ✕ rojo) + chips
+ *    de motivo (solo visibles si el estado no es "ok") — el motivo
+ *    se ELIGE, nunca se escribe.
+ *  - numerico: campo "$" con teclado numérico — 0 = cuadra, cualquier
+ *    otro valor YA ES la incidencia, no hace falta explicarla aparte.
+ *  `marca` es lo que ya está guardado para este índice (parsearMarcaSubitem),
+ *  o undefined si nunca se tocó. */
+function subitemFilaHtml(id, is, raw, marca) {
+    const { titulo, tipo, motivos } = parsearSubitem(raw);
+
+    if (tipo === TIPOS_SUBITEM.NUMERICO) {
+        // Arranca en 0, NO vacío — pedido explícito: "los valores que
+        // están en cero deben quedar así por default si está bien, si
+        // tiene incidencia cargarla". La mayoría de los días cuadra;
+        // pedirle a alguien que escriba "0" a propósito para confirmar
+        // "está todo bien" es fricción de más — el 0 YA ES la
+        // respuesta por defecto, listo para exportar/enviar sin tocar
+        // nada; recién hace falta escribir algo si hay una diferencia
+        // real.
+        const valor = marca?.tipo === TIPOS_SUBITEM.NUMERICO ? marca.valor : 0;
+        const incidencia = valor !== 0;
+        return `
+            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}">
+                <span>${escaparHtml(titulo)}</span>
+                <div class="subitem-numerico-campo">
+                    <span>$</span>
+                    <input type="number" inputmode="numeric" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${valor}">
+                </div>
+            </div>
+        `;
+    }
+
+    if (tipo === TIPOS_SUBITEM.ESTADO3) {
+        const tieneMarca = marca?.tipo === TIPOS_SUBITEM.ESTADO3;
+        const estado = tieneMarca ? marca.estado : "";
+        const motivoActivo = tieneMarca ? marca.motivo : "";
+        return `
+            <div class="subitem-estado3" data-subitem-tipo="estado3" data-subitem-indice="${is}" data-estado-actual="${estado}">
+                <div class="subitem-estado3-fila">
+                    <span>${escaparHtml(titulo)}</span>
+                    <div class="estados3">
+                        <button type="button" class="estado-btn ok${estado === "ok" ? " activo" : ""}" data-estado="ok"${esVistaLectura ? " disabled" : ""} aria-label="OK">✓</button>
+                        <button type="button" class="estado-btn incidencia${estado === "inc" ? " activo" : ""}" data-estado="inc"${esVistaLectura ? " disabled" : ""} aria-label="Incidencia">!</button>
+                        <button type="button" class="estado-btn grave${estado === "grave" ? " activo" : ""}" data-estado="grave"${esVistaLectura ? " disabled" : ""} aria-label="Incidencia grave">✕</button>
+                    </div>
+                </div>
+                ${motivos.length ? `
+                    <div class="chips-motivo${estado && estado !== "ok" ? " visible" : ""}">
+                        ${motivos.map((m) => `<button type="button" class="chip-motivo${motivoActivo === m ? " activo" : ""}" data-motivo="${escaparHtml(m)}"${esVistaLectura ? " disabled" : ""}>${escaparHtml(m)}</button>`).join("")}
+                    </div>
+                ` : ""}
+            </div>
+        `;
+    }
+
+    // checkbox — el de siempre, sin cambios de comportamiento.
+    return `
+        <label class="subitem-gestion" for="${id}-${is}">
+            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check" data-subitem-tipo="checkbox" data-subitem-indice="${is}"${esVistaLectura ? " disabled" : ""}${marca ? " checked" : ""}>
+            <span>${escaparHtml(titulo)}</span>
+        </label>
+    `;
+}
+
+/** Badge de resumen de incidencias en el encabezado de la tarjeta —
+ *  mismo criterio visual que la maqueta confirmada. Vacío (no se
+ *  muestra nada) si la tarea no tiene sub-ítems de tipo estado3/
+ *  numérico, o si ninguno tiene incidencia todavía. */
+function badgeIncidenciasHtml(marcados) {
+    const valores = Array.from(marcados.values());
+    const graves = valores.filter(esIncidenciaGrave).length;
+    if (graves > 0) return `<span class="badge-incidencia grave">${graves} incidencia grave${graves > 1 ? "s" : ""}</span>`;
+    const incidencias = valores.filter(esIncidencia).length;
+    if (incidencias > 0) return `<span class="badge-incidencia">${incidencias} incidencia${incidencias > 1 ? "s" : ""}</span>`;
+    return "";
+}
+
 function tareaHtml(t, idUnico, dia) {
     const id = `tarea-${idUnico}`;
     // data-tarea-id va en TODAS las tarjetas — es la identidad que usa
@@ -441,7 +534,7 @@ function tareaHtml(t, idUnico, dia) {
     ` : "";
 
     if (t.subitems) {
-        const marcados = check?.subitems || new Set();
+        const marcados = check?.marcas || new Map();
         return `
             <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}" data-desplegable${atrId}>
                 <button type="button" class="tarea-gestion-header" data-toggle-desplegable>
@@ -452,15 +545,11 @@ function tareaHtml(t, idUnico, dia) {
                         <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                     </span>
                     <span class="tarea-gestion-progreso" data-progreso>${marcados.size}/${t.subitems.length}</span>
+                    ${badgeIncidenciasHtml(marcados)}
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
                 <div class="tarea-gestion-subitems" data-subitems>
-                    ${t.subitems.map((s, is) => `
-                        <label class="subitem-gestion" for="${id}-${is}">
-                            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${esVistaLectura ? " disabled" : ""}${marcados.has(String(is)) ? " checked" : ""}>
-                            <span>${s}</span>
-                        </label>
-                    `).join("")}
+                    ${t.subitems.map((s, is) => subitemFilaHtml(id, is, s, marcados.get(String(is)))).join("")}
                 </div>
                 ${accionesTareaHtml()}
             </div>
@@ -491,11 +580,27 @@ function tareaHtml(t, idUnico, dia) {
    olvides de imprimir la planilla", "No te olvides de la lapicera").
    Los días se eligen con checkboxes reales (contenido-sin-errores:
    una fila por ítem, no un <select multiple>). */
-function subtareaNuevaFilaHtml(texto = "") {
+/** `raw` viene YA CODIFICADO (services/subitems.js) cuando se está
+ *  editando una tarea existente — se parsea acá para precargar el
+ *  tipo/motivos, ni Admin ni este archivo tienen que saber del
+ *  formato interno en ningún otro lado. Pedido explícito, con
+ *  maqueta confirmada: un arqueo de caja necesita sub-ítems de 3
+ *  estados (con motivos para elegir, sin escribir) y numéricos
+ *  ($, saldo/diferencia) además del checkbox simple de siempre. */
+function subtareaNuevaFilaHtml(raw = "") {
+    const { titulo, tipo, motivos } = parsearSubitem(raw);
     return `
         <div class="subtarea-nueva-fila">
-            <textarea class="input-subtarea-nueva-texto" rows="1" placeholder="Ej: No te olvides de imprimir la planilla">${escaparHtml(texto)}</textarea>
-            <button type="button" class="btn-quitar-subtarea-nueva" aria-label="Quitar esta sub-tarea">×</button>
+            <div class="subtarea-nueva-fila-principal">
+                <textarea class="input-subtarea-nueva-texto" rows="1" placeholder="Ej: No te olvides de imprimir la planilla">${escaparHtml(titulo)}</textarea>
+                <select class="input-subtarea-nueva-tipo">
+                    <option value="${TIPOS_SUBITEM.CHECKBOX}"${tipo === TIPOS_SUBITEM.CHECKBOX ? " selected" : ""}>Simple</option>
+                    <option value="${TIPOS_SUBITEM.ESTADO3}"${tipo === TIPOS_SUBITEM.ESTADO3 ? " selected" : ""}>3 estados</option>
+                    <option value="${TIPOS_SUBITEM.NUMERICO}"${tipo === TIPOS_SUBITEM.NUMERICO ? " selected" : ""}>Número ($)</option>
+                </select>
+                <button type="button" class="btn-quitar-subtarea-nueva" aria-label="Quitar esta sub-tarea">×</button>
+            </div>
+            <input type="text" class="input-subtarea-nueva-motivos"${tipo === TIPOS_SUBITEM.ESTADO3 ? "" : ' style="display:none"'} placeholder="Motivos de incidencia, separados por coma (ej: Faltante, Sobrante)" value="${escaparHtml(motivos.join(", "))}">
         </div>
     `;
 }
@@ -544,6 +649,15 @@ function bindModalTarea() {
         if (e.target.classList.contains("btn-quitar-subtarea-nueva")) {
             e.target.closest(".subtarea-nueva-fila").remove();
         }
+    });
+
+    // El campo de motivos solo tiene sentido para "3 estados" — se
+    // muestra/oculta al cambiar el tipo, no hace falta un modal aparte.
+    listaSubtareas.addEventListener("change", (e) => {
+        if (!e.target.classList.contains("input-subtarea-nueva-tipo")) return;
+        const fila = e.target.closest(".subtarea-nueva-fila");
+        const campoMotivos = fila.querySelector(".input-subtarea-nueva-motivos");
+        campoMotivos.style.display = e.target.value === TIPOS_SUBITEM.ESTADO3 ? "" : "none";
     });
 
     bindMultiSelectAlcance("input-tarea-alcance");
@@ -621,8 +735,19 @@ async function confirmarTarea(idEditado = null) {
     }
     const detalle = document.getElementById("input-tarea-detalle").value.trim();
     const icono = document.getElementById("input-tarea-icono").value;
-    const subitems = Array.from(document.querySelectorAll(".input-subtarea-nueva-texto"))
-        .map((t) => t.value.trim())
+    // Cada fila arma su propio string codificado (services/subitems.js)
+    // según el tipo elegido — "Simple" queda IDÉNTICO al texto plano
+    // de siempre, no cambia nada para las tareas que ya existen.
+    const subitems = Array.from(document.querySelectorAll(".subtarea-nueva-fila"))
+        .map((fila) => {
+            const tituloSub = fila.querySelector(".input-subtarea-nueva-texto").value.trim();
+            if (!tituloSub) return null;
+            const tipo = fila.querySelector(".input-subtarea-nueva-tipo").value;
+            const motivos = tipo === TIPOS_SUBITEM.ESTADO3
+                ? fila.querySelector(".input-subtarea-nueva-motivos").value.split(",").map((m) => m.trim()).filter(Boolean)
+                : [];
+            return serializarSubitem({ titulo: tituloSub, tipo, motivos });
+        })
         .filter(Boolean);
     const aplicaA = document.getElementById("input-tarea-alcance")?.value.trim() || "";
     // noAplicaA no tiene campo propio en este modal (YAGNI — nadie lo
@@ -984,6 +1109,7 @@ function horaAhora() {
  *  toque, si el backend rechaza se avisa y se revierte. */
 function bindCheckboxHecha(chk) {
     chk.addEventListener("change", () => {
+        ultimaEdicionLocalGestion = Date.now();
         const tarjeta = chk.closest(".tarea-gestion");
         const tareaId = tarjeta.dataset.tareaId;
         const dia = tarjeta.dataset.dia;
@@ -1081,6 +1207,33 @@ function bindFrecuenciaTarea(contenedor) {
     });
 }
 
+/** Estado ACTUAL de una fila de sub-ítem, cualquiera sea su tipo —
+ *  undefined si todavía no se respondió (checkbox sin tildar, estado3
+ *  sin ningún círculo tocado). Numérico NUNCA es undefined — arranca
+ *  en 0 por default (pedido explícito: "los valores que están en
+ *  cero deben quedar así por default si está bien, si tiene
+ *  incidencia cargarla"), así que ya cuenta como respondido desde el
+ *  primer render, sin que nadie tenga que confirmarlo a propósito. A
+ *  nivel de módulo (no solo adentro de bindTarjetaDesplegable) porque
+ *  también la usa el push por tarea, para saber si hay incidencias —
+ *  ver bindPushWrap. */
+function leerMarcaFilaSubitem(fila) {
+    const tipo = fila.dataset.subitemTipo;
+    if (tipo === TIPOS_SUBITEM.NUMERICO) {
+        const input = fila.querySelector(".input-numerico-subitem");
+        if (!input) return undefined;
+        return { tipo: TIPOS_SUBITEM.NUMERICO, valor: input.value === "" ? 0 : Number(input.value) };
+    }
+    if (tipo === TIPOS_SUBITEM.ESTADO3) {
+        const estado = fila.dataset.estadoActual;
+        if (!estado) return undefined;
+        const chipActivo = fila.querySelector(".chip-motivo.activo");
+        return { tipo: TIPOS_SUBITEM.ESTADO3, estado, motivo: chipActivo?.dataset.motivo || "" };
+    }
+    const chk = fila.querySelector(".subitem-gestion-check");
+    return chk?.checked ? { tipo: TIPOS_SUBITEM.CHECKBOX } : undefined;
+}
+
 /** Tareas con sub-ítems (ej. "Pedido a proveedores") y situaciones de
  *  "¿Qué hago si...?" comparten el mismo patrón desplegable: tocar el
  *  encabezado abre/cierra lo de abajo, con "+ Agregar ítem" propio. */
@@ -1099,11 +1252,15 @@ function bindTarjetaDesplegable(tarjeta) {
     // una lista capturada al abrir la página) — así "16/16" en vez de
     // "0/8" cuando se agregaron ítems nuevos, sin pedirlo por código.
     function actualizarProgreso() {
-        const subitems = Array.from(contenedorSubitems.querySelectorAll(".subitem-gestion-check"));
+        ultimaEdicionLocalGestion = Date.now();
+        const filas = Array.from(contenedorSubitems.children);
         const marcados = [];
-        subitems.forEach((s, is) => { if (s.checked) marcados.push(is); });
-        progreso.textContent = `${marcados.length}/${subitems.length}`;
-        const completa = subitems.length > 0 && marcados.length === subitems.length;
+        filas.forEach((fila) => {
+            const marca = leerMarcaFilaSubitem(fila);
+            if (marca) marcados.push({ indice: fila.dataset.subitemIndice, marca });
+        });
+        progreso.textContent = `${marcados.length}/${filas.length}`;
+        const completa = filas.length > 0 && marcados.length === filas.length;
         const yaEstabaCompleta = tarjeta.classList.contains("hecha");
         tarjeta.classList.toggle("hecha", completa);
         const hora = tarjeta.querySelector("[data-hora]");
@@ -1120,17 +1277,48 @@ function bindTarjetaDesplegable(tarjeta) {
         // camino (nunca llegó a completa) no había NINGUNA fila
         // guardada, así que ese progreso se perdía con cualquier
         // recarga de la app ("quedaba todo desmarcado"). Ahora se
-        // manda siempre la lista real de índices tildados junto con
-        // el booleano — ver data/gestionChecks.js.
-        guardarCheckSucursal(tarjeta.dataset.tareaId, tarjeta.dataset.dia, completa, sucursalActiva, marcados.map(String)).then((r) => {
+        // manda siempre la lista real de marcas (índice + tipo/estado/
+        // motivo/valor, ver services/subitems.js) junto con el
+        // booleano — ver data/gestionChecks.js.
+        guardarCheckSucursal(tarjeta.dataset.tareaId, tarjeta.dataset.dia, completa, sucursalActiva, marcados.map(({ indice, marca }) => serializarMarcaSubitem(indice, marca))).then((r) => {
             if (r?.ok) return;
             alert(r?.error || "No se pudo guardar — probá de nuevo.");
         });
     }
 
-    // Un solo listener por delegación cubre todos los checkboxes.
+    // checkbox y numérico disparan "change"; los círculos de estado3 y
+    // los chips de motivo son <button>, disparan "click" — un solo
+    // listener por delegación de cada tipo cubre toda la tarjeta.
     contenedorSubitems.addEventListener("change", (e) => {
-        if (e.target.classList.contains("subitem-gestion-check")) actualizarProgreso();
+        if (e.target.classList.contains("subitem-gestion-check") || e.target.classList.contains("input-numerico-subitem")) actualizarProgreso();
+    });
+
+    contenedorSubitems.addEventListener("click", (e) => {
+        const estadoBtn = e.target.closest(".estado-btn");
+        if (estadoBtn) {
+            const fila = estadoBtn.closest(".subitem-estado3");
+            fila.querySelectorAll(".estado-btn").forEach((b) => b.classList.remove("activo"));
+            estadoBtn.classList.add("activo");
+            fila.dataset.estadoActual = estadoBtn.dataset.estado;
+            const chips = fila.querySelector(".chips-motivo");
+            if (chips) {
+                const esOk = estadoBtn.dataset.estado === "ok";
+                chips.classList.toggle("visible", !esOk);
+                // Volver a "OK" descarta cualquier motivo elegido antes
+                // — no tiene sentido guardar un motivo de incidencia
+                // sobre un ítem que ahora dice que está todo bien.
+                if (esOk) chips.querySelectorAll(".chip-motivo").forEach((c) => c.classList.remove("activo"));
+            }
+            actualizarProgreso();
+            return;
+        }
+        const chip = e.target.closest(".chip-motivo");
+        if (chip) {
+            const grupo = chip.parentElement;
+            grupo.querySelectorAll(".chip-motivo").forEach((c) => c.classList.remove("activo"));
+            chip.classList.add("activo");
+            actualizarProgreso();
+        }
     });
 }
 
@@ -1255,15 +1443,35 @@ function bindPushWrap(wrap) {
         const tarjeta = document.querySelector(`.tarea-gestion[data-tarea-id="${tareaId}"][data-dia="${dia}"]`);
         if (!tarea || !tarjeta) { pintarBoton(); return; }
 
-        const checks = Array.from(tarjeta.querySelectorAll(".subitem-gestion-check, .tarea-gestion-check"));
-        // Sin nada tildable (no debería pasar, toda tarea acá tiene
-        // checkbox propio o sub-ítems) no corresponde decir
-        // "incompleta" por defecto, es un aviso neutro nomás.
-        const hayEstado = checks.length > 0;
-        const completa = hayEstado && checks.every((c) => c.checked);
+        // Tarea con sub-ítems (checkbox/estado3/numérico mezclados,
+        // ver services/subitems.js) vs. tarea simple (un solo check
+        // propio) — cada una lee su estado distinto.
+        const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
+        let hayEstado, completa, incidencias, graves;
+        if (contenedorSubitems) {
+            const marcas = Array.from(contenedorSubitems.children).map(leerMarcaFilaSubitem);
+            hayEstado = marcas.length > 0;
+            completa = hayEstado && marcas.every(Boolean);
+            incidencias = marcas.filter((m) => m && esIncidencia(m)).length;
+            graves = marcas.filter((m) => m && esIncidenciaGrave(m)).length;
+        } else {
+            const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
+            hayEstado = !!checkPropio;
+            completa = !!checkPropio?.checked;
+            incidencias = 0;
+            graves = 0;
+        }
 
         const usuario = getUsuarioActual();
-        const estado = !hayEstado ? "" : completa ? "Completa ✅" : "Incompleta ⚠️";
+        // Completa/incompleta manda primero (¿se terminó de revisar o
+        // no?) — recién con la tarea COMPLETA importa si hubo alguna
+        // incidencia adentro, pedido explícito con maqueta confirmada
+        // (arqueo de caja: "verde/amarillo/rojo si hay incidencia").
+        const estado = !hayEstado ? ""
+            : !completa ? "Incompleta ⚠️"
+            : graves > 0 ? "Incidencia grave 🔴"
+            : incidencias > 0 ? "Con incidencia ⚠️"
+            : "Completa ✅";
         const titulo = [tarea.titulo, estado].filter(Boolean).join(" · ");
 
         boton.disabled = true;
@@ -1403,6 +1611,53 @@ function bindCuerpoGestion() {
             marcasAgregadas.push(marca);
         });
 
+        // Sub-ítems numéricos (ej. "Saldo/diferencia") — el ATRIBUTO
+        // value tampoco sigue al valor tecleado (mismo problema que
+        // "checked" arriba), se sincroniza antes de clonar. Suma una
+        // etiqueta de texto fijo con el resultado (Cuadra ✓ / Faltan
+        // $X / Sobran $X), mismo criterio que el ✓/— de los checkbox.
+        document.querySelectorAll("#contenido-gestion-imprimible .subitem-numerico").forEach((fila) => {
+            const input = fila.querySelector(".input-numerico-subitem");
+            const span = fila.querySelector("span");
+            if (!input || !span) return;
+            input.setAttribute("value", input.value);
+            const marca = document.createElement("span");
+            marca.className = "subitem-gestion-marca";
+            if (input.value === "") {
+                marca.style.color = "#999";
+                marca.textContent = "— ";
+            } else {
+                const valor = Number(input.value);
+                marca.style.color = valor === 0 ? "#1a7a3c" : "#c0392b";
+                marca.textContent = valor === 0 ? "✓ Cuadra " : `${valor < 0 ? "Faltan" : "Sobran"} $${Math.abs(valor)} `;
+            }
+            span.before(marca);
+            marcasAgregadas.push(marca);
+        });
+
+        // Sub-ítems de 3 estados (ej. "Efectivo") — estado + motivo
+        // elegido, mismo criterio que arriba.
+        document.querySelectorAll("#contenido-gestion-imprimible .subitem-estado3").forEach((fila) => {
+            const span = fila.querySelector(".subitem-estado3-fila span");
+            if (!span) return;
+            const estado = fila.dataset.estadoActual;
+            const chipActivo = fila.querySelector(".chip-motivo.activo");
+            const marca = document.createElement("span");
+            marca.className = "subitem-gestion-marca";
+            if (!estado) {
+                marca.style.color = "#999";
+                marca.textContent = "— ";
+            } else if (estado === "ok") {
+                marca.style.color = "#1a7a3c";
+                marca.textContent = "✓ ";
+            } else {
+                marca.style.color = estado === "grave" ? "#c0392b" : "#b8860b";
+                marca.textContent = `${estado === "grave" ? "✕" : "!"} ${chipActivo ? chipActivo.dataset.motivo + " " : ""}`;
+            }
+            span.before(marca);
+            marcasAgregadas.push(marca);
+        });
+
         // Se exporta EXACTAMENTE lo que está en pantalla en este
         // momento (el día activo), sin trucos — pedido explícito:
         // "no se le puede mentir a la app diciéndole que todo es el
@@ -1458,6 +1713,12 @@ async function elegirLocalGestion(nombre) {
  *  abierta. Actualiza en el lugar, sin tocar pestañas ni desplegables. */
 async function actualizarChecksEnDOM() {
     if (!sucursalActiva) return;
+    // Salta este ciclo si hubo un toque local hace poco — el guardado
+    // (Apps Script, ~1-2s) puede no haber terminado todavía; leer
+    // ahora traería el estado VIEJO y pisaría el cambio recién hecho
+    // por un instante ("lo carga, lo quita, lo regresa", reportado en
+    // vivo). El próximo ciclo (20s después) ya lo va a agarrar bien.
+    if (Date.now() - ultimaEdicionLocalGestion < MARGEN_EDICION_LOCAL_MS) return;
     // Fuerza una lectura REALMENTE fresca — invalidar() acá tira tanto
     // la caché en memoria (20s) como la marca de frescura de
     // IndexedDB (hasta 5 min), que si no seguía devolviendo la copia
@@ -1473,8 +1734,9 @@ async function actualizarChecksEnDOM() {
     checksActivos = frescos;
 
     document.querySelectorAll("#contenido-gestion-imprimible .tarea-gestion[data-tarea-id][data-dia]").forEach((tarjeta) => {
-        const clave = `${tarjeta.dataset.tareaId}|${tarjeta.dataset.dia}`;
-        const check = checksActivos[clave];
+        const tareaId = tarjeta.dataset.tareaId;
+        const dia = tarjeta.dataset.dia;
+        const check = checksActivos[`${tareaId}|${dia}`];
         const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
         const hora = tarjeta.querySelector("[data-hora]");
         if (hora) hora.textContent = hechoTexto;
@@ -1483,17 +1745,38 @@ async function actualizarChecksEnDOM() {
         const checkSimple = tarjeta.querySelector(".tarea-gestion-check");
         if (checkSimple) checkSimple.checked = !!check?.hecho;
 
-        const subitems = tarjeta.querySelectorAll(".subitem-gestion-check");
-        if (subitems.length) {
-            const marcados = check?.subitems || new Set();
-            subitems.forEach((s, is) => { s.checked = marcados.has(String(is)); });
+        // Sub-ítems con tipos mixtos (checkbox/estado3/numérico, ver
+        // services/subitems.js) — más simple RE-RENDERIZAR con la
+        // misma subitemFilaHtml() que arma el HTML inicial, en vez de
+        // duplicar "cómo se ve cada tipo" acá aparte. Los listeners
+        // siguen andando: son delegados en el contenedor
+        // (bindTarjetaDesplegable), no en cada fila — reemplazar el
+        // innerHTML no los pierde.
+        const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
+        const tarea = registroTareas.get(tareaId);
+        if (contenedorSubitems && tarea?.subitems) {
+            const marcados = check?.marcas || new Map();
+            contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, s, marcados.get(String(is)))).join("");
             const progreso = tarjeta.querySelector("[data-progreso]");
-            if (progreso) progreso.textContent = `${marcados.size}/${subitems.length}`;
+            if (progreso) progreso.textContent = `${marcados.size}/${tarea.subitems.length}`;
         }
     });
 }
 
 let intervaloChecksGestion = null;
+
+/** Marca de tiempo del último tilde/toque LOCAL en cualquier check —
+ *  pedido explícito, con captura real: "el marcar sub-tareas las
+ *  carga, las quita, las regresa de nuevo". Causa real: el repaso de
+ *  fondo cada 20s (actualizarChecksEnDOM) puede llegar a leer el
+ *  backend justo en el hueco entre "tocaste algo" y "el guardado
+ *  (~1-2s de Apps Script) todavía no terminó de escribirse" — ese
+ *  repaso trae el estado VIEJO y pisa el cambio recién hecho por un
+ *  instante, hasta el próximo ciclo. Saltear un ciclo de repaso justo
+ *  después de un toque local evita la carrera: 20s es margen de sobra
+ *  para no perder nada real. */
+let ultimaEdicionLocalGestion = 0;
+const MARGEN_EDICION_LOCAL_MS = 4000;
 
 export function bindGestion() {
     // Selector de local (Admin/Supervisor/Capacitador) — bindAutocompleteSucursal

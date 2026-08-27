@@ -5503,6 +5503,116 @@ table.data-table tbody tr:hover{
 .subitem-gestion:first-child{ border-top:1px solid var(--line); }
 .subitem-gestion input{ accent-color:var(--gold); width:17px; height:17px; flex-shrink:0; }
 
+/* Sub-ítem de 3 ESTADOS (ok/incidencia/grave) — pedido explícito, con
+   maqueta confirmada: un arqueo de caja necesita poder marcar "hecho
+   pero con un problema" sin escribir texto. Los 3 círculos son un
+   toque directo, sin ciclar; los motivos son CHIPS (se eligen, nunca
+   se escriben), visibles solo cuando el estado no es "ok". */
+.subitem-estado3{
+    padding:10px 0;
+    border-top:1px solid var(--line);
+}
+.subitem-estado3:first-child{ border-top:1px solid var(--line); }
+.subitem-estado3-fila{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.subitem-estado3-fila span{ flex:1; font-size:13.5px; color:var(--text); }
+
+.estados3{ display:flex; gap:6px; flex-shrink:0; }
+.estado-btn{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    border:2px solid var(--line);
+    background:transparent;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:13px;
+    font-weight:700;
+    color:transparent;
+    transition:var(--transition);
+}
+.estado-btn:disabled{ cursor:default; }
+.estado-btn.ok.activo{ background:var(--success); border-color:var(--success); color:var(--black); }
+.estado-btn.incidencia.activo{ background:var(--warning); border-color:var(--warning); color:var(--black); }
+.estado-btn.grave.activo{ background:var(--danger); border-color:var(--danger); color:#fff; }
+
+.chips-motivo{
+    display:none;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-top:8px;
+}
+.chips-motivo.visible{ display:flex; }
+.chip-motivo{
+    padding:5px 11px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--soft);
+    color:var(--muted);
+    font-size:11.5px;
+    font-weight:600;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.chip-motivo.activo{ background:var(--warning-soft); border-color:var(--warning); color:var(--warning); }
+.subitem-estado3[data-estado-actual="grave"] .chip-motivo.activo{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); }
+
+/* Sub-ítem NUMÉRICO (ej. "Saldo/diferencia") — 0 = cuadra, cualquier
+   otro valor YA ES la incidencia, sin necesitar más explicación. */
+.subitem-numerico{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 0;
+    border-top:1px solid var(--line);
+}
+.subitem-numerico:first-child{ border-top:1px solid var(--line); }
+.subitem-numerico span{ font-size:13.5px; color:var(--text); }
+.subitem-numerico-campo{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    background:var(--soft);
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:6px 12px;
+    flex-shrink:0;
+    transition:var(--transition);
+}
+.subitem-numerico.ok .subitem-numerico-campo{ border-color:var(--success); }
+.subitem-numerico.incidencia .subitem-numerico-campo{ border-color:var(--warning); }
+.subitem-numerico-campo span{ color:var(--muted); font-size:13px; }
+.subitem-numerico-campo input{
+    background:none;
+    border:none;
+    color:var(--text);
+    font-size:13.5px;
+    font-weight:700;
+    width:64px;
+    outline:none;
+    font-variant-numeric:tabular-nums;
+}
+
+/* Badge de resumen en el encabezado de la tarjeta — cuenta las
+   incidencias de estado3/numérico juntas (badgeIncidenciasHtml en
+   gestion.js). Ausente si no hay ninguna. */
+.badge-incidencia{
+    flex-shrink:0;
+    font-size:11px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:999px;
+    background:var(--warning-soft);
+    color:var(--warning);
+}
+.badge-incidencia.grave{ background:var(--danger-soft); color:var(--danger); }
+
 .tarea-gestion-desplegable.hecha .tarea-gestion-progreso{ background:var(--success-soft); color:var(--success); }
 
 /* "+ Agregar ítem" al final de cada lista desplegable — para sumar
@@ -5797,14 +5907,59 @@ table.data-table tbody tr:hover{
 }
 
 /* Modal "Nueva tarea" — sub-tareas sueltas, mismo espíritu que los
-   sub-puntos de un paso en Lecciones (academia.js: subpuntoHtml). */
+   sub-puntos de un paso en Lecciones (academia.js: subpuntoHtml).
+   Cada fila tiene DOS niveles: la principal (texto + tipo + quitar) y,
+   solo para "3 estados", el campo de motivos debajo — ver
+   subtareaNuevaFilaHtml en gestion.js. */
 .subtarea-nueva-fila{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-bottom:10px;
+}
+.subtarea-nueva-fila-principal{
     display:flex;
     gap:8px;
     align-items:flex-start;
-    margin-bottom:8px;
 }
-.subtarea-nueva-fila textarea{ flex:1; }
+/* width:auto + min-width:0 pisan a propósito la regla global del
+   modal (".modal-body select/textarea { width:100% }", components.css
+   más arriba) — reportado en vivo, con captura, DOS VECES: la primera
+   corrección (".input-subtarea-nueva-tipo{width:auto}" sola, una sola
+   clase) perdía el empate de especificidad contra ".modal-body select"
+   (clase + tag, más específica) y el navegador seguía aplicando 100%
+   pase lo que pusiera acá — comprobado con getComputedStyle en el
+   navegador real, no adivinado. Con selector de DOS clases
+   (.subtarea-nueva-fila-principal + la propia) le gana de verdad. Sin
+   esto el <select> de tipo (flex:0 0 auto, así que su ancho lo decide
+   `width`, no flex-basis) reclamaba el 100% de la FILA para sí solo y
+   empujaba el textarea a una tira angosta, envolviendo el placeholder
+   letra por letra en una columna altísima. min-width:0 en el textarea
+   además es necesario para que un item flex con texto adentro pueda
+   achicarse por debajo de su ancho intrínseco (el default es
+   min-width:auto, que se lo impide). */
+.subtarea-nueva-fila-principal textarea{ flex:1; width:auto; min-width:0; }
+
+.subtarea-nueva-fila-principal .input-subtarea-nueva-tipo{
+    flex:0 0 auto;
+    width:auto;
+    padding:8px 10px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--text);
+    font-size:12.5px;
+}
+
+.input-subtarea-nueva-motivos{
+    padding:8px 12px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--text);
+    font-size:12.5px;
+    width:100%;
+}
 
 .btn-quitar-subtarea-nueva{
     flex:0 0 auto;

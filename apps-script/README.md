@@ -53,6 +53,13 @@ Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
 `dias` y `subitems` van separados por coma en una sola celda (ej. `Lunes,Viernes` o `Abatidor,Armario,Vitrina`) — mismo criterio ya usado en `aplicaA`/`noAplicaA` de `Cursos`, no un esquema nuevo. `subitems` puede quedar vacío (no todas las tareas tienen sub-ítems). `fechaModificacion` es obligatoria como en cualquier hoja que se escribe desde la app (ver más abajo) — sin ella, `_actualizarCrudo` rechaza la escritura.
 
+Cada elemento de `subitems` puede traer, además del título, un TIPO y (para 3 estados) una lista de motivos — ver `js/services/subitems.js`, es quien arma/lee esto, el backend nunca lo interpreta:
+- `Planilla de caja` — checkbox simple, el formato de siempre (sin `::`, cero cambios para cualquier tarea ya cargada).
+- `Efectivo — Caja 1::estado3::Faltante;Sobrante;Billete falso` — sub-ítem de **3 estados** (ok/incidencia/grave, sin escribir texto), con la lista de motivos elegibles separada por `;`.
+- `Saldo/diferencia — Caja 1::numerico` — sub-ítem **numérico** ($, ej. 0 = cuadra, cualquier otro valor es la incidencia).
+
+Pedido explícito, con maqueta confirmada: un checklist binario no alcanza para tareas como un arqueo de caja, donde hace falta poder marcar "hecho pero con un problema" sin que nadie tenga que escribir una descripción. Reusá una fila de 3 estados o numérico por cada caja/posnet si hay más de uno (ej. "Efectivo — Caja 1" y "Efectivo — Caja 2" separados) — así una incidencia en una no se mezcla con la otra.
+
 `aplicaA`/`noAplicaA` (agregadas 2026-08-26): país/propio-franquicia/local puntual a quien le corresponde la tarea — MISMO campo y semántica que `Cursos`/`Lecciones` (vacío = aplica a TODOS, la exclusión gana), ver `services/alcance.js` → `aplicaASucursal`. Suman dos tokens que Cursos/Lecciones no usan: `Propios`/`Franquicias`, contra `Sucursales.esPropio`. **Sin estas 2 columnas en la Sheet, `_actualizarCrudo` devuelve `{ok:false, error:'Faltan columnas...'}` al editar CUALQUIER tarea** (el cliente siempre manda los dos campos, aunque no se toquen) — agregarlas es paso obligatorio antes de probar este cambio, no opcional.
 
 `frecuencia`: se probó acá un rato el mismo día (2026-08-26) pero se movió a `GestionTareasSucursal` (ver más abajo) — pedido explícito del usuario, Admin: "yo cargo la tarea, ellos deciden si es mensual o semanal". Si llegaste a agregar esa columna acá, podés dejarla — queda inerte, el código ya no la lee ni la escribe.
@@ -87,7 +94,14 @@ Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
 Antes el tilde de "hecho" era puramente visual — vivía en el navegador de quien lo tocaba, se perdía al recargar, y dos personas viendo el mismo local en dispositivos distintos no se veían entre sí (bug real reportado en vivo: "quien dio el marcado no le aparece al otro"). Una fila acá = una tarea marcada (completa o a medias) en un día puntual, para una sucursal puntual; desmarcar TODO (ni completa ni ningún sub-ítem tildado) BORRA la fila, mismo criterio que `GestionTareasSucursal`. Escrita solo por `actualizarCheckGestion` (Code.gs), mismo criterio de seguridad que `actualizarDiasGestionSucursal` (la sucursal la decide el servidor).
 
-`subitemsMarcados` (agregada 2026-08-26): string con los ÍNDICES de sub-ítems tildados, separados por coma (ej. `"0,2,4"`, mismo criterio que `dias`) — antes una tarea con checklist a MITAD de camino (nunca llegó a completa) no tenía ninguna fila guardada, así que ese progreso se perdía con cualquier recarga de la app ("quedaba todo desmarcado", reportado en vivo). Ahora se guarda pase lo que pase, esté la tarea completa o no; `hecho` sigue existiendo aparte para las tareas simples (sin checklist), que nunca tocan esta columna. **Sin esta columna, `actualizarCheckGestion` devuelve `{ok:false, error:'Faltan columnas...'}` al tildar un sub-ítem de una fila YA existente** (una fila nueva simplemente la ignora en silencio) — agregarla es paso obligatorio antes de que el progreso a medias quede guardado de verdad.
+`subitemsMarcados` (agregada 2026-08-26): string con la respuesta de cada sub-ítem, separadas por coma (mismo criterio que `dias`) — antes una tarea con checklist a MITAD de camino (nunca llegó a completa) no tenía ninguna fila guardada, así que ese progreso se perdía con cualquier recarga de la app ("quedaba todo desmarcado", reportado en vivo). Ahora se guarda pase lo que pase, esté la tarea completa o no; `hecho` sigue existiendo aparte para las tareas simples (sin checklist), que nunca tocan esta columna. **Sin esta columna, `actualizarCheckGestion` devuelve `{ok:false, error:'Faltan columnas...'}` al tildar un sub-ítem de una fila YA existente** (una fila nueva simplemente la ignora en silencio) — agregarla es paso obligatorio antes de que el progreso a medias quede guardado de verdad.
+
+Formato de CADA entrada (ver `js/services/subitems.js`, es quien arma/lee esto — el backend nunca interpreta el contenido, solo lo guarda tal cual):
+- `"3"` — sub-ítem checkbox simple, índice 3, tildado. Formato de siempre, sin cambios.
+- `"1:ok"` / `"1:inc:Faltante"` / `"1:grave:No cerró lote"` — sub-ítem de **3 estados** (índice 1): ok/incidencia/grave, con motivo opcional (elegido de una lista de chips en el catálogo, nunca texto libre).
+- `"5:n:-320"` — sub-ítem **numérico** (índice 5), valor -320 (ej. "Saldo/diferencia" de una caja: 0 = cuadra, cualquier otro valor es la incidencia en sí misma).
+
+El TIPO de cada sub-ítem (checkbox/estado3/numérico) y, para 3 estados, la lista de motivos posibles, se definen en el catálogo (`GestionTareas.subitems` — ver más abajo), no acá: acá solo se guarda la respuesta puntual de una ejecución.
 
 #### `fechaModificacion` — obligatoria en las 8 hojas sincronizadas
 

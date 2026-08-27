@@ -16,18 +16,25 @@
    guardada, y ese progreso se perdía con cualquier recarga de la app
    ("quedaba todo desmarcado", reportado en vivo). Ahora se guarda
    pase lo que pase, esté completa o no.
+
+   Sub-ítems con estado/valor (2026-08-26, mismo día): cada entrada de
+   subitemsMarcados puede traer más que el índice — "1:inc:Faltante"
+   (3 estados) o "5:n:-320" (numérico), ver services/subitems.js. Acá
+   solo se PARSEA cada entrada a un objeto; toda la lógica de qué
+   significa cada tipo vive en ese servicio, no acá.
 =============================*/
 
 import { fetchSheet, invalidar } from "../services/dataSource.js";
 import { actualizarCheckGestionReal } from "../services/google.js";
 import { gestionChecksMock } from "./mock/gestionChecks.mock.js";
 import { HOJAS, USE_MOCK_DATA } from "../config.js";
+import { parsearMarcaSubitem } from "../services/subitems.js";
 
-/** { "tareaId|dia": {marcadoPor, hora, hecho, subitems: Set<string>} }
+/** { "tareaId|dia": {marcadoPor, hora, hecho, marcas: Map<indice, marca>} }
  *  para UNA sucursal, filtrado en el cliente (mismo criterio que
  *  gestionTareasSucursal.js). Antes solo entraban las filas con
  *  hecho=SI (la tarea COMPLETA); ahora entra cualquier fila de la
- *  sucursal, completa o a medias — hecho/subitems quedan disponibles
+ *  sucursal, completa o a medias — hecho/marcas quedan disponibles
  *  para que quien lea decida qué mostrar en cada caso. */
 export async function getChecksPorSucursal(sucursal) {
     try {
@@ -35,11 +42,16 @@ export async function getChecksPorSucursal(sucursal) {
         const propios = filas.filter((f) => String(f.sucursal || "").trim() === String(sucursal || "").trim());
         const mapa = {};
         propios.forEach((f) => {
+            const marcas = new Map();
+            String(f.subitemsMarcados || "").split(",").filter(Boolean).forEach((entrada) => {
+                const marca = parsearMarcaSubitem(entrada);
+                marcas.set(marca.indice, marca);
+            });
             mapa[`${f.tareaId}|${f.dia}`] = {
                 marcadoPor: f.marcadoPor || "",
                 hora: f.hora || "",
                 hecho: String(f.hecho).toUpperCase() === "SI",
-                subitems: new Set(String(f.subitemsMarcados || "").split(",").filter(Boolean)),
+                marcas,
             };
         });
         return mapa;
