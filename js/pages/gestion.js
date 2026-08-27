@@ -1834,7 +1834,33 @@ function bindPushWrap(wrap) {
         wrap.querySelector("[data-btn-enviar-push]").addEventListener("click", pintarBanner);
     }
 
+    /** true si la tarea tiene TODOS sus sub-ítems respondidos (o, sin
+     *  sub-ítems, el check propio tildado) — mismo cálculo que usa
+     *  enviar() para el título del push, extraído acá para poder
+     *  frenar ANTES de mostrar el banner de confirmación. */
+    function estaCompleta() {
+        const tarjeta = document.querySelector(`.tarea-gestion[data-tarea-id="${tareaId}"][data-dia="${dia}"]`);
+        if (!tarjeta) return true; // no hay nada que frenar si ni existe la tarjeta
+        const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
+        if (contenedorSubitems) {
+            const marcas = Array.from(contenedorSubitems.children).map((fila) => leerMarcaFilaSubitem(fila, contenedorSubitems));
+            return marcas.length > 0 && marcas.every(Boolean);
+        }
+        const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
+        return !!checkPropio?.checked;
+    }
+
     function pintarBanner() {
+        // No se puede enviar con ítems sin responder — pedido
+        // explícito: "si le quedan pendientes está justamente hecho/
+        // no hecho para que sí o sí lo envíe... yo prefiero que no
+        // [pueda enviar]". Frena ACÁ, antes de mostrar el banner de
+        // confirmación — no tiene sentido preguntar "¿enviar?" para
+        // algo que no va a salir.
+        if (!estaCompleta()) {
+            alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de enviar el push.");
+            return;
+        }
         wrap.innerHTML = pushBannerHtml();
         wrap.querySelector("[data-btn-cancelar-push]").addEventListener("click", pintarBoton);
         wrap.querySelector("[data-btn-confirmar-push]").addEventListener("click", enviar);
