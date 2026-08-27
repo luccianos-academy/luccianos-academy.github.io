@@ -237,7 +237,7 @@ const ESTILOS_IMPRESION = `
        en gestion.js). Reportado en vivo, captura real: "el box de
        saldo está de más ahí" — mostrar el control original al lado
        del resumen en texto es redundante, no un dato aparte. */
-    .subitem-estado3 .estados3, .subitem-estado3 .chips-motivo,
+    .subitem-estado3 .estados3, .chips-motivo,
     .subitem-numerico-control { display: none !important; }
 
     .tarea-gestion-push, .tarea-gestion-acciones, .aviso-tareas-aplicables, .campo-selector-local, .aviso-solo-lectura,

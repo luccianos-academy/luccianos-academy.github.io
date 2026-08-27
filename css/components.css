@@ -5546,6 +5546,11 @@ table.data-table tbody tr:hover{
     flex-wrap:wrap;
     gap:6px;
     margin-top:8px;
+    /* Ahora vive dentro de .subitem-numerico (al lado del "$", donde
+       corresponde — ver subitemFilaHtml) — flex-basis:100% lo manda
+       SIEMPRE a su propia fila completa, sin pelear el espacio con
+       el título ni el control Falta/Sobra/$ de al lado. */
+    flex-basis:100%;
 }
 .chips-motivo.visible{ display:flex; }
 .chip-motivo{
@@ -5566,6 +5571,7 @@ table.data-table tbody tr:hover{
    otro valor YA ES la incidencia, sin necesitar más explicación. */
 .subitem-numerico{
     display:flex;
+    flex-wrap:wrap;
     align-items:center;
     justify-content:space-between;
     gap:10px;

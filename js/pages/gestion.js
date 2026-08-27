@@ -431,7 +431,9 @@ function aplicaTareaHtml(t) {
  *    otro valor YA ES la incidencia, no hace falta explicarla aparte.
  *  `marca` es lo que ya está guardado para este índice (parsearMarcaSubitem),
  *  o undefined si nunca se tocó. */
-function subitemFilaHtml(id, is, raw, marca) {
+function subitemFilaHtml(id, is, subitemsRaw, marcados) {
+    const raw = subitemsRaw[is];
+    const marca = marcados.get(String(is));
     const { titulo, tipo, motivos } = parsearSubitem(raw);
 
     if (tipo === TIPOS_SUBITEM.NUMERICO) {
@@ -458,6 +460,14 @@ function subitemFilaHtml(id, is, raw, marca) {
         const magnitud = Math.abs(valorGuardado);
         const signo = valorGuardado < 0 ? "-" : "+";
         const incidencia = valorGuardado !== 0;
+
+        // SIN chips de motivo acá — pedido explícito: "para qué quiero
+        // en dos lugares la misma información" — Falta/Sobra + el
+        // monto YA dicen todo lo que un chip "Faltante"/"Sobrante"
+        // repetiría. El motivo de la incidencia (si aplica) queda
+        // representado únicamente por el círculo ok/incidencia/grave
+        // del estado3, sin selector de causa aparte.
+
         // En $0 el signo no significa nada — ninguno de los dos botones
         // arranca marcado (mismo criterio que al resetear desde "OK").
         return `
@@ -470,7 +480,7 @@ function subitemFilaHtml(id, is, raw, marca) {
                     </div>
                     <div class="subitem-numerico-campo">
                         <span>$</span>
-                        <input type="number" inputmode="decimal" min="0" step="0.01" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${magnitud}">
+                        <input type="text" inputmode="decimal" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${formatearMontoInput(magnitud)}">
                     </div>
                 </div>
             </div>
@@ -480,7 +490,6 @@ function subitemFilaHtml(id, is, raw, marca) {
     if (tipo === TIPOS_SUBITEM.ESTADO3) {
         const tieneMarca = marca?.tipo === TIPOS_SUBITEM.ESTADO3;
         const estado = tieneMarca ? marca.estado : "";
-        const motivoActivo = tieneMarca ? marca.motivo : "";
         return `
             <div class="subitem-estado3" data-subitem-tipo="estado3" data-subitem-indice="${is}" data-estado-actual="${estado}">
                 <div class="subitem-estado3-fila">
@@ -491,11 +500,6 @@ function subitemFilaHtml(id, is, raw, marca) {
                         <button type="button" class="estado-btn grave${estado === "grave" ? " activo" : ""}" data-estado="grave"${esVistaLectura ? " disabled" : ""} aria-label="Incidencia grave">✕</button>
                     </div>
                 </div>
-                ${motivos.length ? `
-                    <div class="chips-motivo${estado && estado !== "ok" ? " visible" : ""}">
-                        ${motivos.map((m) => `<button type="button" class="chip-motivo${motivoActivo === m ? " activo" : ""}" data-motivo="${escaparHtml(m)}"${esVistaLectura ? " disabled" : ""}>${escaparHtml(m)}</button>`).join("")}
-                    </div>
-                ` : ""}
             </div>
         `;
     }
@@ -592,7 +596,7 @@ function tareaHtml(t, idUnico, dia) {
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
                 <div class="tarea-gestion-subitems" data-subitems>
-                    ${t.subitems.map((s, is) => subitemFilaHtml(id, is, s, marcados.get(String(is)))).join("")}
+                    ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados)).join("")}
                 </div>
                 ${esVistaLectura ? "" : `
                     <div class="tarea-gestion-guardar">
@@ -1150,6 +1154,41 @@ function horaAhora() {
     return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+/** Sufijo compartido "Caja N"/"Posnet N" en un título — mismo criterio
+ *  en los 3 lugares que necesitan emparejar sub-ítems de la misma
+ *  caja/posnet (acá, el reseteo al marcar "OK", y el conteo agrupado
+ *  de incidencias en services/subitems.js). */
+function sufijoCaja(titulo) {
+    return String(titulo || "").toLowerCase().match(/\b(caja|posnet)\s*\d+/)?.[0] || "";
+}
+
+/** Monto de un sub-ítem numérico — "," es el separador decimal (poco
+ *  común acá, pero soportado), "." NUNCA se interpreta como decimal.
+ *  Pedido explícito, con bug real reportado en vivo: escribir "10.500"
+ *  pensando en diez mil quinientos (como se escriben los miles acá)
+ *  el sistema lo tomaba como 10,5 al exportar — un "." de más volvía
+ *  el monto casi cien veces más chico sin ningún aviso. */
+function parsearMontoInput(texto) {
+    const limpio = String(texto || "").replace(/\./g, "").replace(",", ".");
+    const n = Number(limpio);
+    return Number.isFinite(n) ? n : 0;
+}
+/** Inverso — solo para pintar el valor guardado de vuelta en el
+ *  input, nunca agrega separador de miles (no hace falta para
+ *  ESCRIBIR, solo estorbaría). */
+function formatearMontoInput(valor) {
+    return String(valor).replace(".", ",");
+}
+/** Filtra mientras se escribe: sin "." (nunca es decimal acá — ver
+ *  parsearMontoInput), como mucho UNA coma. */
+function sanearInputMonto(input) {
+    let v = input.value.replace(/\./g, "");
+    const partes = v.split(",");
+    if (partes.length > 2) v = partes[0] + "," + partes.slice(1).join("");
+    v = v.replace(/[^\d,]/g, "");
+    if (input.value !== v) input.value = v;
+}
+
 /** Guarda el check DE VERDAD contra GestionChecks — antes era
  *  puramente visual (bug real: "quien dio el marcado no le aparece al
  *  otro", dos dispositivos en el mismo local no se veían entre sí).
@@ -1276,21 +1315,26 @@ function bindFrecuenciaTarea(contenedor) {
  *  nivel de módulo (no solo adentro de bindTarjetaDesplegable) porque
  *  también la usa el push por tarea, para saber si hay incidencias —
  *  ver bindPushWrap. */
-function leerMarcaFilaSubitem(fila) {
+/** contenedor (el [data-subitems] entero) es opcional pero hace falta
+ *  para leer el motivo de un estado3 — sus chips ahora viven en el
+ *  numérico hermano (ver subitemFilaHtml), NO adentro de esta fila,
+ *  así que buscarlos con fila.querySelector ya no alcanza. */
+function leerMarcaFilaSubitem(fila, contenedor) {
     const tipo = fila.dataset.subitemTipo;
     if (tipo === TIPOS_SUBITEM.NUMERICO) {
         // Magnitud (siempre ≥0, lo que se escribe) + signo (lo que se
         // elige con Falta/Sobra) — ver comentario en subitemFilaHtml.
         const input = fila.querySelector(".input-numerico-subitem");
         if (!input) return undefined;
-        const magnitud = input.value === "" ? 0 : Math.abs(Number(input.value));
+        const magnitud = input.value === "" ? 0 : Math.abs(parsearMontoInput(input.value));
         const valor = fila.dataset.signo === "-" ? -magnitud : magnitud;
         return { tipo: TIPOS_SUBITEM.NUMERICO, valor };
     }
     if (tipo === TIPOS_SUBITEM.ESTADO3) {
         const estado = fila.dataset.estadoActual;
         if (!estado) return undefined;
-        const chipActivo = fila.querySelector(".chip-motivo.activo");
+        const raiz = contenedor || fila;
+        const chipActivo = raiz.querySelector(`[data-motivo-de="${fila.dataset.subitemIndice}"] .chip-motivo.activo`);
         return { tipo: TIPOS_SUBITEM.ESTADO3, estado, motivo: chipActivo?.dataset.motivo || "" };
     }
     const chk = fila.querySelector(".subitem-gestion-check");
@@ -1318,7 +1362,7 @@ function bindTarjetaDesplegable(tarjeta) {
         const filas = Array.from(contenedorSubitems.children);
         const marcados = [];
         filas.forEach((fila) => {
-            const marca = leerMarcaFilaSubitem(fila);
+            const marca = leerMarcaFilaSubitem(fila, contenedorSubitems);
             if (marca) marcados.push({ indice: fila.dataset.subitemIndice, marca });
         });
         return { filas, marcados };
@@ -1355,7 +1399,7 @@ function bindTarjetaDesplegable(tarjeta) {
      *  próximo repaso completo. */
     function actualizarColorNumerico(fila) {
         const input = fila.querySelector(".input-numerico-subitem");
-        const magnitud = input && input.value !== "" ? Math.abs(Number(input.value)) : 0;
+        const magnitud = input && input.value !== "" ? Math.abs(parsearMontoInput(input.value)) : 0;
         fila.classList.toggle("incidencia", magnitud !== 0);
         fila.classList.toggle("ok", magnitud === 0);
     }
@@ -1368,18 +1412,19 @@ function bindTarjetaDesplegable(tarjeta) {
         const completa = filas.length > 0 && marcados.length === filas.length;
         const yaEstabaCompleta = tarjeta.classList.contains("hecha");
         tarjeta.classList.toggle("hecha", completa);
+        // "Guardando..." hasta que el guardado REAL termine — el nombre
+        // recién se pinta cuando el pedido se confirma, no antes. Pedido
+        // explícito: "hasta que no cargue el nombre debería seguir
+        // diciendo guardando" — si el nombre se pintaba optimista (antes
+        // de que el pedido siquiera saliera) y alguien exportaba muy
+        // rápido después de tocar Guardar, el guardado real (Apps
+        // Script, ~1-2s) podía no haber terminado todavía — el botón ya
+        // decía "listo" pero el nombre corría el riesgo de faltar.
         const hora = tarjeta.querySelector("[data-hora]");
+        const pisaHora = completa && !yaEstabaCompleta;
         if (hora) {
-            // Solo se pisa el horario al COMPLETARSE recién ahora — si
-            // ya estaba completa y se vuelve a guardar (ej. se agregó
-            // un ítem nuevo), no tiene sentido correr la hora sin que
-            // haya cambiado el estado real. Con nombre de una — mismo
-            // formato que guarda el backend ("Hecho HH:MM · Nombre") —
-            // así se ve quién la completó sin esperar al repaso de 20s.
-            if (completa && !yaEstabaCompleta) {
-                const nombre = getUsuarioActual()?.nombre || "";
-                hora.textContent = `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}`;
-            } else if (!completa) hora.textContent = "";
+            if (pisaHora) hora.textContent = "Guardando...";
+            else if (!completa) hora.textContent = "";
         }
 
         const textoOriginal = btnGuardar?.textContent;
@@ -1392,9 +1437,14 @@ function bindTarjetaDesplegable(tarjeta) {
             if (!r?.ok) {
                 alert(r?.error || "No se pudo guardar — probá de nuevo.");
                 if (btnGuardar) btnGuardar.textContent = textoOriginal;
+                if (hora && pisaHora) hora.textContent = "";
                 return;
             }
             tareasSinGuardarGestion.delete(clave);
+            if (hora && pisaHora) {
+                const nombre = getUsuarioActual()?.nombre || "";
+                hora.textContent = `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}`;
+            }
             if (btnGuardar) {
                 btnGuardar.classList.remove("pendiente");
                 btnGuardar.textContent = "✓ Guardado";
@@ -1423,6 +1473,13 @@ function bindTarjetaDesplegable(tarjeta) {
         if (e.target.classList.contains("input-numerico-subitem")) e.target.select();
     });
 
+    // Filtra "." mientras se escribe — nunca es decimal acá (ver
+    // parsearMontoInput). Bug real reportado en vivo: "10.500" pensado
+    // como diez mil quinientos se leía como 10,5 al exportar.
+    contenedorSubitems.addEventListener("input", (e) => {
+        if (e.target.classList.contains("input-numerico-subitem")) sanearInputMonto(e.target);
+    });
+
     contenedorSubitems.addEventListener("click", (e) => {
         const signoBtn = e.target.closest(".signo-btn");
         if (signoBtn) {
@@ -1439,7 +1496,10 @@ function bindTarjetaDesplegable(tarjeta) {
             fila.querySelectorAll(".estado-btn").forEach((b) => b.classList.remove("activo"));
             estadoBtn.classList.add("activo");
             fila.dataset.estadoActual = estadoBtn.dataset.estado;
-            const chips = fila.querySelector(".chips-motivo");
+            // Los chips de este estado3 viven en el numérico hermano
+            // (ver subitemFilaHtml) — se ubican por data-motivo-de con
+            // el ÍNDICE de esta fila, no adentro de ella.
+            const chips = contenedorSubitems.querySelector(`[data-motivo-de="${fila.dataset.subitemIndice}"]`);
             if (chips) {
                 const esOk = estadoBtn.dataset.estado === "ok";
                 chips.classList.toggle("visible", !esOk);
@@ -1471,8 +1531,8 @@ function bindTarjetaDesplegable(tarjeta) {
     function resetearNumericoParejo(estadoBtn) {
         if (estadoBtn.dataset.estado !== "ok") return;
         const filaEstado3 = estadoBtn.closest(".subitem-estado3");
-        const tituloEstado3 = filaEstado3?.querySelector(".subitem-estado3-fila > span")?.textContent.toLowerCase() || "";
-        const sufijo = tituloEstado3.match(/\b(caja|posnet)\s*\d+/)?.[0] || "";
+        const tituloEstado3 = filaEstado3?.querySelector(".subitem-estado3-fila > span")?.textContent || "";
+        const sufijo = sufijoCaja(tituloEstado3);
         const filasNumericas = Array.from(contenedorSubitems.querySelectorAll(".subitem-numerico"));
         const destino = sufijo
             ? filasNumericas.find((f) => f.querySelector(":scope > span")?.textContent.toLowerCase().includes(sufijo))
@@ -1617,7 +1677,7 @@ function bindPushWrap(wrap) {
         let hayEstado, completa, incidencias, graves;
         if (contenedorSubitems) {
             const filas = Array.from(contenedorSubitems.children);
-            const marcas = filas.map(leerMarcaFilaSubitem);
+            const marcas = filas.map((fila) => leerMarcaFilaSubitem(fila, contenedorSubitems));
             hayEstado = marcas.length > 0;
             completa = hayEstado && marcas.every(Boolean);
             // Agrupado por caja/posnet (ver services/subitems.js) — no
@@ -1794,14 +1854,14 @@ function bindCuerpoGestion() {
             const span = fila.querySelector("span");
             if (!input || !span) return;
             input.setAttribute("value", input.value);
-            const magnitud = input.value === "" ? 0 : Math.abs(Number(input.value));
+            const magnitud = input.value === "" ? 0 : Math.abs(parsearMontoInput(input.value));
             const esFalta = fila.dataset.signo === "-";
             const marca = document.createElement("span");
             marca.className = "subitem-gestion-marca";
             // Mismo criterio que en pantalla: Falta = rojo (más grave),
             // Sobra = naranja, Cuadra (0) = verde.
             marca.style.color = magnitud === 0 ? "#1a7a3c" : esFalta ? "#c0392b" : "#b8860b";
-            marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${magnitud} `;
+            marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${formatearMontoInput(magnitud)} `;
             span.before(marca);
             marcasAgregadas.push(marca);
         });
@@ -1812,7 +1872,9 @@ function bindCuerpoGestion() {
             const span = fila.querySelector(".subitem-estado3-fila span");
             if (!span) return;
             const estado = fila.dataset.estadoActual;
-            const chipActivo = fila.querySelector(".chip-motivo.activo");
+            // Los chips de este estado3 viven en el numérico hermano
+            // (ver subitemFilaHtml) — no adentro de esta fila.
+            const chipActivo = document.querySelector(`#contenido-gestion-imprimible [data-motivo-de="${fila.dataset.subitemIndice}"] .chip-motivo.activo`);
             const marca = document.createElement("span");
             marca.className = "subitem-gestion-marca";
             if (!estado) {
@@ -1930,7 +1992,7 @@ async function actualizarChecksEnDOM() {
         const tarea = registroTareas.get(tareaId);
         if (contenedorSubitems && tarea?.subitems) {
             const marcados = check?.marcas || new Map();
-            contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, s, marcados.get(String(is)))).join("");
+            contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, tarea.subitems, marcados)).join("");
             const progreso = tarjeta.querySelector("[data-progreso]");
             if (progreso) progreso.textContent = `${marcados.size}/${tarea.subitems.length}`;
             const badgeWrap = tarjeta.querySelector("[data-badge-incidencia]");
