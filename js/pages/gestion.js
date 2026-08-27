@@ -129,6 +129,11 @@ let TAREAS = [];
  *  y se actualiza en cada alta/baja/cambio de día. */
 const registroTareas = new Map();
 
+/** idTarea → {diasPrevios, timer} — una ráfaga de toques de días
+ *  (bindDiasControl) guarda UNA sola vez, con el estado final, no un
+ *  pedido async por toque. Ver comentario en bindDiasControl. */
+const timersDias = new Map();
+
 /** Fase 2 (2026-08-25): Admin/Supervisor/Capacitador entran en modo
  *  lectura con un selector de local — ven exactamente cómo ese local
  *  armó su semana, sin poder tocar nada (ni pills, ni checks, ni
@@ -137,6 +142,15 @@ const registroTareas = new Map();
  *  de módulo (no por-request) porque el selector cambia de sucursal
  *  sin recargar toda la página — Gestion()/bindGestion() lo leen. */
 let esVistaLectura = false;
+/** Asignar días/frecuencia (qué tareas aplican y cuándo) es exclusivo
+ *  de Responsable de LOCAL — pedido explícito: "los días de la semana
+ *  o del mes debería solo poder asignar el responsable de local" /
+ *  "el responsable de turno solo cargar los datos que le
+ *  correspondan". Responsable de turno (colaborador, sin ser también
+ *  encargado) sigue viendo "Asignar tareas" pero sin poder tocarla —
+ *  mismas pills de solo lectura que ya usa Admin/Supervisor — y solo
+ *  puede cargar datos en "Tareas asignadas". */
+let soloLecturaAsignacion = false;
 let sucursalActiva = "";
 
 /** "tareaId|dia" → {marcadoPor, hora, hecho, marcas: Map<indice, marca>}
@@ -212,7 +226,7 @@ function actualizarAvisoDiaVacio(lista) {
  *  la elegida como texto, sin botones. */
 function frecuenciaTareaHtml(t) {
     const esMensual = t.frecuencia === "mensual";
-    if (esVistaLectura) {
+    if (soloLecturaAsignacion) {
         return `
             <div class="tarea-gestion-dia-control">
                 <span class="tarea-gestion-dia-label">Frecuencia</span>
@@ -289,7 +303,7 @@ function diasControlHtml(t) {
                 ${opciones.map((d) => {
                     const activa = t.dias.includes(d);
                     const etiqueta = esMensual ? d : d.slice(0, 2);
-                    return esVistaLectura
+                    return soloLecturaAsignacion
                         ? `<span class="pill-dia-tarea${activa ? " activa" : ""}" title="${d}">${etiqueta}</span>`
                         : `<button type="button" class="pill-dia-tarea${activa ? " activa" : ""}" data-toggle-dia="${d}" title="${d}">${etiqueta}</button>`;
                 }).join("")}
@@ -1114,6 +1128,12 @@ export async function Gestion() {
     // para gestionar. Responsable de local/turno (rol "colaborador")
     // va directo a la suya, sin selector, editable como siempre.
     esVistaLectura = usuario?.rol !== "colaborador";
+    // Responsable de turno (colaborador, sin encargado) ve el catálogo
+    // pero no lo toca — solo Responsable de local asigna días/frecuencia.
+    soloLecturaAsignacion = esVistaLectura || !usuario?.encargado;
+    // Y por eso mismo arranca directo en "Tareas asignadas" — mostrarle
+    // primero una pantalla que no puede tocar no tiene sentido.
+    if (usuario?.rol === "colaborador" && !usuario?.encargado && usuario?.responsableTurno) vistaSeccion = "ejecutar";
     sucursalActiva = esVistaLectura ? "" : (usuario?.sucursal || "");
 
     [sucursales] = await Promise.all([getSucursales(), cargarDatos(sucursalActiva)]);
@@ -1248,24 +1268,47 @@ function bindDiasControl(contenedor) {
             const tarea = registroTareas.get(idTarea);
             if (!tarea) return;
             const dia = btn.dataset.toggleDia;
+
+            // Debounce por tarea — UN solo guardado por ráfaga de
+            // toques, con el estado FINAL acumulado, no un pedido
+            // async por cada toque. Bug real reportado en vivo: tocar
+            // varios días seguidos (ej. Lu, Ma, Mi, Ju) podía guardar
+            // solo los primeros ("queda marcado solo Lu Ma Mi") — cada
+            // toque disparaba su PROPIO pedido contra Apps Script
+            // (~1.5s de latencia real), y en celular esos pedidos
+            // podían llegar DESORDENADOS: el último en salir no
+            // siempre es el último en llegar, así que uno más viejo
+            // podía pisar a uno más nuevo. Con un solo pedido por
+            // ráfaga no hay nada que se pueda desordenar entre sí.
+            let estado = timersDias.get(idTarea);
+            if (!estado) {
+                estado = { diasPrevios: [...tarea.dias] }; // snapshot de ANTES de esta ráfaga, para poder revertir el combo entero si falla
+                timersDias.set(idTarea, estado);
+            }
+
             const idx = tarea.dias.indexOf(dia);
             if (idx === -1) tarea.dias.push(dia); else tarea.dias.splice(idx, 1);
             recrearTareaEnPaneles(idTarea);
-            // Fase 2: se guarda en GestionTareasSucursal (mi sucursal),
-            // no en el catálogo — el backend decide de qué sucursal es
-            // la fila (usuarioActual.sucursal), este valor es solo
-            // para el guardado optimista en modo demo. La frecuencia
-            // viaja siempre junto con los días (viven en la MISMA fila,
-            // ver guardarDiasSucursal) — tocar una pill no la cambia,
-            // solo la preserva tal cual está.
-            guardarDiasSucursal(idTarea, tarea.dias, getUsuarioActual()?.sucursal, tarea.frecuencia).then((r) => {
-                if (r?.ok) return;
-                alert(r?.error || `No se pudo guardar el cambio de día para "${tarea.titulo}" — probá de nuevo.`);
-                // Revertir en memoria y en pantalla al estado de antes del click.
-                if (idx === -1) tarea.dias.splice(tarea.dias.indexOf(dia), 1);
-                else tarea.dias.splice(idx, 0, dia);
-                recrearTareaEnPaneles(idTarea);
-            });
+
+            clearTimeout(estado.timer);
+            estado.timer = setTimeout(() => {
+                // Fase 2: se guarda en GestionTareasSucursal (mi
+                // sucursal), no en el catálogo — el backend decide de
+                // qué sucursal es la fila (usuarioActual.sucursal),
+                // este valor es solo para el guardado optimista en
+                // modo demo. La frecuencia viaja siempre junto con los
+                // días (viven en la MISMA fila, ver guardarDiasSucursal)
+                // — tocar una pill no la cambia, solo la preserva tal
+                // cual está.
+                guardarDiasSucursal(idTarea, [...tarea.dias], getUsuarioActual()?.sucursal, tarea.frecuencia).then((r) => {
+                    timersDias.delete(idTarea);
+                    if (r?.ok) return;
+                    alert(r?.error || `No se pudo guardar el cambio de día para "${tarea.titulo}" — probá de nuevo.`);
+                    // Revertir TODA la ráfaga (no solo el último toque) al estado de antes de empezarla.
+                    tarea.dias = estado.diasPrevios;
+                    recrearTareaEnPaneles(idTarea);
+                });
+            }, 700);
         });
     });
 }
