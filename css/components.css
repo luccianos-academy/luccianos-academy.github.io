@@ -5647,6 +5647,25 @@ table.data-table tbody tr:hover{
     margin:0;
 }
 
+/* En celular angosto, un título largo (ej. "Saldo/diferencia — Caja
+   1") envuelve a 2 líneas pero el bloque Falta/Sobra + "$" — que no
+   se achica (flex-shrink:0, necesita quedar usable) — no tenía dónde
+   entrar al lado y se salía del borde de la tarjeta. Reportado en
+   vivo con captura real en celular. Abajo de los 600px, el título
+   pasa a ocupar toda la fila y el control baja a la suya, en vez de
+   pelear por el mismo espacio horizontal. */
+@media (max-width:600px){
+    .subitem-numerico{
+        flex-direction:column;
+        align-items:stretch;
+        gap:8px;
+    }
+    /* flex-start, no flex-end — apilado, el control va alineado con
+       el título arriba (mismo margen izquierdo), no empujado al
+       borde derecho dejando un hueco vacío a la izquierda. */
+    .subitem-numerico-control{ justify-content:flex-start; }
+}
+
 /* Botón "Guardar" al pie del checklist — pedido explícito, con
    captura real: "al moverte de la página se sale todo, poner un
    botón que al terminar diga guardar así queda todo guardado". Sin
@@ -6075,12 +6094,19 @@ table.data-table tbody tr:hover{
    "las pusiste una sobre la otra, quiero que estén una al lado de la
    otra" — Exportar se repite en cada fila (exporta lo mismo, la guía
    del día completo) en vez de vivir solo, lejos de cualquier push. */
+/* Mismo criterio que #tabs-seccion-gestion ("Asignar tareas"/"Tareas
+   asignadas"): flex:1 en las dos, ocupan TODO el ancho de la tarjeta
+   de arriba en vez de quedar como dos pills sueltas con hueco vacío
+   al lado — pedido explícito, "que ocupen todo el ancho alineado al
+   box para que quede agradable y ajustado". */
 .tarea-gestion-push{
     display:flex;
     align-items:center;
-    flex-wrap:wrap;
+    flex-wrap:nowrap;
     gap:10px;
 }
+.push-tarea-wrap{ display:flex; flex:1; min-width:0; }
+.push-tarea-wrap > *{ flex:1; width:100%; box-sizing:border-box; }
 
 /* Mismo tamaño exacto para las dos — pedido explícito: "me gusta así
    las pills de enviar push y exportar sean del mismo tamaño". Antes
@@ -6091,6 +6117,12 @@ table.data-table tbody tr:hover{
 .btn-exportar-tarea{
     display:inline-flex;
     align-items:center;
+    /* justify-content:center — ahora que ocupan flex:1 (mitad del
+       ancho de la tarjeta), sin esto el ícono+texto quedaba pegado
+       a la izquierda con todo el resto de la pill vacío a la
+       derecha. Reportado en vivo: "las palabras no están centradas
+       en la pill". */
+    justify-content:center;
     gap:6px;
     padding:9px 16px;
     border-radius:999px;
@@ -6110,48 +6142,73 @@ table.data-table tbody tr:hover{
 /* Banner de confirmación — pedido explícito: "sumar un banner enviar,
    así si presiono por error lo revierte". Reemplaza al botón adentro
    de .tarea-gestion-push (mismo lugar, no un modal aparte) hasta que
-   se toque "Confirmar envío" o "Cancelar". */
+   se toque "Confirmar envío" o "Cancelar".
+
+   Apilado en columna (texto arriba, los dos botones abajo repartidos
+   50/50), NO en fila como el botón "Enviar push" que reemplaza —
+   ahora que push-tarea-wrap ocupa un 50% fijo del ancho (ver
+   .tarea-gestion-push más arriba, para que "Exportar" no se corra de
+   lugar cuando aparece este banner), un texto largo + dos botones en
+   una sola fila no entraban ahí y quedaba todo apretado, con
+   palabras cortadas a la mitad ("Confirmar" / "envío" en dos líneas)
+   — reportado en vivo, captura real: "queda todo descuadrado".
+   Burbuja compacta en vez de una píldora que no le entraba el
+   contenido. */
 .banner-confirmar-push{
     display:flex;
-    align-items:center;
-    flex-wrap:wrap;
-    gap:10px;
-    padding:8px 8px 8px 14px;
-    background:var(--gold-soft);
-    border:1px solid var(--gold);
-    border-radius:999px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:8px;
+    padding:10px 12px;
+    /* Azul (--info), no dorado — pedido explícito, "al picarlo ponle
+       el color azul que me gusta, como fondo" — mismo celeste que ya
+       se usa en el tooltip ⓘ. Distingue este momento (una pausa para
+       confirmar) del dorado de "Enviar push"/"Confirmar envío", que
+       sigue siendo la acción real. */
+    background:var(--info-soft);
+    border:1px solid var(--info);
+    border-radius:14px;
 }
 .banner-confirmar-push span{
-    font-size:12.5px;
+    font-size:12px;
     font-weight:600;
     color:var(--text);
+    text-align:center;
 }
 .banner-confirmar-push-botones{
     display:flex;
     gap:8px;
 }
-.btn-cancelar-push{
-    padding:6px 12px;
-    border-radius:999px;
-    border:1px solid var(--line);
-    background:transparent;
-    color:var(--muted);
+.btn-cancelar-push,
+.btn-confirmar-push{
+    flex:1;
+    text-align:center;
+    padding:7px 10px;
+    /* 6px, no 999px — "Confirmar envío" envuelve a 2 líneas en la
+       mitad angosta de la burbuja, y una píldora del todo redonda
+       sobre un botón más alto de lo ancho curva tanto los costados
+       que el texto queda pegado al borde/"se sale del encuadre"
+       (reportado en vivo). Chico a propósito, menor al radio de la
+       burbuja que lo contiene (14px) menos su padding — si no, la
+       esquina del botón "cruza" la curva del borde azul en vez de
+       quedar bien adentro, mismo problema con otro nombre. */
+    border-radius:6px;
     font-size:12px;
     font-weight:700;
+    line-height:1.3;
     cursor:pointer;
     transition:var(--transition);
 }
+.btn-cancelar-push{
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+}
 .btn-cancelar-push:hover{ border-color:var(--text); color:var(--text); }
 .btn-confirmar-push{
-    padding:6px 14px;
-    border-radius:999px;
     border:1px solid var(--gold);
     background:var(--gold);
     color:var(--black);
-    font-size:12px;
-    font-weight:700;
-    cursor:pointer;
-    transition:var(--transition);
 }
 .btn-confirmar-push:hover{ background:var(--gold-deep); border-color:var(--gold-deep); }
 
