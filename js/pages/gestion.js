@@ -472,10 +472,18 @@ function subitemFilaHtml(id, is, raw, marca) {
         `;
     }
 
-    // checkbox — el de siempre, sin cambios de comportamiento.
+    // checkbox — el de siempre, sin cambios de comportamiento visual.
+    // data-subitem-tipo/indice van en el <label> (la fila de primer
+    // nivel que recorren actualizarProgreso/actualizarChecksEnDOM),
+    // NO en el <input> — bug real encontrado en vivo: estaban en el
+    // input, así que para CUALQUIER checkbox `fila.dataset.subitemIndice`
+    // leía undefined (el <label> no tenía el atributo) y el guardado
+    // terminaba con la clave literal "undefined" — con más de un
+    // checkbox en la misma tarea, todos pisaban la MISMA entrada
+    // ("se marcan, se desmarcan solos").
     return `
-        <label class="subitem-gestion" for="${id}-${is}">
-            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check" data-subitem-tipo="checkbox" data-subitem-indice="${is}"${esVistaLectura ? " disabled" : ""}${marca ? " checked" : ""}>
+        <label class="subitem-gestion" for="${id}-${is}" data-subitem-tipo="checkbox" data-subitem-indice="${is}">
+            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${esVistaLectura ? " disabled" : ""}${marca ? " checked" : ""}>
             <span>${escaparHtml(titulo)}</span>
         </label>
     `;
