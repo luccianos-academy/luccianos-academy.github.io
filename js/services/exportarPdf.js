@@ -230,6 +230,16 @@ const ESTILOS_IMPRESION = `
        motor de PDF entienda nada dinámico, sólo texto fijo. */
     .subitem-gestion-marca { font-weight: 700; }
 
+    /* Controles interactivos de estado3/numérico (círculos ok/!/✕,
+       chips de motivo, toggle Falta/Sobra, el campo "$" editable) —
+       de más en el PDF: el resultado YA queda como texto fijo antes
+       del título (.subitem-gestion-marca, ver arriba y bindExportarGestion
+       en gestion.js). Reportado en vivo, captura real: "el box de
+       saldo está de más ahí" — mostrar el control original al lado
+       del resumen en texto es redundante, no un dato aparte. */
+    .subitem-estado3 .estados3, .subitem-estado3 .chips-motivo,
+    .subitem-numerico-control { display: none !important; }
+
     .tarea-gestion-push, .tarea-gestion-acciones, .aviso-tareas-aplicables, .campo-selector-local, .aviso-solo-lectura,
     .acciones-gestion-semanal, .tabs-gestion { display: none !important; }
     .aviso-dia-vacio { font-size: 12px; color: #666; }

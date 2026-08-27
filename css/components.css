@@ -5690,6 +5690,11 @@ table.data-table tbody tr:hover{
     color:var(--warning);
 }
 .badge-incidencia.grave{ background:var(--danger-soft); color:var(--danger); }
+/* Wrapper siempre presente (data-badge-incidencia) para que el
+   repaso de 20s lo pueda refrescar con un simple innerHTML — vacío
+   se saca del flujo del flex-gap del header, para no dejar un hueco
+   fantasma cuando no hay ninguna incidencia. */
+.tarea-gestion-badge-incidencia:empty{ display:none; }
 
 .tarea-gestion-desplegable.hecha .tarea-gestion-progreso{ background:var(--success-soft); color:var(--success); }
 

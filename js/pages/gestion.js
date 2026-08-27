@@ -55,7 +55,7 @@ import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/au
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 import { getSucursales } from "../data/sucursales.js";
 import { aplicaASucursal, normalizar } from "../services/alcance.js";
-import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, esIncidencia, esIncidenciaGrave } from "../services/subitems.js";
+import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, contarIncidenciasAgrupadas } from "../services/subitems.js";
 
 /* ============================
    Gestión semanal — el checklist, por día
@@ -520,12 +520,19 @@ function subitemFilaHtml(id, is, raw, marca) {
 /** Badge de resumen de incidencias en el encabezado de la tarjeta —
  *  mismo criterio visual que la maqueta confirmada. Vacío (no se
  *  muestra nada) si la tarea no tiene sub-ítems de tipo estado3/
- *  numérico, o si ninguno tiene incidencia todavía. */
-function badgeIncidenciasHtml(marcados) {
-    const valores = Array.from(marcados.values());
-    const graves = valores.filter(esIncidenciaGrave).length;
+ *  numérico, o si ninguno tiene incidencia todavía. Cuenta por GRUPO
+ *  (ver contarIncidenciasAgrupadas) — "Efectivo Caja 1" + "Saldo
+ *  Caja 1" con la misma incidencia no duplican el conteo. Envuelto
+ *  en un span con data-badge-incidencia y :empty{display:none} en
+ *  CSS — así el repaso de 20s puede refrescarlo con solo un
+ *  innerHTML, sin dejar un hueco de flex-gap cuando queda vacío. */
+function badgeIncidenciasHtml(subitemsRaw, marcados) {
+    return `<span class="tarea-gestion-badge-incidencia" data-badge-incidencia>${badgeIncidenciaContenido(subitemsRaw, marcados)}</span>`;
+}
+function badgeIncidenciaContenido(subitemsRaw, marcados) {
+    const items = subitemsRaw.map((raw, is) => ({ titulo: parsearSubitem(raw).titulo, marca: marcados.get(String(is)) }));
+    const { incidencias, graves } = contarIncidenciasAgrupadas(items);
     if (graves > 0) return `<span class="badge-incidencia grave">${graves} incidencia grave${graves > 1 ? "s" : ""}</span>`;
-    const incidencias = valores.filter(esIncidencia).length;
     if (incidencias > 0) return `<span class="badge-incidencia">${incidencias} incidencia${incidencias > 1 ? "s" : ""}</span>`;
     return "";
 }
@@ -581,7 +588,7 @@ function tareaHtml(t, idUnico, dia) {
                         <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                     </span>
                     <span class="tarea-gestion-progreso" data-progreso>${marcados.size}/${t.subitems.length}</span>
-                    ${badgeIncidenciasHtml(marcados)}
+                    ${badgeIncidenciasHtml(t.subitems, marcados)}
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
                 <div class="tarea-gestion-subitems" data-subitems>
@@ -1609,11 +1616,15 @@ function bindPushWrap(wrap) {
         const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
         let hayEstado, completa, incidencias, graves;
         if (contenedorSubitems) {
-            const marcas = Array.from(contenedorSubitems.children).map(leerMarcaFilaSubitem);
+            const filas = Array.from(contenedorSubitems.children);
+            const marcas = filas.map(leerMarcaFilaSubitem);
             hayEstado = marcas.length > 0;
             completa = hayEstado && marcas.every(Boolean);
-            incidencias = marcas.filter((m) => m && esIncidencia(m)).length;
-            graves = marcas.filter((m) => m && esIncidenciaGrave(m)).length;
+            // Agrupado por caja/posnet (ver services/subitems.js) — no
+            // cuenta "Efectivo Caja 1" + "Saldo Caja 1" como dos
+            // incidencias separadas cuando describen la misma.
+            const items = filas.map((fila, i) => ({ titulo: fila.querySelector(":scope > span, .subitem-estado3-fila > span")?.textContent || "", marca: marcas[i] }));
+            ({ incidencias, graves } = contarIncidenciasAgrupadas(items));
         } else {
             const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
             hayEstado = !!checkPropio;
@@ -1922,6 +1933,8 @@ async function actualizarChecksEnDOM() {
             contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, s, marcados.get(String(is)))).join("");
             const progreso = tarjeta.querySelector("[data-progreso]");
             if (progreso) progreso.textContent = `${marcados.size}/${tarea.subitems.length}`;
+            const badgeWrap = tarjeta.querySelector("[data-badge-incidencia]");
+            if (badgeWrap) badgeWrap.innerHTML = badgeIncidenciaContenido(tarea.subitems, marcados);
         }
     });
 }

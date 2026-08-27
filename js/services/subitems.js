@@ -110,3 +110,44 @@ export function esIncidencia(marca) {
 export function esIncidenciaGrave(marca) {
     return marca?.tipo === TIPOS_SUBITEM.ESTADO3 && marca.estado === "grave";
 }
+
+/** Sufijo compartido "Caja N" / "Posnet N" en el título de un
+ *  sub-ítem — mismo criterio que usa gestion.js para precargar el
+ *  Falta/Sobra del numérico al marcar el estado3 emparejado. Se
+ *  reutiliza acá para AGRUPAR, no solo precargar. */
+const RE_SUFIJO_GRUPO = /\b(caja|posnet)\s*\d+/i;
+
+/** Agrupa sub-ítems que describen el MISMO conteo de caja/posnet —
+ *  ej. "Efectivo — Caja 1" (estado3) y "Saldo Caja 1" (numérico)
+ *  comparten el sufijo "caja 1", van al mismo grupo. Sin sufijo en
+ *  el título, cada sub-ítem queda solo en su propio grupo (mismo
+ *  comportamiento de siempre para tareas sin esta convención).
+ *  items: [{titulo, marca}] → array de grupos (arrays de items). */
+export function agruparPorCaja(items) {
+    const porSufijo = new Map();
+    const sueltos = [];
+    items.forEach((item) => {
+        const sufijo = String(item.titulo || "").toLowerCase().match(RE_SUFIJO_GRUPO)?.[0];
+        if (!sufijo) { sueltos.push([item]); return; }
+        if (!porSufijo.has(sufijo)) porSufijo.set(sufijo, []);
+        porSufijo.get(sufijo).push(item);
+    });
+    return [...porSufijo.values(), ...sueltos];
+}
+
+/** Cuenta incidencias/graves a nivel de GRUPO (ver agruparPorCaja),
+ *  no de sub-ítem suelto — así "Efectivo Caja 1" con incidencia +
+ *  "Saldo Caja 1" con el monto real cuentan como UNA sola incidencia,
+ *  no dos. Bug real reportado en vivo con el PDF exportado: "dice
+ *  hay 4 insidencias en realidad son 2 (lo que pasa es que lo lee
+ *  como 4 ítems distintos)". items: [{titulo, marca}]. */
+export function contarIncidenciasAgrupadas(items) {
+    const grupos = agruparPorCaja(items);
+    let incidencias = 0;
+    let graves = 0;
+    grupos.forEach((grupo) => {
+        if (grupo.some((it) => esIncidenciaGrave(it.marca))) graves++;
+        if (grupo.some((it) => esIncidencia(it.marca))) incidencias++;
+    });
+    return { incidencias, graves };
+}
