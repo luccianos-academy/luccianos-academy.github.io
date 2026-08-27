@@ -5541,6 +5541,36 @@ table.data-table tbody tr:hover{
 .estado-btn.incidencia.activo{ background:var(--warning); border-color:var(--warning); color:var(--black); }
 .estado-btn.grave.activo{ background:var(--danger); border-color:var(--danger); color:#fff; }
 
+/* Sub-ítem de 2 estados (Hecho/No hecho) — pedido explícito: "si una
+   tarea no se hizo puede marcar hecho no hecho". Pills de texto (como
+   Falta/Sobra), no círculos de ícono — acá no hace falta un motivo
+   aparte, el estado YA lo dice todo. */
+.subitem-estado2{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px 0;
+    border-top:1px solid var(--line);
+}
+.subitem-estado2:first-child{ border-top:1px solid var(--line); }
+.subitem-estado2 span{ font-size:13.5px; color:var(--text); }
+.estados2{ display:flex; gap:6px; flex-shrink:0; }
+.estado2-btn{
+    padding:6px 14px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--soft);
+    color:var(--muted);
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.estado2-btn:disabled{ cursor:default; }
+.estado2-btn.si.activo{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
+.estado2-btn.no.activo{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); }
+
 .chips-motivo{
     display:none;
     flex-wrap:wrap;

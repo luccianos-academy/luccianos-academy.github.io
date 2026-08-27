@@ -352,7 +352,7 @@ function subitemsSoloLecturaHtml(t) {
                     // 3 estados/numérico (ver services/subitems.js) —
                     // acá solo se ve el título limpio + una etiqueta
                     // chica, nunca el string crudo.
-                    const etiqueta = tipo === TIPOS_SUBITEM.ESTADO3 ? " (3 estados)" : tipo === TIPOS_SUBITEM.NUMERICO ? " ($)" : "";
+                    const etiqueta = tipo === TIPOS_SUBITEM.ESTADO2 ? " (2 estados)" : tipo === TIPOS_SUBITEM.ESTADO3 ? " (3 estados)" : tipo === TIPOS_SUBITEM.NUMERICO ? " ($)" : "";
                     return `<li>${escaparHtml(titulo)}${etiqueta}</li>`;
                 }).join("")}
             </ul>
@@ -496,6 +496,26 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados) {
                         <span>$</span>
                         <input type="text" inputmode="decimal" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${formatearMontoInput(magnitud)}">
                     </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (tipo === TIPOS_SUBITEM.ESTADO2) {
+        // Hecho/No hecho — pedido explícito: "si una tarea no se hizo
+        // puede marcar hecho no hecho". A diferencia del checkbox
+        // (donde no tildar nunca es una respuesta, la tarea queda
+        // incompleta para siempre), "No hecho" ACÁ es una respuesta
+        // real y válida — cuenta como respondido igual, así se puede
+        // dejar constancia de que algo no se hizo sin trabarse.
+        const tieneMarca = marca?.tipo === TIPOS_SUBITEM.ESTADO2;
+        const estado = tieneMarca ? marca.estado : "";
+        return `
+            <div class="subitem-estado2" data-subitem-tipo="estado2" data-subitem-indice="${is}" data-estado-actual="${estado}">
+                <span>${escaparHtml(titulo)}</span>
+                <div class="estados2">
+                    <button type="button" class="estado2-btn si${estado === "si" ? " activo" : ""}" data-estado="si"${esVistaLectura ? " disabled" : ""}>Hecho</button>
+                    <button type="button" class="estado2-btn no${estado === "no" ? " activo" : ""}" data-estado="no"${esVistaLectura ? " disabled" : ""}>No hecho</button>
                 </div>
             </div>
         `;
@@ -661,6 +681,7 @@ function subtareaNuevaFilaHtml(raw = "") {
                 <textarea class="input-subtarea-nueva-texto" rows="1" placeholder="Ej: No te olvides de imprimir la planilla">${escaparHtml(titulo)}</textarea>
                 <select class="input-subtarea-nueva-tipo">
                     <option value="${TIPOS_SUBITEM.CHECKBOX}"${tipo === TIPOS_SUBITEM.CHECKBOX ? " selected" : ""}>Simple</option>
+                    <option value="${TIPOS_SUBITEM.ESTADO2}"${tipo === TIPOS_SUBITEM.ESTADO2 ? " selected" : ""}>2 estados (Hecho/No hecho)</option>
                     <option value="${TIPOS_SUBITEM.ESTADO3}"${tipo === TIPOS_SUBITEM.ESTADO3 ? " selected" : ""}>3 estados</option>
                     <option value="${TIPOS_SUBITEM.NUMERICO}"${tipo === TIPOS_SUBITEM.NUMERICO ? " selected" : ""}>Número ($)</option>
                 </select>
@@ -1373,6 +1394,10 @@ function leerMarcaFilaSubitem(fila, contenedor) {
         const valor = fila.dataset.signo === "-" ? -magnitud : magnitud;
         return { tipo: TIPOS_SUBITEM.NUMERICO, valor };
     }
+    if (tipo === TIPOS_SUBITEM.ESTADO2) {
+        const estado = fila.dataset.estadoActual;
+        return estado ? { tipo: TIPOS_SUBITEM.ESTADO2, estado } : undefined;
+    }
     if (tipo === TIPOS_SUBITEM.ESTADO3) {
         const estado = fila.dataset.estadoActual;
         if (!estado) return undefined;
@@ -1530,6 +1555,15 @@ function bindTarjetaDesplegable(tarjeta) {
             fila.dataset.signo = signoBtn.dataset.signo;
             fila.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
             signoBtn.classList.add("activo");
+            actualizarProgresoLocal();
+            return;
+        }
+        const estado2Btn = e.target.closest(".estado2-btn");
+        if (estado2Btn) {
+            const fila = estado2Btn.closest(".subitem-estado2");
+            fila.querySelectorAll(".estado2-btn").forEach((b) => b.classList.remove("activo"));
+            estado2Btn.classList.add("activo");
+            fila.dataset.estadoActual = estado2Btn.dataset.estado;
             actualizarProgresoLocal();
             return;
         }
@@ -1905,6 +1939,19 @@ function bindCuerpoGestion() {
             // Sobra = naranja, Cuadra (0) = verde.
             marca.style.color = magnitud === 0 ? "#1a7a3c" : esFalta ? "#c0392b" : "#b8860b";
             marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${formatearMontoInput(magnitud)} `;
+            span.before(marca);
+            marcasAgregadas.push(marca);
+        });
+
+        // Sub-ítems de 2 estados (Hecho/No hecho), mismo criterio.
+        document.querySelectorAll("#contenido-gestion-imprimible .subitem-estado2").forEach((fila) => {
+            const span = fila.querySelector("span");
+            if (!span) return;
+            const estado = fila.dataset.estadoActual;
+            const marca = document.createElement("span");
+            marca.className = "subitem-gestion-marca";
+            marca.style.color = estado === "si" ? "#1a7a3c" : estado === "no" ? "#c0392b" : "#999";
+            marca.textContent = estado === "si" ? "✓ " : estado === "no" ? "✕ No hecho " : "— ";
             span.before(marca);
             marcasAgregadas.push(marca);
         });

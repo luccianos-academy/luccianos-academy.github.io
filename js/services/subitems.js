@@ -8,7 +8,16 @@
    donde un ítem puede estar "hecho pero con un problema" — sin que
    nadie tenga que escribir una descripción. Tres tipos de sub-ítem:
 
-   - "checkbox" (default, el de siempre): tildado o no.
+   - "checkbox" (default, el de siempre): tildado o no. OJO: sin
+     tildar NUNCA cuenta como "respondido" — si algo realmente no se
+     hizo, la tarea queda incompleta para siempre, no hay forma de
+     dejar constancia de eso. Para esos casos existe "estado2".
+   - "estado2": Hecho / No hecho — pedido explícito: "si una tarea no
+     se hizo puede marcar hecho no hecho" — a diferencia del checkbox,
+     ACÁ "No hecho" es una respuesta real y válida (cuenta como
+     respondida, la tarea puede llegar a completa igual), no un
+     silencio ambiguo entre "no lo tocaron todavía" y "se hizo la
+     salvedad de que no se hizo".
    - "estado3": tres estados posibles — ok (verde) / incidencia
      (amarillo) / grave (rojo) — con un motivo elegido de una lista
      de chips (sin escribir), no texto libre.
@@ -37,6 +46,7 @@
 
 export const TIPOS_SUBITEM = {
     CHECKBOX: "checkbox",
+    ESTADO2: "estado2",
     ESTADO3: "estado3",
     NUMERICO: "numerico",
 };
@@ -79,6 +89,7 @@ export function parsearMarcaSubitem(raw) {
     const partes = texto.split(":");
     const [indice, codigo, resto] = partes;
     if (codigo === "n") return { indice, tipo: TIPOS_SUBITEM.NUMERICO, valor: Number(resto) };
+    if (codigo === "si" || codigo === "no") return { indice, tipo: TIPOS_SUBITEM.ESTADO2, estado: codigo };
     if (codigo === "ok" || codigo === "inc" || codigo === "grave") {
         return { indice, tipo: TIPOS_SUBITEM.ESTADO3, estado: codigo, motivo: resto || "" };
     }
@@ -90,6 +101,7 @@ export function parsearMarcaSubitem(raw) {
  *  lo hace quien llama). */
 export function serializarMarcaSubitem(indice, marca) {
     if (marca.tipo === TIPOS_SUBITEM.NUMERICO) return `${indice}:n:${marca.valor}`;
+    if (marca.tipo === TIPOS_SUBITEM.ESTADO2) return `${indice}:${marca.estado}`;
     if (marca.tipo === TIPOS_SUBITEM.ESTADO3) return marca.motivo ? `${indice}:${marca.estado}:${marca.motivo}` : `${indice}:${marca.estado}`;
     return String(indice);
 }
@@ -103,6 +115,7 @@ export function serializarMarcaSubitem(indice, marca) {
 export function esIncidencia(marca) {
     if (!marca) return false;
     if (marca.tipo === TIPOS_SUBITEM.NUMERICO) return marca.valor !== 0;
+    if (marca.tipo === TIPOS_SUBITEM.ESTADO2) return marca.estado === "no";
     if (marca.tipo === TIPOS_SUBITEM.ESTADO3) return marca.estado !== "ok";
     return false;
 }
