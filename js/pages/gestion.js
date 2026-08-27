@@ -1478,22 +1478,21 @@ function bindTarjetaDesplegable(tarjeta) {
     function guardarAhora() {
         const { filas, marcados } = leerTodo();
         const completa = filas.length > 0 && marcados.length === filas.length;
-        const yaEstabaCompleta = tarjeta.classList.contains("hecha");
         tarjeta.classList.toggle("hecha", completa);
-        // "Guardando..." hasta que el guardado REAL termine — el nombre
-        // recién se pinta cuando el pedido se confirma, no antes. Pedido
-        // explícito: "hasta que no cargue el nombre debería seguir
-        // diciendo guardando" — si el nombre se pintaba optimista (antes
-        // de que el pedido siquiera saliera) y alguien exportaba muy
-        // rápido después de tocar Guardar, el guardado real (Apps
-        // Script, ~1-2s) podía no haber terminado todavía — el botón ya
-        // decía "listo" pero el nombre corría el riesgo de faltar.
+        // "Guardando..." hasta que el guardado REAL termine — SIEMPRE
+        // que el resultado sea completa, no solo la primera vez que se
+        // completa. Bug real reportado en vivo: reeditar una tarea que
+        // YA estaba completa (ej. destildar un sub-ítem por error y
+        // volver a guardar) no pisaba el nombre/hora en absoluto — el
+        // botón decía "Guardado" al toque, pero el nombre quedaba
+        // esperando al PRÓXIMO repaso de 20s para actualizarse (de ahí
+        // los 7-10s reportados: no era la latencia real del guardado,
+        // era el tiempo hasta el siguiente repaso). Con tareas simples
+        // (sin sub-ítems, ver bindCheckboxHecha) esto nunca pasaba
+        // porque ese guardado no distinguía "recién completa" de
+        // "ya estaba completa" — ahora tampoco distingue acá.
         const hora = tarjeta.querySelector("[data-hora]");
-        const pisaHora = completa && !yaEstabaCompleta;
-        if (hora) {
-            if (pisaHora) hora.textContent = "Guardando...";
-            else if (!completa) hora.textContent = "";
-        }
+        if (hora) hora.textContent = completa ? "Guardando..." : "";
 
         const textoOriginal = btnGuardar?.textContent;
         if (btnGuardar) {
@@ -1505,11 +1504,11 @@ function bindTarjetaDesplegable(tarjeta) {
             if (!r?.ok) {
                 alert(r?.error || "No se pudo guardar — probá de nuevo.");
                 if (btnGuardar) btnGuardar.textContent = textoOriginal;
-                if (hora && pisaHora) hora.textContent = "";
+                if (hora && completa) hora.textContent = "";
                 return;
             }
             tareasSinGuardarGestion.delete(clave);
-            if (hora && pisaHora) {
+            if (hora && completa) {
                 const nombre = getUsuarioActual()?.nombre || "";
                 hora.textContent = `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}`;
             }
