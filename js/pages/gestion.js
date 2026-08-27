@@ -98,6 +98,13 @@ let vistaSeccion = "asignar";
  *  bindPushWrap), pero "Exportar a PDF" sigue siendo por día. */
 let diaActivo = null;
 
+/** Claves "tareaId|dia" con cambios de sub-ítems tocados EN LOCAL pero
+ *  todavía no guardados con el botón "Guardar" (ver bindTarjetaDesplegable,
+ *  guardarAhora) — mientras haya al menos una, actualizarChecksEnDOM
+ *  (el repaso de fondo cada 20s) se salta entero, para no pisar un
+ *  progreso a medio marcar con lo último que SÍ llegó a guardarse. */
+const tareasSinGuardarGestion = new Set();
+
 /** Los números de día (como STRING, para comparar contra t.dias tal
  *  cual vienen de la Sheet) del mes ACTUAL — pedido explícito: sin
  *  navegación entre meses, es un recordatorio del "ahora", no un
@@ -436,14 +443,35 @@ function subitemFilaHtml(id, is, raw, marca) {
         // respuesta por defecto, listo para exportar/enviar sin tocar
         // nada; recién hace falta escribir algo si hay una diferencia
         // real.
-        const valor = marca?.tipo === TIPOS_SUBITEM.NUMERICO ? marca.valor : 0;
-        const incidencia = valor !== 0;
+        //
+        // Magnitud + toggle Falta/Sobra, NO un solo campo con signo —
+        // bug real reportado en vivo: en celular el teclado que abre
+        // <input inputmode="numeric"> no tiene tecla "-", así que
+        // escribir un negativo era directamente IMPOSIBLE ahí. Separar
+        // "cuánto" (siempre positivo, se escribe) de "falta o sobra"
+        // (se elige, un toque) evita depender de esa tecla que ningún
+        // teclado numérico móvil ofrece de forma confiable. De paso
+        // dejó el campo más corto (nunca hace falta un "-158.987"
+        // desbordando la pill).
+        const tieneMarca = marca?.tipo === TIPOS_SUBITEM.NUMERICO;
+        const valorGuardado = tieneMarca ? marca.valor : 0;
+        const magnitud = Math.abs(valorGuardado);
+        const signo = valorGuardado < 0 ? "-" : "+";
+        const incidencia = valorGuardado !== 0;
+        // En $0 el signo no significa nada — ninguno de los dos botones
+        // arranca marcado (mismo criterio que al resetear desde "OK").
         return `
-            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}">
+            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}" data-signo="${signo}">
                 <span>${escaparHtml(titulo)}</span>
-                <div class="subitem-numerico-campo">
-                    <span>$</span>
-                    <input type="number" inputmode="numeric" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${valor}">
+                <div class="subitem-numerico-control">
+                    <div class="signo-toggle">
+                        <button type="button" class="signo-btn falta${incidencia && signo === "-" ? " activo" : ""}" data-signo="-"${esVistaLectura ? " disabled" : ""}>Falta</button>
+                        <button type="button" class="signo-btn sobra${incidencia && signo === "+" ? " activo" : ""}" data-signo="+"${esVistaLectura ? " disabled" : ""}>Sobra</button>
+                    </div>
+                    <div class="subitem-numerico-campo">
+                        <span>$</span>
+                        <input type="number" inputmode="decimal" min="0" step="0.01" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${magnitud}">
+                    </div>
                 </div>
             </div>
         `;
@@ -559,6 +587,11 @@ function tareaHtml(t, idUnico, dia) {
                 <div class="tarea-gestion-subitems" data-subitems>
                     ${t.subitems.map((s, is) => subitemFilaHtml(id, is, s, marcados.get(String(is)))).join("")}
                 </div>
+                ${esVistaLectura ? "" : `
+                    <div class="tarea-gestion-guardar">
+                        <button type="button" class="btn-guardar-subitems" data-guardar-subitems>${Icon("check", { size: 15 })} Guardar</button>
+                    </div>
+                `}
                 ${accionesTareaHtml()}
             </div>
             ${pushWrapHtml}
@@ -1228,9 +1261,13 @@ function bindFrecuenciaTarea(contenedor) {
 function leerMarcaFilaSubitem(fila) {
     const tipo = fila.dataset.subitemTipo;
     if (tipo === TIPOS_SUBITEM.NUMERICO) {
+        // Magnitud (siempre ≥0, lo que se escribe) + signo (lo que se
+        // elige con Falta/Sobra) — ver comentario en subitemFilaHtml.
         const input = fila.querySelector(".input-numerico-subitem");
         if (!input) return undefined;
-        return { tipo: TIPOS_SUBITEM.NUMERICO, valor: input.value === "" ? 0 : Number(input.value) };
+        const magnitud = input.value === "" ? 0 : Math.abs(Number(input.value));
+        const valor = fila.dataset.signo === "-" ? -magnitud : magnitud;
+        return { tipo: TIPOS_SUBITEM.NUMERICO, valor };
     }
     if (tipo === TIPOS_SUBITEM.ESTADO3) {
         const estado = fila.dataset.estadoActual;
@@ -1249,6 +1286,7 @@ function bindTarjetaDesplegable(tarjeta) {
     const header = tarjeta.querySelector("[data-toggle-desplegable]");
     const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
     const progreso = tarjeta.querySelector("[data-progreso]");
+    const btnGuardar = tarjeta.querySelector("[data-guardar-subitems]");
 
     header.addEventListener("click", () => {
         tarjeta.classList.toggle("desplegada");
@@ -1256,52 +1294,123 @@ function bindTarjetaDesplegable(tarjeta) {
 
     if (!contenedorSubitems || !progreso) return; // situación de "¿Qué hago si...?": no tiene checklist derivado.
 
-    // Recalcula SIEMPRE contra lo que hay en el DOM en ese momento (no
-    // una lista capturada al abrir la página) — así "16/16" en vez de
-    // "0/8" cuando se agregaron ítems nuevos, sin pedirlo por código.
-    function actualizarProgreso() {
-        ultimaEdicionLocalGestion = Date.now();
+    const clave = `${tarjeta.dataset.tareaId}|${tarjeta.dataset.dia}`;
+
+    function leerTodo() {
         const filas = Array.from(contenedorSubitems.children);
         const marcados = [];
         filas.forEach((fila) => {
             const marca = leerMarcaFilaSubitem(fila);
             if (marca) marcados.push({ indice: fila.dataset.subitemIndice, marca });
         });
+        return { filas, marcados };
+    }
+
+    /** Recalcula SIEMPRE contra lo que hay en el DOM en ese momento (no
+     *  una lista capturada al abrir la página) — así "16/16" en vez de
+     *  "0/8" cuando se agregaron ítems nuevos, sin pedirlo por código.
+     *  Actualiza SOLO la pantalla — YA NO guarda en cada toque, ver
+     *  guardarAhora() más abajo. */
+    function actualizarProgresoLocal() {
+        const { filas, marcados } = leerTodo();
         progreso.textContent = `${marcados.length}/${filas.length}`;
+        const completa = filas.length > 0 && marcados.length === filas.length;
+        tarjeta.classList.toggle("hecha", completa);
+        // Marca la tarjeta como "con cambios sin guardar" — pedido
+        // explícito, con captura real: "al moverte de la página se
+        // sale todo" — antes se guardaba en CADA toque (fetch de
+        // fondo por cada click), y si el usuario navegaba rápido entre
+        // varios toques, esos guardados podían llegar DESORDENADOS al
+        // backend (el último en salir no siempre es el último en
+        // llegar) y uno pisaba al otro. Ahora nada se manda hasta que
+        // se toca "Guardar" — un solo pedido con el estado final,
+        // nada que ordenar. tareasSinGuardarGestion (módulo) también
+        // frena el repaso de fondo mientras haya algo sin guardar acá
+        // — ver actualizarChecksEnDOM.
+        tareasSinGuardarGestion.add(clave);
+        if (btnGuardar) btnGuardar.classList.add("pendiente");
+    }
+
+    /** Recalcula estado numérico visual (borde verde/ámbar) de UNA
+     *  fila numérica al tipear — antes solo se pintaba al renderizar,
+     *  así que escribir un monto no cambiaba el color hasta el
+     *  próximo repaso completo. */
+    function actualizarColorNumerico(fila) {
+        const input = fila.querySelector(".input-numerico-subitem");
+        const magnitud = input && input.value !== "" ? Math.abs(Number(input.value)) : 0;
+        fila.classList.toggle("incidencia", magnitud !== 0);
+        fila.classList.toggle("ok", magnitud === 0);
+    }
+
+    /** Junta TODO lo tildado/elegido en este momento y lo manda en UN
+     *  solo pedido — pedido explícito: "poner un botón que al terminar
+     *  diga guardar así queda todo guardado y no pasa más eso". */
+    function guardarAhora() {
+        const { filas, marcados } = leerTodo();
         const completa = filas.length > 0 && marcados.length === filas.length;
         const yaEstabaCompleta = tarjeta.classList.contains("hecha");
         tarjeta.classList.toggle("hecha", completa);
         const hora = tarjeta.querySelector("[data-hora]");
         if (hora) {
             // Solo se pisa el horario al COMPLETARSE recién ahora — si
-            // ya estaba completa y se vuelve a marcar (ej. se agregó un
-            // ítem nuevo y se tildó de nuevo), no tiene sentido correr
-            // la hora sin que haya cambiado el estado real.
+            // ya estaba completa y se vuelve a guardar (ej. se agregó
+            // un ítem nuevo), no tiene sentido correr la hora sin que
+            // haya cambiado el estado real.
             if (completa && !yaEstabaCompleta) hora.textContent = `Hecho ${horaAhora()}`;
             else if (!completa) hora.textContent = "";
         }
-        // Se guarda en CADA toque, no solo al llegar a completa —
-        // reportado en vivo (2026-08-26): con una tarea a mitad de
-        // camino (nunca llegó a completa) no había NINGUNA fila
-        // guardada, así que ese progreso se perdía con cualquier
-        // recarga de la app ("quedaba todo desmarcado"). Ahora se
-        // manda siempre la lista real de marcas (índice + tipo/estado/
-        // motivo/valor, ver services/subitems.js) junto con el
-        // booleano — ver data/gestionChecks.js.
+
+        const textoOriginal = btnGuardar?.textContent;
+        if (btnGuardar) {
+            btnGuardar.disabled = true;
+            btnGuardar.textContent = "Guardando...";
+        }
         guardarCheckSucursal(tarjeta.dataset.tareaId, tarjeta.dataset.dia, completa, sucursalActiva, marcados.map(({ indice, marca }) => serializarMarcaSubitem(indice, marca))).then((r) => {
-            if (r?.ok) return;
-            alert(r?.error || "No se pudo guardar — probá de nuevo.");
+            if (btnGuardar) btnGuardar.disabled = false;
+            if (!r?.ok) {
+                alert(r?.error || "No se pudo guardar — probá de nuevo.");
+                if (btnGuardar) btnGuardar.textContent = textoOriginal;
+                return;
+            }
+            tareasSinGuardarGestion.delete(clave);
+            if (btnGuardar) {
+                btnGuardar.classList.remove("pendiente");
+                btnGuardar.textContent = "✓ Guardado";
+                setTimeout(() => { btnGuardar.textContent = textoOriginal; }, 2000);
+            }
         });
     }
 
-    // checkbox y numérico disparan "change"; los círculos de estado3 y
-    // los chips de motivo son <button>, disparan "click" — un solo
-    // listener por delegación de cada tipo cubre toda la tarjeta.
+    if (btnGuardar) btnGuardar.addEventListener("click", guardarAhora);
+
+    // checkbox y numérico disparan "change"; los círculos de estado3,
+    // los chips de motivo y el toggle Falta/Sobra son <button>,
+    // disparan "click" — un solo listener por delegación de cada tipo
+    // cubre toda la tarjeta.
     contenedorSubitems.addEventListener("change", (e) => {
-        if (e.target.classList.contains("subitem-gestion-check") || e.target.classList.contains("input-numerico-subitem")) actualizarProgreso();
+        if (e.target.classList.contains("input-numerico-subitem")) {
+            actualizarColorNumerico(e.target.closest(".subitem-numerico"));
+        }
+        if (e.target.classList.contains("subitem-gestion-check") || e.target.classList.contains("input-numerico-subitem")) actualizarProgresoLocal();
+    });
+
+    // Selecciona todo el "0" por defecto al enfocar, para que escribir
+    // reemplace en vez de acumularse detrás (ej. "0" + "158987" nunca
+    // debería quedar "0158987") — capturado en vivo con captura real.
+    contenedorSubitems.addEventListener("focusin", (e) => {
+        if (e.target.classList.contains("input-numerico-subitem")) e.target.select();
     });
 
     contenedorSubitems.addEventListener("click", (e) => {
+        const signoBtn = e.target.closest(".signo-btn");
+        if (signoBtn) {
+            const fila = signoBtn.closest(".subitem-numerico");
+            fila.dataset.signo = signoBtn.dataset.signo;
+            fila.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
+            signoBtn.classList.add("activo");
+            actualizarProgresoLocal();
+            return;
+        }
         const estadoBtn = e.target.closest(".estado-btn");
         if (estadoBtn) {
             const fila = estadoBtn.closest(".subitem-estado3");
@@ -1317,7 +1426,8 @@ function bindTarjetaDesplegable(tarjeta) {
                 // sobre un ítem que ahora dice que está todo bien.
                 if (esOk) chips.querySelectorAll(".chip-motivo").forEach((c) => c.classList.remove("activo"));
             }
-            actualizarProgreso();
+            resetearNumericoParejo(estadoBtn);
+            actualizarProgresoLocal();
             return;
         }
         const chip = e.target.closest(".chip-motivo");
@@ -1325,9 +1435,36 @@ function bindTarjetaDesplegable(tarjeta) {
             const grupo = chip.parentElement;
             grupo.querySelectorAll(".chip-motivo").forEach((c) => c.classList.remove("activo"));
             chip.classList.add("activo");
-            actualizarProgreso();
+            actualizarProgresoLocal();
         }
     });
+
+    // Al marcar "OK" (verde) en un ítem de 3 estados (ej. "Efectivo —
+    // Caja 1"), resetea a 0 el numérico de la MISMA caja/posnet (ej.
+    // "Saldo Caja 1") — si el efectivo cuadra, el saldo cuadra solo,
+    // sin un segundo toque. El sentido Falta/Sobra y el monto son
+    // exclusivos del numérico — no se decide en ningún otro lado — así
+    // que si en cambio se marca incidencia, acá no se toca nada: la
+    // persona carga el valor real directamente en el numérico.
+    function resetearNumericoParejo(estadoBtn) {
+        if (estadoBtn.dataset.estado !== "ok") return;
+        const filaEstado3 = estadoBtn.closest(".subitem-estado3");
+        const tituloEstado3 = filaEstado3?.querySelector(".subitem-estado3-fila > span")?.textContent.toLowerCase() || "";
+        const sufijo = tituloEstado3.match(/\b(caja|posnet)\s*\d+/)?.[0] || "";
+        const filasNumericas = Array.from(contenedorSubitems.querySelectorAll(".subitem-numerico"));
+        const destino = sufijo
+            ? filasNumericas.find((f) => f.querySelector(":scope > span")?.textContent.toLowerCase().includes(sufijo))
+            : (filasNumericas.length === 1 ? filasNumericas[0] : null);
+        if (!destino) return;
+        const input = destino.querySelector(".input-numerico-subitem");
+        if (input) input.value = "0";
+        // En $0 el signo no significa nada — ninguno de los dos botones
+        // queda marcado, para no dejar un "Falta"/"Sobra" en rojo o
+        // naranja al lado de un valor que en realidad está en cero.
+        destino.dataset.signo = "+";
+        destino.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
+        actualizarColorNumerico(destino);
+    }
 }
 
 /** Sincroniza la fila de la pestaña "Tareas" con lo que se acaba de
@@ -1619,26 +1756,26 @@ function bindCuerpoGestion() {
             marcasAgregadas.push(marca);
         });
 
-        // Sub-ítems numéricos (ej. "Saldo/diferencia") — el ATRIBUTO
-        // value tampoco sigue al valor tecleado (mismo problema que
-        // "checked" arriba), se sincroniza antes de clonar. Suma una
-        // etiqueta de texto fijo con el resultado (Cuadra ✓ / Faltan
-        // $X / Sobran $X), mismo criterio que el ✓/— de los checkbox.
+        // Sub-ítems numéricos (ej. "Saldo/diferencia") — magnitud +
+        // signo (Falta/Sobra), NO un solo valor con "-" (ver
+        // subitemFilaHtml) — el ATRIBUTO value tampoco sigue al valor
+        // tecleado (mismo problema que "checked" arriba), se
+        // sincroniza antes de clonar. Suma una etiqueta de texto fijo
+        // con el resultado (Cuadra ✓ / Faltan $X / Sobran $X), mismo
+        // criterio que el ✓/— de los checkbox.
         document.querySelectorAll("#contenido-gestion-imprimible .subitem-numerico").forEach((fila) => {
             const input = fila.querySelector(".input-numerico-subitem");
             const span = fila.querySelector("span");
             if (!input || !span) return;
             input.setAttribute("value", input.value);
+            const magnitud = input.value === "" ? 0 : Math.abs(Number(input.value));
+            const esFalta = fila.dataset.signo === "-";
             const marca = document.createElement("span");
             marca.className = "subitem-gestion-marca";
-            if (input.value === "") {
-                marca.style.color = "#999";
-                marca.textContent = "— ";
-            } else {
-                const valor = Number(input.value);
-                marca.style.color = valor === 0 ? "#1a7a3c" : "#c0392b";
-                marca.textContent = valor === 0 ? "✓ Cuadra " : `${valor < 0 ? "Faltan" : "Sobran"} $${Math.abs(valor)} `;
-            }
+            // Mismo criterio que en pantalla: Falta = rojo (más grave),
+            // Sobra = naranja, Cuadra (0) = verde.
+            marca.style.color = magnitud === 0 ? "#1a7a3c" : esFalta ? "#c0392b" : "#b8860b";
+            marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${magnitud} `;
             span.before(marca);
             marcasAgregadas.push(marca);
         });
@@ -1721,11 +1858,14 @@ async function elegirLocalGestion(nombre) {
  *  abierta. Actualiza en el lugar, sin tocar pestañas ni desplegables. */
 async function actualizarChecksEnDOM() {
     if (!sucursalActiva) return;
-    // Salta este ciclo si hubo un toque local hace poco — el guardado
-    // (Apps Script, ~1-2s) puede no haber terminado todavía; leer
-    // ahora traería el estado VIEJO y pisaría el cambio recién hecho
-    // por un instante ("lo carga, lo quita, lo regresa", reportado en
-    // vivo). El próximo ciclo (20s después) ya lo va a agarrar bien.
+    // Sub-ítems: mientras haya CUALQUIER checklist con cambios sin
+    // guardar (tocaste algo, todavía no tocaste "Guardar"), se salta
+    // el repaso entero — leer ahora traería el último estado
+    // GUARDADO, no lo que hay tildado en pantalla, y lo pisaría.
+    if (tareasSinGuardarGestion.size > 0) return;
+    // Tareas simples (un solo check, sin botón "Guardar" — se sigue
+    // guardando solo, al toque): mismo criterio de margen que antes,
+    // por si el guardado (Apps Script, ~1-2s) todavía no terminó.
     if (Date.now() - ultimaEdicionLocalGestion < MARGEN_EDICION_LOCAL_MS) return;
     // Fuerza una lectura REALMENTE fresca — invalidar() acá tira tanto
     // la caché en memoria (20s) como la marca de frescura de

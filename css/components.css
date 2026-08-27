@@ -5574,6 +5574,38 @@ table.data-table tbody tr:hover{
 }
 .subitem-numerico:first-child{ border-top:1px solid var(--line); }
 .subitem-numerico span{ font-size:13.5px; color:var(--text); }
+
+/* Envuelve el toggle Falta/Sobra + el campo "$" — juntos son el lado
+   derecho de la fila. Separado en dos partes a propósito: el teclado
+   numérico que abre <input inputmode="numeric"> en celular NO tiene
+   tecla "-" (bug real reportado en vivo, no se podía escribir un
+   negativo) — acá nunca hace falta escribirla, el signo se ELIGE. */
+.subitem-numerico-control{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-shrink:0;
+}
+
+.signo-toggle{ display:flex; gap:4px; }
+.signo-btn{
+    padding:5px 10px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:var(--soft);
+    color:var(--muted);
+    font-size:11px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.signo-btn:disabled{ cursor:default; }
+/* Falta = rojo (más grave, dinero que no está), Sobra = naranja —
+   dos colores bien distintos a propósito, no el mismo ámbar para
+   ambos, para que el sentido salte a la vista sin leer la palabra. */
+.signo-btn.falta.activo{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); }
+.signo-btn.sobra.activo{ background:var(--warning-soft); border-color:var(--warning); color:var(--warning); }
+
 .subitem-numerico-campo{
     display:flex;
     align-items:center;
@@ -5586,7 +5618,10 @@ table.data-table tbody tr:hover{
     transition:var(--transition);
 }
 .subitem-numerico.ok .subitem-numerico-campo{ border-color:var(--success); }
-.subitem-numerico.incidencia .subitem-numerico-campo{ border-color:var(--warning); }
+/* Mismo criterio que el toggle Falta/Sobra: rojo si falta plata,
+   naranja si sobra — no un ámbar genérico para las dos direcciones. */
+.subitem-numerico.incidencia[data-signo="-"] .subitem-numerico-campo{ border-color:var(--danger); }
+.subitem-numerico.incidencia[data-signo="+"] .subitem-numerico-campo{ border-color:var(--warning); }
 .subitem-numerico-campo span{ color:var(--muted); font-size:13px; }
 .subitem-numerico-campo input{
     background:none;
@@ -5594,10 +5629,53 @@ table.data-table tbody tr:hover{
     color:var(--text);
     font-size:13.5px;
     font-weight:700;
-    width:64px;
+    /* Ancho fijo pero holgado — hasta 6-7 cifras (ej. "158987")
+       sin recortarse. Reportado en vivo con captura real de un
+       valor grande que no entraba en la píldora angosta anterior;
+       92px verificado en vivo como el que ya no lo recorta. */
+    width:92px;
+    text-align:right;
     outline:none;
     font-variant-numeric:tabular-nums;
+    /* Sin flechitas de spinner nativas — comían espacio del número
+       y no aportan nada acá (el signo ya se elige aparte). */
+    -moz-appearance:textfield;
 }
+.subitem-numerico-campo input::-webkit-outer-spin-button,
+.subitem-numerico-campo input::-webkit-inner-spin-button{
+    -webkit-appearance:none;
+    margin:0;
+}
+
+/* Botón "Guardar" al pie del checklist — pedido explícito, con
+   captura real: "al moverte de la página se sale todo, poner un
+   botón que al terminar diga guardar así queda todo guardado". Sin
+   cambios pendientes es un contorno discreto; con cambios sin
+   guardar (.pendiente, agregada al tocar cualquier sub-ítem) pasa a
+   sólido para que sea obvio que falta guardar antes de irse. */
+.tarea-gestion-guardar{
+    padding:10px 18px 4px;
+    border-top:1px solid var(--line);
+}
+.btn-guardar-subitems{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    width:100%;
+    padding:9px 16px;
+    background:transparent;
+    border:1px solid var(--gold);
+    border-radius:999px;
+    color:var(--gold-deep);
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-guardar-subitems:hover{ background:var(--gold-soft); }
+.btn-guardar-subitems:disabled{ opacity:.6; cursor:default; }
+.btn-guardar-subitems.pendiente{ background:var(--gold); color:var(--black); }
 
 /* Badge de resumen en el encabezado de la tarjeta — cuenta las
    incidencias de estado3/numérico juntas (badgeIncidenciasHtml en
