@@ -1158,14 +1158,25 @@ function bindCheckboxHecha(chk) {
 
         tarjeta.classList.toggle("hecha", hechoNuevo);
         const hora = tarjeta.querySelector("[data-hora]");
-        if (hora) hora.textContent = hechoNuevo ? `Hecho ${horaAhora()}` : "";
+        // "Guardando..." mientras dura el ~1-1.5s real de Apps Script —
+        // pedido explícito: si no se avisa, quien marca puede irse de
+        // la página pensando que ya quedó, y el cambio no llega a
+        // impactar. Se deshabilita el checkbox por lo mismo, para que
+        // no se pueda destildar a mitad de un guardado en curso.
+        if (hora) hora.textContent = "Guardando...";
+        chk.disabled = true;
 
         guardarCheckSucursal(tareaId, dia, hechoNuevo, sucursalActiva).then((r) => {
-            if (r?.ok) return;
-            alert(r?.error || "No se pudo guardar — probá de nuevo.");
-            chk.checked = !hechoNuevo;
-            tarjeta.classList.toggle("hecha", !hechoNuevo);
-            if (hora) hora.textContent = !hechoNuevo ? `Hecho ${horaAhora()}` : "";
+            chk.disabled = false;
+            if (!r?.ok) {
+                alert(r?.error || "No se pudo guardar — probá de nuevo.");
+                chk.checked = !hechoNuevo;
+                tarjeta.classList.toggle("hecha", !hechoNuevo);
+                if (hora) hora.textContent = !hechoNuevo ? `Hecho ${horaAhora()}` : "";
+                return;
+            }
+            const nombre = getUsuarioActual()?.nombre || "";
+            if (hora) hora.textContent = hechoNuevo ? `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}` : "";
         });
     });
 }
@@ -1355,9 +1366,13 @@ function bindTarjetaDesplegable(tarjeta) {
             // Solo se pisa el horario al COMPLETARSE recién ahora — si
             // ya estaba completa y se vuelve a guardar (ej. se agregó
             // un ítem nuevo), no tiene sentido correr la hora sin que
-            // haya cambiado el estado real.
-            if (completa && !yaEstabaCompleta) hora.textContent = `Hecho ${horaAhora()}`;
-            else if (!completa) hora.textContent = "";
+            // haya cambiado el estado real. Con nombre de una — mismo
+            // formato que guarda el backend ("Hecho HH:MM · Nombre") —
+            // así se ve quién la completó sin esperar al repaso de 20s.
+            if (completa && !yaEstabaCompleta) {
+                const nombre = getUsuarioActual()?.nombre || "";
+                hora.textContent = `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}`;
+            } else if (!completa) hora.textContent = "";
         }
 
         const textoOriginal = btnGuardar?.textContent;

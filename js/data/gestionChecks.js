@@ -26,9 +26,15 @@
 
 import { fetchSheet, invalidar } from "../services/dataSource.js";
 import { actualizarCheckGestionReal } from "../services/google.js";
+import { getUsuarioActual } from "../services/auth.js";
 import { gestionChecksMock } from "./mock/gestionChecks.mock.js";
 import { HOJAS, USE_MOCK_DATA } from "../config.js";
 import { parsearMarcaSubitem } from "../services/subitems.js";
+
+function horaAhoraMock() {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 /** { "tareaId|dia": {marcadoPor, hora, hecho, marcas: Map<indice, marca>} }
  *  para UNA sucursal, filtrado en el cliente (mismo criterio que
@@ -72,11 +78,21 @@ export async function guardarCheckSucursal(tareaId, dia, hecho, sucursal, subite
         const listaSubitems = subitemsMarcados !== undefined ? subitemsMarcados.join(",") : undefined;
         if (!hecho && !listaSubitems) {
             if (existente) gestionChecksMock.splice(gestionChecksMock.indexOf(existente), 1);
-        } else if (existente) {
-            existente.hecho = hecho ? "SI" : "NO";
-            if (listaSubitems !== undefined) existente.subitemsMarcados = listaSubitems;
         } else {
-            gestionChecksMock.push({ id: Date.now(), tareaId, sucursal, dia, hecho: hecho ? "SI" : "NO", marcadoPor: "Vos", hora: "", subitemsMarcados: listaSubitems || "" });
+            // Mismo criterio que el backend real (Code.gs, actualizarCheckGestion):
+            // marcadoPor/hora se pisan en CADA guardado, no solo al crear —
+            // así el mock refleja quién guardó por última vez, no siempre
+            // "Vos" con hora vacía.
+            const nombre = getUsuarioActual()?.nombre || getUsuarioActual()?.email || "Vos";
+            const hora = horaAhoraMock();
+            if (existente) {
+                existente.hecho = hecho ? "SI" : "NO";
+                existente.marcadoPor = nombre;
+                existente.hora = hora;
+                if (listaSubitems !== undefined) existente.subitemsMarcados = listaSubitems;
+            } else {
+                gestionChecksMock.push({ id: Date.now(), tareaId, sucursal, dia, hecho: hecho ? "SI" : "NO", marcadoPor: nombre, hora, subitemsMarcados: listaSubitems || "" });
+            }
         }
         return { ok: true };
     }
