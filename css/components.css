@@ -6121,6 +6121,29 @@ table.data-table tbody tr:hover{
     padding:4px 0;
 }
 
+/* "Cargar varias de una" (pegar sub-tareas) — pedido explícito: una
+   tarea tipo "Checklist diaria" con 10 sub-tareas, armar cada fila a
+   mano era demasiado. Colapsado por default (<details>) — no compite
+   en jerarquía visual con "+ Agregar sub-tarea", que sigue siendo el
+   camino de siempre para una fila puntual. */
+.detalle-carga-masiva-subtareas{
+    margin-top:6px;
+}
+.detalle-carga-masiva-subtareas summary{
+    color:var(--muted);
+    cursor:pointer;
+    font-size:12px;
+    font-weight:600;
+    padding:4px 0;
+}
+.detalle-carga-masiva-subtareas summary:hover{ color:var(--text); }
+.detalle-carga-masiva-subtareas textarea{
+    width:100%;
+    box-sizing:border-box;
+    resize:vertical;
+    margin:6px 0;
+}
+
 /* Fila "Enviar push" + "Exportar a PDF", POR TAREA, JUNTAS — sibling
    suelto después de cada tarjeta (.tarea-gestion-push en tareaHtml,
    ver gestion.js). Reusa esta clase a propósito: ya estaba en la

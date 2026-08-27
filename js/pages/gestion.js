@@ -718,6 +718,20 @@ function contenidoModalTarea({ tarea } = {}) {
         <label class="campo-subtareas-nueva">Sub-tareas (opcional)
             <div id="lista-subtareas-nueva">${(tarea?.subitems || []).map(subtareaNuevaFilaHtml).join("")}</div>
             <button type="button" class="btn-agregar-subtarea-nueva" id="btn-agregar-subtarea-nueva">+ Agregar sub-tarea</button>
+            <!-- "Cargar varias de una" — pedido explícito: una tarea
+                 tipo "Checklist diaria" con 10 sub-tareas, armar cada
+                 fila a mano una por una era demasiado. Pegar una por
+                 línea y agregarlas todas juntas, cada una como "2
+                 estados" (Hecho/No hecho) por default — se puede
+                 cambiar el tipo de cada fila después, individual,
+                 como cualquier otra. -->
+            <details class="detalle-carga-masiva-subtareas">
+                <summary>Cargar varias de una (pegar, una por línea)</summary>
+                <textarea id="input-subtareas-pegadas" rows="4" placeholder="Orden de cámara
+Orden de depósito
+Limpieza profunda de deck"></textarea>
+                <button type="button" class="btn btn-secondary" id="btn-agregar-subtareas-pegadas">Agregar estas líneas</button>
+            </details>
         </label>
         <label>¿A quién le aplica? (vacío = a todos)
             ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
@@ -730,6 +744,16 @@ function bindModalTarea() {
 
     document.getElementById("btn-agregar-subtarea-nueva").addEventListener("click", () => {
         listaSubtareas.insertAdjacentHTML("beforeend", subtareaNuevaFilaHtml());
+    });
+
+    document.getElementById("btn-agregar-subtareas-pegadas").addEventListener("click", () => {
+        const textarea = document.getElementById("input-subtareas-pegadas");
+        const titulos = textarea.value.split("\n").map((t) => t.trim()).filter(Boolean);
+        if (!titulos.length) return;
+        titulos.forEach((titulo) => {
+            listaSubtareas.insertAdjacentHTML("beforeend", subtareaNuevaFilaHtml(serializarSubitem({ titulo, tipo: TIPOS_SUBITEM.ESTADO2, motivos: [] })));
+        });
+        textarea.value = "";
     });
 
     listaSubtareas.addEventListener("click", (e) => {
@@ -908,6 +932,67 @@ function abrirModalTarea({ idEditado = null, tarea = null } = {}) {
     bindModalTarea();
 }
 
+/** "+ Cargar varias" — pedido explícito con captura real: una lista
+ *  larga de títulos ("Orden de cámara / Orden de depósito / ..."),
+ *  armar cada una a mano en el modal de "+ Nueva tarea" era demasiado
+ *  lento. Un título por línea; cada una nace con UN sub-ítem "2
+ *  estados" (Hecho/No hecho) — "todas van a tener hecho/no hecho".
+ *  Sin ícono/detalle propio por línea (YAGNI, nadie lo pidió) —
+ *  quien quiera afinar una en particular la edita después, ya
+ *  individual, con el lápiz de siempre. */
+function abrirModalCargaMasiva() {
+    const idModal = "modal-carga-masiva-tareas";
+    const contenidoHtml = `
+        <p style="margin:0 0 12px;color:var(--muted);font-size:13.5px;">
+            Un título por línea. Cada una se crea con un sub-ítem "Hecho / No hecho" —
+            después la podés editar si necesita algo más específico.
+        </p>
+        <textarea id="input-carga-masiva-titulos" rows="10" placeholder="Orden de cámara
+Orden de depósito
+Limpieza profunda de deck" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
+    `;
+    abrirModal(
+        Modal({ id: idModal, titulo: "Cargar varias tareas", contenidoHtml, textoConfirmar: "Crear todas" }),
+        idModal,
+        async () => {
+            const textarea = document.getElementById("input-carga-masiva-titulos");
+            const titulos = textarea.value.split("\n").map((t) => t.trim()).filter(Boolean);
+            if (!titulos.length) {
+                alert("Pegá al menos un título, uno por línea.");
+                return;
+            }
+            // Secuencial, no en paralelo — mismo criterio que el resto de
+            // guardados contra Apps Script en esta página: más lento pero
+            // no bombardea el backend con 10 escrituras a la vez.
+            const fallidas = [];
+            for (const titulo of titulos) {
+                const nueva = await crearTareaBackend({
+                    icono: "documento",
+                    titulo,
+                    detalle: "",
+                    aplicaA: "",
+                    noAplicaA: "",
+                    subitems: [serializarSubitem({ titulo: "Estado", tipo: TIPOS_SUBITEM.ESTADO2, motivos: [] })],
+                });
+                if (!nueva) { fallidas.push(titulo); continue; }
+                nueva.dias = [];
+                nueva.frecuencia = "semanal";
+                registroTareas.set(nueva.id, nueva);
+                TAREAS.push(nueva);
+                recrearTareaEnPaneles(nueva.id);
+            }
+            if (fallidas.length) {
+                alert(`Se crearon ${titulos.length - fallidas.length} de ${titulos.length}. No se pudieron crear: ${fallidas.join(", ")}`);
+                // Deja en el textarea SOLO lo que falló — si se reintenta,
+                // no vuelve a crear duplicado lo que ya se creó bien.
+                textarea.value = fallidas.join("\n");
+                return;
+            }
+            cerrarModal(idModal);
+        },
+    );
+}
+
 /* ============================
    Página
 =============================*/
@@ -936,9 +1021,16 @@ function selectorLocalHtml() {
  *  recargar la página. Para Responsable de local/turno es simplemente
  *  "su" cuerpo de siempre, una sola vez. */
 function cuerpoGestionHtml() {
+    // "+ Cargar varias" — pedido explícito: tenía una lista de 10
+    // tareas para cargar y armar el modal una por una era demasiado.
+    // Un título por línea, todas quedan como "2 estados" (Hecho/No
+    // hecho) — ver abrirModalCargaMasiva.
     const botonNueva = esAdminActual() ? `
         <button type="button" class="btn btn-primary" id="btn-nueva-tarea">
             + Nueva tarea
+        </button>
+        <button type="button" class="btn btn-secondary" id="btn-carga-masiva-tareas">
+            + Cargar varias
         </button>
     ` : "";
     const acciones = botonNueva ? `<div class="acciones-gestion-semanal">${botonNueva}</div>` : "";
@@ -1870,6 +1962,7 @@ function bindCuerpoGestion() {
     // "+ Nueva tarea" (admin) — mismo patrón que ya existe en
     // Lecciones: encabezado + sub-tareas sueltas.
     document.getElementById("btn-nueva-tarea")?.addEventListener("click", () => abrirModalTarea());
+    document.getElementById("btn-carga-masiva-tareas")?.addEventListener("click", () => abrirModalCargaMasiva());
 
     // "Exportar a PDF" — solo la Gestión semanal (es la única parte
     // operativa, lo que se "lleva al sistema" después de hacer la

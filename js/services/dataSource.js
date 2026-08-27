@@ -192,10 +192,18 @@ export async function fetchSheet(hoja, mockRows) {
     return [...filas];
 }
 
+// Contador propio, no Date.now() a secas — bug real encontrado en
+// vivo: crear varias filas seguidas en modo mock (ej. "Cargar varias
+// tareas") podía terminar varias en el MISMO milisegundo, todas con
+// el mismo id — la última pisaba a las anteriores en registroTareas
+// (Map por id). No pasa contra el backend real (Apps Script arma su
+// propio id con _proximoId), pero en mock hacía falta igual.
+let contadorIdMock = 0;
+
 // Write: optimistic update in IndexedDB, queue for sync
 export async function writeSheet(hoja, fila, mockRows) {
     if (USE_MOCK_DATA) {
-        const nuevaFila = { id: Date.now(), ...fila };
+        const nuevaFila = { id: Date.now() * 1000 + (contadorIdMock++ % 1000), ...fila };
         mockRows.push(nuevaFila);
         return { ok: true, fila: nuevaFila };
     }
