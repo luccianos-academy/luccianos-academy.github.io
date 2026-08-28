@@ -1863,6 +1863,10 @@ function bindPushWrap(wrap) {
             alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de enviar el push.");
             return;
         }
+        if (tareasSinGuardarGestion.has(`${tareaId}|${dia}`)) {
+            alert("Tenés cambios sin guardar — tocá \"Guardar\" antes de enviar el push.");
+            return;
+        }
         wrap.innerHTML = pushBannerHtml();
         wrap.querySelector("[data-btn-cancelar-push]").addEventListener("click", pintarBoton);
         wrap.querySelector("[data-btn-confirmar-push]").addEventListener("click", enviar);
@@ -2028,9 +2032,23 @@ function bindCuerpoGestion() {
         // el suyo, ver tareaHtml) tiene ítems sin responder, ni
         // arranca la descarga.
         const wrapDeEstaTarea = e.target.closest(".tarea-gestion-push");
-        if (wrapDeEstaTarea && !tareaEstaCompleta(wrapDeEstaTarea.dataset.tareaId, wrapDeEstaTarea.dataset.dia)) {
-            alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de exportar.");
-            return;
+        if (wrapDeEstaTarea) {
+            const { tareaId: tId, dia: dDia } = wrapDeEstaTarea.dataset;
+            if (!tareaEstaCompleta(tId, dDia)) {
+                alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de exportar.");
+                return;
+            }
+            // "todo los ítem completos y una vez guardado habilita la
+            // función enviar push y exportar" — pedido explícito:
+            // completo mostrado en pantalla no alcanza si todavía no
+            // se guardó (Guardar sigue en su estado "pendiente"), o
+            // ese avance se pierde si se corta la conexión antes de
+            // tocar Guardar, dejando un PDF exportado que no coincide
+            // con lo que realmente quedó en la Sheet.
+            if (tareasSinGuardarGestion.has(`${tId}|${dDia}`)) {
+                alert("Tenés cambios sin guardar — tocá \"Guardar\" antes de exportar.");
+                return;
+            }
         }
         document.querySelectorAll("#contenido-gestion-imprimible input[type=checkbox]").forEach((chk) => {
             if (chk.checked) chk.setAttribute("checked", "checked");
