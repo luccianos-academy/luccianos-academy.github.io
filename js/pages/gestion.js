@@ -1825,6 +1825,24 @@ function pushBannerHtml() {
  *  primero en su línea para que no se corte — reportado en vivo que
  *  al final de un cuerpo largo la vista previa colapsada de Android
  *  lo tapaba. */
+/** true si la tarea (tareaId+día) tiene TODOS sus sub-ítems
+ *  respondidos (o, sin sub-ítems, el check propio tildado) — mismo
+ *  cálculo que usa el título del push. Module-level porque lo usan
+ *  DOS lugares: bindPushWrap (frenar "Enviar push") y el handler de
+ *  "Exportar a PDF" — pedido explícito: "pon la misma limitación que
+ *  pusiste en push a exportar". */
+function tareaEstaCompleta(tareaId, dia) {
+    const tarjeta = document.querySelector(`.tarea-gestion[data-tarea-id="${tareaId}"][data-dia="${dia}"]`);
+    if (!tarjeta) return true; // no hay nada que frenar si ni existe la tarjeta
+    const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
+    if (contenedorSubitems) {
+        const marcas = Array.from(contenedorSubitems.children).map((fila) => leerMarcaFilaSubitem(fila, contenedorSubitems));
+        return marcas.length > 0 && marcas.every(Boolean);
+    }
+    const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
+    return !!checkPropio?.checked;
+}
+
 function bindPushWrap(wrap) {
     const tareaId = wrap.dataset.tareaId;
     const dia = wrap.dataset.dia;
@@ -1834,22 +1852,6 @@ function bindPushWrap(wrap) {
         wrap.querySelector("[data-btn-enviar-push]").addEventListener("click", pintarBanner);
     }
 
-    /** true si la tarea tiene TODOS sus sub-ítems respondidos (o, sin
-     *  sub-ítems, el check propio tildado) — mismo cálculo que usa
-     *  enviar() para el título del push, extraído acá para poder
-     *  frenar ANTES de mostrar el banner de confirmación. */
-    function estaCompleta() {
-        const tarjeta = document.querySelector(`.tarea-gestion[data-tarea-id="${tareaId}"][data-dia="${dia}"]`);
-        if (!tarjeta) return true; // no hay nada que frenar si ni existe la tarjeta
-        const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
-        if (contenedorSubitems) {
-            const marcas = Array.from(contenedorSubitems.children).map((fila) => leerMarcaFilaSubitem(fila, contenedorSubitems));
-            return marcas.length > 0 && marcas.every(Boolean);
-        }
-        const checkPropio = tarjeta.querySelector(".tarea-gestion-check");
-        return !!checkPropio?.checked;
-    }
-
     function pintarBanner() {
         // No se puede enviar con ítems sin responder — pedido
         // explícito: "si le quedan pendientes está justamente hecho/
@@ -1857,7 +1859,7 @@ function bindPushWrap(wrap) {
         // [pueda enviar]". Frena ACÁ, antes de mostrar el banner de
         // confirmación — no tiene sentido preguntar "¿enviar?" para
         // algo que no va a salir.
-        if (!estaCompleta()) {
+        if (!tareaEstaCompleta(tareaId, dia)) {
             alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de enviar el push.");
             return;
         }
@@ -2019,6 +2021,17 @@ function bindCuerpoGestion() {
     // de día (recrearTareaEnPaneles).
     document.getElementById("contenido-gestion-imprimible")?.addEventListener("click", (e) => {
         if (!e.target.closest("[data-exportar-gestion]")) return;
+        // Misma limitación que "Enviar push" — pedido explícito: "pon
+        // la misma limitación que pusiste en push a exportar, es justo
+        // lo que necesito, así siempre sale con el nombre de quien
+        // hizo la tarea" — si la tarea de ESE botón (cada tarea tiene
+        // el suyo, ver tareaHtml) tiene ítems sin responder, ni
+        // arranca la descarga.
+        const wrapDeEstaTarea = e.target.closest(".tarea-gestion-push");
+        if (wrapDeEstaTarea && !tareaEstaCompleta(wrapDeEstaTarea.dataset.tareaId, wrapDeEstaTarea.dataset.dia)) {
+            alert("Todavía quedan ítems sin responder (Hecho/No hecho) — completá la tarea antes de exportar.");
+            return;
+        }
         document.querySelectorAll("#contenido-gestion-imprimible input[type=checkbox]").forEach((chk) => {
             if (chk.checked) chk.setAttribute("checked", "checked");
             else chk.removeAttribute("checked");
