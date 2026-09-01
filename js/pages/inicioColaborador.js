@@ -120,8 +120,20 @@ export async function InicioColaborador() {
 
     // "Continúa donde quedaste": la asignación en curso más recientemente
     // iniciada (no hay tracking de "última visita" en el esquema).
+    //
+    // idsCursosCompletados excluye acá cualquier curso que YA tenga una
+    // fila "completado" — sin esto, un curso con DOS filas de Asignaciones
+    // (una vieja "en_progreso" que quedó suelta de antes de terminarlo, y
+    // la fila real "completado") mostraba "Terminar X" en Próximos
+    // desafíos para un curso que la propia tarjeta de arriba ("Completaste
+    // X") ya marca como terminado. Bug real reportado: colaborador con
+    // "Atención al Cliente" en 100%/aprobado, con el desafío "Terminar
+    // Atención al Cliente" todavía listado.
+    const idsCursosCompletados = new Set(
+        asignaciones.filter((a) => a.estado === "completado").map((a) => String(a.cursoId))
+    );
     const enProgreso = asignaciones
-        .filter((a) => a.estado !== "completado")
+        .filter((a) => a.estado !== "completado" && !idsCursosCompletados.has(String(a.cursoId)))
         .sort((a, b) => new Date(b.fechaAlta) - new Date(a.fechaAlta));
     const continuar = enProgreso[0] || null;
 

@@ -420,6 +420,15 @@
     text-align:left;
 }
 
+/* Aclaración chica bajo el botón de Google (login.js,
+   pareceNavegadorEmbebido) — cubre el caso de WhatsApp en iPhone,
+   que no siempre se puede detectar por user-agent. */
+.login-nota-embebido{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:14px;
+}
+
 /* SIDEBAR */
 
 .sidebar{

@@ -43,6 +43,20 @@ import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { GOOGLE_CLIENT_ID, ES_ENTORNO_PRUEBA } from "../config.js";
 import { navigate } from "../router.js";
+
+/** Google bloquea (o directamente cuelga en la selección de cuenta,
+ *  sin error visible) el login dentro del navegador embebido de
+ *  WhatsApp/Instagram/Facebook/Line/WeChat — es una restricción de
+ *  Google, no algo que se pueda arreglar desde acá. Bug real
+ *  reportado: varias personas abriendo el link compartido por
+ *  WhatsApp se quedaban trabadas justo ahí. En Android estas apps
+ *  suman su propio token al user-agent (se detectan bien); en iPhone
+ *  WhatsApp NO lo hace siempre, así que esto es "mejor esfuerzo": si
+ *  no matchea nada, igual queda la aclaración chica debajo del botón
+ *  (ver abrirModalLogin) para cubrir ese caso. */
+function pareceNavegadorEmbebido() {
+    return /FBAN|FBAV|Instagram|Line\/|MicroMessenger|WhatsApp\//i.test(navigator.userAgent || "");
+}
 import { Icon } from "../components/icons.js";
 import { existe as vistoAntes, setItem } from "../services/storage.js";
 
@@ -299,6 +313,7 @@ function detenerReinicioPortada() {
 async function abrirModalLogin() {
 
     const clientIdConfigurado = Boolean(GOOGLE_CLIENT_ID);
+    const embebido = clientIdConfigurado && pareceNavegadorEmbebido();
 
     const html = `
         <div class="modal-overlay login-overlay" id="${MODAL_ID}">
@@ -310,10 +325,14 @@ async function abrirModalLogin() {
                 <div id="login-error-slot"></div>
 
                 ${clientIdConfigurado
-                    ? `<div class="login-google-pill">
-                        <div id="google-btn-slot" class="login-google-slot"></div>
-                        <span class="login-google-texto">Ingresar</span>
-                       </div>`
+                    ? embebido
+                        ? `<div class="login-error">Google no deja iniciar sesión desde acá adentro (WhatsApp, Instagram, etc.). Copiá este link y abrilo en Safari o Chrome.</div>
+                           <button class="btn btn-secondary" id="btn-copiar-link-login" type="button">Copiar link</button>`
+                        : `<div class="login-google-pill">
+                            <div id="google-btn-slot" class="login-google-slot"></div>
+                            <span class="login-google-texto">Ingresar</span>
+                           </div>
+                           <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome en vez de adentro de WhatsApp/Instagram.</div>`
                     : `
                         <div class="login-subtitulo">Todavía no hay backend conectado — entrá como un usuario de muestra:</div>
                         <div class="role-picker" id="role-picker"></div>
@@ -326,11 +345,28 @@ async function abrirModalLogin() {
 
     abrirModal(html, MODAL_ID);
 
-    if (clientIdConfigurado) {
+    if (embebido) {
+        bindCopiarLinkLogin();
+    } else if (clientIdConfigurado) {
         inicializarGoogleSignIn();
     } else {
         await renderRolePicker();
     }
+}
+
+function bindCopiarLinkLogin() {
+    const boton = document.getElementById("btn-copiar-link-login");
+    if (!boton) return;
+    const textoOriginal = boton.textContent;
+    boton.addEventListener("click", async () => {
+        try {
+            await navigator.clipboard.writeText(location.origin + location.pathname);
+            boton.textContent = "¡Copiado!";
+            setTimeout(() => { boton.textContent = textoOriginal; }, 2000);
+        } catch (err) {
+            boton.textContent = "No se pudo copiar";
+        }
+    });
 }
 
 async function renderRolePicker() {
