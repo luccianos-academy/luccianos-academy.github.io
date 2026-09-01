@@ -164,3 +164,36 @@ export function actualizarDiasGestionSucursalReal(tareaId, dias, frecuencia) {
 export function actualizarCheckGestionReal(tareaId, dia, hecho, subitemsMarcados) {
     return gasRequest("actualizarCheckGestion", { tareaId, dia, hecho, subitemsMarcados });
 }
+
+/** Reabre una tarea cerrada — solo Admin (ver apps-script/Code.gs,
+ *  reabrirTareaGestion). "sucursal" va explícita porque Admin no tiene
+ *  una sucursal propia fija (mira la que eligió en el selector). */
+export function reabrirTareaGestionReal(tareaId, dia, sucursal) {
+    return gasRequest("reabrirTareaGestion", { tareaId, dia, sucursal });
+}
+
+/** Ciclos ya cerrados de Gestión de tareas ("Histórico") — Responsable
+ *  de local no manda "sucursal" (el backend usa la suya); Admin/
+ *  Supervisor sí, la que eligieron en el selector. Ver
+ *  apps-script/Code.gs, obtenerHistoricoGestion. */
+export function obtenerHistoricoGestionReal(sucursal) {
+    return gasRequest("obtenerHistoricoGestion", { sucursal });
+}
+
+/** Borra TODAS las filas de un ciclo del Histórico, de MI sucursal —
+ *  solo Responsable de local. Ver apps-script/Code.gs,
+ *  eliminarHistoricoGestion. */
+export function eliminarHistoricoGestionReal(ciclo) {
+    return gasRequest("eliminarHistoricoGestion", { ciclo });
+}
+
+/** Horario del recordatorio automático de Gestión (10am por default) —
+ *  configurable por Admin (2026-08-31). Ver apps-script/Code.gs,
+ *  obtenerHorarioRecordatorioGestion/guardarHorarioRecordatorioGestion. */
+export function obtenerHorarioRecordatorioGestionReal() {
+    return gasRequest("obtenerHorarioRecordatorioGestion", {});
+}
+
+export function guardarHorarioRecordatorioGestionReal(hora) {
+    return gasRequest("guardarHorarioRecordatorioGestion", { hora });
+}

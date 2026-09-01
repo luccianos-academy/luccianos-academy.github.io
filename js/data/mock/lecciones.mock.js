@@ -13,7 +13,7 @@
    antes, solo migrado al nuevo esquema de columnas) hasta que se
    cargue el resto con esa misma profundidad.
 
-   El módulo 8 (Encargados y Responsables) está marcado como
+   El módulo 8 (Responsables de Local y Turno) está marcado como
    "Próximamente" en el sistema real — se deja como tal acá también,
    no se inventa contenido que todavía no existe.
 =============================*/
@@ -129,6 +129,6 @@ export const leccionesMock = [
     { id: 28, cursoId: 7, orden: 7, titulo: "Higiene e inocuidad alimentaria", objetivo: "Aplicar las normas de inocuidad e higiene", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Contaminación física: presencia de elementos extraños como uñas, vidrio o plástico. Contaminación química: sustancias tóxicas o nocivas, como productos de limpieza. Contaminación biológica: bacterias o toxinas que contaminan el alimento. POES: procedimientos operativos estandarizados de saneamiento — definen los estándares de limpieza y desinfección. BPM: buenas prácticas de manufactura — las reglas de manipulación, preparación y almacenamiento.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
     { id: 29, cursoId: 7, orden: 8, titulo: "Lavado de manos", objetivo: "Aplicar el procedimiento de lavado de manos en 7 pasos", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Mojar, enjabonar, friccionar 10 segundos, limpiar uñas y entre dedos, enjuagar, secar con paño limpio y cerrar la canilla con el mismo paño. Obligatorio antes de trabajar, después del baño, de estornudar, de tocarse la cara y al cambiar de sector.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
 
-    // Curso 8 — Encargados y Responsables (marcado "Próximamente" en el sistema real)
+    // Curso 8 — Responsables de Local y Turno (marcado "Próximamente" en el sistema real)
     { id: 30, cursoId: 8, orden: 1, titulo: "Próximamente", objetivo: "", duracionMinutos: 0, video: "", manual: "", imagen: "", procedimiento: "Este módulo está reservado para encargados y responsables de local (apertura/cierre de caja, supervisión de equipo, reportes). Todavía no está disponible en el sistema real — se muestra acá como reservado, sin contenido inventado.", errores: "", buenasPracticas: "", consejo: "", resumen: "", estado: "Activo" },
 ];

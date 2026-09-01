@@ -48,7 +48,7 @@ const SESION_DURACION_MS = 24 * 60 * 60 * 1000; // 24 horas
  * no coincide con el de este archivo, la implementación quedó vieja y
  * no hay nada que depurar. Se sube junto con VERSION de js/config.js.
  */
-const BACKEND_VERSION = "1.9.0";
+const BACKEND_VERSION = "1.16.0";
 
 // Qué rol puede escribir cada hoja. Lectura se maneja aparte (casi
 // todo es legible por cualquier autenticado, con filtros puntuales).
@@ -158,6 +158,11 @@ function _despachar(body, usuarioActual) {
         case "enviarPushGestion": return enviarPushGestion(body.titulo, body.cuerpo, body.url, usuarioActual);
         case "actualizarDiasGestionSucursal": return actualizarDiasGestionSucursal(body.tareaId, body.dias, body.frecuencia, usuarioActual);
         case "actualizarCheckGestion": return actualizarCheckGestion(body.tareaId, body.dia, body.hecho, usuarioActual, body.subitemsMarcados);
+        case "reabrirTareaGestion": return reabrirTareaGestion(body.tareaId, body.dia, body.sucursal, usuarioActual);
+        case "obtenerHorarioRecordatorioGestion": return obtenerHorarioRecordatorioGestion(usuarioActual);
+        case "guardarHorarioRecordatorioGestion": return guardarHorarioRecordatorioGestion(body.hora, usuarioActual);
+        case "obtenerHistoricoGestion": return obtenerHistoricoGestion(body.sucursal, usuarioActual);
+        case "eliminarHistoricoGestion": return eliminarHistoricoGestion(body.ciclo, usuarioActual);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
@@ -376,6 +381,31 @@ function _sheet(nombre) {
  *  como string contra fechaVencimientoAcceso (mismo formato). */
 function _fechaHoyISO() {
     return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+}
+
+/** Ciclo actual de Gestión de tareas — "semanal" → lunes de la semana
+ *  en curso ("AAAA-MM-DD"); "mensual" → mes en curso ("AAAA-MM"). El
+ *  corte NO es a medianoche: pedido explícito del usuario (2026-08-31)
+ *  — el cierre de la noche del domingo (o de fin de mes) se extiende de
+ *  madrugada, y a esa hora todavía tiene que contar como el ciclo que
+ *  termina, no el que arranca. Restar 4 horas al instante actual ANTES
+ *  de calcular semana/mes resuelve las dos frecuencias con la misma
+ *  cuenta: antes de las 04:00 todavía es "ayer" a todo efecto.
+ *  Se arma con Utilities.formatDate (zona del script), no con los
+ *  getters locales de Date — Apps Script puede correr en un huso
+ *  horario de contenedor distinto al configurado en el proyecto. */
+function _cicloActual(frecuencia) {
+    const tz = Session.getScriptTimeZone();
+    const efectiva = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    if (frecuencia === "mensual") {
+        return Utilities.formatDate(efectiva, tz, "yyyy-MM");
+    }
+    // "u" = día ISO de la semana en la zona del script: 1=lunes..7=domingo.
+    const diaIso = Number(Utilities.formatDate(efectiva, tz, "u"));
+    const [anio, mes, dia] = Utilities.formatDate(efectiva, tz, "yyyy-MM-dd").split("-").map(Number);
+    const comoUTC = new Date(Date.UTC(anio, mes - 1, dia));
+    comoUTC.setUTCDate(comoUTC.getUTCDate() - (diaIso - 1));
+    return Utilities.formatDate(comoUTC, "UTC", "yyyy-MM-dd");
 }
 
 /** Si Sheets detectó una celda como fecha (ej. porque alguien tipeó
@@ -1187,13 +1217,20 @@ function enviarPush(usuarioIds, titulo, cuerpo, url, usuarioActual) {
  *  (2026-08-26) porque _revisarRecordatoriosGestion necesita
  *  exactamente el mismo cálculo, sin depender de un usuarioActual (el
  *  trigger de tiempo no tiene sesión). "excluirId" es opcional (lo usa
- *  enviarPushGestion para no duplicar a quien ya se suma aparte). */
+ *  enviarPushGestion para no duplicar a quien ya se suma aparte).
+ *
+ *  Chequeo de "activo" (2026-08-31, bug reportado en vivo): "borrar" un
+ *  usuario en esta app en realidad lo desactiva (activo="NO"), la fila
+ *  sigue existiendo con sus flags encargado/responsableTurno intactos
+ *  — sin este chequeo, alguien desactivado seguía recibiendo avisos de
+ *  Gestión para siempre. */
 function _responsablesDeSucursal(sucursal, excluirId) {
     const suc = String(sucursal || "").trim().toLowerCase();
     if (!suc) return [];
     const usuarios = _filasComoObjetos(_sheet("Usuarios"));
     return usuarios.filter(function (u) {
         if (excluirId && String(u.id) === String(excluirId)) return false;
+        if (String(u.activo).toUpperCase() === "NO") return false;
         return String(u.sucursal || "").trim().toLowerCase() === suc
             && (String(u.encargado || "").toUpperCase() === "SI" || String(u.responsableTurno || "").toUpperCase() === "SI");
     }).map(function (u) { return u.id; });
@@ -1247,7 +1284,74 @@ function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
 
 const _DIAS_SEMANA_GESTION = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+/** Hora del recordatorio automático de Gestión — configurable por
+ *  Admin desde la app (2026-08-31, pedido explícito: "arma los push
+ *  manuales para que pueda decidir el horario"), antes fija en el
+ *  código (10am). Vive en Script Properties, no en una Sheet — es un
+ *  ajuste global de la red entera, no un dato por fila. Sin configurar
+ *  todavía, cae a 10 (el default de siempre) para no cambiar nada
+ *  hasta que un Admin lo toque una vez. */
+const _PROP_HORA_RECORDATORIO_GESTION = "RECORDATORIO_GESTION_HORA";
+
+function _horaRecordatorioGestion() {
+    const v = Number(PropertiesService.getScriptProperties().getProperty(_PROP_HORA_RECORDATORIO_GESTION));
+    return Number.isInteger(v) && v >= 0 && v <= 23 ? v : 10;
+}
+
+/** Lectura del horario configurado — solo Admin (mismo gate que
+ *  guardarlo; no hace falta que nadie más lo sepa). */
+function obtenerHorarioRecordatorioGestion(usuarioActual) {
+    if (usuarioActual.rol !== "admin") {
+        return { ok: false, error: "Solo Admin puede ver el horario del recordatorio." };
+    }
+    return { ok: true, hora: _horaRecordatorioGestion() };
+}
+
+function guardarHorarioRecordatorioGestion(hora, usuarioActual) {
+    if (usuarioActual.rol !== "admin") {
+        return { ok: false, error: "Solo Admin puede configurar el horario del recordatorio." };
+    }
+    const horaNum = Number(hora);
+    if (!Number.isInteger(horaNum) || horaNum < 0 || horaNum > 23) {
+        return { ok: false, error: "La hora tiene que ser un número entero entre 0 y 23." };
+    }
+    PropertiesService.getScriptProperties().setProperty(_PROP_HORA_RECORDATORIO_GESTION, String(horaNum));
+    return { ok: true, hora: horaNum };
+}
+
+/** true si esa tarea+sucursal+día ya está resuelta EN EL CICLO ACTUAL
+ *  — pedido explícito 2026-08-31: "una tarea completada no vuelve a
+ *  generar recordatorios durante ese ciclo". Antes esta función no
+ *  chequeaba GestionChecks para nada: mandaba el recordatorio con solo
+ *  mirar si hoy correspondía, tarea ya hecha o no. Una fila de un ciclo
+ *  VIEJO (el reset todavía no la tocó de nuevo) no cuenta como "ya
+ *  hecha" — si contara, la primera vez de cada ciclo nuevo no
+ *  recordaría nada. */
+function _tareaYaResueltaEnCiclo(checksPorClave, tareaId, sucursal, dia, cicloEsperado) {
+    const check = checksPorClave[tareaId + "|" + String(sucursal || "").trim().toLowerCase() + "|" + dia];
+    if (!check) return false;
+    if (check.ciclo && check.ciclo !== cicloEsperado) return false;
+    return String(check.hecho).toUpperCase() === "SI" || String(check.cerrada).toUpperCase() === "SI";
+}
+
+/** Hora efectiva de recordatorio de UNA tarea puntual, o null si la
+ *  tiene apagado — pedido explícito 2026-08-31: "el tema push quiero
+ *  que sea por tarea", reemplaza el horario único de antes. Sin hora
+ *  propia (recordatorioHora vacío), usa el horario general (Admin,
+ *  ver _horaRecordatorioGestion) como default. */
+function _horaEfectivaRecordatorio(tarea) {
+    if (String(tarea.recordatorioHabilitado || "SI").toUpperCase() === "NO") return null;
+    const propia = Number(tarea.recordatorioHora);
+    return Number.isInteger(propia) && propia >= 0 && propia <= 23 ? propia : _horaRecordatorioGestion();
+}
+
 function _revisarRecordatoriosGestion() {
+    // El trigger corre CADA HORA (ver instalarTriggerRecordatoriosGestion)
+    // — cada tarea decide acá adentro si ESTA hora es la suya (propia o,
+    // sin una configurada, el horario general de Admin), así cambiar
+    // cualquier horario desde la app no requiere tocar Apps Script.
+    const horaActual = Number(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "H"));
+
     const hoy = new Date();
     const manana = new Date(hoy.getTime() + 24 * 60 * 60 * 1000);
     const diaSemanaHoy = _DIAS_SEMANA_GESTION[hoy.getDay()];
@@ -1257,24 +1361,39 @@ function _revisarRecordatoriosGestion() {
     const catalogo = {};
     _leerCrudo("GestionTareas").forEach(function (t) { catalogo[String(t.id)] = t; });
 
+    const checksPorClave = {};
+    _leerCrudo("GestionChecks").forEach(function (f) {
+        checksPorClave[f.tareaId + "|" + String(f.sucursal || "").trim().toLowerCase() + "|" + f.dia] = f;
+    });
+    const cicloSemanalActual = _cicloActual("semanal");
+    const cicloMensualActual = _cicloActual("mensual");
+
     _leerCrudo("GestionTareasSucursal").forEach(function (fila) {
         const tarea = catalogo[String(fila.tareaId)];
         if (!tarea || !tarea.titulo) return;
         const dias = String(fila.dias || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
         if (!dias.length) return;
 
+        // Recordatorio por tarea — esta tarea puede tener su propio
+        // horario, o el recordatorio directamente apagado (horaEfectiva
+        // null). Sin esto, TODAS las tareas se revisaban a la hora
+        // general por igual.
+        const horaEfectiva = _horaEfectivaRecordatorio(tarea);
+        if (horaEfectiva === null || horaActual !== horaEfectiva) return;
+
         const destinatarios = _responsablesDeSucursal(fila.sucursal, null);
         if (!destinatarios.length) return;
 
         if (fila.frecuencia !== "mensual") {
             if (dias.indexOf(diaSemanaHoy) === -1) return;
+            if (_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaSemanaHoy, cicloSemanalActual)) return;
             _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
             return;
         }
-        if (dias.indexOf(diaMesManana) !== -1) {
+        if (dias.indexOf(diaMesManana) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesManana, cicloMensualActual)) {
             _enviarPushATodos(destinatarios, tarea.titulo, "Mañana: " + (tarea.detalle || "recordatorio de tarea mensual."), "#/gestion");
         }
-        if (dias.indexOf(diaMesHoy) !== -1) {
+        if (dias.indexOf(diaMesHoy) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesHoy, cicloMensualActual)) {
             _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
         }
     });
@@ -1282,20 +1401,32 @@ function _revisarRecordatoriosGestion() {
 
 /** Correr UNA SOLA VEZ desde el editor de Apps Script (elegir esta
  *  función en el desplegable de arriba de "Ejecutar", tocar Ejecutar)
- *  para instalar el trigger diario a las 10am — no hace falta tocar
- *  nada más. Si ya existe uno para esta función no crea otro, así que
- *  correrla de más no rompe nada. */
+ *  para instalar el trigger — no hace falta tocar nada más.
+ *
+ *  2026-08-31 — horario configurable desde la app (antes fijo a las
+ *  10am, un solo trigger diario a esa hora): ahora el trigger corre
+ *  CADA HORA, y _revisarRecordatoriosGestion decide puertas adentro si
+ *  esta hora es la configurada (ver _horaRecordatorioGestion) — así
+ *  cambiar el horario desde Admin no requiere tocar Apps Script de
+ *  nuevo. Por eso ahora esta función BORRA cualquier trigger viejo de
+ *  _revisarRecordatoriosGestion (el diario a las 10, de antes de este
+ *  cambio) antes de crear el nuevo — dejarlo habría duplicado los
+ *  avisos justo a las 10 (uno por cada trigger corriendo esa hora).
+ *  Correrla de nuevo más adelante sigue siendo seguro: siempre queda
+ *  UN solo trigger, nunca dos. */
 function instalarTriggerRecordatoriosGestion() {
-    const yaExiste = ScriptApp.getProjectTriggers().some(function (t) {
-        return t.getHandlerFunction() === "_revisarRecordatoriosGestion";
+    let borrados = 0;
+    ScriptApp.getProjectTriggers().forEach(function (t) {
+        if (t.getHandlerFunction() === "_revisarRecordatoriosGestion") {
+            ScriptApp.deleteTrigger(t);
+            borrados++;
+        }
     });
-    if (yaExiste) return "Ya existe un trigger para _revisarRecordatoriosGestion — no se creó otro.";
     ScriptApp.newTrigger("_revisarRecordatoriosGestion")
         .timeBased()
-        .everyDays(1)
-        .atHour(10)
+        .everyHours(1)
         .create();
-    return "Trigger creado — corre todos los días entre las 10:00 y 11:00 (hora del proyecto: " + Session.getScriptTimeZone() + ").";
+    return "Trigger horario instalado" + (borrados ? " (se reemplazó " + borrados + " trigger viejo)" : "") + " — corre cada hora; cada tarea avisa en SU horario (o, sin uno propio, el general de Admin — hoy: " + _horaRecordatorioGestion() + ":00, zona " + Session.getScriptTimeZone() + ").";
 }
 
 /** "Días" de una tarea, POR SUCURSAL (Fase 2 de Gestión semanal,
@@ -1353,6 +1484,30 @@ function actualizarDiasGestionSucursal(tareaId, dias, frecuencia, usuarioActual)
     return _escribirCrudo("GestionTareasSucursal", { tareaId: tareaId, sucursal: sucursal, dias: diasTexto, frecuencia: frecuenciaTexto, fechaModificacion: ahora });
 }
 
+/** Índices marcados de una lista "0,2,4" / "1:inc:Faltante,5:n:-320" —
+ *  el índice es siempre lo que va ANTES del primer ":" (o la entrada
+ *  entera si no tiene ":"). Usado para diffear qué sub-ítems son NUEVOS
+ *  entre un guardado y el anterior (ver actualizarCheckGestion). */
+function _indicesDeSubitems(csv) {
+    return String(csv || "").split(",").filter(Boolean).map(function (e) { return e.split(":")[0]; });
+}
+
+/** "0:Belén Ibáñez:0910,2:Damián:2105" → {"0":{nombre,horaCompacta},...}
+ *  — mismo encoding que serializarFirmaSubitem/parsearFirmaSubitem del
+ *  cliente (services/subitems.js), reimplementado acá porque Apps
+ *  Script no puede importar módulos ES del front. */
+function _firmasComoMapa(csv) {
+    const mapa = {};
+    String(csv || "").split(",").filter(Boolean).forEach(function (entrada) {
+        const partes = entrada.split(":");
+        const indice = partes[0];
+        const horaCompacta = partes[partes.length - 1] || "";
+        const nombre = partes.slice(1, -1).join(":");
+        mapa[indice] = { nombre: nombre, horaCompacta: horaCompacta };
+    });
+    return mapa;
+}
+
 /** El check de "hecho" de una tarea, POR SUCURSAL Y POR DÍA — antes
  *  era puramente visual (vivía en el navegador de quien lo tocaba, se
  *  perdía al recargar y nunca se veía entre dispositivos distintos:
@@ -1385,11 +1540,22 @@ function actualizarDiasGestionSucursal(tareaId, dias, frecuencia, usuarioActual)
  * checklist) siguen llamando esto sin el 5to parámetro, igual que
  * siempre — undefined acá NUNCA toca esa columna.
  *
- * OJO: requiere una columna "subitemsMarcados" en la hoja
- * "GestionChecks" — si no existe, _actualizarCrudo avisa explícito
- * ("Faltan columnas...") en vez de fallar en silencio; _escribirCrudo
- * (fila nueva) sí la saltea muda si falta, por eso hace falta
- * agregarla a mano ANTES de que esto sirva de algo.
+ * ciclo / cerrada+cerradaPor+cerradaHora / subitemsFirmas (2026-08-31)
+ * — reset automático de ciclo, candado al completar (con "Reabrir" solo
+ * para Admin, ver reabrirTareaGestion) y firma por sub-ítem, pedido
+ * explícito del usuario. "cerrada" se estampa cuando ESTE guardado deja
+ * la tarea completa (mismo "hecho" que ya decide el cliente); a partir
+ * de ahí cualquier nuevo guardado sobre esa fila se rechaza acá mismo,
+ * antes de tocar nada.
+ *
+ * OJO: TODAS estas columnas nuevas ("ciclo", "cerrada", "cerradaPor",
+ * "cerradaHora", "subitemsFirmas") tienen que existir en la hoja
+ * "GestionChecks" ANTES de pegar este código en producción — igual que
+ * ya pasó con "subitemsMarcados": sin la columna, _actualizarCrudo
+ * (guardar sobre una fila EXISTENTE) devuelve "Faltan columnas..." en
+ * vez de guardar. _escribirCrudo (fila nueva) sí las saltea en
+ * silencio si faltan, así que el síntoma solo aparece al re-guardar
+ * algo ya guardado antes.
  */
 function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual, subitemsMarcados) {
     if (!usuarioActual.encargado && !usuarioActual.responsableTurno) {
@@ -1399,12 +1565,31 @@ function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual, subitemsMarc
     if (!sucursal) return { ok: false, error: "Tu usuario no tiene un local asignado." };
     if (!tareaId || !dia) return { ok: false, error: "Falta la tarea o el día." };
 
+    // Frecuencia real de ESTA tarea en ESTE local (nunca la manda el
+    // cliente, mismo criterio que "sucursal") — decide si el ciclo es
+    // semanal o mensual para esta fila puntual. Se calcula ANTES de
+    // buscar "existente": la fila a tocar es la de ESTE ciclo, nunca
+    // una de un ciclo viejo — sin esto, el primer guardado de una
+    // semana/mes nuevo pisaba la fila anterior en vez de crear una
+    // nueva, y esa fila vieja (que tenía que quedar disponible para
+    // "Histórico") desaparecía sin dejar rastro.
+    const filaFrecuencia = _leerCrudo("GestionTareasSucursal").find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === sucursal;
+    });
+    const ciclo = _cicloActual(filaFrecuencia && filaFrecuencia.frecuencia === "mensual" ? "mensual" : "semanal");
+
     const filas = _leerCrudo("GestionChecks");
     const existente = filas.find(function (f) {
-        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === sucursal && String(f.dia) === String(dia);
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === sucursal && String(f.dia) === String(dia) && String(f.ciclo) === String(ciclo);
     });
+
+    if (existente && String(existente.cerrada).toUpperCase() === "SI") {
+        return { ok: false, error: "Esta tarea ya está cerrada. Pedile a un Admin que la reabra si hace falta corregir algo." };
+    }
+
     const ahora = new Date();
     const hora = Utilities.formatDate(ahora, Session.getScriptTimeZone(), "HH:mm");
+    const nombreUsuario = usuarioActual.nombre || usuarioActual.email;
 
     const mandaSubitems = subitemsMarcados !== undefined && subitemsMarcados !== null;
     const listaSubitems = mandaSubitems ? String(subitemsMarcados) : "";
@@ -1419,10 +1604,126 @@ function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual, subitemsMarc
         return { ok: true };
     }
 
-    const datos = { hecho: hecho ? "SI" : "NO", marcadoPor: usuarioActual.nombre || usuarioActual.email, hora: hora, fechaModificacion: ahora.toISOString() };
-    if (mandaSubitems) datos.subitemsMarcados = listaSubitems;
+    const datos = { hecho: hecho ? "SI" : "NO", marcadoPor: nombreUsuario, hora: hora, fechaModificacion: ahora.toISOString(), ciclo: ciclo };
+
+    if (mandaSubitems) {
+        datos.subitemsMarcados = listaSubitems;
+        // Firma por sub-ítem: un índice YA marcado antes conserva su
+        // firma original (no se la "roba" quien guarda después) — solo
+        // los índices NUEVOS en este guardado se firman con quien
+        // guarda ahora. Pedido explícito: "cada uno marca lo que le
+        // corresponde".
+        const indicesAntes = new Set(_indicesDeSubitems(existente && existente.subitemsMarcados));
+        const firmasAntes = _firmasComoMapa(existente && existente.subitemsFirmas);
+        const horaCompacta = hora.replace(":", "");
+        datos.subitemsFirmas = _indicesDeSubitems(listaSubitems).map(function (indice) {
+            const previa = firmasAntes[indice];
+            if (indicesAntes.has(indice) && previa) {
+                return indice + ":" + previa.nombre + ":" + previa.horaCompacta;
+            }
+            return indice + ":" + nombreUsuario + ":" + horaCompacta;
+        }).join(",");
+    }
+
+    // Candado — se cierra cuando ESTE guardado deja la tarea completa
+    // (mismo booleano "hecho" que ya decide el cliente); server-side
+    // solo estampa quién/cuándo, igual que con marcadoPor.
+    if (hecho) {
+        datos.cerrada = "SI";
+        datos.cerradaPor = nombreUsuario;
+        datos.cerradaHora = hora;
+    }
+
     if (existente) return _actualizarCrudo("GestionChecks", existente.id, datos);
     return _escribirCrudo("GestionChecks", Object.assign({ tareaId: tareaId, sucursal: sucursal, dia: dia }, datos));
+}
+
+/** Reabre una tarea cerrada — pedido explícito 2026-08-31: sin esto, un
+ *  cierre por error (tocar Guardar antes de tiempo) queda trabado para
+ *  siempre, sin ninguna vía de excepción. SOLO Admin (no Supervisor, no
+ *  Responsable de local) — mismo gate que ya usa esAdminActual() del
+ *  lado del cliente. No toca los datos ya guardados (hecho,
+ *  subitemsMarcados, firmas): solo destraba para poder seguir editando. */
+function reabrirTareaGestion(tareaId, dia, sucursal, usuarioActual) {
+    if (usuarioActual.rol !== "admin") {
+        return { ok: false, error: "Solo Admin puede reabrir una tarea cerrada." };
+    }
+    const suc = String(sucursal || "").trim();
+    if (!suc || !tareaId || !dia) return { ok: false, error: "Falta la tarea, el día o el local." };
+
+    // Mismo criterio que actualizarCheckGestion: la fila a destrabar es
+    // la del CICLO ACTUAL — sin esto, con más de una fila guardada para
+    // el mismo tareaId+sucursal+dia (una por ciclo, ver Histórico),
+    // .find() podía agarrar una fila vieja en vez de la que está cerrada
+    // ahora mismo en pantalla.
+    const filaFrecuencia = _leerCrudo("GestionTareasSucursal").find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === suc;
+    });
+    const ciclo = _cicloActual(filaFrecuencia && filaFrecuencia.frecuencia === "mensual" ? "mensual" : "semanal");
+
+    const existente = _leerCrudo("GestionChecks").find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === suc && String(f.dia) === String(dia) && String(f.ciclo) === String(ciclo);
+    });
+    if (!existente) return { ok: false, error: "No se encontró esa tarea guardada." };
+    return _actualizarCrudo("GestionChecks", existente.id, { cerrada: "NO" });
+}
+
+/** Ciclos YA CERRADOS de Gestión de tareas ("Histórico") — el reset
+ *  automático de ciclo (ver _cicloActual) hace que lo tildado de un
+ *  ciclo pasado deje de verse en "Tareas asignadas", pero no se pierde:
+ *  queda acá. Accesible por el Responsable de local de esa sucursal (el
+ *  server usa la suya, como siempre) O por Admin/Supervisor mirando
+ *  CUALQUIER sucursal (la pasan explícita — mismo patrón que ya usa
+ *  getChecksPorSucursal en lectura, no es información sensible) —
+ *  decisión explícita del usuario (2026-08-31) de ampliarlo ya en vez
+ *  de dejarlo solo para Responsable de local. Responsable de turno NO
+ *  tiene acceso. Devuelve el ARRAY de filas directo (o {ok:false,error}
+ *  si no hay permiso) — mismo criterio que leer(), nunca envolver en
+ *  {data:...} (ver el comentario de sync() sobre ese bug real). */
+function obtenerHistoricoGestion(sucursalPedida, usuarioActual) {
+    let sucursal;
+    if (usuarioActual.encargado) {
+        sucursal = String(usuarioActual.sucursal || "").trim();
+    } else if (_esGestion(usuarioActual)) {
+        sucursal = String(sucursalPedida || "").trim();
+    } else {
+        return { ok: false, error: "No tenés permiso para ver el histórico de Gestión." };
+    }
+    if (!sucursal) return { ok: false, error: "Falta el local." };
+
+    const filas = _leerCrudo("GestionChecks").filter(function (f) {
+        return String(f.sucursal || "").trim() === sucursal;
+    });
+    const frecuencias = {};
+    _leerCrudo("GestionTareasSucursal").filter(function (f) {
+        return String(f.sucursal || "").trim() === sucursal;
+    }).forEach(function (f) { frecuencias[f.tareaId] = f.frecuencia; });
+
+    const cicloSemanalActual = _cicloActual("semanal");
+    const cicloMensualActual = _cicloActual("mensual");
+
+    return filas.filter(function (f) {
+        const cicloActualDeEsta = frecuencias[f.tareaId] === "mensual" ? cicloMensualActual : cicloSemanalActual;
+        return f.ciclo && f.ciclo !== cicloActualDeEsta;
+    });
+}
+
+/** Borra TODAS las filas de UN ciclo cerrado, de la sucursal del
+ *  Responsable que lo pide — a diferencia de la lectura de arriba,
+ *  borrar es una acción de escritura: solo el Responsable de local de
+ *  ESE local (no Admin/Supervisor mirando un local ajeno). */
+function eliminarHistoricoGestion(ciclo, usuarioActual) {
+    if (!usuarioActual.encargado) {
+        return { ok: false, error: "Solo el Responsable de local puede borrar del histórico." };
+    }
+    const sucursal = String(usuarioActual.sucursal || "").trim();
+    if (!sucursal || !ciclo) return { ok: false, error: "Falta el ciclo o el local." };
+
+    const filas = _leerCrudo("GestionChecks").filter(function (f) {
+        return String(f.sucursal || "").trim() === sucursal && String(f.ciclo) === String(ciclo);
+    });
+    filas.forEach(function (f) { _eliminarCrudo("GestionChecks", f.id); });
+    return { ok: true, borradas: filas.length };
 }
 
 function enviarPushPrueba(usuarioActual) {
@@ -1608,7 +1909,11 @@ function procesarNoticiasProgamadas() {
         const horaActual = ("0" + ahora.getHours()).slice(-2) + ":" + ("0" + ahora.getMinutes()).slice(-2); // HH:MM
 
         const noticias = _leerCrudo("Noticias");
-        const usuarios = _leerCrudo("Usuarios");
+        // Mismo bug que _responsablesDeSucursal (2026-08-31, reportado
+        // en vivo): "borrar" un usuario acá en realidad lo desactiva
+        // (activo="NO"), la fila sigue existiendo — sin este filtro,
+        // alguien desactivado seguía recibiendo Noticias programadas.
+        const usuarios = _leerCrudo("Usuarios").filter((u) => String(u.activo).toUpperCase() !== "NO");
         const sucursales = _leerCrudo("Sucursales");
 
         let procesadas = 0;

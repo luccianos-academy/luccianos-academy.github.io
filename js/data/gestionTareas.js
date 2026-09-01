@@ -49,6 +49,14 @@ function normalizarTarea(f) {
         // Vacío = aplica a TODOS. La exclusión (noAplicaA) gana.
         aplicaA: String(f.aplicaA || "").trim(),
         noAplicaA: String(f.noAplicaA || "").trim(),
+        // Recordatorio por tarea (2026-08-31, pedido explícito: "el
+        // tema push quiero que sea por tarea") — reemplaza el horario
+        // único que había antes. Sin columna todavía en la Sheet real
+        // (o fila vieja sin este dato), "SI"/sin hora propia por
+        // default — mismo comportamiento de siempre (recordaba TODO)
+        // hasta que Admin apague alguna a propósito.
+        recordatorioHabilitado: String(f.recordatorioHabilitado || "").trim().toUpperCase() === "NO" ? "NO" : "SI",
+        recordatorioHora: String(f.recordatorioHora || "").trim(),
         // NO se lee "frecuencia" acá — se probó un rato viviendo en el
         // catálogo (2026-08-26) pero se movió a data/gestionTareasSucursal.js:
         // pedido explícito del usuario, Admin: "yo cargo la tarea, ellos
@@ -60,7 +68,7 @@ function normalizarTarea(f) {
 }
 
 /** subitems de array a string separado por coma, para la Sheet. */
-function aFilaSheet({ icono, titulo, detalle, subitems, aplicaA, noAplicaA }) {
+function aFilaSheet({ icono, titulo, detalle, subitems, aplicaA, noAplicaA, recordatorioHabilitado, recordatorioHora }) {
     return {
         icono,
         titulo,
@@ -68,6 +76,8 @@ function aFilaSheet({ icono, titulo, detalle, subitems, aplicaA, noAplicaA }) {
         subitems: (subitems || []).join(","),
         aplicaA: aplicaA || "",
         noAplicaA: noAplicaA || "",
+        recordatorioHabilitado: recordatorioHabilitado || "SI",
+        recordatorioHora: recordatorioHora || "",
     };
 }
 

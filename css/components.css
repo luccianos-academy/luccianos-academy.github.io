@@ -5493,6 +5493,7 @@ table.data-table tbody tr:hover{
 .subitem-gestion{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
     gap:10px;
     padding:9px 0;
     border-top:1px solid var(--line);
@@ -5502,6 +5503,12 @@ table.data-table tbody tr:hover{
 }
 .subitem-gestion:first-child{ border-top:1px solid var(--line); }
 .subitem-gestion input{ accent-color:var(--gold); width:17px; height:17px; flex-shrink:0; }
+/* Título — puede shrinkear/wrapear su propio texto en vez de empujar
+   la firma (ver .subitem-firma) fuera del margen. min-width:0 es lo
+   que de verdad habilita el shrink en un flex item con texto largo —
+   sin esto, un nombre largo en la firma de al lado desborda la fila
+   entera en celular (bug real reportado en vivo, 2026-08-31). */
+.subitem-gestion > span:not(.subitem-firma){ flex:1 1 auto; min-width:0; }
 
 /* Sub-ítem de 3 ESTADOS (ok/incidencia/grave) — pedido explícito, con
    maqueta confirmada: un arqueo de caja necesita poder marcar "hecho
@@ -5516,9 +5523,10 @@ table.data-table tbody tr:hover{
 .subitem-estado3-fila{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
     gap:10px;
 }
-.subitem-estado3-fila span{ flex:1; font-size:13.5px; color:var(--text); }
+.subitem-estado3-fila span:not(.subitem-firma){ flex:1; font-size:13.5px; color:var(--text); min-width:0; }
 
 .estados3{ display:flex; gap:6px; flex-shrink:0; }
 .estado-btn{
@@ -5548,13 +5556,14 @@ table.data-table tbody tr:hover{
 .subitem-estado2{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
     justify-content:space-between;
     gap:10px;
     padding:10px 0;
     border-top:1px solid var(--line);
 }
 .subitem-estado2:first-child{ border-top:1px solid var(--line); }
-.subitem-estado2 span{ font-size:13.5px; color:var(--text); }
+.subitem-estado2 > span:not(.subitem-firma){ flex:1 1 auto; min-width:0; font-size:13.5px; color:var(--text); }
 .estados2{ display:flex; gap:6px; flex-shrink:0; }
 .estado2-btn{
     padding:6px 14px;
@@ -5609,18 +5618,26 @@ table.data-table tbody tr:hover{
     border-top:1px solid var(--line);
 }
 .subitem-numerico:first-child{ border-top:1px solid var(--line); }
-.subitem-numerico span{ font-size:13.5px; color:var(--text); }
+.subitem-numerico > span:not(.subitem-firma){ font-size:13.5px; color:var(--text); flex:1 1 auto; min-width:0; }
 
-/* Envuelve el toggle Falta/Sobra + el campo "$" — juntos son el lado
-   derecho de la fila. Separado en dos partes a propósito: el teclado
-   numérico que abre <input inputmode="numeric"> en celular NO tiene
-   tecla "-" (bug real reportado en vivo, no se podía escribir un
-   negativo) — acá nunca hace falta escribirla, el signo se ELIGE. */
+/* Envuelve el toggle Cuadra/Falta/Sobra + el campo "$" — juntos son el
+   lado derecho de la fila. Separado en dos partes a propósito: el
+   teclado numérico que abre <input inputmode="numeric"> en celular NO
+   tiene tecla "-" (bug real reportado en vivo, no se podía escribir un
+   negativo) — acá nunca hace falta escribirla, el signo se ELIGE.
+   flex-wrap (2026-08-31, bug real en celular con captura): con los 3
+   botones del toggle + el campo "$", el conjunto puede pesar más que
+   el ancho disponible en un teléfono angosto — sin poder partirse en
+   dos líneas, el campo quedaba cortado justo en el borde de la
+   pantalla en vez de bajar solo a la línea siguiente. */
 .subitem-numerico-control{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
+    justify-content:flex-end;
     gap:8px;
-    flex-shrink:0;
+    flex:0 1 auto;
+    min-width:0;
 }
 
 .signo-toggle{ display:flex; gap:4px; }
@@ -5641,6 +5658,11 @@ table.data-table tbody tr:hover{
    ambos, para que el sentido salte a la vista sin leer la palabra. */
 .signo-btn.falta.activo{ background:var(--danger-soft); border-color:var(--danger); color:var(--danger); }
 .signo-btn.sobra.activo{ background:var(--warning-soft); border-color:var(--warning); color:var(--warning); }
+/* "Cuadra" (2026-08-31) — pedido explícito: si Falta/Sobra se tocó por
+   error, un solo botón vuelve a $0/verde en vez de tener que corregir
+   a mano. Verde = mismo "está todo bien" que el resto de la app
+   (.tarea-gestion.hecha, estado3 "ok"). */
+.signo-btn.cuadra.activo{ background:var(--success-soft); border-color:var(--success); color:var(--success); }
 
 .subitem-numerico-campo{
     display:flex;
@@ -6044,6 +6066,64 @@ table.data-table tbody tr:hover{
     font-size:12.5px;
 }
 
+/* "Recordatorio automático" (2026-08-31) — horario configurable, solo
+   Admin, maqueta confirmada por el usuario. Vive junto a "+ Nueva
+   tarea" (ajuste global de la red, no depende de haber elegido local). */
+.card-recordatorio-gestion{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:14px 16px;
+    margin-bottom:22px;
+}
+.card-recordatorio-header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    color:var(--gold-deep);
+}
+.card-recordatorio-header span:first-of-type{
+    font-size:13.5px;
+    font-weight:700;
+    color:var(--text);
+}
+.badge-solo-admin{
+    margin-left:auto;
+    font-size:10.5px;
+    font-weight:700;
+    color:var(--info);
+    background:var(--info-soft);
+    padding:3px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+}
+.card-recordatorio-desc{
+    margin:6px 0 12px;
+    font-size:11.5px;
+    color:var(--muted);
+    line-height:1.5;
+}
+.card-recordatorio-control{
+    display:flex;
+    gap:8px;
+}
+.card-recordatorio-control select{
+    flex:1;
+    min-width:0;
+    background:var(--secondary-bg);
+    color:var(--text);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:9px 10px;
+    font-size:13px;
+    font-family:inherit;
+}
+.card-recordatorio-control .btn{
+    padding:9px 18px;
+    font-size:13px;
+    white-space:nowrap;
+}
+
 /* Modal "Nueva tarea" — sub-tareas sueltas, mismo espíritu que los
    sub-puntos de un paso en Lecciones (academia.js: subpuntoHtml).
    Cada fila tiene DOS niveles: la principal (texto + tipo + quitar) y,
@@ -6080,7 +6160,21 @@ table.data-table tbody tr:hover{
 
 .subtarea-nueva-fila-principal .input-subtarea-nueva-tipo{
     flex:0 0 auto;
-    width:auto;
+    /* Ancho FIJO, no auto (bug real reportado en vivo, con captura,
+       2026-08-31): un <select> con width:auto se dimensiona por su
+       opción MÁS LARGA ("2 estados (Hecho/No hecho)"), no por la
+       elegida — con "Simple" seleccionado, el control igual reclamaba
+       ~213px de la fila, dejándole ~30px al textarea de al lado (el
+       título envuelto letra por letra en una columna altísima, mismo
+       síntoma visual que el bug ya documentado arriba, pero causado
+       por esto, no por el width:100% que ese comentario soluciona).
+       Con un ancho fijo, la opción larga se corta con "..." en el
+       control cerrado — el texto completo se sigue viendo al abrir el
+       desplegable. */
+    width:112px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
     padding:8px 10px;
     border-radius:var(--radius-sm);
     border:1px solid var(--line);
@@ -6587,3 +6681,178 @@ table.data-table tbody tr:hover{
     margin:18px 0 8px;
 }
 .titulo-grupo-tareas:first-child{ margin-top:0; }
+
+/* ============================================================
+   Gestión de tareas — Histórico, candado, firma por ítem
+   (2026-08-31) — pedido explícito del usuario: reset de ciclo con
+   respaldo permanente, una tarea completa queda cerrada (con
+   "Reabrir" solo para Admin), y quién marcó cada ítem puntual, no
+   solo quién guardó por última vez.
+============================================================ */
+
+/* Firma por sub-ítem — pill chica, mismo tono dorado atenuado que el
+   resto de la marca de identidad, para no competir con el color de
+   ESTADO (verde/rojo/ámbar) que ya tiene cada tipo de sub-ítem. */
+/* Siempre en SU PROPIA línea (flex-basis:100%), nunca al lado del
+   título — un nombre largo ("Maximo Busquets ( Prueba )") ahí mismo
+   desbordaba la fila en celular (bug real reportado en vivo,
+   2026-08-31). Con esto el layout es el mismo pase lo que pase con el
+   largo del nombre: título arriba, firma abajo, siempre. */
+.subitem-firma{
+    display:inline-block;
+    max-width:100%;
+    flex:0 0 100%;
+    margin-top:2px;
+    font-size:11px;
+    color:var(--gold-deep);
+    background:var(--gold-soft);
+    padding:2px 8px;
+    border-radius:999px;
+    white-space:normal;
+    overflow-wrap:break-word;
+}
+
+/* Banner de tarea cerrada (candado) — mismo verde de "completa" que
+   .tarea-gestion.hecha, para leerse como una confirmación, no una
+   traba. El botón "Reabrir" (solo Admin) es la única excepción al
+   candado — ver bannerCerradaHtml en gestion.js. */
+.tarea-gestion-banner-cerrada{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    padding:9px 18px;
+    background:var(--success-soft);
+    color:var(--success);
+    font-size:12.5px;
+    font-weight:600;
+    border-top:1px solid var(--line);
+}
+.tarea-gestion-simple .tarea-gestion-banner-cerrada{ border-top:none; margin-top:-2px; border-radius:0 0 var(--radius-sm) var(--radius-sm); }
+.tarea-gestion-banner-cerrada span{ flex:1; min-width:160px; }
+.btn-reabrir-tarea{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:5px 12px;
+    border-radius:999px;
+    border:1px solid var(--info);
+    background:transparent;
+    color:var(--info);
+    font-size:11.5px;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-reabrir-tarea:hover{ background:var(--info-soft); }
+
+/* Pestaña "Histórico" — mismo .tab-gestion de siempre, el candado
+   chico adentro solo aclara de un vistazo que es de solo lectura. */
+.tab-gestion svg{ vertical-align:-2px; margin-right:4px; opacity:.8; }
+
+.vacio-historico-gestion{
+    text-align:center;
+    padding:46px 24px;
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.6;
+}
+.vacio-historico-gestion svg{ color:var(--gold-deep); opacity:.6; margin-bottom:10px; }
+
+#contenido-historico-gestion{ display:flex; flex-direction:column; gap:16px; margin-top:16px; }
+
+.ciclo-card-historico{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+}
+.ciclo-header-historico{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+}
+.ciclo-ico-historico{
+    flex-shrink:0;
+    width:36px;
+    height:36px;
+    border-radius:50%;
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.ciclo-titulo-historico{ display:flex; flex-direction:column; gap:2px; flex:1 1 auto; min-width:140px; }
+.ciclo-titulo-historico strong{ font-size:14.5px; font-weight:700; color:var(--text); }
+.ciclo-titulo-historico span{ font-size:12px; color:var(--muted); }
+.tag-frecuencia-historico{
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    padding:3px 9px;
+    border-radius:999px;
+    background:var(--secondary-bg);
+    color:var(--muted);
+    white-space:nowrap;
+}
+.pill-progreso-historico{
+    font-size:11.5px;
+    font-weight:700;
+    padding:4px 10px;
+    border-radius:999px;
+    white-space:nowrap;
+}
+.pill-progreso-historico.completo{ background:var(--success-soft); color:var(--success); }
+.pill-progreso-historico.parcial{ background:var(--danger-soft); color:var(--danger); }
+.ciclo-acciones-historico{ display:flex; gap:8px; width:100%; margin-top:2px; }
+.btn-mini-historico{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:9px 14px;
+    border-radius:var(--radius-sm);
+    border:none;
+    font-size:12.5px;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.btn-mini-historico.descargar{ background:var(--secondary-bg); color:var(--text); }
+.btn-mini-historico.descargar:hover{ background:#332c1f; }
+.btn-mini-historico.eliminar{ background:transparent; color:var(--danger); border:1px solid rgba(229,103,92,.4); }
+.btn-mini-historico.eliminar:hover{ background:var(--danger-soft); }
+.btn-mini-historico:disabled{ opacity:.5; cursor:not-allowed; }
+
+.ciclo-tareas-historico{ padding:6px 10px; }
+.fila-tarea-historico{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:11px 8px;
+    border-bottom:1px solid var(--line);
+}
+.fila-tarea-historico:last-child{ border-bottom:none; }
+.estado-ico-historico{
+    flex-shrink:0;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.estado-ico-historico.ok{ background:var(--success-soft); color:var(--success); }
+.estado-ico-historico.no{ background:var(--danger-soft); color:var(--danger); }
+.fila-tarea-historico-txt{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.fila-tarea-historico-txt strong{ font-size:13.5px; font-weight:600; color:var(--text); }
+.fila-tarea-historico-txt span{ font-size:11.5px; color:var(--muted); }
+.fila-tarea-historico.no-completada .fila-tarea-historico-txt strong{ color:var(--muted); }

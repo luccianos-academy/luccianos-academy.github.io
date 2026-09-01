@@ -124,6 +124,30 @@ export function esIncidenciaGrave(marca) {
     return marca?.tipo === TIPOS_SUBITEM.ESTADO3 && marca.estado === "grave";
 }
 
+/** "0:Belén Ibáñez:0910" → {indice, nombre, hora:"09:10"} — firma de
+ *  QUIÉN marcó ESE sub-ítem puntual y A QUÉ HORA (columna aparte,
+ *  "subitemsFirmas", mismo criterio de índices que subitemsMarcados
+ *  pero encoding propio: la hora va sin ":" acá adentro porque ":" ya
+ *  es el separador de campos de esta entrada — se reconstruye al
+ *  parsear). Vive separada de subitemsMarcados a propósito: no toca ni
+ *  arriesga el formato ya guardado de ejecuciones anteriores. */
+export function parsearFirmaSubitem(raw) {
+    const texto = String(raw || "");
+    const partes = texto.split(":");
+    const indice = partes[0];
+    const horaCompacta = partes[partes.length - 1] || "";
+    const nombre = partes.slice(1, -1).join(":");
+    const hora = horaCompacta.length === 4 ? `${horaCompacta.slice(0, 2)}:${horaCompacta.slice(2)}` : horaCompacta;
+    return { indice, nombre, hora };
+}
+
+/** Inverso de parsearFirmaSubitem — UNA entrada de subitemsFirmas
+ *  (falta el .join(",") con las demás). */
+export function serializarFirmaSubitem(indice, nombre, hora) {
+    const horaCompacta = String(hora || "").replace(":", "");
+    return `${indice}:${nombre || ""}:${horaCompacta}`;
+}
+
 /** Sufijo compartido "Caja N" / "Posnet N" en el título de un
  *  sub-ítem — mismo criterio que usa gestion.js para precargar el
  *  Falta/Sobra del numérico al marcar el estado3 emparejado. Se

@@ -48,14 +48,15 @@ import {
     eliminarTarea as eliminarTareaBackend,
 } from "../data/gestionTareas.js";
 import { getDiasPorSucursal, guardarDiasSucursal } from "../data/gestionTareasSucursal.js";
-import { getChecksPorSucursal, guardarCheckSucursal } from "../data/gestionChecks.js";
+import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, getHistoricoGestion, eliminarHistoricoGestion, getHorarioRecordatorioGestion, guardarHorarioRecordatorioGestion } from "../data/gestionChecks.js";
 import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
 import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
 import { getSucursales } from "../data/sucursales.js";
 import { aplicaASucursal, normalizar } from "../services/alcance.js";
-import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, contarIncidenciasAgrupadas } from "../services/subitems.js";
+import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, parsearMarcaSubitem, parsearFirmaSubitem, contarIncidenciasAgrupadas } from "../services/subitems.js";
+import { cicloActual, etiquetaCiclo } from "../services/gestionCiclo.js";
 
 /* ============================
    Gestión semanal — el checklist, por día
@@ -152,6 +153,14 @@ let esVistaLectura = false;
  *  puede cargar datos en "Tareas asignadas". */
 let soloLecturaAsignacion = false;
 let sucursalActiva = "";
+
+/** "Histórico" (2026-08-31) — pestaña de ciclos ya cerrados. Decisión
+ *  explícita del usuario: NO acotarla a Responsable de local — la ve
+ *  también Admin/Supervisor, una vez que eligieron un local en el
+ *  selector (mismo criterio que el resto de "Tareas asignadas": sin
+ *  local elegido no hay ciclo de qué hablar). Responsable de turno NO
+ *  tiene acceso. */
+let usuarioEncargadoActivo = false;
 
 /** "tareaId|dia" → {marcadoPor, hora, hecho, marcas: Map<indice, marca>}
  *  — checks REALES de la sucursal activa (persistidos, ya no
@@ -445,10 +454,22 @@ function aplicaTareaHtml(t) {
  *    otro valor YA ES la incidencia, no hace falta explicarla aparte.
  *  `marca` es lo que ya está guardado para este índice (parsearMarcaSubitem),
  *  o undefined si nunca se tocó. */
-function subitemFilaHtml(id, is, subitemsRaw, marcados) {
+/** Firma ("Nombre · HH:MM") de quién marcó ESE sub-ítem puntual, si la
+ *  hay — pedido explícito 2026-08-31: "que cada uno marca lo que le
+ *  corresponde" quede a la vista, no solo el nombre de quien cerró la
+ *  tarea entera. Vacío si nunca se guardó nada para este índice. */
+function firmaSubitemHtml(firmas, is) {
+    const firma = firmas?.get(String(is));
+    if (!firma?.nombre) return "";
+    return `<span class="subitem-firma">${escaparHtml(firma.nombre)}${firma.hora ? ` · ${firma.hora}` : ""}</span>`;
+}
+
+function subitemFilaHtml(id, is, subitemsRaw, marcados, firmas = new Map(), bloqueada = false) {
     const raw = subitemsRaw[is];
     const marca = marcados.get(String(is));
     const { titulo, tipo, motivos } = parsearSubitem(raw);
+    const soloLectura = esVistaLectura || bloqueada;
+    const firmaHtml = firmaSubitemHtml(firmas, is);
 
     if (tipo === TIPOS_SUBITEM.NUMERICO) {
         // Arranca en 0, NO vacío — pedido explícito: "los valores que
@@ -485,16 +506,18 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados) {
         // En $0 el signo no significa nada — ninguno de los dos botones
         // arranca marcado (mismo criterio que al resetear desde "OK").
         return `
-            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}" data-signo="${signo}">
+            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}" data-signo="${signo}" data-tocado="${tieneMarca ? "1" : "0"}">
                 <span>${escaparHtml(titulo)}</span>
+                ${firmaHtml}
                 <div class="subitem-numerico-control">
                     <div class="signo-toggle">
-                        <button type="button" class="signo-btn falta${incidencia && signo === "-" ? " activo" : ""}" data-signo="-"${esVistaLectura ? " disabled" : ""}>Falta</button>
-                        <button type="button" class="signo-btn sobra${incidencia && signo === "+" ? " activo" : ""}" data-signo="+"${esVistaLectura ? " disabled" : ""}>Sobra</button>
+                        <button type="button" class="signo-btn cuadra${incidencia ? "" : " activo"}" data-accion-cuadra${soloLectura ? " disabled" : ""}>Cuadra</button>
+                        <button type="button" class="signo-btn falta${incidencia && signo === "-" ? " activo" : ""}" data-signo="-"${soloLectura ? " disabled" : ""}>Falta</button>
+                        <button type="button" class="signo-btn sobra${incidencia && signo === "+" ? " activo" : ""}" data-signo="+"${soloLectura ? " disabled" : ""}>Sobra</button>
                     </div>
                     <div class="subitem-numerico-campo">
                         <span>$</span>
-                        <input type="text" inputmode="decimal" class="input-numerico-subitem"${esVistaLectura ? " disabled" : ""} placeholder="0" value="${formatearMontoInput(magnitud)}">
+                        <input type="text" inputmode="decimal" class="input-numerico-subitem"${soloLectura ? " disabled" : ""} placeholder="0" value="${formatearMontoInput(magnitud)}">
                     </div>
                 </div>
             </div>
@@ -513,9 +536,10 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados) {
         return `
             <div class="subitem-estado2" data-subitem-tipo="estado2" data-subitem-indice="${is}" data-estado-actual="${estado}">
                 <span>${escaparHtml(titulo)}</span>
+                ${firmaHtml}
                 <div class="estados2">
-                    <button type="button" class="estado2-btn si${estado === "si" ? " activo" : ""}" data-estado="si"${esVistaLectura ? " disabled" : ""}>Hecho</button>
-                    <button type="button" class="estado2-btn no${estado === "no" ? " activo" : ""}" data-estado="no"${esVistaLectura ? " disabled" : ""}>No hecho</button>
+                    <button type="button" class="estado2-btn si${estado === "si" ? " activo" : ""}" data-estado="si"${soloLectura ? " disabled" : ""}>Hecho</button>
+                    <button type="button" class="estado2-btn no${estado === "no" ? " activo" : ""}" data-estado="no"${soloLectura ? " disabled" : ""}>No hecho</button>
                 </div>
             </div>
         `;
@@ -528,10 +552,11 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados) {
             <div class="subitem-estado3" data-subitem-tipo="estado3" data-subitem-indice="${is}" data-estado-actual="${estado}">
                 <div class="subitem-estado3-fila">
                     <span>${escaparHtml(titulo)}</span>
+                    ${firmaHtml}
                     <div class="estados3">
-                        <button type="button" class="estado-btn ok${estado === "ok" ? " activo" : ""}" data-estado="ok"${esVistaLectura ? " disabled" : ""} aria-label="OK">✓</button>
-                        <button type="button" class="estado-btn incidencia${estado === "inc" ? " activo" : ""}" data-estado="inc"${esVistaLectura ? " disabled" : ""} aria-label="Incidencia">!</button>
-                        <button type="button" class="estado-btn grave${estado === "grave" ? " activo" : ""}" data-estado="grave"${esVistaLectura ? " disabled" : ""} aria-label="Incidencia grave">✕</button>
+                        <button type="button" class="estado-btn ok${estado === "ok" ? " activo" : ""}" data-estado="ok"${soloLectura ? " disabled" : ""} aria-label="OK">✓</button>
+                        <button type="button" class="estado-btn incidencia${estado === "inc" ? " activo" : ""}" data-estado="inc"${soloLectura ? " disabled" : ""} aria-label="Incidencia">!</button>
+                        <button type="button" class="estado-btn grave${estado === "grave" ? " activo" : ""}" data-estado="grave"${soloLectura ? " disabled" : ""} aria-label="Incidencia grave">✕</button>
                     </div>
                 </div>
             </div>
@@ -549,8 +574,9 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados) {
     // ("se marcan, se desmarcan solos").
     return `
         <label class="subitem-gestion" for="${id}-${is}" data-subitem-tipo="checkbox" data-subitem-indice="${is}">
-            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${esVistaLectura ? " disabled" : ""}${marca ? " checked" : ""}>
+            <input type="checkbox" id="${id}-${is}" class="subitem-gestion-check"${soloLectura ? " disabled" : ""}${marca ? " checked" : ""}>
             <span>${escaparHtml(titulo)}</span>
+            ${firmaHtml}
         </label>
     `;
 }
@@ -589,6 +615,10 @@ function tareaHtml(t, idUnico, dia) {
     // tildado, sin llegar a completa) — "hecha"/"Hecho ..." dependen
     // de check.hecho (completa), no de que la fila exista.
     const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
+    // Candado (2026-08-31): una tarea guardada completa queda cerrada
+    // — no se puede volver a tocar salvo que un Admin la reabra (ver
+    // bannerCerradaHtml, reabrirTareaGestion).
+    const bloqueada = !!check?.cerrada;
 
     // Push + Exportar, JUNTOS, como sibling DESPUÉS de la tarjeta (no
     // adentro) — pedido explícito con captura real: "el push está
@@ -616,8 +646,9 @@ function tareaHtml(t, idUnico, dia) {
 
     if (t.subitems) {
         const marcados = check?.marcas || new Map();
+        const firmas = check?.firmas || new Map();
         return `
-            <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}" data-desplegable${atrId}>
+            <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}" data-desplegable${atrId}>
                 <button type="button" class="tarea-gestion-header" data-toggle-desplegable>
                     <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
                     <span class="tarea-gestion-txt">
@@ -629,10 +660,11 @@ function tareaHtml(t, idUnico, dia) {
                     ${badgeIncidenciasHtml(t.subitems, marcados)}
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
+                ${bannerCerradaHtml(check, t.id, dia)}
                 <div class="tarea-gestion-subitems" data-subitems>
-                    ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados)).join("")}
+                    ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados, firmas, bloqueada)).join("")}
                 </div>
-                ${esVistaLectura ? "" : `
+                ${(esVistaLectura || bloqueada) ? "" : `
                     <div class="tarea-gestion-guardar">
                         <button type="button" class="btn-guardar-subitems" data-guardar-subitems>${Icon("check", { size: 15 })} Guardar</button>
                     </div>
@@ -644,9 +676,9 @@ function tareaHtml(t, idUnico, dia) {
     }
 
     return `
-        <div class="tarea-gestion tarea-gestion-simple${check?.hecho ? " hecha" : ""}"${atrId}>
+        <div class="tarea-gestion tarea-gestion-simple${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}"${atrId}>
             <label class="tarea-gestion-label" for="${id}">
-                <input type="checkbox" id="${id}" class="tarea-gestion-check"${esVistaLectura ? " disabled" : ""}${check?.hecho ? " checked" : ""}>
+                <input type="checkbox" id="${id}" class="tarea-gestion-check"${(esVistaLectura || bloqueada) ? " disabled" : ""}${check?.hecho ? " checked" : ""}>
                 <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
                 <span class="tarea-gestion-txt">
                     <strong>${t.titulo}</strong>
@@ -654,9 +686,30 @@ function tareaHtml(t, idUnico, dia) {
                     <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                 </span>
             </label>
+            ${bannerCerradaHtml(check, t.id, dia)}
             ${accionesTareaHtml()}
         </div>
         ${pushWrapHtml}
+    `;
+}
+
+/** Banner + "Reabrir" (solo Admin) de una tarea CERRADA (candado, ver
+ *  actualizarCheckGestion) — pedido explícito 2026-08-31: "una vez que
+ *  guarda no podrá hacer cambios". Sin "Reabrir" un cierre por error
+ *  quedaría trabado para siempre; por eso es la única excepción, y
+ *  solo para Admin (esAdminActual(), mismo gate que Editar/Eliminar
+ *  tarea). */
+function bannerCerradaHtml(check, tareaId, dia) {
+    if (!check?.cerrada) return "";
+    const reabrirBtn = esAdminActual()
+        ? `<button type="button" class="btn-reabrir-tarea" data-reabrir-tarea data-tarea-id="${tareaId}" data-dia="${dia}">${Icon("candado", { size: 13 })} Reabrir</button>`
+        : "";
+    return `
+        <div class="tarea-gestion-banner-cerrada">
+            ${Icon("candado", { size: 14 })}
+            <span>Cerrada por ${escaparHtml(check.cerradaPor || "")}${check.cerradaHora ? ` · ${check.cerradaHora}` : ""} — ya no se puede modificar.</span>
+            ${reabrirBtn}
+        </div>
     `;
 }
 
@@ -735,6 +788,16 @@ Limpieza profunda de deck"></textarea>
         </label>
         <label>¿A quién le aplica? (vacío = a todos)
             ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
+        </label>
+        <label class="campo-recordatorio-tarea">
+            <span class="check-recordatorio-tarea-label">
+                <input type="checkbox" id="input-tarea-recordatorio-habilitado" style="width:auto;display:inline-block;margin-right:8px"${tarea?.recordatorioHabilitado === "NO" ? "" : " checked"}>
+                Recordatorio automático habilitado
+            </span>
+            <select id="input-tarea-recordatorio-hora">
+                <option value="">Usar el horario general</option>
+                ${Array.from({ length: 24 }, (_, h) => `<option value="${h}"${String(h) === String(tarea?.recordatorioHora ?? "") ? " selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("")}
+            </select>
         </label>
     `;
 }
@@ -866,7 +929,15 @@ async function confirmarTarea(idEditado = null) {
     // local) — se preserva lo que ya tuviera en vez de pisarlo con "",
     // por si se cargó a mano en la Sheet.
     const noAplicaA = registroTareas.get(idEditado)?.noAplicaA || "";
-    const datos = { icono, titulo, detalle, aplicaA, noAplicaA, ...(subitems.length ? { subitems } : {}) };
+    // Recordatorio por tarea (2026-08-31, pedido explícito: "el tema
+    // push quiero que sea por tarea") — reemplaza el horario único de
+    // antes. "hora" en blanco = usa el horario general (ver
+    // obtenerHorarioRecordatorioGestion/tarjeta "Recordatorio
+    // automático" en Asignar tareas), que ahora funciona como default
+    // para las tareas que no eligieron uno propio.
+    const recordatorioHabilitado = document.getElementById("input-tarea-recordatorio-habilitado")?.checked ? "SI" : "NO";
+    const recordatorioHora = document.getElementById("input-tarea-recordatorio-hora")?.value || "";
+    const datos = { icono, titulo, detalle, aplicaA, noAplicaA, recordatorioHabilitado, recordatorioHora, ...(subitems.length ? { subitems } : {}) };
 
     if (idEditado) {
         const r = await actualizarTareaBackend(idEditado, datos);
@@ -1034,7 +1105,34 @@ function cuerpoGestionHtml() {
         </button>
     ` : "";
     const acciones = botonNueva ? `<div class="acciones-gestion-semanal">${botonNueva}</div>` : "";
+    // Recordatorio automático — horario configurable (2026-08-31,
+    // pedido explícito, maqueta confirmada), antes fijo a las 10am.
+    // Es un ajuste GLOBAL de toda la red (no por local), por eso vive acá
+    // arriba, junto a "+ Nueva tarea" — no depende de haber elegido un
+    // local. El valor real se trae async (ver bindCuerpoGestion) y
+    // reemplaza el placeholder "10:00" apenas llega.
+    const cardRecordatorio = esAdminActual() ? `
+        <div class="card-recordatorio-gestion">
+            <div class="card-recordatorio-header">
+                ${Icon("campana", { size: 16 })}
+                <span>Recordatorio automático</span>
+                <span class="badge-solo-admin">Solo Admin</span>
+            </div>
+            <p class="card-recordatorio-desc">Horario general para las tareas que no tengan uno propio — cada tarea puede elegir el suyo (o apagar el recordatorio) en "+ Nueva tarea" / "Editar".</p>
+            <div class="card-recordatorio-control">
+                <select id="select-horario-recordatorio">
+                    ${Array.from({ length: 24 }, (_, h) => `<option value="${h}">${String(h).padStart(2, "0")}:00</option>`).join("")}
+                </select>
+                <button type="button" class="btn btn-primary" id="btn-guardar-horario-recordatorio">Guardar</button>
+            </div>
+        </div>
+    ` : "";
     const hayLocal = !esVistaLectura || !!sucursalActiva;
+    // "Histórico" (2026-08-31) — Responsable de local siempre (va
+    // directo a la suya); Admin/Supervisor solo después de elegir un
+    // local en el selector (mismo criterio que "Tareas asignadas").
+    // Responsable de turno NO tiene acceso — decisión explícita.
+    const puedeVerHistorico = usuarioEncargadoActivo || (esVistaLectura && !!sucursalActiva);
 
     // Filtro país/propio-franquicia (services/alcance.js →
     // aplicaASucursal) — pedido explícito: "puede haber tareas
@@ -1123,6 +1221,7 @@ function cuerpoGestionHtml() {
     if (!hayLocal) {
         return `
             ${acciones}
+            ${cardRecordatorio}
             ${catalogoHtml}
         `;
     }
@@ -1178,10 +1277,12 @@ function cuerpoGestionHtml() {
 
     return `
         ${acciones}
+        ${cardRecordatorio}
 
         <div class="tabs-gestion" id="tabs-seccion-gestion">
             <button class="tab-gestion${vistaSeccion === "asignar" ? " activa" : ""}" data-vista-seccion="asignar">Asignar tareas</button>
             <button class="tab-gestion${vistaSeccion === "ejecutar" ? " activa" : ""}" data-vista-seccion="ejecutar">Tareas asignadas</button>
+            ${puedeVerHistorico ? `<button class="tab-gestion${vistaSeccion === "historico" ? " activa" : ""}" data-vista-seccion="historico">${Icon("candado", { size: 12 })} Histórico</button>` : ""}
         </div>
 
         <!-- "Asignar tareas": catálogo — tocás una, se despliegan
@@ -1204,6 +1305,16 @@ function cuerpoGestionHtml() {
                 ${panelesSemanalesHtml}${panelesMensualesHtml}
             </div>
         </div>
+
+        <!-- "Histórico" (2026-08-31): ciclos ya cerrados, de solo
+             lectura — se carga recién al abrir la pestaña (ver
+             bindCuerpoGestion), no hace falta pedirlo si nunca se
+             mira. -->
+        ${puedeVerHistorico ? `
+            <div id="seccion-historico-gestion"${vistaSeccion === "historico" ? "" : ' style="display:none"'}>
+                <div id="contenido-historico-gestion" data-cargado="0"></div>
+            </div>
+        ` : ""}
     `;
 }
 
@@ -1211,6 +1322,33 @@ function cuerpoGestionHtml() {
  *  TAREAS/registroTareas — lo usan tanto la carga inicial (Gestion())
  *  como el selector de local al cambiar (bindGestion()), así las dos
  *  vías arman exactamente el mismo estado en memoria. */
+/** Reset de ciclo (2026-08-31) — filtra un mapa de checks (formato de
+ *  getChecksPorSucursal) a solo las filas del CICLO ACTUAL de cada
+ *  tarea. Se hace ACÁ, no en getChecksPorSucursal, porque recién acá se
+ *  conoce la frecuencia real de cada tarea (t.frecuencia, por
+ *  sucursal). Una fila de un ciclo VIEJO simplemente no entra: la
+ *  tarea vuelve a verse destildada, sin borrar ni migrar nada — sigue
+ *  existiendo en la hoja, solo se lee aparte (ver "Histórico",
+ *  getHistoricoGestion). Filas sin "ciclo" (columna todavía no
+ *  agregada a la Sheet real) se dejan pasar tal cual — mejor mostrar
+ *  de más que romper lo que ya andaba antes de este cambio. Usada
+ *  tanto en la carga inicial (cargarDatos) como en el repaso de fondo
+ *  de 20s (actualizarChecksEnDOM) — sin esto en el repaso, una tarea
+ *  del ciclo pasado (todavía sin tocar en el ciclo nuevo) volvía a
+ *  aparecer marcada apenas pasaban 20s. */
+function filtrarChecksCicloActual(checks) {
+    const frecuenciaPorTarea = {};
+    TAREAS.forEach((t) => { frecuenciaPorTarea[t.id] = t.frecuencia; });
+    const filtrados = {};
+    Object.entries(checks).forEach(([clave, check]) => {
+        const tareaId = clave.split("|")[0];
+        if (!check.ciclo || check.ciclo === cicloActual(frecuenciaPorTarea[tareaId] || "semanal")) {
+            filtrados[clave] = check;
+        }
+    });
+    return filtrados;
+}
+
 async function cargarDatos(sucursal) {
     const [catalogo, dias, checks] = await Promise.all([
         getTareas(),
@@ -1229,7 +1367,8 @@ async function cargarDatos(sucursal) {
         t.dias = info?.dias || [];
         t.frecuencia = info?.frecuencia || "semanal";
     });
-    checksActivos = checks;
+
+    checksActivos = filtrarChecksCicloActual(checks);
     registroTareas.clear();
     TAREAS.forEach((t) => registroTareas.set(t.id, t));
 }
@@ -1244,6 +1383,7 @@ export async function Gestion() {
     // Responsable de turno (colaborador, sin encargado) ve el catálogo
     // pero no lo toca — solo Responsable de local asigna días/frecuencia.
     soloLecturaAsignacion = esVistaLectura || !usuario?.encargado;
+    usuarioEncargadoActivo = !!usuario?.encargado;
     // Y por eso mismo arranca directo en "Tareas asignadas" — mostrarle
     // primero una pantalla que no puede tocar no tiene sentido.
     if (usuario?.rol === "colaborador" && !usuario?.encargado && usuario?.responsableTurno) vistaSeccion = "ejecutar";
@@ -1327,14 +1467,41 @@ function sanearInputMonto(input) {
  *  otro", dos dispositivos en el mismo local no se veían entre sí).
  *  Optimista, mismo patrón que bindDiasControl: la pantalla cambia al
  *  toque, si el backend rechaza se avisa y se revierte. */
+/** Bug real reportado en vivo (2026-08-31): "a veces dice Guardando...
+ *  pero no guarda" — quedaba PEGADO ahí para siempre. Causa: las 4
+ *  funciones de guardado de acá abajo (bindCheckboxHecha, guardarAhora,
+ *  bindDiasControl, bindFrecuenciaTarea) solo tenían `.then(...)`, sin
+ *  `.catch(...)` — si `gasRequest` (services/google.js) TIRA una
+ *  excepción en vez de devolver `{ok:false}` (timeout de 20s, se cortó
+ *  la conexión, sesión inválida), esa promesa queda RECHAZADA y el
+ *  `.then` nunca corre — el botón se queda deshabilitado, mostrando
+ *  "Guardando..." de forma permanente, sin ningún aviso ni forma de
+ *  reintentar salvo recargar la página entera. Cada call site agrega
+ *  un `.catch` propio (revierte su estado optimista distinto), pero
+ *  todos avisan y loguean con esta misma función. */
+function manejarFalloGuardadoGestion(err, revertir) {
+    console.warn("Guardado de Gestión falló:", err?.message || err);
+    alert(err?.message || "No se pudo guardar — probá de nuevo.");
+    revertir();
+}
+
 function bindCheckboxHecha(chk) {
     chk.addEventListener("change", () => {
-        ultimaEdicionLocalGestion = Date.now();
         const tarjeta = chk.closest(".tarea-gestion");
         const tareaId = tarjeta.dataset.tareaId;
         const dia = tarjeta.dataset.dia;
         const hechoNuevo = chk.checked;
 
+        // Candado — pedido explícito 2026-08-31: tildar esta tarea la
+        // deja COMPLETA, y una tarea completa queda cerrada (no se
+        // puede volver a tocar salvo que un Admin la reabra). Se avisa
+        // ANTES de guardar, no después — revierte el tilde si cancela.
+        if (hechoNuevo && !confirm('Al guardar, esta tarea queda cerrada y no vas a poder modificarla. ¿Confirmás?')) {
+            chk.checked = false;
+            return;
+        }
+
+        ultimaEdicionLocalGestion = Date.now();
         tarjeta.classList.toggle("hecha", hechoNuevo);
         const hora = tarjeta.querySelector("[data-hora]");
         // "Guardando..." mientras dura el ~1-1.5s real de Apps Script —
@@ -1356,6 +1523,21 @@ function bindCheckboxHecha(chk) {
             }
             const nombre = getUsuarioActual()?.nombre || "";
             if (hora) hora.textContent = hechoNuevo ? `Hecho ${horaAhora()}${nombre ? ` · ${nombre}` : ""}` : "";
+            // Completa = cerrada del lado del servidor (ver
+            // actualizarCheckGestion) — se refleja acá mismo,
+            // re-renderizando la tarjeta bloqueada, sin esperar al
+            // próximo repaso de 20s (actualizarChecksEnDOM).
+            if (hechoNuevo) {
+                checksActivos[`${tareaId}|${dia}`] = { ...checksActivos[`${tareaId}|${dia}`], hecho: true, marcadoPor: nombre, hora: horaAhora(), cerrada: true, cerradaPor: nombre, cerradaHora: horaAhora() };
+                recrearTareaEnPaneles(tareaId);
+            }
+        }).catch((err) => {
+            chk.disabled = false;
+            manejarFalloGuardadoGestion(err, () => {
+                chk.checked = !hechoNuevo;
+                tarjeta.classList.toggle("hecha", !hechoNuevo);
+                if (hora) hora.textContent = !hechoNuevo ? `Hecho ${horaAhora()}` : "";
+            });
         });
     });
 }
@@ -1420,6 +1602,12 @@ function bindDiasControl(contenedor) {
                     // Revertir TODA la ráfaga (no solo el último toque) al estado de antes de empezarla.
                     tarea.dias = estado.diasPrevios;
                     recrearTareaEnPaneles(idTarea);
+                }).catch((err) => {
+                    timersDias.delete(idTarea);
+                    manejarFalloGuardadoGestion(err, () => {
+                        tarea.dias = estado.diasPrevios;
+                        recrearTareaEnPaneles(idTarea);
+                    });
                 });
             }, 700);
         });
@@ -1456,6 +1644,12 @@ function bindFrecuenciaTarea(contenedor) {
                 tarea.frecuencia = nueva === "mensual" ? "semanal" : "mensual";
                 tarea.dias = diasPrevios;
                 recrearTareaEnPaneles(idTarea);
+            }).catch((err) => {
+                manejarFalloGuardadoGestion(err, () => {
+                    tarea.frecuencia = nueva === "mensual" ? "semanal" : "mensual";
+                    tarea.dias = diasPrevios;
+                    recrearTareaEnPaneles(idTarea);
+                });
             });
         });
     });
@@ -1478,6 +1672,13 @@ function bindFrecuenciaTarea(contenedor) {
 function leerMarcaFilaSubitem(fila, contenedor) {
     const tipo = fila.dataset.subitemTipo;
     if (tipo === TIPOS_SUBITEM.NUMERICO) {
+        // Bug real reportado en vivo (2026-08-31): un numérico nunca
+        // tocado vale $0 por DEFAULT, y $0 se lee como "Cuadra" — sin
+        // este chequeo, un ítem que nadie miró contaba igual como
+        // "respondido" y dejaba exportar/avisar con algo en realidad
+        // pendiente. "tocado" (ver subitemFilaHtml/bindTarjetaDesplegable)
+        // distingue "nadie lo tocó todavía" de "confirmó que da 0".
+        if (fila.dataset.tocado !== "1") return undefined;
         // Magnitud (siempre ≥0, lo que se escribe) + signo (lo que se
         // elige con Falta/Sobra) — ver comentario en subitemFilaHtml.
         const input = fila.querySelector(".input-numerico-subitem");
@@ -1570,6 +1771,12 @@ function bindTarjetaDesplegable(tarjeta) {
     function guardarAhora() {
         const { filas, marcados } = leerTodo();
         const completa = filas.length > 0 && marcados.length === filas.length;
+
+        // Candado — pedido explícito 2026-08-31: guardar con TODO
+        // respondido deja la tarea cerrada (no se puede volver a tocar
+        // salvo que un Admin la reabra). Se avisa ANTES de guardar.
+        if (completa && !confirm('Al guardar, esta tarea queda cerrada y no vas a poder modificarla. ¿Confirmás?')) return;
+
         tarjeta.classList.toggle("hecha", completa);
         // "Guardando..." hasta que el guardado REAL termine — SIEMPRE
         // que el resultado sea completa, no solo la primera vez que se
@@ -1622,6 +1829,29 @@ function bindTarjetaDesplegable(tarjeta) {
                 btnGuardar.textContent = completa ? "✓ Guardado" : `Guardado — faltan ${filas.length - marcados.length}`;
                 setTimeout(() => { btnGuardar.textContent = textoOriginal; }, completa ? 2000 : 3500);
             }
+            // Completa = cerrada del lado del servidor (ver
+            // actualizarCheckGestion) — se refleja acá mismo,
+            // re-renderizando la tarjeta bloqueada (candado + firma por
+            // ítem), sin esperar al próximo repaso de 20s.
+            if (completa) {
+                const nombre = getUsuarioActual()?.nombre || "";
+                const horaActual = horaAhora();
+                const anterior = checksActivos[clave];
+                const marcasMap = new Map(marcados.map(({ indice, marca }) => [String(indice), marca]));
+                const firmasMap = new Map();
+                marcados.forEach(({ indice }) => {
+                    const previa = anterior?.firmas?.get(String(indice));
+                    firmasMap.set(String(indice), previa?.nombre ? previa : { indice: String(indice), nombre, hora: horaActual });
+                });
+                checksActivos[clave] = { ...anterior, hecho: true, marcadoPor: nombre, hora: horaActual, marcas: marcasMap, firmas: firmasMap, cerrada: true, cerradaPor: nombre, cerradaHora: horaActual };
+                recrearTareaEnPaneles(tarjeta.dataset.tareaId);
+            }
+        }).catch((err) => {
+            if (btnGuardar) btnGuardar.disabled = false;
+            manejarFalloGuardadoGestion(err, () => {
+                if (btnGuardar) btnGuardar.textContent = textoOriginal;
+                if (hora && completa) hora.textContent = "";
+            });
         });
     }
 
@@ -1649,14 +1879,38 @@ function bindTarjetaDesplegable(tarjeta) {
     // parsearMontoInput). Bug real reportado en vivo: "10.500" pensado
     // como diez mil quinientos se leía como 10,5 al exportar.
     contenedorSubitems.addEventListener("input", (e) => {
-        if (e.target.classList.contains("input-numerico-subitem")) sanearInputMonto(e.target);
+        if (e.target.classList.contains("input-numerico-subitem")) {
+            sanearInputMonto(e.target);
+            // "tocado" (bug 4.3, ver leerMarcaFilaSubitem): recién ACÁ
+            // cuenta como respondido — antes del primer toque, el $0
+            // por default no es una respuesta, es que nadie lo miró.
+            e.target.closest(".subitem-numerico").dataset.tocado = "1";
+        }
     });
 
     contenedorSubitems.addEventListener("click", (e) => {
+        // "Cuadra" — pedido explícito 2026-08-31: si alguien tocó Falta/
+        // Sobra por error, un solo botón lo vuelve a $0/verde en vez de
+        // tener que borrar el monto a mano Y volver a tocar el signo
+        // equivocado para destildarlo.
+        const btnCuadra = e.target.closest("[data-accion-cuadra]");
+        if (btnCuadra) {
+            const fila = btnCuadra.closest(".subitem-numerico");
+            const input = fila.querySelector(".input-numerico-subitem");
+            if (input) input.value = "0";
+            fila.dataset.signo = "+";
+            fila.dataset.tocado = "1";
+            fila.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
+            btnCuadra.classList.add("activo");
+            actualizarColorNumerico(fila);
+            actualizarProgresoLocal();
+            return;
+        }
         const signoBtn = e.target.closest(".signo-btn");
         if (signoBtn) {
             const fila = signoBtn.closest(".subitem-numerico");
             fila.dataset.signo = signoBtn.dataset.signo;
+            fila.dataset.tocado = "1"; // elegir Falta/Sobra también es "tocarlo", aunque el monto siga en $0.
             fila.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
             signoBtn.classList.add("activo");
             actualizarProgresoLocal();
@@ -1721,11 +1975,13 @@ function bindTarjetaDesplegable(tarjeta) {
         if (!destino) return;
         const input = destino.querySelector(".input-numerico-subitem");
         if (input) input.value = "0";
-        // En $0 el signo no significa nada — ninguno de los dos botones
-        // queda marcado, para no dejar un "Falta"/"Sobra" en rojo o
-        // naranja al lado de un valor que en realidad está en cero.
+        destino.dataset.tocado = "1"; // confirmado en 0 automáticamente por el "OK" del estado3 emparejado — cuenta como respondido.
+        // En $0 queda marcado "Cuadra" — ninguno de los dos botones de
+        // signo (Falta/Sobra), para no dejar uno en rojo o naranja al
+        // lado de un valor que en realidad está en cero.
         destino.dataset.signo = "+";
         destino.querySelectorAll(".signo-btn").forEach((b) => b.classList.remove("activo"));
+        destino.querySelector("[data-accion-cuadra]")?.classList.add("activo");
         actualizarColorNumerico(destino);
     }
 }
@@ -1833,7 +2089,12 @@ function pushBannerHtml() {
  *  pusiste en push a exportar". */
 function tareaEstaCompleta(tareaId, dia) {
     const tarjeta = document.querySelector(`.tarea-gestion[data-tarea-id="${tareaId}"][data-dia="${dia}"]`);
-    if (!tarjeta) return true; // no hay nada que frenar si ni existe la tarjeta
+    // Antes devolvía true ("está completa") si no encontraba la
+    // tarjeta — fallaba ABIERTO: dejaba exportar/avisar sin ninguna
+    // forma de confirmar que en verdad estaba todo respondido. Bug
+    // real reportado en vivo (2026-08-31): fail-closed acá, no al
+    // revés — sin la tarjeta no hay cómo confirmar nada.
+    if (!tarjeta) return false;
     const contenedorSubitems = tarjeta.querySelector("[data-subitems]");
     if (contenedorSubitems) {
         const marcas = Array.from(contenedorSubitems.children).map((fila) => leerMarcaFilaSubitem(fila, contenedorSubitems));
@@ -1958,6 +2219,238 @@ function bindTarjetaNueva(nodo) {
     if (nodo.matches("[data-desplegable]")) bindTarjetaDesplegable(nodo);
 }
 
+/** ✓/— (y Falta/Sobra/Hecho-No hecho) de cada sub-ítem, como texto
+ *  plano FIJO, ANTES de exportar — extraído de la exportación en vivo
+ *  (2026-08-26) para reusarlo tal cual en el PDF de "Histórico"
+ *  (2026-08-31, ver exportarCicloHistorico): html2canvas (motor real
+ *  detrás de "Descargar PDF") reimplementa su propio soporte de
+ *  pseudo-clases de estado y no renderiza bien ":checked" ni otros
+ *  estados dinámicos — texto fijo no le exige entender nada de eso.
+ *  Devuelve los nodos agregados para poder sacarlos apenas termina de
+ *  exportar (exportarAPdf clona el HTML de forma síncrona, alcanza con
+ *  sacarlos justo después). `contenedorId` es el id del contenedor
+ *  cuyo contenido se va a exportar (distinto en vivo vs. Histórico). */
+function prepararSubitemsParaExportar(contenedorId) {
+    document.querySelectorAll(`#${contenedorId} input[type=checkbox]`).forEach((chk) => {
+        if (chk.checked) chk.setAttribute("checked", "checked");
+        else chk.removeAttribute("checked");
+    });
+
+    const marcasAgregadas = [];
+
+    document.querySelectorAll(`#${contenedorId} .subitem-gestion`).forEach((label) => {
+        const input = label.querySelector("input[type=checkbox]");
+        const span = label.querySelector("span");
+        if (!input || !span) return;
+        const marca = document.createElement("span");
+        marca.className = "subitem-gestion-marca";
+        marca.style.color = input.checked ? "#1a7a3c" : "#999";
+        marca.textContent = input.checked ? "✓ " : "— ";
+        span.before(marca);
+        marcasAgregadas.push(marca);
+    });
+
+    document.querySelectorAll(`#${contenedorId} .subitem-numerico`).forEach((fila) => {
+        const input = fila.querySelector(".input-numerico-subitem");
+        const span = fila.querySelector("span");
+        if (!input || !span) return;
+        input.setAttribute("value", input.value);
+        const magnitud = input.value === "" ? 0 : Math.abs(parsearMontoInput(input.value));
+        const esFalta = fila.dataset.signo === "-";
+        const marca = document.createElement("span");
+        marca.className = "subitem-gestion-marca";
+        marca.style.color = magnitud === 0 ? "#1a7a3c" : esFalta ? "#c0392b" : "#b8860b";
+        marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${formatearMontoInput(magnitud)} `;
+        span.before(marca);
+        marcasAgregadas.push(marca);
+    });
+
+    document.querySelectorAll(`#${contenedorId} .subitem-estado2`).forEach((fila) => {
+        const span = fila.querySelector("span");
+        if (!span) return;
+        const estado = fila.dataset.estadoActual;
+        const marca = document.createElement("span");
+        marca.className = "subitem-gestion-marca";
+        marca.style.color = estado === "si" ? "#1a7a3c" : estado === "no" ? "#c0392b" : "#999";
+        marca.textContent = estado === "si" ? "✓ " : estado === "no" ? "✕ No hecho " : "— ";
+        span.before(marca);
+        marcasAgregadas.push(marca);
+    });
+
+    document.querySelectorAll(`#${contenedorId} .subitem-estado3`).forEach((fila) => {
+        const span = fila.querySelector(".subitem-estado3-fila span");
+        if (!span) return;
+        const estado = fila.dataset.estadoActual;
+        const chipActivo = document.querySelector(`#${contenedorId} [data-motivo-de="${fila.dataset.subitemIndice}"] .chip-motivo.activo`);
+        const marca = document.createElement("span");
+        marca.className = "subitem-gestion-marca";
+        if (!estado) {
+            marca.style.color = "#999";
+            marca.textContent = "— ";
+        } else if (estado === "ok") {
+            marca.style.color = "#1a7a3c";
+            marca.textContent = "✓ ";
+        } else {
+            marca.style.color = estado === "grave" ? "#c0392b" : "#b8860b";
+            marca.textContent = `${estado === "grave" ? "✕" : "!"} ${chipActivo ? chipActivo.dataset.motivo + " " : ""}`;
+        }
+        span.before(marca);
+        marcasAgregadas.push(marca);
+    });
+
+    return marcasAgregadas;
+}
+
+/** "Histórico" (2026-08-31) — trae los ciclos ya cerrados y los pinta
+ *  agrupados por ciclo, más reciente primero. Se llama recién al abrir
+ *  la pestaña (ver bindCuerpoGestion), no en la carga inicial — nadie
+ *  paga el costo de este fetch si nunca la mira. */
+async function renderHistoricoGestion() {
+    const contenedor = document.getElementById("contenido-historico-gestion");
+    if (!contenedor) return;
+    contenedor.innerHTML = `<p class="aviso-tareas-aplicables">Cargando histórico…</p>`;
+
+    // Responsable de local: sin sucursal explícita (el backend usa la
+    // suya). Admin/Supervisor: la que eligieron en el selector.
+    const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
+
+    if (!filas.length) {
+        contenedor.innerHTML = `
+            <div class="vacio-historico-gestion">
+                ${Icon("calendario", { size: 26 })}
+                <p>Todavía no hay ciclos archivados — el primero va a aparecer cuando termine esta semana o este mes.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const catalogo = {};
+    TAREAS.forEach((t) => { catalogo[t.id] = t; });
+
+    const porCiclo = new Map();
+    filas.forEach((f) => {
+        if (!porCiclo.has(f.ciclo)) porCiclo.set(f.ciclo, []);
+        porCiclo.get(f.ciclo).push(f);
+    });
+    // Más reciente primero — "AAAA-MM-DD" y "AAAA-MM" ordenan bien como
+    // texto plano, no hace falta parsear fechas para esto.
+    const ciclosOrdenados = [...porCiclo.keys()].sort().reverse();
+
+    // Solo el Responsable de local de ESE local puede borrar — Admin/
+    // Supervisor mirando un local ajeno, no (mismo gate que el server,
+    // ver eliminarHistoricoGestion en Code.gs).
+    const puedeBorrar = usuarioEncargadoActivo;
+
+    contenedor.innerHTML = ciclosOrdenados.map((ciclo) => {
+        const filasCiclo = porCiclo.get(ciclo);
+        const completas = filasCiclo.filter((f) => String(f.hecho).toUpperCase() === "SI").length;
+        const esMensual = /^\d{4}-\d{2}$/.test(ciclo);
+        const filasHtml = filasCiclo.map((f) => {
+            const titulo = catalogo[f.tareaId]?.titulo || f.tareaId;
+            const completa = String(f.hecho).toUpperCase() === "SI";
+            return `
+                <div class="fila-tarea-historico${completa ? "" : " no-completada"}">
+                    <span class="estado-ico-historico ${completa ? "ok" : "no"}">${Icon(completa ? "check" : "cerrar", { size: 12 })}</span>
+                    <span class="fila-tarea-historico-txt">
+                        <strong>${escaparHtml(titulo)}</strong>
+                        <span>${completa ? `Hecho ${f.hora || ""}${f.marcadoPor ? ` · ${escaparHtml(f.marcadoPor)}` : ""}` : "No completada"}</span>
+                    </span>
+                </div>
+            `;
+        }).join("");
+        return `
+            <div class="ciclo-card-historico">
+                <div class="ciclo-header-historico">
+                    <span class="ciclo-ico-historico">${Icon("calendario", { size: 17 })}</span>
+                    <span class="ciclo-titulo-historico">
+                        <strong>${etiquetaCiclo(ciclo)}</strong>
+                        <span>${escaparHtml(filasCiclo[0].sucursal || "")}</span>
+                    </span>
+                    <span class="tag-frecuencia-historico">${esMensual ? "Mensual" : "Semanal"}</span>
+                    <span class="pill-progreso-historico ${completas === filasCiclo.length ? "completo" : "parcial"}">${completas}/${filasCiclo.length} completadas</span>
+                    <div class="ciclo-acciones-historico">
+                        <button type="button" class="btn-mini-historico descargar" data-descargar-ciclo="${ciclo}" data-sucursal-ciclo="${escaparHtml(filasCiclo[0].sucursal || "")}">${Icon("descargar", { size: 14 })} Descargar PDF</button>
+                        ${puedeBorrar ? `<button type="button" class="btn-mini-historico eliminar" data-eliminar-ciclo="${ciclo}">${Icon("tacho", { size: 14 })} Eliminar</button>` : ""}
+                    </div>
+                </div>
+                <div class="ciclo-tareas-historico">${filasHtml}</div>
+            </div>
+        `;
+    }).join("");
+}
+
+/** Re-genera el PDF de UN ciclo ya cerrado, reusando tareaHtml() +
+ *  exportarAPdf() tal cual — mismo look que "Exportar a PDF" en vivo,
+ *  sin duplicar esa lógica. Apunta MOMENTÁNEAMENTE checksActivos/
+ *  esVistaLectura al estado archivado (en vez del vivo), renderiza
+ *  fuera de pantalla, exporta, y restaura todo — así ninguna otra
+ *  parte de la pantalla se entera de este cambio temporal.
+ *  Limitación aceptada: si la tarea cambió de título/sub-ítems después
+ *  de archivada, el PDF muestra la versión ACTUAL de la tarea, no la
+ *  histórica — no vale la pena guardar una copia completa de la
+ *  definición para ese caso borde. */
+async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
+    const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
+    const filasCiclo = filas.filter((f) => String(f.ciclo) === String(ciclo));
+    if (!filasCiclo.length) {
+        alert("No se encontró ese ciclo — puede que ya se haya borrado.");
+        return;
+    }
+
+    const checksDelCiclo = {};
+    filasCiclo.forEach((f) => {
+        const marcas = new Map();
+        String(f.subitemsMarcados || "").split(",").filter(Boolean).forEach((entrada) => {
+            const marca = parsearMarcaSubitem(entrada);
+            marcas.set(marca.indice, marca);
+        });
+        const firmas = new Map();
+        String(f.subitemsFirmas || "").split(",").filter(Boolean).forEach((entrada) => {
+            const firma = parsearFirmaSubitem(entrada);
+            firmas.set(firma.indice, firma);
+        });
+        checksDelCiclo[`${f.tareaId}|${f.dia}`] = {
+            marcadoPor: f.marcadoPor || "", hora: f.hora || "",
+            hecho: String(f.hecho).toUpperCase() === "SI", marcas, firmas,
+            cerrada: String(f.cerrada).toUpperCase() === "SI", cerradaPor: f.cerradaPor || "", cerradaHora: f.cerradaHora || "",
+        };
+    });
+
+    const previoChecks = checksActivos;
+    const previoLectura = esVistaLectura;
+    checksActivos = checksDelCiclo;
+    esVistaLectura = true; // Histórico es de solo lectura, pase lo que pase con el usuario real.
+
+    const contenedor = document.createElement("div");
+    contenedor.id = "contenido-historico-imprimible";
+    contenedor.style.cssText = "position:fixed; left:-9999px; top:0;";
+    contenedor.innerHTML = membreteHtml(`Guía de Gestión — ${etiquetaCiclo(ciclo)}`, sucursalDelCiclo);
+    filasCiclo.forEach((f) => {
+        const tarea = catalogoHistorico(f.tareaId);
+        if (!tarea) return;
+        contenedor.insertAdjacentHTML("beforeend", tareaHtml(tarea, `hist-${f.tareaId}-${f.dia}`, f.dia));
+    });
+    document.body.appendChild(contenedor);
+
+    const marcasAgregadas = prepararSubitemsParaExportar("contenido-historico-imprimible");
+    try {
+        exportarAPdf("contenido-historico-imprimible", `Guía de Gestión — ${etiquetaCiclo(ciclo)}`, { soloDescarga: true });
+    } finally {
+        marcasAgregadas.forEach((m) => m.remove());
+        contenedor.remove();
+        checksActivos = previoChecks;
+        esVistaLectura = previoLectura;
+    }
+}
+
+/** Tarea del catálogo por id, para el PDF de Histórico — registroTareas
+ *  puede no tener TODAS las tareas que alguna vez existieron si el
+ *  catálogo cambió, TAREAS sí (viene fresco de getTareas() en
+ *  cargarDatos); se prueba primero ahí, registroTareas como respaldo. */
+function catalogoHistorico(tareaId) {
+    return TAREAS.find((t) => t.id === tareaId) || registroTareas.get(tareaId);
+}
+
 /** Todo lo que hay que re-enganchar cada vez que #cuerpo-gestion se
  *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
  *  cambia de local en el selector (mismo contenido, nodos nuevos). */
@@ -1993,7 +2486,44 @@ function bindCuerpoGestion() {
             btn.classList.add("activa");
             document.getElementById("seccion-asignar-tareas").style.display = vistaSeccion === "asignar" ? "" : "none";
             document.getElementById("seccion-tareas-asignadas").style.display = vistaSeccion === "ejecutar" ? "" : "none";
+            const seccionHistorico = document.getElementById("seccion-historico-gestion");
+            if (seccionHistorico) {
+                seccionHistorico.style.display = vistaSeccion === "historico" ? "" : "none";
+                // Lazy: recién se pide al backend la PRIMERA vez que se
+                // abre esta pestaña — nadie paga ese fetch si nunca la
+                // mira. dataset.cargado evita repetirlo cada vez que se
+                // vuelve a esta pestaña dentro de la misma visita.
+                const contenido = document.getElementById("contenido-historico-gestion");
+                if (vistaSeccion === "historico" && contenido && contenido.dataset.cargado !== "1") {
+                    contenido.dataset.cargado = "1";
+                    renderHistoricoGestion();
+                }
+            }
         });
+    });
+
+    // "Descargar PDF" / "Eliminar" de un ciclo del Histórico — delegado
+    // en el contenedor (las tarjetas se re-arman enteras cada vez que
+    // se abre la pestaña, ver renderHistoricoGestion).
+    document.getElementById("contenido-historico-gestion")?.addEventListener("click", (e) => {
+        const btnDescargar = e.target.closest("[data-descargar-ciclo]");
+        if (btnDescargar) {
+            exportarCicloHistorico(btnDescargar.dataset.descargarCiclo, btnDescargar.dataset.sucursalCiclo);
+            return;
+        }
+        const btnEliminar = e.target.closest("[data-eliminar-ciclo]");
+        if (btnEliminar) {
+            if (!confirm("¿Eliminar este ciclo del histórico? No se puede deshacer.")) return;
+            btnEliminar.disabled = true;
+            eliminarHistoricoGestion(btnEliminar.dataset.eliminarCiclo, sucursalActiva).then((r) => {
+                if (!r?.ok) {
+                    alert(r?.error || "No se pudo eliminar — probá de nuevo.");
+                    btnEliminar.disabled = false;
+                    return;
+                }
+                renderHistoricoGestion();
+            }).catch((err) => manejarFalloGuardadoGestion(err, () => { btnEliminar.disabled = false; }));
+        }
     });
 
     document.querySelectorAll(".tarea-gestion-check").forEach(bindCheckboxHecha);
@@ -2008,6 +2538,59 @@ function bindCuerpoGestion() {
     // Lecciones: encabezado + sub-tareas sueltas.
     document.getElementById("btn-nueva-tarea")?.addEventListener("click", () => abrirModalTarea());
     document.getElementById("btn-carga-masiva-tareas")?.addEventListener("click", () => abrirModalCargaMasiva());
+
+    // "Recordatorio automático" — horario configurable, solo Admin
+    // (2026-08-31). El <select> nace con "10:00" de placeholder (ver
+    // cuerpoGestionHtml); acá se pisa con el valor real apenas llega,
+    // sin bloquear el resto del render por este único dato.
+    const selectHorario = document.getElementById("select-horario-recordatorio");
+    if (selectHorario) {
+        getHorarioRecordatorioGestion().then((r) => {
+            if (r?.ok && selectHorario.isConnected) selectHorario.value = String(r.hora);
+        });
+        document.getElementById("btn-guardar-horario-recordatorio")?.addEventListener("click", (e) => {
+            const boton = e.currentTarget;
+            const textoOriginal = boton.textContent;
+            boton.disabled = true;
+            boton.textContent = "Guardando...";
+            guardarHorarioRecordatorioGestion(selectHorario.value).then((r) => {
+                boton.disabled = false;
+                if (!r?.ok) {
+                    alert(r?.error || "No se pudo guardar — probá de nuevo.");
+                    boton.textContent = textoOriginal;
+                    return;
+                }
+                boton.textContent = "✓ Guardado";
+                setTimeout(() => { boton.textContent = textoOriginal; }, 2000);
+            }).catch((err) => {
+                boton.disabled = false;
+                manejarFalloGuardadoGestion(err, () => { boton.textContent = textoOriginal; });
+            });
+        });
+    }
+
+    // "Reabrir tarea" (candado, solo Admin) — delegado en el mismo
+    // contenedor estable que "Exportar a PDF" de abajo, mismo motivo:
+    // el botón vive DENTRO de cada tarea (bannerCerradaHtml) y no
+    // debería necesitar re-engancharse cada vez que recrearTareaEnPaneles
+    // reconstruye una tarjeta.
+    document.getElementById("contenido-gestion-imprimible")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-reabrir-tarea]");
+        if (!btn) return;
+        const { tareaId, dia } = btn.dataset;
+        if (!confirm("¿Reabrir esta tarea? Vuelve a quedar editable, sin perder lo ya cargado.")) return;
+        btn.disabled = true;
+        reabrirTareaGestion(tareaId, dia, sucursalActiva).then((r) => {
+            if (!r?.ok) {
+                alert(r?.error || "No se pudo reabrir — probá de nuevo.");
+                btn.disabled = false;
+                return;
+            }
+            const clave = `${tareaId}|${dia}`;
+            checksActivos[clave] = { ...checksActivos[clave], cerrada: false };
+            recrearTareaEnPaneles(tareaId);
+        }).catch((err) => manejarFalloGuardadoGestion(err, () => { btn.disabled = false; }));
+    });
 
     // "Exportar a PDF" — solo la Gestión semanal (es la única parte
     // operativa, lo que se "lleva al sistema" después de hacer la
@@ -2050,98 +2633,7 @@ function bindCuerpoGestion() {
                 return;
             }
         }
-        document.querySelectorAll("#contenido-gestion-imprimible input[type=checkbox]").forEach((chk) => {
-            if (chk.checked) chk.setAttribute("checked", "checked");
-            else chk.removeAttribute("checked");
-        });
-
-        // ✓/— de cada sub-ítem: se agrega como texto plano FIJO acá,
-        // no con CSS ":checked" en el documento exportado — reportado
-        // en vivo (2026-08-26): "Descargar PDF" seguía fallando con
-        // sub-ítems aunque ya no usara ":has()". El motor real detrás
-        // de esa descarga (html2canvas) reimplementa su propio motor
-        // de CSS y su soporte de pseudo-clases de estado en general es
-        // poco confiable, no solo ":has()" — texto fijo no le exige
-        // entender nada dinámico. No es "mentirle a la app": el
-        // checkbox está REALMENTE tildado o no, esto solo hace que ese
-        // estado real sea legible para un motor de PDF limitado — se
-        // saca el nodo agregado apenas termina de exportar (exportarAPdf
-        // clona el HTML de forma síncrona, así que esto alcanza).
-        const spansSubitem = document.querySelectorAll("#contenido-gestion-imprimible .subitem-gestion");
-        const marcasAgregadas = [];
-        spansSubitem.forEach((label) => {
-            const input = label.querySelector("input[type=checkbox]");
-            const span = label.querySelector("span");
-            if (!input || !span) return;
-            const marca = document.createElement("span");
-            marca.className = "subitem-gestion-marca";
-            marca.style.color = input.checked ? "#1a7a3c" : "#999";
-            marca.textContent = input.checked ? "✓ " : "— ";
-            span.before(marca);
-            marcasAgregadas.push(marca);
-        });
-
-        // Sub-ítems numéricos (ej. "Saldo/diferencia") — magnitud +
-        // signo (Falta/Sobra), NO un solo valor con "-" (ver
-        // subitemFilaHtml) — el ATRIBUTO value tampoco sigue al valor
-        // tecleado (mismo problema que "checked" arriba), se
-        // sincroniza antes de clonar. Suma una etiqueta de texto fijo
-        // con el resultado (Cuadra ✓ / Faltan $X / Sobran $X), mismo
-        // criterio que el ✓/— de los checkbox.
-        document.querySelectorAll("#contenido-gestion-imprimible .subitem-numerico").forEach((fila) => {
-            const input = fila.querySelector(".input-numerico-subitem");
-            const span = fila.querySelector("span");
-            if (!input || !span) return;
-            input.setAttribute("value", input.value);
-            const magnitud = input.value === "" ? 0 : Math.abs(parsearMontoInput(input.value));
-            const esFalta = fila.dataset.signo === "-";
-            const marca = document.createElement("span");
-            marca.className = "subitem-gestion-marca";
-            // Mismo criterio que en pantalla: Falta = rojo (más grave),
-            // Sobra = naranja, Cuadra (0) = verde.
-            marca.style.color = magnitud === 0 ? "#1a7a3c" : esFalta ? "#c0392b" : "#b8860b";
-            marca.textContent = magnitud === 0 ? "✓ Cuadra " : `${esFalta ? "Faltan" : "Sobran"} $${formatearMontoInput(magnitud)} `;
-            span.before(marca);
-            marcasAgregadas.push(marca);
-        });
-
-        // Sub-ítems de 2 estados (Hecho/No hecho), mismo criterio.
-        document.querySelectorAll("#contenido-gestion-imprimible .subitem-estado2").forEach((fila) => {
-            const span = fila.querySelector("span");
-            if (!span) return;
-            const estado = fila.dataset.estadoActual;
-            const marca = document.createElement("span");
-            marca.className = "subitem-gestion-marca";
-            marca.style.color = estado === "si" ? "#1a7a3c" : estado === "no" ? "#c0392b" : "#999";
-            marca.textContent = estado === "si" ? "✓ " : estado === "no" ? "✕ No hecho " : "— ";
-            span.before(marca);
-            marcasAgregadas.push(marca);
-        });
-
-        // Sub-ítems de 3 estados (ej. "Efectivo") — estado + motivo
-        // elegido, mismo criterio que arriba.
-        document.querySelectorAll("#contenido-gestion-imprimible .subitem-estado3").forEach((fila) => {
-            const span = fila.querySelector(".subitem-estado3-fila span");
-            if (!span) return;
-            const estado = fila.dataset.estadoActual;
-            // Los chips de este estado3 viven en el numérico hermano
-            // (ver subitemFilaHtml) — no adentro de esta fila.
-            const chipActivo = document.querySelector(`#contenido-gestion-imprimible [data-motivo-de="${fila.dataset.subitemIndice}"] .chip-motivo.activo`);
-            const marca = document.createElement("span");
-            marca.className = "subitem-gestion-marca";
-            if (!estado) {
-                marca.style.color = "#999";
-                marca.textContent = "— ";
-            } else if (estado === "ok") {
-                marca.style.color = "#1a7a3c";
-                marca.textContent = "✓ ";
-            } else {
-                marca.style.color = estado === "grave" ? "#c0392b" : "#b8860b";
-                marca.textContent = `${estado === "grave" ? "✕" : "!"} ${chipActivo ? chipActivo.dataset.motivo + " " : ""}`;
-            }
-            span.before(marca);
-            marcasAgregadas.push(marca);
-        });
+        const marcasAgregadas = prepararSubitemsParaExportar("contenido-gestion-imprimible");
 
         // Se exporta EXACTAMENTE lo que está en pantalla en este
         // momento (el día activo), sin trucos — pedido explícito:
@@ -2219,19 +2711,39 @@ async function actualizarChecksEnDOM() {
     } catch (err) {
         return; // silencioso — es un refresco de fondo, no una acción del usuario
     }
-    checksActivos = frescos;
+    // Mismo filtro de ciclo que la carga inicial (ver filtrarChecksCicloActual)
+    // — sin esto, una tarea del ciclo pasado (todavía sin tocar en el
+    // ciclo nuevo) volvía a aparecer marcada apenas pasaban 20s.
+    checksActivos = filtrarChecksCicloActual(frescos);
 
     document.querySelectorAll("#contenido-gestion-imprimible .tarea-gestion[data-tarea-id][data-dia]").forEach((tarjeta) => {
         const tareaId = tarjeta.dataset.tareaId;
         const dia = tarjeta.dataset.dia;
         const check = checksActivos[`${tareaId}|${dia}`];
+        const bloqueada = !!check?.cerrada;
         const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
         const hora = tarjeta.querySelector("[data-hora]");
         if (hora) hora.textContent = hechoTexto;
         tarjeta.classList.toggle("hecha", !!check?.hecho);
+        tarjeta.classList.toggle("bloqueada", bloqueada);
 
         const checkSimple = tarjeta.querySelector(".tarea-gestion-check");
-        if (checkSimple) checkSimple.checked = !!check?.hecho;
+        if (checkSimple) {
+            checkSimple.checked = !!check?.hecho;
+            checkSimple.disabled = esVistaLectura || bloqueada;
+        }
+
+        // Banner "Cerrada por..." (candado) — se agrega/saca acá mismo
+        // si el estado cambió desde el último repaso (ej. otro
+        // dispositivo cerró esta tarea recién). No pisa el resto de la
+        // tarjeta: es un nodo aparte, mismo criterio que bannerCerradaHtml.
+        const bannerExistente = tarjeta.querySelector(".tarea-gestion-banner-cerrada");
+        if (bloqueada && !bannerExistente) {
+            const header = tarjeta.querySelector("[data-toggle-desplegable]") || tarjeta.querySelector(".tarea-gestion-label");
+            header?.insertAdjacentHTML("afterend", bannerCerradaHtml(check, tareaId, dia));
+        } else if (!bloqueada && bannerExistente) {
+            bannerExistente.remove();
+        }
 
         // Sub-ítems con tipos mixtos (checkbox/estado3/numérico, ver
         // services/subitems.js) — más simple RE-RENDERIZAR con la
@@ -2244,11 +2756,14 @@ async function actualizarChecksEnDOM() {
         const tarea = registroTareas.get(tareaId);
         if (contenedorSubitems && tarea?.subitems) {
             const marcados = check?.marcas || new Map();
-            contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, tarea.subitems, marcados)).join("");
+            const firmas = check?.firmas || new Map();
+            contenedorSubitems.innerHTML = tarea.subitems.map((s, is) => subitemFilaHtml(`tarea-${tareaId}-${dia}`, is, tarea.subitems, marcados, firmas, bloqueada)).join("");
             const progreso = tarjeta.querySelector("[data-progreso]");
             if (progreso) progreso.textContent = `${marcados.size}/${tarea.subitems.length}`;
             const badgeWrap = tarjeta.querySelector("[data-badge-incidencia]");
             if (badgeWrap) badgeWrap.innerHTML = badgeIncidenciaContenido(tarea.subitems, marcados);
+            const guardarWrap = tarjeta.querySelector(".tarea-gestion-guardar");
+            if (guardarWrap) guardarWrap.style.display = bloqueada ? "none" : "";
         }
     });
 }

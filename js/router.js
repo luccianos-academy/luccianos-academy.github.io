@@ -21,7 +21,6 @@ import { InicioAdmin } from "./pages/inicioAdmin.js";
 import { InicioSupervisor } from "./pages/inicioSupervisor.js";
 import { InicioColaborador } from "./pages/inicioColaborador.js";
 import { Colaboradores, bindColaboradores } from "./pages/colaboradores.js";
-import { Gestion, bindGestion } from "./pages/gestion.js";
 import { Cursos, bindCursos } from "./pages/cursos.js";
 import { Examen, bindExamen } from "./pages/examen.js";
 import { Perfil, bindPerfil } from "./pages/perfil.js";
@@ -30,6 +29,7 @@ import { Locales, bindLocales } from "./pages/locales.js";
 import { Alertas } from "./pages/alertas.js";
 import { Supervisores } from "./pages/supervisores.js";
 import { Academia, bindAcademia, EditarLeccion, bindEditarLeccion } from "./pages/academia.js";
+import { Gestion, bindGestion } from "./pages/gestion.js";
 import { Evaluaciones, bindEvaluaciones } from "./pages/evaluaciones.js";
 import { MisEvaluaciones } from "./pages/misEvaluaciones.js";
 import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js";
@@ -54,7 +54,6 @@ const RUTAS = {
     login:         { render: Login, fullscreen: true },
     inicio:        { render: Inicio },
     colaboradores: { render: Colaboradores, bind: bindColaboradores },
-    gestion:       { render: Gestion, bind: bindGestion },
     cursos:        { render: Cursos, bind: bindCursos },
     examen:        { render: Examen, bind: bindExamen },
     perfil:        { render: Perfil, bind: bindPerfil },
@@ -63,6 +62,7 @@ const RUTAS = {
     supervisores:  { render: Supervisores },
     academia:      { render: Academia, bind: bindAcademia },
     academialeccion: { render: EditarLeccion, bind: bindEditarLeccion },
+    gestion:       { render: Gestion, bind: bindGestion },
     evaluaciones:  { render: Evaluaciones, bind: bindEvaluaciones },
     misevaluaciones: { render: MisEvaluaciones },
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },

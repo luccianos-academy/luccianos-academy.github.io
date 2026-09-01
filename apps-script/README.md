@@ -48,8 +48,8 @@ es lo que el código pide.
 
 Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
-| `id` | `icono` | `titulo` | `detalle` | `dias` | `subitems` | `aplicaA` | `noAplicaA` | `fechaModificacion` |
-|---|---|---|---|---|---|---|---|---|
+| `id` | `icono` | `titulo` | `detalle` | `dias` | `subitems` | `aplicaA` | `noAplicaA` | `recordatorioHabilitado` | `recordatorioHora` | `fechaModificacion` |
+|---|---|---|---|---|---|---|---|---|---|---|
 
 `dias` y `subitems` van separados por coma en una sola celda (ej. `Lunes,Viernes` o `Abatidor,Armario,Vitrina`) — mismo criterio ya usado en `aplicaA`/`noAplicaA` de `Cursos`, no un esquema nuevo. `subitems` puede quedar vacío (no todas las tareas tienen sub-ítems). `fechaModificacion` es obligatoria como en cualquier hoja que se escribe desde la app (ver más abajo) — sin ella, `_actualizarCrudo` rechaza la escritura.
 
@@ -89,8 +89,8 @@ Separa el catálogo de tareas (`GestionTareas` — QUÉ tareas existen, solo lo 
 
 Hoja nueva, no está en la tabla original. Encabezados exactos, en este orden:
 
-| `id` | `tareaId` | `sucursal` | `dia` | `hecho` | `marcadoPor` | `hora` | `fechaModificacion` | `subitemsMarcados` |
-|---|---|---|---|---|---|---|---|---|
+| `id` | `tareaId` | `sucursal` | `dia` | `hecho` | `marcadoPor` | `hora` | `fechaModificacion` | `subitemsMarcados` | `subitemsFirmas` | `ciclo` | `cerrada` | `cerradaPor` | `cerradaHora` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
 Antes el tilde de "hecho" era puramente visual — vivía en el navegador de quien lo tocaba, se perdía al recargar, y dos personas viendo el mismo local en dispositivos distintos no se veían entre sí (bug real reportado en vivo: "quien dio el marcado no le aparece al otro"). Una fila acá = una tarea marcada (completa o a medias) en un día puntual, para una sucursal puntual; desmarcar TODO (ni completa ni ningún sub-ítem tildado) BORRA la fila, mismo criterio que `GestionTareasSucursal`. Escrita solo por `actualizarCheckGestion` (Code.gs), mismo criterio de seguridad que `actualizarDiasGestionSucursal` (la sucursal la decide el servidor).
 
@@ -102,6 +102,17 @@ Formato de CADA entrada (ver `js/services/subitems.js`, es quien arma/lee esto �
 - `"5:n:-320"` — sub-ítem **numérico** (índice 5), valor -320 (ej. "Saldo/diferencia" de una caja: 0 = cuadra, cualquier otro valor es la incidencia en sí misma).
 
 El TIPO de cada sub-ítem (checkbox/estado3/numérico) y, para 3 estados, la lista de motivos posibles, se definen en el catálogo (`GestionTareas.subitems` — ver más abajo), no acá: acá solo se guarda la respuesta puntual de una ejecución.
+
+**`subitemsFirmas`, `ciclo`, `cerrada`, `cerradaPor`, `cerradaHora` (agregadas 2026-08-31)** — reset automático de ciclo, candado al completar (con "Reabrir" solo para Admin) y firma por sub-ítem, pedido explícito del usuario. **Igual que pasó con `subitemsMarcados`: sin estas 5 columnas en la Sheet real, `actualizarCheckGestion` devuelve `{ok:false, error:'Faltan columnas...'}` al volver a guardar sobre una fila YA existente** (una fila nueva las saltea en silencio) — agregarlas TODAS es paso obligatorio antes de pegar este código en producción, si no cualquier "Guardar" sobre una tarea que ya tenía algo cargado deja de andar.
+
+- `subitemsFirmas`: mismo criterio de índices que `subitemsMarcados`, pero encoding propio — `"0:Belén Ibáñez:0910,2:Damián Gordillo:2105"` (índice:nombre:horaCompacta, sin ":" en la hora porque ya es el separador de campos). Quién marcó CADA sub-ítem puntual y a qué hora, no solo quién guardó por última vez — un índice ya marcado antes conserva su firma original en guardados posteriores (ver `_indicesDeSubitems`/`_firmasComoMapa` en Code.gs).
+- `ciclo`: `"AAAA-MM-DD"` (lunes de la semana, tareas semanales) o `"AAAA-MM"` (tareas mensuales) — lo calcula el servidor (`_cicloActual`), nunca el cliente. El corte NO es a medianoche: es a las **04:00** (lunes para semanal, día 1 para mensual), para que el cierre nocturno que se extiende de madrugada siga contando como el ciclo que termina. Leer solo filas con `ciclo` = el ciclo actual es lo que logra el "reset" (se filtra en el cliente, `js/pages/gestion.js` `cargarDatos`) sin borrar ni migrar nada — una fila de un ciclo viejo simplemente deja de aparecer en "Tareas asignadas" y pasa a estar disponible en "Histórico" (`obtenerHistoricoGestion`).
+- `cerrada` (SI/NO) + `cerradaPor` + `cerradaHora`: se estampan cuando un guardado deja la tarea completa. A partir de ahí, `actualizarCheckGestion` **rechaza** cualquier nuevo guardado sobre esa fila — la única forma de volver a editarla es `reabrirTareaGestion`, exclusivo de Admin.
+
+Tres endpoints nuevos, todos en el dispatcher (`_despachar`):
+- `obtenerHistoricoGestion(sucursal, usuarioActual)` — ciclos con `ciclo` distinto al actual, de la sucursal del Responsable de local que llama, o de la sucursal que pase explícita un Admin/Supervisor (decisión del usuario: el Histórico NO quedó acotado a Responsable de local). Responsable de turno no tiene acceso.
+- `eliminarHistoricoGestion(ciclo, usuarioActual)` — borra todas las filas de un ciclo de la sucursal del Responsable de local que llama. Solo Responsable de local (ni Admin/Supervisor mirando un local ajeno).
+- `reabrirTareaGestion(tareaId, dia, sucursal, usuarioActual)` — pone `cerrada=NO` sin tocar los datos ya cargados. Solo Admin.
 
 #### `fechaModificacion` — obligatoria en las 8 hojas sincronizadas
 

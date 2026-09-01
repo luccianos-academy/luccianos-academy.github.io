@@ -16,7 +16,7 @@ export const auditoriaMock = [
     { id: 5,  fecha: "2026-06-27T11:05:00", usuarioId: 6,  accion: "login",                 detalle: "Ingreso de Lourdes Garcia" },
     { id: 6,  fecha: "2026-06-26T16:40:00", usuarioId: 7,  accion: "registrar_colaborador",  detalle: "Alta de Agustina Rey" },
     { id: 7,  fecha: "2026-06-25T08:50:00", usuarioId: 5,  accion: "deshabilitar_acceso",    detalle: "Acceso deshabilitado (usuario 14)" },
-    { id: 8,  fecha: "2026-06-24T13:10:00", usuarioId: 2,  accion: "crear_curso",            detalle: "Curso creado: Encargados y Responsables" },
+    { id: 8,  fecha: "2026-06-24T13:10:00", usuarioId: 2,  accion: "crear_curso",            detalle: "Curso creado: Responsables de Local y Turno" },
     { id: 9,  fecha: "2026-06-23T09:30:00", usuarioId: 1,  accion: "crear_pregunta",         detalle: "Pregunta agregada al curso 1" },
     { id: 10, fecha: "2026-06-20T17:00:00", usuarioId: 10, accion: "login",                 detalle: "Ingreso de Julieta Fernández" },
     { id: 11, fecha: "2026-06-18T10:00:00", usuarioId: 17, accion: "login",                 detalle: "Ingreso de Agustina Rey" },
