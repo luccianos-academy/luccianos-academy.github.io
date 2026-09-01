@@ -1267,12 +1267,15 @@ function enviarPushGestion(titulo, cuerpo, url, usuarioActual) {
    instalarlo desde acá (Claude Code no tiene acceso a tu cuenta de
    Google).
 
-   No guarda estado propio (qué ya avisó hoy): revisa el día real cada
-   vez que corre. Con el trigger disparando una vez por día está bien
-   así de simple — si algún día se dispara dos veces el mismo día
-   (poco probable, pero Apps Script no garantiza el minuto exacto,
-   solo la hora), mandaría el mismo aviso dos veces. Aceptado como
-   límite conocido, no se resuelve acá.
+   Horario configurable (2026-08-31, ver _horaEfectivaRecordatorio):
+   el trigger pasó a correr CADA HORA en vez de una vez al día, y cada
+   tarea decide adentro si esta hora es la suya. Eso resucitó el límite
+   de acá abajo que antes era "poco probable" — con más disparos por
+   día, más chances de que Apps Script dispare de más en la hora que
+   corresponde. Ya NO es un límite aceptado: _yaAvisadoHoy/_marcarAvisadoHoy
+   (Script Properties, una entrada por tarea+sucursal+tipo) frenan
+   cualquier segundo envío del mismo aviso el mismo día — pedido
+   explícito: "que no salgan muchos mensajes si es el mismo día".
 
    OJO ZONA HORARIA: "hoy"/"mañana" salen de Session.getScriptTimeZone()
    — la del PROYECTO de Apps Script, UNA sola para toda la red. Con
@@ -1345,12 +1348,34 @@ function _horaEfectivaRecordatorio(tarea) {
     return Number.isInteger(propia) && propia >= 0 && propia <= 23 ? propia : _horaRecordatorioGestion();
 }
 
+/** Evita mandar el MISMO recordatorio más de una vez el mismo día —
+ *  pedido explícito 2026-08-31: "que no salgan muchos mensajes si es
+ *  el mismo día". Antes el código tenía esto como límite conocido y
+ *  aceptado ("Apps Script no garantiza el minuto exacto, si el
+ *  trigger se dispara de más en la misma hora, manda el aviso dos
+ *  veces") — con el trigger ahora corriendo CADA HORA (antes una vez
+ *  al día) esa ventana de doble disparo es más real, así que se cierra
+ *  acá. Una sola Script Property por tarea+sucursal+tipo (no una por
+ *  día): el VALOR es la fecha del último envío, se pisa sola cada día
+ *  — no acumula filas para siempre. "tipo" separa el aviso semanal del
+ *  de mañana/hoy de una mensual, que son mensajes DISTINTOS y pueden
+ *  coincidir el mismo día sin ser el mismo aviso repetido. */
+function _yaAvisadoHoy(tareaId, sucursal, tipo, fechaHoyISO) {
+    const clave = "RECORDATORIO_ENVIADO_" + tareaId + "_" + String(sucursal || "").trim().toLowerCase() + "_" + tipo;
+    return PropertiesService.getScriptProperties().getProperty(clave) === fechaHoyISO;
+}
+function _marcarAvisadoHoy(tareaId, sucursal, tipo, fechaHoyISO) {
+    const clave = "RECORDATORIO_ENVIADO_" + tareaId + "_" + String(sucursal || "").trim().toLowerCase() + "_" + tipo;
+    PropertiesService.getScriptProperties().setProperty(clave, fechaHoyISO);
+}
+
 function _revisarRecordatoriosGestion() {
     // El trigger corre CADA HORA (ver instalarTriggerRecordatoriosGestion)
     // — cada tarea decide acá adentro si ESTA hora es la suya (propia o,
     // sin una configurada, el horario general de Admin), así cambiar
     // cualquier horario desde la app no requiere tocar Apps Script.
     const horaActual = Number(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "H"));
+    const fechaHoyISO = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
 
     const hoy = new Date();
     const manana = new Date(hoy.getTime() + 24 * 60 * 60 * 1000);
@@ -1387,14 +1412,18 @@ function _revisarRecordatoriosGestion() {
         if (fila.frecuencia !== "mensual") {
             if (dias.indexOf(diaSemanaHoy) === -1) return;
             if (_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaSemanaHoy, cicloSemanalActual)) return;
+            if (_yaAvisadoHoy(fila.tareaId, fila.sucursal, "semanal", fechaHoyISO)) return;
             _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
+            _marcarAvisadoHoy(fila.tareaId, fila.sucursal, "semanal", fechaHoyISO);
             return;
         }
-        if (dias.indexOf(diaMesManana) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesManana, cicloMensualActual)) {
+        if (dias.indexOf(diaMesManana) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesManana, cicloMensualActual) && !_yaAvisadoHoy(fila.tareaId, fila.sucursal, "mensual-manana", fechaHoyISO)) {
             _enviarPushATodos(destinatarios, tarea.titulo, "Mañana: " + (tarea.detalle || "recordatorio de tarea mensual."), "#/gestion");
+            _marcarAvisadoHoy(fila.tareaId, fila.sucursal, "mensual-manana", fechaHoyISO);
         }
-        if (dias.indexOf(diaMesHoy) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesHoy, cicloMensualActual)) {
+        if (dias.indexOf(diaMesHoy) !== -1 && !_tareaYaResueltaEnCiclo(checksPorClave, fila.tareaId, fila.sucursal, diaMesHoy, cicloMensualActual) && !_yaAvisadoHoy(fila.tareaId, fila.sucursal, "mensual-hoy", fechaHoyISO)) {
             _enviarPushATodos(destinatarios, tarea.titulo, tarea.detalle || "Recordatorio de tarea de hoy.", "#/gestion");
+            _marcarAvisadoHoy(fila.tareaId, fila.sucursal, "mensual-hoy", fechaHoyISO);
         }
     });
 }
