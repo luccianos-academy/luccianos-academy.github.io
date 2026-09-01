@@ -429,6 +429,22 @@
     margin-top:14px;
 }
 
+/* El "Copiar link" de acá adentro — antes el texto de arriba decía
+   "copiá este link" sin que hubiera ningún link para copiar (bug real
+   reportado en vivo). Chico y subrayado, no compite con el botón de
+   Google que sigue siendo la vía principal. */
+.btn-link-copiar-nota{
+    display:block;
+    margin:6px auto 0;
+    background:none;
+    border:none;
+    padding:0;
+    color:var(--gold);
+    font-size:12px;
+    text-decoration:underline;
+    cursor:pointer;
+}
+
 /* SIDEBAR */
 
 .sidebar{

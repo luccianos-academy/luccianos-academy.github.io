@@ -332,7 +332,9 @@ async function abrirModalLogin() {
                             <div id="google-btn-slot" class="login-google-slot"></div>
                             <span class="login-google-texto">Ingresar</span>
                            </div>
-                           <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome en vez de adentro de WhatsApp/Instagram.</div>`
+                           <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome.
+                               <button class="btn-link-copiar-nota" id="btn-copiar-link-login" type="button">Copiar link</button>
+                           </div>`
                     : `
                         <div class="login-subtitulo">Todavía no hay backend conectado — entrá como un usuario de muestra:</div>
                         <div class="role-picker" id="role-picker"></div>
@@ -349,6 +351,13 @@ async function abrirModalLogin() {
         bindCopiarLinkLogin();
     } else if (clientIdConfigurado) {
         inicializarGoogleSignIn();
+        // El botón de Google normal se sigue mostrando en este caso —
+        // esto solo suma el "Copiar link" de la aclaración de abajo
+        // (mismo botón que el caso embebido de arriba), para el celular
+        // de iPhone donde WhatsApp no se puede detectar y el texto
+        // decía "copiá este link" sin que hubiera ningún link para
+        // copiar. Bug real reportado en vivo.
+        bindCopiarLinkLogin();
     } else {
         await renderRolePicker();
     }

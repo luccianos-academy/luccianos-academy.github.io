@@ -4165,18 +4165,31 @@ table.data-table tbody tr:hover{
    invisible sobre ese pastel. Solo aplica al callout BASE (sin
    modificador): -tip/-errores ya pisan el fondo a un tono oscuro
    propio (--success-soft/--danger-soft) y necesitan texto claro,
-   así que quedan afuera de este selector a propósito.
+   así que quedan afuera de este selector a propósito. El default
+   (--gold-soft) NO entra acá: es oscuro (ver variables.css), no un
+   pastel claro, así que var(--text) ahí ya es correcto — un curso sin
+   tema propio (Sistema y Caja, Pastelería, etc.) no tiene este bug.
 
    En el CONTENEDOR (ya no en "... p" nada más) — reportado en vivo
    (2026-08-26, Cafetería, "Buenas prácticas"): renderProcedimiento()
    (components/procedimiento.js) no SIEMPRE arma un <p> — según el
    texto puede salir como <ol class="leccion-pasos"> (pasos numerados),
    <ul class="leccion-procedimiento-lista"> (3+ ítems) o
-   <div class="leccion-texto"> (texto con **negrita**/viñetas) — un
+   <div class="leccion-texto"> (texto con **negrita** o viñetas) — un
    fix que solo cubría "p" dejaba el resto con el color claro de
    siempre, invisible en el pastel. En el contenedor, CUALQUIER texto
    sin su propio color explícito hereda el oscuro correcto sin
-   importar qué forma tome. */
+   importar qué forma tome.
+
+   OJO al escribir comentarios CSS cerca de acá: "**palabra**/" (dos
+   asteriscos pegados a una barra) cierra el comentario ANTES de
+   tiempo — pasó de verdad acá mismo, con "**negrita**/viñetas": todo
+   este bloque (container + los overrides de p/li/.leccion-texto de
+   más abajo) quedó afuera del CSS parseado en silencio desde que se
+   escribió (2026-08-26) hasta que se encontró recién (2026-09-01,
+   reportado en vivo en Heladería) — el fix "ya hecho" nunca había
+   funcionado. Dejar siempre un espacio entre "**" y "/" en cualquier
+   comentario de este archivo. */
 .tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
 .tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
 .tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores),
@@ -4186,10 +4199,22 @@ table.data-table tbody tr:hover{
 
 /* Estos de acá abajo SÍ tienen su propio color:var(--text)/var(--muted)
    explícito (definido en otra regla, no heredado) — heredar del
-   contenedor de arriba no les gana en especificidad, hace falta
-   pisarlos uno por uno: "strong" (nombre de cada ítem de la lista y
-   de cada línea de **negrita**), ".leccion-paso-cuerpo > span" (texto
-   de cada paso numerado). */
+   contenedor de arriba no les gana, PASE LO QUE PASE de especificidad:
+   un elemento con su propia regla de color siempre le gana a heredar
+   del padre, así el selector del padre tenga más clases. Hace falta
+   pisarlos uno por uno.
+   "strong" (nombre de cada ítem de la lista y de cada línea de
+   **negrita**) y ".leccion-paso-cuerpo > span" (texto de cada paso
+   numerado) ya estaban cubiertos.
+   Bug real reportado en vivo (2026-09-01, Heladería, "Gramajes y
+   presentaciones"): "p" (.leccion-callout p, un párrafo simple),
+   ".leccion-procedimiento-lista li" (la lista de "3+ ítems") y
+   ".leccion-texto" (texto con **negrita** o viñetas) TAMBIÉN tienen su
+   propio color explícito en otra parte del CSS — el fix anterior dio
+   por sentado que estos heredaban del contenedor, y por eso seguían
+   invisibles pese a que el propio comentario de acá arriba los daba
+   por cubiertos. Son justo los dos casos más comunes (un párrafo
+   suelto y una lista corta), por eso el bug volvió a aparecer. */
 .tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
 .tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
 .tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) strong,
@@ -4197,7 +4222,19 @@ table.data-table tbody tr:hover{
 .tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
 .tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
 .tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
-.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span{
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-paso-cuerpo > span,
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) p,
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-procedimiento-lista li,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-procedimiento-lista li,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-procedimiento-lista li,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-procedimiento-lista li,
+.tema-heladeria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-texto,
+.tema-cafeteria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-texto,
+.tema-chocolateria .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-texto,
+.tema-icepops .leccion-callout:not(.leccion-callout-tip):not(.leccion-callout-errores) .leccion-texto{
     color:#262626;
 }
 
