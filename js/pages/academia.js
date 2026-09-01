@@ -519,7 +519,17 @@ async function abrirModalLecciones(cursoId) {
 
             btn.disabled = true;
             btn.textContent = "Devolviendo...";
-            await actualizarLeccion(leccion.id, { noAplicaA: queda.join(", ") });
+            try {
+                await actualizarLeccion(leccion.id, { noAplicaA: queda.join(", ") });
+            } catch (err) {
+                // Sin este catch, un fallo de red dejaba el botón
+                // trabado en "Devolviendo..." para siempre — mismo bug
+                // ya encontrado y arreglado en Gestión de tareas.
+                alert("No se pudo guardar. Probá de nuevo.");
+                btn.disabled = false;
+                btn.textContent = "Devolvérsela";
+                return;
+            }
             registrarEvento(getUsuarioActual().id, "editar_leccion",
                 `Se devolvió "${leccion.titulo}" a ${btn.dataset.devolver}`);
             cerrarModal(modalId);

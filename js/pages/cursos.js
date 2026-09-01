@@ -880,32 +880,46 @@ export function bindCursos(params = []) {
 
     document.querySelectorAll("[data-marcar-vista]").forEach((btn) => {
         btn.addEventListener("click", async () => {
+            // Bloqueo sincrónico ANTES de cualquier await — sin esto, un
+            // doble click (o el mismo listener disparándose dos veces)
+            // podía leer "todavía no existe la asignación" en los dos
+            // casi al mismo tiempo y crear DOS filas en vez de
+            // actualizar una. Bug real encontrado en producción: varias
+            // filas de Asignaciones duplicadas con el mismo progreso.
+            if (btn.disabled) return;
+            btn.disabled = true;
+
             const usuario = getUsuarioActual();
-            const [todasLasLecciones, asignaciones] = await Promise.all([
-                getLeccionesPorCurso(cursoId),
-                getAsignacionesPorColaborador(usuario.id),
-            ]);
-            // Mismo filtro que el render (ver renderDetalleCurso) — una
-            // opcional nunca dispara este handler (no tiene botón), pero
-            // el TOTAL contra el que se calcula el % tiene que ser el
-            // mismo de los dos lados o el número final no coincide con
-            // lo que la persona ve en pantalla.
-            const lecciones = todasLasLecciones.filter((l) => l.obligatoria !== "NO");
-            let asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
+            try {
+                const [todasLasLecciones, asignaciones] = await Promise.all([
+                    getLeccionesPorCurso(cursoId),
+                    getAsignacionesPorColaborador(usuario.id),
+                ]);
+                // Mismo filtro que el render (ver renderDetalleCurso) — una
+                // opcional nunca dispara este handler (no tiene botón), pero
+                // el TOTAL contra el que se calcula el % tiene que ser el
+                // mismo de los dos lados o el número final no coincide con
+                // lo que la persona ve en pantalla.
+                const lecciones = todasLasLecciones.filter((l) => l.obligatoria !== "NO");
+                let asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
 
-            const idx = Number(btn.dataset.marcarVista);
-            const nuevasVistas = idx + 1;
-            const nuevoProgreso = Math.round((nuevasVistas / lecciones.length) * 100);
-            const nuevoEstado = nuevoProgreso >= 100 ? "completado" : "en_progreso";
+                const idx = Number(btn.dataset.marcarVista);
+                const nuevasVistas = idx + 1;
+                const nuevoProgreso = Math.round((nuevasVistas / lecciones.length) * 100);
+                const nuevoEstado = nuevoProgreso >= 100 ? "completado" : "en_progreso";
 
-            if (asignacion) {
-                await actualizarAsignacion(asignacion.id, { progreso: nuevoProgreso, estado: nuevoEstado });
-            } else {
-                await crearAsignacion({ colaboradorId: usuario.id, cursoId, estado: nuevoEstado, progreso: nuevoProgreso });
+                if (asignacion) {
+                    await actualizarAsignacion(asignacion.id, { progreso: nuevoProgreso, estado: nuevoEstado });
+                } else {
+                    await crearAsignacion({ colaboradorId: usuario.id, cursoId, estado: nuevoEstado, progreso: nuevoProgreso });
+                }
+                registrarEvento(usuario.id, "avanzar_leccion", `${usuario.nombre} avanzó en el curso ${cursoId}`);
+
+                navigate(`cursos/${cursoId}`);
+            } catch (err) {
+                alert("No se pudo guardar el avance. Probá de nuevo.");
+                btn.disabled = false;
             }
-            registrarEvento(usuario.id, "avanzar_leccion", `${usuario.nombre} avanzó en el curso ${cursoId}`);
-
-            navigate(`cursos/${cursoId}`);
         });
     });
 }

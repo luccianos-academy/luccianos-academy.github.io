@@ -276,6 +276,15 @@ async function entregarExamen({ forzado, motivoForzado }) {
     const form = document.getElementById("form-examen");
     if (!form) return;
 
+    // "entregado" se marca ACÁ, antes de cualquier await — antes se
+    // marcaba recién más abajo, dejando una ventana donde un segundo
+    // llamado (doble click en Entregar, o la entrega forzada por
+    // timer/visibilitychange disparándose justo en ese momento) pasaba
+    // el mismo chequeo de arriba y terminaba creando DOS resultados
+    // para el mismo examen. Bug real encontrado en producción: filas
+    // de Resultados duplicadas con la misma nota y fecha.
+    entregado = true;
+
     const cursoId = form.dataset.cursoId;
     const idsSeleccionados = form.dataset.preguntaIds.split(",").map(Number);
     const todasLasPreguntas = await getPreguntasPorCurso(cursoId);
@@ -286,12 +295,12 @@ async function entregarExamen({ forzado, motivoForzado }) {
     if (!forzado) {
         const faltantes = preguntas.some((p) => !form.querySelector(`input[name="pregunta-${p.id}"]:checked`));
         if (faltantes) {
+            entregado = false;
             alert("Respondé todas las preguntas antes de entregar.");
             return;
         }
     }
 
-    entregado = true;
     examenActivo = false;
     if (temporizadorId) clearInterval(temporizadorId);
     if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
@@ -313,7 +322,16 @@ async function entregarExamen({ forzado, motivoForzado }) {
     const nota = Math.round((correctas / preguntas.length) * 10 * 10) / 10;
     const aprobado = correctas >= calcularMinimoCorrectas(preguntas.length);
 
-    await crearResultado({ colaboradorId: usuario.id, cursoId, nota, aprobado });
+    try {
+        await crearResultado({ colaboradorId: usuario.id, cursoId, nota, aprobado });
+    } catch (err) {
+        // Sin este catch, un fallo de red acá dejaba al colaborador
+        // mirando la pantalla del examen sin ningún resultado y sin
+        // forma de reintentar ("entregado" ya había quedado en true).
+        entregado = false;
+        alert("No se pudo guardar el resultado del examen. Probá entregarlo de nuevo.");
+        return;
+    }
     registrarEvento(usuario.id, "rendir_examen", `${usuario.nombre} rindió el examen del curso ${cursoId} (nota ${nota})${motivoForzado ? ` — entrega automática: ${motivoForzado}` : ""}`);
 
     mostrarResultado(cursoId, nota, aprobado, revision, motivoForzado, correctas, preguntas.length);

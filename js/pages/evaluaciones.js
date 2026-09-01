@@ -256,7 +256,16 @@ async function abrirCarruselPreguntas(cursoId, preguntasIniciales, indiceInicial
         if (error) { alert(error); return false; }
 
         const p = preguntas[indice];
-        const r = await actualizarPregunta(p.id, { cursoId, ...datos });
+        let r;
+        try {
+            r = await actualizarPregunta(p.id, { cursoId, ...datos });
+        } catch (err) {
+            // Sin este catch, un fallo de red dejaba el botón de acá
+            // afuera trabado en "Guardando..." para siempre — mismo bug
+            // ya encontrado y arreglado en Gestión de tareas.
+            alert("No se pudo guardar. Probá de nuevo.");
+            return false;
+        }
         if (!r || r.ok === false) {
             alert(r?.error || "No se pudo guardar. Probá de nuevo.");
             return false;

@@ -395,8 +395,25 @@ function _fechaHoyISO() {
  *  getters locales de Date — Apps Script puede correr en un huso
  *  horario de contenedor distinto al configurado en el proyecto. */
 function _cicloActual(frecuencia) {
+    return _cicloDeFecha(null, frecuencia);
+}
+
+/** Igual que _cicloActual, pero para una fecha puntual en vez de "ahora"
+ *  — a qué ciclo pertenecía ESTA fecha, no en qué ciclo estamos hoy.
+ *
+ * Hace falta porque las filas de GestionChecks guardadas ANTES de que
+ * existiera la columna "ciclo" quedaron con ese campo vacío para
+ * siempre. Tratar "vacío" como "es del ciclo de hoy" (lo que hacía
+ * antes el código que llamaba a esto) las dejaba mostrándose como
+ * "de esta semana" para siempre, sin pasar nunca a Histórico — bug
+ * real reportado en vivo (Abasto/Imprenta con la semana pasada
+ * pegada). Con esto, una fila vieja sin "ciclo" calcula su ciclo real
+ * a partir de fechaModificacion, así puede compararse contra el ciclo
+ * de hoy como cualquier otra. */
+function _cicloDeFecha(fechaISO, frecuencia) {
     const tz = Session.getScriptTimeZone();
-    const efectiva = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const instante = fechaISO ? new Date(fechaISO) : new Date();
+    const efectiva = new Date(instante.getTime() - 4 * 60 * 60 * 1000);
     if (frecuencia === "mensual") {
         return Utilities.formatDate(efectiva, tz, "yyyy-MM");
     }
@@ -1744,10 +1761,20 @@ function obtenerHistoricoGestion(sucursalPedida, usuarioActual) {
     const cicloSemanalActual = _cicloActual("semanal");
     const cicloMensualActual = _cicloActual("mensual");
 
-    return filas.filter(function (f) {
-        const cicloActualDeEsta = frecuencias[f.tareaId] === "mensual" ? cicloMensualActual : cicloSemanalActual;
-        return f.ciclo && f.ciclo !== cicloActualDeEsta;
-    });
+    return filas
+        // Filas guardadas antes de que existiera "ciclo" quedaron con
+        // ese campo vacío — se completa acá con el ciclo real (según su
+        // propia fecha), para que puedan agruparse y mostrarse como
+        // cualquier otro ciclo cerrado. Ver _cicloDeFecha.
+        .map(function (f) {
+            if (f.ciclo) return f;
+            const frecuenciaTarea = frecuencias[f.tareaId] === "mensual" ? "mensual" : "semanal";
+            return Object.assign({}, f, { ciclo: _cicloDeFecha(f.fechaModificacion, frecuenciaTarea) });
+        })
+        .filter(function (f) {
+            const cicloActualDeEsta = frecuencias[f.tareaId] === "mensual" ? cicloMensualActual : cicloSemanalActual;
+            return f.ciclo !== cicloActualDeEsta;
+        });
 }
 
 /** Borra TODAS las filas de UN ciclo cerrado, de la sucursal del

@@ -56,7 +56,7 @@ import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiS
 import { getSucursales } from "../data/sucursales.js";
 import { aplicaASucursal, normalizar } from "../services/alcance.js";
 import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, parsearMarcaSubitem, parsearFirmaSubitem, contarIncidenciasAgrupadas } from "../services/subitems.js";
-import { cicloActual, etiquetaCiclo } from "../services/gestionCiclo.js";
+import { cicloActual, cicloDeFecha, etiquetaCiclo } from "../services/gestionCiclo.js";
 
 /* ============================
    Gestión semanal — el checklist, por día
@@ -1342,7 +1342,15 @@ function filtrarChecksCicloActual(checks) {
     const filtrados = {};
     Object.entries(checks).forEach(([clave, check]) => {
         const tareaId = clave.split("|")[0];
-        if (!check.ciclo || check.ciclo === cicloActual(frecuenciaPorTarea[tareaId] || "semanal")) {
+        const frecuencia = frecuenciaPorTarea[tareaId] || "semanal";
+        // Fila sin "ciclo" (guardada antes de que existiera esa
+        // columna) NO se deja pasar a ciegas — antes se trataba como
+        // "siempre de hoy" y quedaba pegada para siempre en "Tareas
+        // asignadas" sin pasar nunca a Histórico (bug real, Abasto/
+        // Imprenta con la semana pasada pegada). Se calcula a qué
+        // ciclo pertenecía de verdad según su propia fechaModificacion.
+        const cicloDeLaFila = check.ciclo || cicloDeFecha(check.fechaModificacion, frecuencia);
+        if (cicloDeLaFila === cicloActual(frecuencia)) {
             filtrados[clave] = check;
         }
     });

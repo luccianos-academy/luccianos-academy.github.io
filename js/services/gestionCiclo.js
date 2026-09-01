@@ -13,7 +13,20 @@
 =============================*/
 
 export function cicloActual(frecuencia) {
-    const efectiva = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    return cicloDeFecha(null, frecuencia);
+}
+
+/** Igual que cicloActual, pero para una fecha puntual en vez de "ahora"
+ *  — espejo de _cicloDeFecha (Code.gs). Hace falta para las filas de
+ *  GestionChecks guardadas antes de que existiera "ciclo" (quedaron con
+ *  ese campo vacío): tratarlas como "siempre son de hoy" (lo que hacía
+ *  antes filtrarChecksCicloActual en gestion.js) las dejaba pegadas
+ *  para siempre en "Tareas asignadas", sin pasar nunca a Histórico —
+ *  bug real reportado en vivo. Acá se calcula a qué ciclo pertenecían
+ *  de verdad, a partir de su propia fechaModificacion. */
+export function cicloDeFecha(fechaISO, frecuencia) {
+    const instante = fechaISO ? new Date(fechaISO) : new Date();
+    const efectiva = new Date(instante.getTime() - 4 * 60 * 60 * 1000);
     if (frecuencia === "mensual") {
         return `${efectiva.getFullYear()}-${String(efectiva.getMonth() + 1).padStart(2, "0")}`;
     }
