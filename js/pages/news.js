@@ -1194,15 +1194,17 @@ export function bindNuevaNews(params = []) {
             recordarCategoria(cambios.tipo);
             const usuario = getUsuarioActual();
 
-            // crearNoticia() se encarga de convertir adjuntos a JSON.
-            // actualizarNoticia() no hace ninguna conversión propia (manda
-            // "cambios" tal cual a la Sheet) — "destacado" viaja como
-            // booleano crudo desde el checkbox, y la Sheet lo necesita
-            // como "SI"/"NO" (mismo formato que escribe crearNoticia,
-            // que normalizarNoticia espera al leer). Se convierte acá,
-            // en un objeto aparte, para no tocar el "cambios" que
-            // también usa la rama de creación de abajo (esa sí necesita
-            // el booleano crudo — su propio ternario ya lo convierte).
+            // "destacado" viaja como booleano crudo desde el checkbox, y
+            // la Sheet lo necesita como "SI"/"NO" (mismo formato que
+            // escribe crearNoticia, que normalizarNoticia espera al
+            // leer) — se convierte acá, en un objeto aparte, para no
+            // tocar el "cambios" que también usa la rama de creación de
+            // abajo (esa sí necesita el booleano crudo — su propio
+            // ternario ya lo convierte). "adjuntos" ya no hace falta
+            // tocarlo acá: actualizarNoticia() lo convierte a JSON solo
+            // (ver data/noticias.js) — antes no lo hacía, y editar el
+            // adjunto de una noticia ya publicada guardaba "editada"
+            // sin error pero el cambio nunca se veía.
             if (id) {
                 await actualizarNoticia(id, { ...cambios, destacado: cambios.destacado ? "SI" : "NO" });
                 registrarEvento(usuario.id, "editar_noticia", `Notificación "${cambios.titulo}" editada`);

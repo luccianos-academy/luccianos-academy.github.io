@@ -323,6 +323,25 @@ export async function crearNoticia({ titulo, fecha, resumen, detalle, enlace, ad
 }
 
 export async function actualizarNoticia(id, cambios) {
+    // Mismo problema que ya se había resuelto para "destacado" en
+    // news.js, pero para adjuntos: si cambios.adjuntos viene como
+    // array crudo (tal cual arma leerCamposNotificacion() en el
+    // formulario), hay que convertirlo a JSON antes de guardarlo —
+    // igual que hace crearNoticia() más arriba. Bug real reportado en
+    // vivo: editar el adjunto de una noticia ya publicada (ej.
+    // reemplazar una imagen) guardaba "editada" sin error, pero la
+    // celda "adjuntos" quedaba con texto que no es JSON válido — al
+    // releerla, el parse fallaba en silencio (ver normalizarNoticia) y
+    // caía al adjuntoUrl VIEJO, así que el cambio nunca se veía.
+    if (Array.isArray(cambios.adjuntos)) {
+        const adjuntosFinales = cambios.adjuntos;
+        cambios = {
+            ...cambios,
+            adjuntos: adjuntosFinales.length > 0 ? JSON.stringify(adjuntosFinales) : "",
+            adjuntoUrl: adjuntosFinales.length > 0 ? adjuntosFinales[0].url : "",
+            adjuntoLabel: adjuntosFinales.length > 0 ? adjuntosFinales[0].label : "",
+        };
+    }
     return updateSheet(HOJAS.NOTICIAS, id, cambios, noticiasMock);
 }
 
