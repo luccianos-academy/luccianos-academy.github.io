@@ -183,7 +183,10 @@ export async function InicioSupervisor() {
                 ${rankingLocales ? `<div class="section">${rankingLocales}</div>` : ""}
             </div>
             <div>
-                <h2>Movimientos de gestión</h2>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <h2>Movimientos de gestión</h2>
+                    <a href="#/movimientos" class="text-sm">Ver todos →</a>
+                </div>
                 ${ActivityFeed(actividad)}
             </div>
         </div>

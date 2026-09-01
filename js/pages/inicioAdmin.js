@@ -100,7 +100,10 @@ export async function InicioAdmin() {
                 <div class="cards">${topAlertas.join("") || `<p class="text-muted text-sm">Sin alertas urgentes por ahora.</p>`}</div>
             </div>
             <div>
-                <h2>Movimientos de gestión</h2>
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px">
+                    <h2>Movimientos de gestión</h2>
+                    <a href="#/movimientos" class="text-sm">Ver todos →</a>
+                </div>
                 <p class="text-xs text-muted" style="margin:-6px 0 10px">Altas, bajas y cambios hechos desde la plataforma. Para ver quién la estuvo usando, mirá "Último ingreso" en Mi equipo.</p>
                 ${ActivityFeed(actividad, { vacio: "Todavía no hay movimientos registrados" })}
             </div>

@@ -166,6 +166,10 @@ const PERMISOS_PAGINA = {
     evaluaciones:   ["admin"],
     reportes:       ["admin"],
     alertas:        ["admin"],
+    // "Movimientos de gestión" completo, agrupado por día — mismo
+    // alcance que la tarjeta resumida del Inicio (Admin ve todo,
+    // Supervisor solo su equipo, ver pages/movimientos.js).
+    movimientos:    ["admin", "supervisor"],
     configuracion:  ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],

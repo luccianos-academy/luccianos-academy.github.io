@@ -39,6 +39,7 @@ import { News, bindNews, NuevaNews, bindNuevaNews } from "./pages/news.js";
 import { CoordinacionOperativa, bindCoordinacionOperativa } from "./pages/coordinacionOperativa.js";
 import { Recursos, bindRecursos } from "./pages/recursos.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
+import { Movimientos, bindMovimientos } from "./pages/movimientos.js";
 import { Configuracion } from "./pages/configuracion.js";
 import { Integraciones } from "./pages/integraciones.js";
 
@@ -75,6 +76,7 @@ const RUTAS = {
     coordinacionoperativa: { render: CoordinacionOperativa, bind: bindCoordinacionOperativa },
     recursos:      { render: Recursos, bind: bindRecursos },
     manuales:      { render: Manuales, bind: bindManuales },
+    movimientos:   { render: Movimientos, bind: bindMovimientos },
 };
 
 const RUTAS_PUBLICAS = ["login"];

@@ -10,7 +10,7 @@
 import { EmptyState } from "./emptyState.js";
 import { escaparHtml } from "../services/html.js";
 
-export function ActivityFeed(eventos, { vacio = "Sin actividad reciente" } = {}) {
+export function ActivityFeed(eventos, { vacio = "Sin actividad reciente", soloHora = false } = {}) {
 
     if (!eventos.length) {
         return EmptyState({ titulo: vacio });
@@ -26,11 +26,19 @@ export function ActivityFeed(eventos, { vacio = "Sin actividad reciente" } = {})
     const items = eventos.map((e) => `
         <div class="activity-item">
             <span>${escaparHtml(e.texto)}</span>
-            <span class="activity-time">${escaparHtml(formatearFecha(e.fecha))}</span>
+            <span class="activity-time">${escaparHtml(soloHora ? formatearHora(e.fecha) : formatearFecha(e.fecha))}</span>
         </div>
     `).join("");
 
     return `<div class="activity-feed">${items}</div>`;
+}
+
+// Usado en pages/movimientos.js: la fecha ya está en el título del
+// grupo del día, repetirla en cada fila sería ruido.
+function formatearHora(fecha) {
+    const d = new Date(fecha);
+    if (isNaN(d)) return fecha;
+    return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
 function formatearFecha(fecha) {
