@@ -98,9 +98,18 @@ export function invalidarTodo() {
 
    Ahora la copia local vale por un rato y después se revalida. Si la
    red falla se devuelve igual la copia vieja: sin señal, un dato de
-   hace horas es mucho mejor que una pantalla vacía. */
+   hace horas es mucho mejor que una pantalla vacía.
+
+   Bajado de 5 minutos a 1 (2026-09-01, pedido explícito): un
+   colaborador que termina un examen y otro que mira su progreso en el
+   local (o el propio Admin en Reportes) podían quedar hasta 5 minutos
+   viendo la versión vieja sin ningún aviso de que había algo más
+   reciente — confuso cuando alguien reporta "rendí y me sigue
+   saliendo incompleto". Sigue sin ser instantáneo (para eso está el
+   botón Actualizar, que invalida ya mismo), pero el piso de espera
+   pasiva baja bastante. */
 const SELLO_IDB = "faro_idb_ts_";
-const IDB_TTL_MS = 5 * 60 * 1000;
+const IDB_TTL_MS = 60 * 1000;
 
 function idbFresca(hoja) {
     const ts = Number(localStorage.getItem(SELLO_IDB + hoja) || 0);
