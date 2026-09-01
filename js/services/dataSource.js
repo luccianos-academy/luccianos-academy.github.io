@@ -226,6 +226,33 @@ export async function writeSheet(hoja, fila, mockRows) {
     // "write" que no existe en el backend, así que siempre fallaba).
     const resultado = await guardarDatosSheet(hoja, nuevaFila);
     invalidar(hoja);
+
+    // El id de nuevaFila es el optimista (Date.now(), solo para poder
+    // mostrar algo antes de que el servidor responda) — el servidor
+    // manda su propio correlativo real en resultado.id (ver
+    // _escribirCrudo, Code.gs). Sin este reemplazo, el resto de la
+    // app seguía usando el id falso: una actualización posterior sobre
+    // esta misma fila no encontraba nada para actualizar en la
+    // planilla real (_actualizarCrudo busca por id exacto), y quedaba
+    // fallando en silencio.
+    if (resultado && resultado.ok && resultado.id != null && String(resultado.id) !== String(nuevaFila.id)) {
+        if (storeName && idbManager && idbManager.db) {
+            try {
+                await idbManager.deleteRecord(storeName, nuevaFila.id);
+            } catch (err) {
+                console.error(`[dataSource] No se pudo sacar el registro optimista viejo:`, err);
+            }
+        }
+        nuevaFila.id = resultado.id;
+        if (storeName && idbManager && idbManager.db) {
+            try {
+                await idbManager.saveRecord(storeName, nuevaFila);
+            } catch (err) {
+                console.error(`[dataSource] No se pudo guardar el registro con el id real:`, err);
+            }
+        }
+    }
+
     return { ok: true, fila: nuevaFila, ...resultado };
 }
 

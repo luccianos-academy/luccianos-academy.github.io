@@ -500,7 +500,20 @@ function _escribirCrudo(hoja, fila) {
     const sheet = _sheet(hoja);
     const headers = sheet.getDataRange().getValues()[0];
     const nuevoId = _proximoId(sheet);
-    const filaCompleta = Object.assign({ id: nuevoId }, fila);
+    // { id: nuevoId } va SEGUNDO a propósito — antes iba primero y
+    // Object.assign lo dejaba pisar por cualquier "id" que ya trajera
+    // fila. El cliente (dataSource.js, writeSheet) siempre manda un
+    // id propio (Date.now(), para poder mostrar algo optimista antes
+    // de que el servidor responda) — con el orden viejo, ESE id
+    // terminaba siendo el que quedaba guardado en la planilla en vez
+    // del correlativo real. Bug real encontrado en producción: filas
+    // de Usuarios/Resultados con un id de 13 dígitos en vez del
+    // correlativo, que después no matcheaba con nada (un colaborador
+    // aparecía "Sin rendir" en Reportes pese a tener el examen
+    // aprobado, porque su Resultado quedó atado a un id que ya no es
+    // el suyo). El id nunca lo decide el cliente — siempre gana el
+    // correlativo del servidor.
+    const filaCompleta = Object.assign({}, fila, { id: nuevoId });
 
     const filaDestino = sheet.getLastRow() + 1;
     headers.forEach((h, i) => {
