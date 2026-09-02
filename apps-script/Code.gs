@@ -163,6 +163,7 @@ function _despachar(body, usuarioActual) {
         case "guardarHorarioRecordatorioGestion": return guardarHorarioRecordatorioGestion(body.hora, usuarioActual);
         case "obtenerHistoricoGestion": return obtenerHistoricoGestion(body.sucursal, usuarioActual);
         case "eliminarHistoricoGestion": return eliminarHistoricoGestion(body.ciclo, usuarioActual);
+        case "limpiarMarcasFuturasGestion": return limpiarMarcasFuturasGestion(body.sucursal, usuarioActual);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
@@ -423,6 +424,24 @@ function _cicloDeFecha(fechaISO, frecuencia) {
     const comoUTC = new Date(Date.UTC(anio, mes - 1, dia));
     comoUTC.setUTCDate(comoUTC.getUTCDate() - (diaIso - 1));
     return Utilities.formatDate(comoUTC, "UTC", "yyyy-MM-dd");
+}
+
+/** Espejo de esDiaDeHoyGestion (gestion.js) del lado del servidor — la
+ *  fuente de verdad real es la hora del SERVIDOR, no la del celular de
+ *  cada uno (mismo criterio que _cicloActual/_cicloDeFecha, incluido el
+ *  mismo corte a las 04:00). Pedido explícito (2026-09-02): "no debería
+ *  dejar marcar si no estás en el día, ni antes ni después" — algunos
+ *  Responsables tocaban un día futuro de la semana/mes "para probar".
+ *  Sin este guard del lado del servidor, deshabilitar el checkbox en el
+ *  cliente es solo cosmético (cualquiera podría seguir pegándole
+ *  directo al backend). */
+function _esDiaDeHoyGestion(dia) {
+    const DIAS_ISO = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const tz = Session.getScriptTimeZone();
+    const efectiva = new Date(new Date().getTime() - 4 * 60 * 60 * 1000);
+    const nombreHoy = DIAS_ISO[Number(Utilities.formatDate(efectiva, tz, "u"))];
+    const numeroHoy = Utilities.formatDate(efectiva, tz, "d");
+    return dia === nombreHoy || String(dia) === numeroHoy;
 }
 
 /** Si Sheets detectó una celda como fecha (ej. porque alguien tipeó
@@ -1645,6 +1664,9 @@ function actualizarCheckGestion(tareaId, dia, hecho, usuarioActual, subitemsMarc
     if (existente && String(existente.cerrada).toUpperCase() === "SI") {
         return { ok: false, error: "Esta tarea ya está cerrada. Pedile a un Admin que la reabra si hace falta corregir algo." };
     }
+    if (!_esDiaDeHoyGestion(dia)) {
+        return { ok: false, error: "Solo se puede marcar esta tarea el día que corresponde — no antes ni después." };
+    }
 
     const ahora = new Date();
     const hora = Utilities.formatDate(ahora, Session.getScriptTimeZone(), "HH:mm");
@@ -1790,6 +1812,49 @@ function eliminarHistoricoGestion(ciclo, usuarioActual) {
 
     const filas = _leerCrudo("GestionChecks").filter(function (f) {
         return String(f.sucursal || "").trim() === sucursal && String(f.ciclo) === String(ciclo);
+    });
+    filas.forEach(function (f) { _eliminarCrudo("GestionChecks", f.id); });
+    return { ok: true, borradas: filas.length };
+}
+
+/** true si `dia` (nombre de día de semana, o número de día del mes) es
+ *  POSTERIOR al de hoy — usa la misma hora efectiva (corte 04:00) que
+ *  _esDiaDeHoyGestion, pero acá importa la dirección (antes/después),
+ *  no solo si coincide. */
+function _diaEsFuturoGestion(dia) {
+    const DIAS_ISO = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const tz = Session.getScriptTimeZone();
+    const efectiva = new Date(new Date().getTime() - 4 * 60 * 60 * 1000);
+    const idxHoy = Number(Utilities.formatDate(efectiva, tz, "u"));
+    const numeroHoy = Number(Utilities.formatDate(efectiva, tz, "d"));
+    const idxDia = DIAS_ISO.indexOf(dia);
+    if (idxDia > 0) return idxDia > idxHoy;
+    const numDia = Number(dia);
+    return !isNaN(numDia) && numDia > numeroHoy;
+}
+
+/** Borra, del ciclo VIGENTE nada más (nunca toca Histórico, que ya son
+ *  ciclos cerrados), las marcas hechas en un día posterior al de hoy —
+ *  pedido explícito (2026-09-02): algunos Responsables tocaban un día
+ *  futuro de la semana/mes "para probar", dejando marcas falsas. Solo
+ *  Admin (a diferencia de eliminarHistoricoGestion, esto puede tocar
+ *  CUALQUIER local, no solo el propio). `sucursalPedida` vacío = TODOS
+ *  los locales de una sola vez ("así todos tienen las tareas limpias
+ *  para empezar la semana") — el otro alcance pedido es UN local
+ *  puntual, pasando su nombre. */
+function limpiarMarcasFuturasGestion(sucursalPedida, usuarioActual) {
+    if (usuarioActual.rol !== "admin") {
+        return { ok: false, error: "Solo Administración puede limpiar marcas futuras." };
+    }
+    const sucursal = String(sucursalPedida || "").trim();
+
+    const cicloSemanalActual = _cicloActual("semanal");
+    const cicloMensualActual = _cicloActual("mensual");
+
+    const filas = _leerCrudo("GestionChecks").filter(function (f) {
+        if (sucursal && String(f.sucursal || "").trim() !== sucursal) return false;
+        const esCicloVigente = String(f.ciclo) === cicloSemanalActual || String(f.ciclo) === cicloMensualActual;
+        return esCicloVigente && _diaEsFuturoGestion(f.dia);
     });
     filas.forEach(function (f) { _eliminarCrudo("GestionChecks", f.id); });
     return { ok: true, borradas: filas.length };

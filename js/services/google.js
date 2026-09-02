@@ -197,3 +197,11 @@ export function obtenerHorarioRecordatorioGestionReal() {
 export function guardarHorarioRecordatorioGestionReal(hora) {
     return gasRequest("guardarHorarioRecordatorioGestion", { hora });
 }
+
+/** Borra, del ciclo VIGENTE nada más, las marcas hechas en un día
+ *  posterior al de hoy — solo Admin. `sucursal` vacío = todos los
+ *  locales de una sola vez. Ver apps-script/Code.gs,
+ *  limpiarMarcasFuturasGestion. */
+export function limpiarMarcasFuturasGestionReal(sucursal) {
+    return gasRequest("limpiarMarcasFuturasGestion", { sucursal });
+}

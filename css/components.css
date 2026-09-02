@@ -1758,7 +1758,8 @@
     color:var(--muted);
     font-size:13.5px;
 }
-.compose-page-header .compose-ayuda{
+.compose-page-header .compose-ayuda,
+.header .compose-ayuda{
     margin-left:auto;
     display:inline-flex;
     align-items:center;
@@ -1770,7 +1771,8 @@
     cursor:pointer;
     flex-shrink:0;
 }
-.compose-page-header .compose-ayuda:hover{
+.compose-page-header .compose-ayuda:hover,
+.header .compose-ayuda:hover{
     color:var(--text);
 }
 

@@ -48,7 +48,7 @@ import {
     eliminarTarea as eliminarTareaBackend,
 } from "../data/gestionTareas.js";
 import { getDiasPorSucursal, guardarDiasSucursal } from "../data/gestionTareasSucursal.js";
-import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, getHistoricoGestion, eliminarHistoricoGestion, getHorarioRecordatorioGestion, guardarHorarioRecordatorioGestion } from "../data/gestionChecks.js";
+import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, getHistoricoGestion, eliminarHistoricoGestion, getHorarioRecordatorioGestion, guardarHorarioRecordatorioGestion, limpiarMarcasFuturasGestion } from "../data/gestionChecks.js";
 import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
@@ -675,6 +675,20 @@ function badgeIncidenciaContenido(subitemsRaw, marcados) {
     return "";
 }
 
+/** true si `dia` (nombre de día de semana, o número de día del mes)
+ *  es el día real de HOY. "Tareas asignadas" solo muestra la semana o
+ *  el mes en curso (nunca otro), así que comparar directo contra el
+ *  nombre/número de hoy alcanza — no hace falta reconstruir una fecha
+ *  completa como si esto fuera Histórico. Mismo corte a las 04:00 (no
+ *  medianoche) que el resto del ciclo (ver cicloDeFecha en
+ *  gestionCiclo.js) — de 00:00 a 04:00 todavía se considera "ayer" a
+ *  todo efecto, para poder seguir marcando el cierre de la noche de
+ *  madrugada. Espejo de _esDiaDeHoyGestion en Code.gs. */
+function esDiaDeHoyGestion(dia) {
+    const efectiva = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    return dia === DIAS_VISUAL[(efectiva.getDay() + 6) % 7] || dia === String(efectiva.getDate());
+}
+
 function tareaHtml(t, idUnico, dia) {
     const id = `tarea-${idUnico}`;
     // data-tarea-id va en TODAS las tarjetas — es la identidad que usa
@@ -692,7 +706,13 @@ function tareaHtml(t, idUnico, dia) {
     // Candado (2026-08-31): una tarea guardada completa queda cerrada
     // — no se puede volver a tocar salvo que un Admin la reabra (ver
     // bannerCerradaHtml, reabrirTareaGestion).
-    const bloqueada = !!check?.cerrada;
+    // Día equivocado (2026-09-02): pedido explícito — "no debería
+    // dejar marcar si no estás en el día, ni antes ni después".
+    // Algunos Responsables tocaban un día futuro de la semana/mes "para
+    // probar", dejando marcas falsas. Nadie en modo lectura (Admin/
+    // Supervisor) llega nunca a esta rama — ver esVistaLectura arriba.
+    const diaEquivocado = !esVistaLectura && !check?.cerrada && !esDiaDeHoyGestion(dia);
+    const bloqueada = !!check?.cerrada || diaEquivocado;
 
     // Push + Exportar, JUNTOS, como sibling DESPUÉS de la tarjeta (no
     // adentro) — pedido explícito con captura real: "el push está
@@ -734,7 +754,7 @@ function tareaHtml(t, idUnico, dia) {
                     ${badgeIncidenciasHtml(t.subitems, marcados)}
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
-                ${bannerCerradaHtml(check, t.id, dia)}
+                ${bannerCerradaHtml(check, t.id, dia, diaEquivocado)}
                 <div class="tarea-gestion-subitems" data-subitems>
                     ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados, firmas, bloqueada)).join("")}
                 </div>
@@ -773,7 +793,15 @@ function tareaHtml(t, idUnico, dia) {
  *  quedaría trabado para siempre; por eso es la única excepción, y
  *  solo para Admin (esAdminActual(), mismo gate que Editar/Eliminar
  *  tarea). */
-function bannerCerradaHtml(check, tareaId, dia) {
+function bannerCerradaHtml(check, tareaId, dia, diaEquivocado) {
+    if (diaEquivocado) {
+        return `
+            <div class="tarea-gestion-banner-cerrada">
+                ${Icon("candado", { size: 14 })}
+                <span>Solo se puede marcar el día que corresponde — no antes ni después.</span>
+            </div>
+        `;
+    }
     if (!check?.cerrada) return "";
     const reabrirBtn = esAdminActual()
         ? `<button type="button" class="btn-reabrir-tarea" data-reabrir-tarea data-tarea-id="${tareaId}" data-dia="${dia}">${Icon("candado", { size: 13 })} Reabrir</button>`
@@ -1201,6 +1229,30 @@ function cuerpoGestionHtml() {
             </div>
         </div>
     ` : "";
+
+    // "Limpiar marcas futuras" (2026-09-02) — pedido explícito: algunos
+    // Responsables marcaban un día posterior al de hoy "para probar",
+    // dejando marcas falsas. El día equivocado ya queda bloqueado para
+    // marcar de acá en más (ver esDiaDeHoyGestion en tareaHtml), pero
+    // esto es para LIMPIAR lo que ya quedó mal cargado antes del fix —
+    // borra, del ciclo VIGENTE nada más (no toca Histórico), lo marcado
+    // en un día posterior a hoy. Dos alcances, los dos pedidos
+    // explícitamente: un local puntual, o todos de una sola vez ("así
+    // todos tienen las tareas limpias para empezar la semana").
+    const cardLimpieza = esAdminActual() ? `
+        <div class="card-recordatorio-gestion">
+            <div class="card-recordatorio-header">
+                ${Icon("tacho", { size: 16 })}
+                <span>Limpiar marcas futuras</span>
+                <span class="badge-solo-admin">Solo Admin</span>
+            </div>
+            <p class="card-recordatorio-desc">Borra las marcas hechas en un día posterior al de hoy (semana o mes en curso) — para cuando alguien tildó por error un día que todavía no llega. No toca lo ya archivado en Histórico.</p>
+            <div class="card-recordatorio-control">
+                <button type="button" class="btn btn-secondary" id="btn-limpiar-futuras-local"${sucursalActiva ? "" : " disabled"} title="${sucursalActiva ? "" : "Elegí un local en el selector de arriba"}">Limpiar ${sucursalActiva ? `"${escaparHtml(sucursalActiva)}"` : "este local"}</button>
+                <button type="button" class="btn btn-secondary" id="btn-limpiar-futuras-todos">Limpiar todos los locales</button>
+            </div>
+        </div>
+    ` : "";
     const hayLocal = !esVistaLectura || !!sucursalActiva;
     // "Histórico" (2026-08-31) — Responsable de local siempre (va
     // directo a la suya); Admin/Supervisor solo después de elegir un
@@ -1296,6 +1348,7 @@ function cuerpoGestionHtml() {
         return `
             ${acciones}
             ${cardRecordatorio}
+            ${cardLimpieza}
             ${catalogoHtml}
         `;
     }
@@ -1360,6 +1413,7 @@ function cuerpoGestionHtml() {
     return `
         ${acciones}
         ${cardRecordatorio}
+        ${cardLimpieza}
 
         <div class="tabs-gestion" id="tabs-seccion-gestion">
             <button class="tab-gestion${vistaSeccion === "asignar" ? " activa" : ""}" data-vista-seccion="asignar">Asignar tareas</button>
@@ -1481,21 +1535,15 @@ export async function Gestion() {
 
     [sucursales] = await Promise.all([getSucursales(), cargarDatos(sucursalActiva)]);
 
-    // Antes era un banner grande (.aviso-maqueta, título + 3 párrafos)
-    // — pedido explícito con captura real: "el banner azul en celular
-    // queda gigante y no permite ver entre el espacio que queda,
-    // quizás un tooltip sería mejor con ese color que me gusta".
-    // Mismo mecanismo que .mod-tooltip (kpiCard.js, "ⓘ" que explica
-    // una tarjeta), variante ".info-ayuda" con el mismo azul que
-    // tenía el banner — se abre solo al tocar, no ocupa lugar fijo.
-    // Texto acotado a propósito, sin saltos de línea forzados (se
-    // deja envolver solo): el ícono vive justo arriba de los tabs de
-    // sección, con poco margen — reportado en vivo, con captura, que
-    // el texto largo de antes tapaba esos tabs por completo.
-    const infoAyuda = `Asigná las tareas que correspondan a tu local. Recibirás un recordatorio automático a las 10am y también podrás avisar manualmente al completarlas. Luego, exportá el registro para un segundo control.`;
+    // Era un ícono "ⓘ" suelto con tooltip al hover (.mod-tooltip,
+    // mismo mecanismo que kpiCard.js) — pedido explícito (2026-09-02):
+    // "debería ser el 'cómo funciona'", igual al botón que ya usan
+    // News/Recursos/Comunicaciones (.compose-ayuda + alert), para que
+    // el patrón sea el mismo en toda la app en vez de un one-off acá.
+    const comoFuncionaBtn = `<button type="button" class="compose-ayuda" id="btn-ayuda-gestion">${Icon("idea", { size: 16 })} ¿Cómo funciona?</button>`;
 
     return `
-        ${Header("Gestión de tareas", `Organizá las tareas de tu local, por día o por mes <span class="mod-tooltip info-ayuda" data-tooltip-texto="${infoAyuda}">${Icon("idea", { size: 14 })}</span>`)}
+        ${Header("Gestión de tareas", "Organizá las tareas de tu local, por día o por mes", { accion: comoFuncionaBtn })}
 
         ${esVistaLectura ? selectorLocalHtml() : ""}
 
@@ -2877,6 +2925,40 @@ function bindCuerpoGestion() {
         });
     }
 
+    // "Limpiar marcas futuras" (solo Admin, 2026-09-02) — dos botones,
+    // dos alcances pedidos explícitamente. Reusa manejarFalloGuardadoGestion
+    // (mismo aviso de "sin conexión" que el resto de Gestión) y
+    // refresca el cuerpo entero al terminar: puede haber destildado
+    // tareas que estaban a la vista.
+    const limpiarFuturas = (boton, sucursal, mensajeConfirm) => {
+        if (!confirm(mensajeConfirm)) return;
+        const textoOriginal = boton.textContent;
+        boton.disabled = true;
+        boton.textContent = "Limpiando...";
+        limpiarMarcasFuturasGestion(sucursal).then(async (r) => {
+            boton.disabled = false;
+            boton.textContent = textoOriginal;
+            if (!r?.ok) {
+                alert(r?.error || "No se pudo limpiar — probá de nuevo.");
+                return;
+            }
+            alert(r.borradas ? `Se limpiaron ${r.borradas} marca(s).` : "No había ninguna marca futura para limpiar.");
+            // Mismo mecanismo que elegirLocalGestion: puede haber
+            // destildado tareas que están a la vista ahora mismo.
+            if (r.borradas) {
+                await cargarDatos(sucursalActiva);
+                const cuerpo = document.getElementById("cuerpo-gestion");
+                if (cuerpo) { cuerpo.innerHTML = cuerpoGestionHtml(); bindCuerpoGestion(); }
+            }
+        }).catch((err) => manejarFalloGuardadoGestion(err, () => { boton.disabled = false; boton.textContent = textoOriginal; }));
+    };
+    document.getElementById("btn-limpiar-futuras-local")?.addEventListener("click", (e) => {
+        limpiarFuturas(e.currentTarget, sucursalActiva, `¿Limpiar las marcas futuras de "${sucursalActiva}"? No se puede deshacer.`);
+    });
+    document.getElementById("btn-limpiar-futuras-todos")?.addEventListener("click", (e) => {
+        limpiarFuturas(e.currentTarget, "", "¿Limpiar las marcas futuras de TODOS los locales? No se puede deshacer.");
+    });
+
     // "Reabrir tarea" (candado, solo Admin) — delegado en el mismo
     // contenedor estable que "Exportar a PDF" de abajo, mismo motivo:
     // el botón vive DENTRO de cada tarea (bannerCerradaHtml) y no
@@ -3028,7 +3110,14 @@ async function actualizarChecksEnDOM() {
         const tareaId = tarjeta.dataset.tareaId;
         const dia = tarjeta.dataset.dia;
         const check = checksActivos[`${tareaId}|${dia}`];
-        const bloqueada = !!check?.cerrada;
+        // Mismo criterio que tareaHtml — sin este chequeo acá, el
+        // repaso de fondo cada 20s pisaba el candado de "día
+        // equivocado" que puso el render inicial, dejando la tarjeta
+        // editable de nuevo a los 20s (bug real encontrado probando
+        // este mismo fix: se veía bloqueada al abrir, pero se
+        // desbloqueaba sola apenas corría este repaso).
+        const diaEquivocado = !esVistaLectura && !check?.cerrada && !esDiaDeHoyGestion(dia);
+        const bloqueada = !!check?.cerrada || diaEquivocado;
         const hechoTexto = check?.hecho ? `Hecho ${check.hora || ""}${check.marcadoPor ? ` · ${check.marcadoPor}` : ""}` : "";
         const hora = tarjeta.querySelector("[data-hora]");
         if (hora) hora.textContent = hechoTexto;
@@ -3048,7 +3137,7 @@ async function actualizarChecksEnDOM() {
         const bannerExistente = tarjeta.querySelector(".tarea-gestion-banner-cerrada");
         if (bloqueada && !bannerExistente) {
             const header = tarjeta.querySelector("[data-toggle-desplegable]") || tarjeta.querySelector(".tarea-gestion-label");
-            header?.insertAdjacentHTML("afterend", bannerCerradaHtml(check, tareaId, dia));
+            header?.insertAdjacentHTML("afterend", bannerCerradaHtml(check, tareaId, dia, diaEquivocado));
         } else if (!bloqueada && bannerExistente) {
             bannerExistente.remove();
         }
@@ -3092,6 +3181,10 @@ let ultimaEdicionLocalGestion = 0;
 const MARGEN_EDICION_LOCAL_MS = 4000;
 
 export function bindGestion() {
+    document.getElementById("btn-ayuda-gestion")?.addEventListener("click", () => {
+        alert("Asigná las tareas que correspondan a tu local. Recibirás recordatorios para una mejor gestión y también podrás avisar manualmente al completarlas. Luego, exportá el registro para un segundo control.");
+    });
+
     // Selector de local (Admin/Supervisor/Capacitador) — bindAutocompleteSucursal
     // es async (trae la lista de locales) — no bloquea el resto del bind.
     if (document.getElementById("selector-local-gestion")) {

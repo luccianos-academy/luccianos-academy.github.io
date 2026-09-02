@@ -3,7 +3,7 @@
    header.js — Header con saludo opcional
 =============================*/
 
-export function Header(titulo, subtitulo = "", { saludo = false } = {}) {
+export function Header(titulo, subtitulo = "", { saludo = false, accion = "" } = {}) {
 
     const contenido = saludo
         ? `
@@ -19,5 +19,9 @@ export function Header(titulo, subtitulo = "", { saludo = false } = {}) {
             </div>
         `;
 
-    return `<header class="header">${contenido}</header>`;
+    // "accion" (opcional) — un botón tipo "¿Cómo funciona?" a la
+    // derecha del título, mismo lugar que ".header" ya le da al hueco
+    // libre (display:flex; justify-content:space-between). Nadie más
+    // lo usa todavía, así que por default no cambia nada.
+    return `<header class="header">${contenido}${accion}</header>`;
 }
