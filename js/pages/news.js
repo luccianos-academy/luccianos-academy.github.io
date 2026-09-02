@@ -34,7 +34,6 @@ import { getSucursales } from "../data/sucursales.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getItem, setItem } from "../services/storage.js";
-import { invalidar } from "../services/dataSource.js";
 import { gasRequest } from "../services/google.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
@@ -535,6 +534,40 @@ function filaNotificacion(n, usuario, leida) {
  *  chequearlos y saber si el click que le llegó fue en realidad el
  *  final de un gesto de swipe, sin competir por el mismo evento con
  *  un segundo listener aparte. */
+/** Refleja "marcada como leída" en el DOM que ya está armado, sin
+ *  pedir "Noticias" de nuevo ni reconstruir la página — pedido
+ *  explícito (2026-09-02): "se recarga toda la página y tarda mucho".
+ *  Causa real: actualizarNoticia() (dataSource.js, updateSheet) ya
+ *  invalida el caché de Noticias sola apenas escribe, así que el
+ *  navigate("news") de después SIEMPRE terminaba pegándole de nuevo a
+ *  Apps Script (~1-2s) solo para volver a mostrar algo que ya sabíamos
+ *  — la escritura recién awaited ya la confirmó. Acá alcanza con lo
+ *  que YA está en el DOM: sacar el punto de no-leída, la clase, y la
+ *  fila del panel "No leídas" (ahí si no aparece más, a diferencia de
+ *  "Todas" donde se queda con el estilo actualizado). Solo cubre
+ *  marcar COMO leída (el camino común) — desmarcar sigue con el
+ *  recargado de siempre, es la acción de deshacer, no hace falta que
+ *  sea instantánea. */
+function actualizarNewsSinRecargar(notiId) {
+    document.querySelectorAll(`.notif-swipe-row[data-swipe-id="${notiId}"]`).forEach((fila) => {
+        const panel = fila.closest("[data-panel]");
+        if (panel?.dataset.panel === "no-leidas") {
+            fila.remove();
+            return;
+        }
+        const contenido = fila.querySelector(".notif-swipe-content");
+        contenido?.classList.remove("no-leida");
+        contenido?.querySelector(".notif-dot")?.remove();
+        const toggleBtn = fila.querySelector("[data-swipe-toggle-leida] span");
+        if (toggleBtn) toggleBtn.textContent = "No leída";
+    });
+    const tab = document.querySelector('[data-tab="no-leidas"]');
+    if (tab) {
+        const restantes = document.querySelectorAll('[data-panel="no-leidas"] .notif-swipe-row').length;
+        tab.textContent = `No leídas${restantes ? ` (${restantes})` : ""}`;
+    }
+}
+
 function bindSwipeNotif() {
     document.querySelectorAll(".notif-swipe-row").forEach((fila) => {
         const contenido = fila.querySelector(".notif-swipe-content");
@@ -656,11 +689,12 @@ function bindSwipeNotif() {
             if (!noti) return;
             if (estaLeida(noti, usuario.id)) {
                 await marcarNotificacionNoLeida(noti, usuario.id);
+                navigate("news"); // desmarcar es la acción de deshacer, no hace falta que sea instantánea
             } else {
                 await marcarNotificacionLeida(noti, usuario.id);
                 decrementarContadorCampana(1);
+                actualizarNewsSinRecargar(noti.id);
             }
-            navigate("news");
         });
     });
 
@@ -927,13 +961,14 @@ async function abrirDetalleNotificacion(noti, usuario) {
             alert(err.message || "No se pudo marcar como leída. Probá de nuevo.");
             return;
         }
-        // Ya sabemos que baja en 1 — evita re-pedir "Noticias" solo para
-        // confirmar el número (ver dataSource.js: el pedido que sigue,
-        // el de la propia lista de News, ya alcanza para eso).
-        invalidar("Noticias");
+        // Ya sabemos que baja en 1 y que esta noticia quedó leída — no
+        // hace falta re-pedir "Noticias" ni reconstruir la página para
+        // confirmarlo (actualizarNoticia ya invalida el caché sola;
+        // pedirla nomás para volver a mostrar lo que ya sabemos era
+        // justo el "tarda mucho" reportado en vivo, 2026-09-02).
         decrementarContadorCampana();
         cerrarModal(modalId);
-        navigate("news");
+        actualizarNewsSinRecargar(noti.id);
     });
 
     // Los botones Editar/Eliminar del detalle reusan el mismo binding

@@ -31,7 +31,6 @@ import { getAsignacionesPorColaborador, crearAsignacion, actualizarAsignacion } 
 import { getResultadosPorColaborador } from "../data/resultados.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
-import { navigate } from "../router.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
 import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
 import { ES_ENTORNO_PRUEBA } from "../config.js";
@@ -468,6 +467,31 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
     `;
 }
 
+/** El HTML de la lista de lecciones obligatorias — separado de
+ *  renderDetalleCurso para poder reconstruir SOLO esto (ver el handler
+ *  de "Marcar como vista", más abajo) sin volver a pedir curso/
+ *  lecciones/asignaciones/resultados enteros de nuevo. */
+function filasLeccionesObligatoriasHtml(leccionesObligatorias, leccionesVistas, modoPrueba, puedeMarcarVista) {
+    return leccionesObligatorias.map((l, i) => {
+        const vista = i < leccionesVistas;
+        const esActual = modoPrueba ? !vista : i === leccionesVistas;
+        const bloqueada = modoPrueba ? false : i > leccionesVistas;
+
+        const cuerpo = (vista || esActual) ? renderCuerpoLeccion(l, esActual, i, puedeMarcarVista) : `<p class="text-sm text-muted" style="margin-top:6px">Completá la lección anterior para desbloquearla.</p>`;
+
+        return `
+            <div class="leccion-item${vista ? " vista" : ""}${bloqueada ? " bloqueada" : ""}">
+                <div class="leccion-item-header">
+                    <span class="leccion-numero">${vista ? Icon("check", { size: 14 }) : l.orden}</span>
+                    <h3>${l.titulo}</h3>${etiquetaVariante(l)}
+                    ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
+                </div>
+                ${cuerpo}
+            </div>
+        `;
+    }).join("");
+}
+
 async function renderDetalleCurso(usuario, cursoId) {
 
     const [cursos, todasLasLecciones, asignaciones, resultados] = await Promise.all([
@@ -547,24 +571,7 @@ async function renderDetalleCurso(usuario, cursoId) {
     // real a su propio id, como si fueran un colaborador más).
     const puedeMarcarVista = usuario.rol !== "supervisor" && usuario.rol !== "admin";
 
-    const filas = leccionesObligatorias.map((l, i) => {
-        const vista = i < leccionesVistas;
-        const esActual = modoPrueba ? !vista : i === leccionesVistas;
-        const bloqueada = modoPrueba ? false : i > leccionesVistas;
-
-        const cuerpo = (vista || esActual) ? renderCuerpoLeccion(l, esActual, i, puedeMarcarVista) : `<p class="text-sm text-muted" style="margin-top:6px">Completá la lección anterior para desbloquearla.</p>`;
-
-        return `
-            <div class="leccion-item${vista ? " vista" : ""}${bloqueada ? " bloqueada" : ""}">
-                <div class="leccion-item-header">
-                    <span class="leccion-numero">${vista ? Icon("check", { size: 14 }) : l.orden}</span>
-                    <h3>${l.titulo}</h3>${etiquetaVariante(l)}
-                    ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
-                </div>
-                ${cuerpo}
-            </div>
-        `;
-    }).join("");
+    const filas = filasLeccionesObligatoriasHtml(leccionesObligatorias, leccionesVistas, modoPrueba, puedeMarcarVista);
 
     // Opcionales: siempre visibles enteras (esActual=true, sin
     // "bloqueada" ni "vista" — no hay secuencia que respetar) y sin
@@ -716,6 +723,285 @@ async function renderDetalleCurso(usuario, cursoId) {
     `;
 }
 
+/** Lightbox de capturas — a nivel de MÓDULO (no adentro de bindCursos)
+ *  a propósito: bindLeccionesInteractivas() necesita poder llamar a
+ *  abrirLightbox() directo, sin que sean funciones anidadas una
+ *  adentro de la otra. Antes vivía todo esto dentro de bindCursos() y
+ *  abrirLightbox() quedaba fuera del alcance de
+ *  bindLeccionesInteractivas() al separarla — bug real, reportado en
+ *  vivo (2026-09-02): "no deja ampliar la foto ni en pc ni celular"
+ *  (ReferenceError silencioso, ni PC ni celular podían abrirlo). */
+let lightbox = null;
+let lightboxImg = null;
+let lightboxContador = null;
+let lightboxCaption = null;
+let lightboxItems = [];
+let lightboxIndice = 0;
+
+function actualizarLightbox() {
+    if (!lightbox) return;
+    const item = lightboxItems[lightboxIndice];
+    lightboxImg.src = item.src;
+    lightboxContador.textContent = `${lightboxIndice + 1} / ${lightboxItems.length}`;
+    if (lightboxCaption) lightboxCaption.textContent = item.caption;
+    lightbox.querySelector("[data-carrusel-lightbox-prev]").disabled = lightboxIndice === 0;
+    lightbox.querySelector("[data-carrusel-lightbox-next]").disabled = lightboxIndice === lightboxItems.length - 1;
+}
+
+function abrirLightbox(items, indiceInicial) {
+    if (!lightbox) return;
+    lightboxItems = items;
+    lightboxIndice = indiceInicial;
+    lightbox.hidden = false;
+    resetearZoomLightbox();
+    actualizarLightbox();
+}
+
+// Zoom manual de la imagen ampliada — pedido explícito (2026-09-02):
+// la app bloqueó el pellizco en TODA la interfaz ("fija, como
+// WhatsApp"), pero acá adentro hace falta lo contrario: una foto de
+// gramaje/receta con letra chica necesita poder acercarse para
+// leerse. El bloqueo global es a nivel de <meta viewport> (afecta la
+// PÁGINA entera, no se puede excluir un elemento con CSS solo), así
+// que ESTA imagen puntual implementa su propio pellizco/doble-toque
+// con JS — independiente del zoom nativo del navegador.
+let zoomEscala = 1;
+let zoomX = 0, zoomY = 0;
+const ZOOM_MAX = 4;
+const ZOOM_DOBLE_TOQUE = 2.5;
+
+function aplicarTransformLightbox() {
+    if (!lightboxImg) return;
+    lightboxImg.style.transform = `translate(${zoomX}px, ${zoomY}px) scale(${zoomEscala})`;
+}
+
+function resetearZoomLightbox() {
+    zoomEscala = 1;
+    zoomX = 0;
+    zoomY = 0;
+    if (lightboxImg) lightboxImg.style.transform = "";
+}
+
+/** Setup del lightbox — UNA sola vez por carga de página (llamado
+ *  desde bindCursos). Asigna las variables de módulo de arriba y
+ *  engancha cerrar/prev/next + el pellizco/doble-toque manual. */
+function bindLightboxCarrusel() {
+    lightbox = document.querySelector("[data-carrusel-lightbox]");
+    lightboxImg = lightbox?.querySelector("[data-carrusel-lightbox-img]");
+    lightboxContador = lightbox?.querySelector("[data-carrusel-lightbox-contador]");
+    lightboxCaption = lightbox?.querySelector("[data-carrusel-lightbox-caption]");
+    lightboxItems = [];
+    lightboxIndice = 0;
+
+    // Escucha en TODO el overlay (lightbox), no solo en el <img> — con
+    // object-fit:contain una foto vertical/apaisada deja franjas
+    // oscuras a los costados, y un pellizco real casi siempre arranca
+    // con al menos un dedo ahí afuera, no exactamente sobre el píxel
+    // de la imagen. Escuchando solo en la imagen, ese pellizco no
+    // arrancaba nunca — bug real, reportado en vivo en celular real
+    // (2026-09-02): "no deja [hacer zoom]". El transform sigue
+    // aplicándose a la imagen sola (aplicarTransformLightbox), esto
+    // solo cambia DÓNDE se detecta el gesto.
+    if (lightbox && lightboxImg) {
+        let pellizcoDistanciaInicial = 0;
+        let escalaInicial = 1;
+        let arrastreInicio = null;
+        let ultimoToqueTs = 0;
+        let inicioToqueTs = 0;
+        let huboMultiToque = false;
+        let huboMovimiento = false;
+
+        const distanciaEntreToques = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+        lightbox.addEventListener("touchstart", (e) => {
+            if (e.touches.length >= 2) {
+                // El SEGUNDO dedo de un pellizco llega en un touchstart
+                // aparte (el primero ya disparó su propio touchstart con
+                // length===1) — inicializar acá TAMBIÉN, no solo abajo
+                // en touchmove, para no perder el primer tramo del
+                // pellizco si el navegador ya manda el primer touchmove
+                // con la distancia ya cambiada.
+                huboMultiToque = true;
+                pellizcoDistanciaInicial = distanciaEntreToques(e.touches[0], e.touches[1]);
+                escalaInicial = zoomEscala;
+                arrastreInicio = null;
+            } else if (e.touches.length === 1) {
+                huboMultiToque = false;
+                huboMovimiento = false;
+                inicioToqueTs = Date.now();
+                if (zoomEscala > 1) {
+                    arrastreInicio = { x: e.touches[0].clientX - zoomX, y: e.touches[0].clientY - zoomY };
+                }
+            }
+        }, { passive: true });
+
+        lightbox.addEventListener("touchmove", (e) => {
+            if (e.touches.length >= 2) {
+                e.preventDefault();
+                huboMultiToque = true;
+                huboMovimiento = true;
+                if (!pellizcoDistanciaInicial) {
+                    pellizcoDistanciaInicial = distanciaEntreToques(e.touches[0], e.touches[1]);
+                    escalaInicial = zoomEscala;
+                }
+                const distanciaActual = distanciaEntreToques(e.touches[0], e.touches[1]);
+                zoomEscala = Math.min(ZOOM_MAX, Math.max(1, escalaInicial * (distanciaActual / pellizcoDistanciaInicial)));
+                aplicarTransformLightbox();
+            } else if (e.touches.length === 1 && arrastreInicio) {
+                e.preventDefault();
+                huboMovimiento = true;
+                zoomX = e.touches[0].clientX - arrastreInicio.x;
+                zoomY = e.touches[0].clientY - arrastreInicio.y;
+                aplicarTransformLightbox();
+            }
+        }, { passive: false });
+
+        lightbox.addEventListener("touchend", (e) => {
+            if (e.touches.length < 2) pellizcoDistanciaInicial = 0;
+            if (e.touches.length > 0) return;
+            arrastreInicio = null;
+            // Doble toque evaluado acá, AL SOLTAR — no al apoyar el
+            // dedo. Apoyar el PRIMER dedo de un pellizco también
+            // dispara un touchstart de un solo toque; evaluarlo ahí
+            // confundía el inicio de un pellizco con un doble-toque y
+            // reseteaba el zoom justo cuando la persona empezaba a
+            // pellizcar — bug real, reportado en vivo en un celular
+            // real (2026-09-02): "no deja [hacer zoom]". Un doble
+            // toque de verdad es corto, sin moverse, y sin haber
+            // pasado por ningún momento de dos dedos.
+            if (huboMultiToque || huboMovimiento || Date.now() - inicioToqueTs >= 250) return;
+            const ahora = Date.now();
+            if (ahora - ultimoToqueTs < 300) {
+                if (zoomEscala > 1) resetearZoomLightbox();
+                else { zoomEscala = ZOOM_DOBLE_TOQUE; aplicarTransformLightbox(); }
+                ultimoToqueTs = 0;
+            } else {
+                ultimoToqueTs = ahora;
+            }
+        });
+    }
+
+    lightbox?.querySelector("[data-carrusel-lightbox-cerrar]").addEventListener("click", () => { lightbox.hidden = true; resetearZoomLightbox(); });
+    lightbox?.addEventListener("click", (e) => { if (e.target === lightbox) { lightbox.hidden = true; resetearZoomLightbox(); } });
+    lightbox?.querySelector("[data-carrusel-lightbox-prev]").addEventListener("click", () => {
+        if (lightboxIndice > 0) { lightboxIndice--; resetearZoomLightbox(); actualizarLightbox(); }
+    });
+    lightbox?.querySelector("[data-carrusel-lightbox-next]").addEventListener("click", () => {
+        if (lightboxIndice < lightboxItems.length - 1) { lightboxIndice++; resetearZoomLightbox(); actualizarLightbox(); }
+    });
+}
+
+/** Carrusel de capturas, el link de "vi el video" y "Marcar como
+ *  vista" — separado de bindCursos() para poder re-engancharlo SOLO
+ *  en el pedacito de lista que se reconstruye después de marcar una
+ *  lección como vista (ver el handler de data-marcar-vista, más
+ *  abajo), sin dejar el contenido opcional (su propia .leccion-list
+ *  aparte, que no se toca) sin enganchar. "raiz" es document en el
+ *  bind inicial de toda la página, o el <div class="leccion-list">
+ *  puntual cuando se reconstruye solo ese pedazo. */
+function bindLeccionesInteractivas(raiz, cursoId) {
+    raiz.querySelectorAll("[data-carrusel]").forEach((wrap) => {
+        const imgs = Array.from(wrap.querySelectorAll(".leccion-carrusel-img"));
+        const items = JSON.parse(decodeURIComponent(wrap.dataset.carruselItems));
+        const btnPrev = wrap.querySelector("[data-carrusel-prev]");
+        const btnNext = wrap.querySelector("[data-carrusel-next]");
+        const btnExpandir = wrap.querySelector("[data-carrusel-expandir]");
+        const contador = wrap.querySelector("[data-carrusel-contador]");
+        const caption = wrap.parentElement.querySelector("[data-carrusel-caption]");
+        let indice = 0;
+
+        function actualizar() {
+            imgs.forEach((img, i) => img.classList.toggle("activa", i === indice));
+            contador.textContent = `${indice + 1} / ${imgs.length}`;
+            if (caption) caption.textContent = items[indice].caption;
+            btnPrev.disabled = indice === 0;
+            btnNext.disabled = indice === imgs.length - 1;
+        }
+
+        btnPrev.addEventListener("click", () => {
+            if (indice > 0) { indice--; actualizar(); }
+        });
+        btnNext.addEventListener("click", () => {
+            if (indice < imgs.length - 1) { indice++; actualizar(); }
+        });
+        btnExpandir.addEventListener("click", () => abrirLightbox(items, indice));
+        imgs.forEach((img) => img.addEventListener("click", () => abrirLightbox(items, indice)));
+    });
+
+    raiz.querySelectorAll("[data-video-leccion]").forEach((link) => {
+        link.addEventListener("click", () => {
+            localStorage.setItem(claveVideoVisto(link.dataset.videoLeccion), "1");
+            const item = link.closest(".leccion-item");
+            const btnMarcar = item?.querySelector("[data-marcar-vista]");
+            if (btnMarcar) btnMarcar.disabled = false;
+            item?.querySelector(".aviso-ver-video")?.remove();
+        });
+    });
+
+    raiz.querySelectorAll("[data-marcar-vista]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+            // Bloqueo sincrónico ANTES de cualquier await — sin esto, un
+            // doble click (o el mismo listener disparándose dos veces)
+            // podía leer "todavía no existe la asignación" en los dos
+            // casi al mismo tiempo y crear DOS filas en vez de
+            // actualizar una. Bug real encontrado en producción: varias
+            // filas de Asignaciones duplicadas con el mismo progreso.
+            if (btn.disabled) return;
+            btn.disabled = true;
+
+            const usuario = getUsuarioActual();
+            try {
+                const [todasLasLecciones, asignaciones] = await Promise.all([
+                    getLeccionesPorCurso(cursoId),
+                    getAsignacionesPorColaborador(usuario.id),
+                ]);
+                // Mismo filtro que el render (ver renderDetalleCurso) — una
+                // opcional nunca dispara este handler (no tiene botón), pero
+                // el TOTAL contra el que se calcula el % tiene que ser el
+                // mismo de los dos lados o el número final no coincide con
+                // lo que la persona ve en pantalla.
+                const lecciones = todasLasLecciones.filter((l) => l.obligatoria !== "NO");
+                let asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
+
+                const idx = Number(btn.dataset.marcarVista);
+                const nuevasVistas = idx + 1;
+                const nuevoProgreso = Math.round((nuevasVistas / lecciones.length) * 100);
+                const nuevoEstado = nuevoProgreso >= 100 ? "completado" : "en_progreso";
+
+                if (asignacion) {
+                    await actualizarAsignacion(asignacion.id, { progreso: nuevoProgreso, estado: nuevoEstado });
+                } else {
+                    await crearAsignacion({ colaboradorId: usuario.id, cursoId, estado: nuevoEstado, progreso: nuevoProgreso });
+                }
+                registrarEvento(usuario.id, "avanzar_leccion", `${usuario.nombre} avanzó en el curso ${cursoId}`);
+
+                // En vez de navigate() (que vuelve a pedir curso, TODAS
+                // las lecciones, asignaciones Y resultados de nuevo, solo
+                // para volver a mostrar algo que ya sabemos porque
+                // acabamos de escribirlo) — reconstruye acá mismo, con lo
+                // que ya tenemos, la lista y la barra de progreso.
+                // Pedido explícito (2026-09-02): "se recarga toda la
+                // página y tarda mucho" (mismo reclamo que en News,
+                // arreglado ahí con el mismo criterio).
+                const modoPrueba = estaViendoComo() || usuario.rol === "supervisor" || usuario.rol === "admin";
+                const puedeMarcarVista = usuario.rol !== "supervisor" && usuario.rol !== "admin";
+                const lista = document.querySelector(".leccion-list");
+                if (lista) {
+                    lista.innerHTML = filasLeccionesObligatoriasHtml(lecciones, nuevasVistas, modoPrueba, puedeMarcarVista);
+                    bindLeccionesInteractivas(lista, cursoId);
+                }
+                const barra = document.querySelector(".curso-progreso-sticky .stat-progress-bar > i");
+                if (barra) barra.style.width = `${nuevoProgreso}%`;
+                const textoProgreso = document.querySelector(".curso-progreso-sticky p.text-sm");
+                if (textoProgreso) textoProgreso.textContent = `${nuevoProgreso}% completado · ${nuevasVistas}/${lecciones.length} lecciones`;
+            } catch (err) {
+                alert("No se pudo guardar el avance. Probá de nuevo.");
+                btn.disabled = false;
+            }
+        });
+    });
+}
+
 export function bindCursos(params = []) {
 
     const cursoId = params && params[0];
@@ -803,123 +1089,6 @@ export function bindCursos(params = []) {
         });
     });
 
-    // Carrusel de capturas navegable a mano — sin autoplay, para que
-    // el colaborador pueda leer cada pantalla a su ritmo (ver
-    // IMAGENES_POR_LECCION).
-    const lightbox = document.querySelector("[data-carrusel-lightbox]");
-    const lightboxImg = lightbox?.querySelector("[data-carrusel-lightbox-img]");
-    const lightboxContador = lightbox?.querySelector("[data-carrusel-lightbox-contador]");
-    const lightboxCaption = lightbox?.querySelector("[data-carrusel-lightbox-caption]");
-    let lightboxItems = [];
-    let lightboxIndice = 0;
-
-    function actualizarLightbox() {
-        if (!lightbox) return;
-        const item = lightboxItems[lightboxIndice];
-        lightboxImg.src = item.src;
-        lightboxContador.textContent = `${lightboxIndice + 1} / ${lightboxItems.length}`;
-        if (lightboxCaption) lightboxCaption.textContent = item.caption;
-        lightbox.querySelector("[data-carrusel-lightbox-prev]").disabled = lightboxIndice === 0;
-        lightbox.querySelector("[data-carrusel-lightbox-next]").disabled = lightboxIndice === lightboxItems.length - 1;
-    }
-
-    function abrirLightbox(items, indiceInicial) {
-        if (!lightbox) return;
-        lightboxItems = items;
-        lightboxIndice = indiceInicial;
-        lightbox.hidden = false;
-        actualizarLightbox();
-    }
-
-    lightbox?.querySelector("[data-carrusel-lightbox-cerrar]").addEventListener("click", () => { lightbox.hidden = true; });
-    lightbox?.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.hidden = true; });
-    lightbox?.querySelector("[data-carrusel-lightbox-prev]").addEventListener("click", () => {
-        if (lightboxIndice > 0) { lightboxIndice--; actualizarLightbox(); }
-    });
-    lightbox?.querySelector("[data-carrusel-lightbox-next]").addEventListener("click", () => {
-        if (lightboxIndice < lightboxItems.length - 1) { lightboxIndice++; actualizarLightbox(); }
-    });
-
-    document.querySelectorAll("[data-carrusel]").forEach((wrap) => {
-        const imgs = Array.from(wrap.querySelectorAll(".leccion-carrusel-img"));
-        const items = JSON.parse(decodeURIComponent(wrap.dataset.carruselItems));
-        const btnPrev = wrap.querySelector("[data-carrusel-prev]");
-        const btnNext = wrap.querySelector("[data-carrusel-next]");
-        const btnExpandir = wrap.querySelector("[data-carrusel-expandir]");
-        const contador = wrap.querySelector("[data-carrusel-contador]");
-        const caption = wrap.parentElement.querySelector("[data-carrusel-caption]");
-        let indice = 0;
-
-        function actualizar() {
-            imgs.forEach((img, i) => img.classList.toggle("activa", i === indice));
-            contador.textContent = `${indice + 1} / ${imgs.length}`;
-            if (caption) caption.textContent = items[indice].caption;
-            btnPrev.disabled = indice === 0;
-            btnNext.disabled = indice === imgs.length - 1;
-        }
-
-        btnPrev.addEventListener("click", () => {
-            if (indice > 0) { indice--; actualizar(); }
-        });
-        btnNext.addEventListener("click", () => {
-            if (indice < imgs.length - 1) { indice++; actualizar(); }
-        });
-        btnExpandir.addEventListener("click", () => abrirLightbox(items, indice));
-        imgs.forEach((img) => img.addEventListener("click", () => abrirLightbox(items, indice)));
-    });
-
-    document.querySelectorAll("[data-video-leccion]").forEach((link) => {
-        link.addEventListener("click", () => {
-            localStorage.setItem(claveVideoVisto(link.dataset.videoLeccion), "1");
-            const item = link.closest(".leccion-item");
-            const btnMarcar = item?.querySelector("[data-marcar-vista]");
-            if (btnMarcar) btnMarcar.disabled = false;
-            item?.querySelector(".aviso-ver-video")?.remove();
-        });
-    });
-
-    document.querySelectorAll("[data-marcar-vista]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-            // Bloqueo sincrónico ANTES de cualquier await — sin esto, un
-            // doble click (o el mismo listener disparándose dos veces)
-            // podía leer "todavía no existe la asignación" en los dos
-            // casi al mismo tiempo y crear DOS filas en vez de
-            // actualizar una. Bug real encontrado en producción: varias
-            // filas de Asignaciones duplicadas con el mismo progreso.
-            if (btn.disabled) return;
-            btn.disabled = true;
-
-            const usuario = getUsuarioActual();
-            try {
-                const [todasLasLecciones, asignaciones] = await Promise.all([
-                    getLeccionesPorCurso(cursoId),
-                    getAsignacionesPorColaborador(usuario.id),
-                ]);
-                // Mismo filtro que el render (ver renderDetalleCurso) — una
-                // opcional nunca dispara este handler (no tiene botón), pero
-                // el TOTAL contra el que se calcula el % tiene que ser el
-                // mismo de los dos lados o el número final no coincide con
-                // lo que la persona ve en pantalla.
-                const lecciones = todasLasLecciones.filter((l) => l.obligatoria !== "NO");
-                let asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
-
-                const idx = Number(btn.dataset.marcarVista);
-                const nuevasVistas = idx + 1;
-                const nuevoProgreso = Math.round((nuevasVistas / lecciones.length) * 100);
-                const nuevoEstado = nuevoProgreso >= 100 ? "completado" : "en_progreso";
-
-                if (asignacion) {
-                    await actualizarAsignacion(asignacion.id, { progreso: nuevoProgreso, estado: nuevoEstado });
-                } else {
-                    await crearAsignacion({ colaboradorId: usuario.id, cursoId, estado: nuevoEstado, progreso: nuevoProgreso });
-                }
-                registrarEvento(usuario.id, "avanzar_leccion", `${usuario.nombre} avanzó en el curso ${cursoId}`);
-
-                navigate(`cursos/${cursoId}`);
-            } catch (err) {
-                alert("No se pudo guardar el avance. Probá de nuevo.");
-                btn.disabled = false;
-            }
-        });
-    });
+    bindLightboxCarrusel();
+    bindLeccionesInteractivas(document, cursoId);
 }

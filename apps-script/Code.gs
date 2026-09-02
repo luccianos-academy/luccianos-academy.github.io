@@ -1567,10 +1567,18 @@ function actualizarDiasGestionSucursal(tareaId, dias, frecuencia, usuarioActual)
     const ahora = new Date().toISOString();
 
     if (existente) {
-        if (!diasTexto) return _eliminarCrudo("GestionTareasSucursal", existente.id);
+        // Sin días Y ya vuelta a "semanal" (el default implícito de
+        // una fila que no existe) no hace falta guardar nada — pero
+        // si quedó en "mensual" sin días todavía (recién elegida esa
+        // frecuencia, sin tocar ningún día del mes aún) SÍ hay que
+        // guardarlo: si no, el próximo refresco automático no
+        // encuentra la fila y la vuelve a leer como "semanal",
+        // pisando la elección real de la persona (bug real, reportado
+        // en vivo con video, 2026-09-02: "elijo Mensual y no lo lee").
+        if (!diasTexto && frecuenciaTexto === "semanal") return _eliminarCrudo("GestionTareasSucursal", existente.id);
         return _actualizarCrudo("GestionTareasSucursal", existente.id, { dias: diasTexto, frecuencia: frecuenciaTexto, fechaModificacion: ahora });
     }
-    if (!diasTexto) return { ok: true }; // nada que crear si ya arranca vacío
+    if (!diasTexto && frecuenciaTexto === "semanal") return { ok: true }; // nada que crear si ya arranca vacío Y en el default
     return _escribirCrudo("GestionTareasSucursal", { tareaId: tareaId, sucursal: sucursal, dias: diasTexto, frecuencia: frecuenciaTexto, fechaModificacion: ahora });
 }
 

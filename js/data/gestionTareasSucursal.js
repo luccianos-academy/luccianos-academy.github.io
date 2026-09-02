@@ -60,10 +60,17 @@ export async function guardarDiasSucursal(tareaId, dias, sucursal, frecuencia = 
         // la que pasa el caller (getUsuarioActual().sucursal), mismo
         // resultado que produciría el servidor.
         const existente = gestionTareasSucursalMock.find((f) => String(f.tareaId) === String(tareaId) && String(f.sucursal) === String(sucursal));
+        // Sin días Y "semanal" (el default implícito) no necesita
+        // fila — pero "mensual" sin días todavía (recién elegida esa
+        // frecuencia, sin tocar ningún día del mes aún) sí hay que
+        // guardarlo, si no el próximo refresco la lee de nuevo como
+        // "semanal" y pisa la elección real (bug real, reportado en
+        // vivo con video, 2026-09-02).
+        const nadaQueGuardar = !dias.length && frecuencia !== "mensual";
         if (existente) {
-            if (!dias.length) gestionTareasSucursalMock.splice(gestionTareasSucursalMock.indexOf(existente), 1);
+            if (nadaQueGuardar) gestionTareasSucursalMock.splice(gestionTareasSucursalMock.indexOf(existente), 1);
             else { existente.dias = dias.join(","); existente.frecuencia = frecuencia; }
-        } else if (dias.length) {
+        } else if (!nadaQueGuardar) {
             gestionTareasSucursalMock.push({ id: Date.now(), tareaId, sucursal, dias: dias.join(","), frecuencia });
         }
         return { ok: true };

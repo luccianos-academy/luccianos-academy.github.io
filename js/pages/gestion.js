@@ -429,20 +429,28 @@ function calendarioDiasHtml(diasMesConContenido, diaClaveActivo) {
 function diasControlHtml(t) {
     const esMensual = t.frecuencia === "mensual";
     const opciones = esMensual ? diasDelMesActual() : DIAS_VISUAL;
+    // Envuelto en .dias-control-wrap para poder reemplazar SOLO este
+    // pedacito (Frecuencia + Días) cuando cambia la frecuencia — ver
+    // bindFrecuenciaTarea, que lo regenera entero porque el juego de
+    // días cambia (nombres de la semana vs. números del mes), sin
+    // tocar el resto de la tarjeta (badge, resumen).
+    //
     // Solo lectura: pills como <span>, sin data-toggle-dia — no hay
     // nada que enganchar, ni forma de tocarlas por accidente.
     return `
-        ${frecuenciaTareaHtml(t)}
-        <div class="tarea-gestion-dia-control">
-            <span class="tarea-gestion-dia-label">${esMensual ? "Día del mes" : "Días"}</span>
-            <div class="dias-pills-tarea${esMensual ? " dias-pills-tarea-mes" : ""}">
-                ${opciones.map((d) => {
-                    const activa = t.dias.includes(d);
-                    const etiqueta = esMensual ? d : d.slice(0, 2);
-                    return soloLecturaAsignacion
-                        ? `<span class="pill-dia-tarea${activa ? " activa" : ""}" title="${d}">${etiqueta}</span>`
-                        : `<button type="button" class="pill-dia-tarea${activa ? " activa" : ""}" data-toggle-dia="${d}" title="${d}">${etiqueta}</button>`;
-                }).join("")}
+        <div class="dias-control-wrap">
+            ${frecuenciaTareaHtml(t)}
+            <div class="tarea-gestion-dia-control">
+                <span class="tarea-gestion-dia-label">${esMensual ? "Día del mes" : "Días"}</span>
+                <div class="dias-pills-tarea${esMensual ? " dias-pills-tarea-mes" : ""}">
+                    ${opciones.map((d) => {
+                        const activa = t.dias.includes(d);
+                        const etiqueta = esMensual ? d : d.slice(0, 2);
+                        return soloLecturaAsignacion
+                            ? `<span class="pill-dia-tarea${activa ? " activa" : ""}" title="${d}">${etiqueta}</span>`
+                            : `<button type="button" class="pill-dia-tarea${activa ? " activa" : ""}" data-toggle-dia="${d}" title="${d}">${etiqueta}</button>`;
+                    }).join("")}
+                </div>
             </div>
         </div>
     `;
@@ -1991,6 +1999,14 @@ function bindDiasControl(contenedor) {
 
             const idx = tarea.dias.indexOf(dia);
             if (idx === -1) tarea.dias.push(dia); else tarea.dias.splice(idx, 1);
+            // La propia pill se marca/desmarca al toque, directo — no
+            // depende de que actualizarFilaAplica reconstruya nada (esa
+            // función, mientras la tarjeta está desplegada, solo toca
+            // el badge y el resumen de días, ver su comentario, así
+            // que sin esto la pill se quedaba sin ningún indicio visual
+            // de que el toque registró — bug real, reportado en vivo,
+            // 2026-09-02).
+            btn.classList.toggle("activa", idx === -1);
             recrearTareaEnPaneles(idTarea);
 
             clearTimeout(estado.timer);
@@ -2022,6 +2038,24 @@ function bindDiasControl(contenedor) {
     });
 }
 
+/** Reemplaza SOLO el selector de Frecuencia+Días de una fila del
+ *  catálogo ("Asignar tareas") — necesario cuando cambia la
+ *  frecuencia porque el juego de opciones cambia entero (nombres de
+ *  día de semana vs. números del mes), a diferencia de tocar una pill
+ *  suelta (bindDiasControl ya la marca/desmarca ella misma, sin
+ *  reconstruir nada). Acotado a ese pedacito, no a la tarjeta entera —
+ *  mismo motivo que actualizarFilaAplica ya no reemplaza todo con
+ *  outerHTML: evitar el parpadeo de la tarjeta abierta. */
+function actualizarSelectorDiasCatalogo(fila, tarea) {
+    const wrapViejo = fila?.querySelector(".dias-control-wrap");
+    if (!wrapViejo) return;
+    wrapViejo.outerHTML = diasControlHtml(tarea);
+    const wrapNuevo = fila.querySelector(".dias-control-wrap");
+    if (!wrapNuevo) return;
+    bindDiasControl(wrapNuevo);
+    bindFrecuenciaTarea(wrapNuevo);
+}
+
 /** Semanal/Mensual POR TAREA — pedido explícito: "yo cargo la tarea,
  *  ellos deciden si es mensual o semanal, no tengo que estar
  *  modificando nada". Cada local elige acá, al desplegar la tarea en
@@ -2032,7 +2066,8 @@ function bindDiasControl(contenedor) {
 function bindFrecuenciaTarea(contenedor) {
     contenedor.querySelectorAll("[data-elegir-frecuencia]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            const idTarea = contenedor.closest(".tarea-gestion").dataset.tareaId;
+            const fila = contenedor.closest(".tarea-gestion");
+            const idTarea = fila.dataset.tareaId;
             const tarea = registroTareas.get(idTarea);
             if (!tarea) return;
             const nueva = btn.dataset.elegirFrecuencia;
@@ -2043,20 +2078,24 @@ function bindFrecuenciaTarea(contenedor) {
                 }
             }
             const diasPrevios = tarea.dias.slice();
+            const frecuenciaPrevia = tarea.frecuencia;
             tarea.frecuencia = nueva;
             tarea.dias = [];
             recrearTareaEnPaneles(idTarea);
+            actualizarSelectorDiasCatalogo(fila, tarea);
             guardarDiasSucursal(idTarea, [], getUsuarioActual()?.sucursal, nueva).then((r) => {
                 if (r?.ok) return;
                 alert(r?.error || "No se pudo guardar — probá de nuevo.");
-                tarea.frecuencia = nueva === "mensual" ? "semanal" : "mensual";
+                tarea.frecuencia = frecuenciaPrevia;
                 tarea.dias = diasPrevios;
                 recrearTareaEnPaneles(idTarea);
+                actualizarSelectorDiasCatalogo(fila, tarea);
             }).catch((err) => {
                 manejarFalloGuardadoGestion(err, () => {
-                    tarea.frecuencia = nueva === "mensual" ? "semanal" : "mensual";
+                    tarea.frecuencia = frecuenciaPrevia;
                     tarea.dias = diasPrevios;
                     recrearTareaEnPaneles(idTarea);
+                    actualizarSelectorDiasCatalogo(fila, tarea);
                 });
             });
         });
@@ -3596,6 +3635,7 @@ async function actualizarCatalogoGestionEnDOM() {
 }
 
 let intervaloChecksGestion = null;
+let quitarVisibilidadGestion = null;
 
 /** Marca de tiempo del último tilde/toque LOCAL en cualquier check —
  *  pedido explícito, con captura real: "el marcar sub-tareas las
@@ -3639,7 +3679,7 @@ export function bindGestion() {
     // navegó a otra pantalla) — no hay hook de "salir de la página"
     // en este router, así que el propio intervalo se autochequea.
     if (intervaloChecksGestion) clearInterval(intervaloChecksGestion);
-    intervaloChecksGestion = setInterval(async () => {
+    const refrescoGestion = async () => {
         if (!document.getElementById("cuerpo-gestion")) {
             clearInterval(intervaloChecksGestion);
             intervaloChecksGestion = null;
@@ -3650,5 +3690,22 @@ export function bindGestion() {
         // así, si reconstruye, lo hace con el check más fresco posible.
         await actualizarChecksEnDOM();
         actualizarCatalogoGestionEnDOM();
-    }, 5000);
+    };
+    intervaloChecksGestion = setInterval(refrescoGestion, 5000);
+
+    // El setInterval de acá arriba se PAUSA solo mientras el celular
+    // tiene la pantalla bloqueada o se cambió de app (ahorro de
+    // batería del navegador) — al volver, el próximo tick de 5s no
+    // sale al toque, tarda lo que le falte del intervalo pausado. Con
+    // la pantalla apagada un rato largo, eso se sentía como "no se
+    // actualiza nunca solo, hay que tocar Actualizar a mano" (pedido
+    // explícito, reportado en vivo varias veces: "siempre el mismo
+    // problema"). Refrescar apenas la pestaña vuelve a estar visible
+    // saca esa espera — no hace falta esperar el próximo tick.
+    if (quitarVisibilidadGestion) quitarVisibilidadGestion();
+    const alVolverVisible = () => {
+        if (document.visibilityState === "visible") refrescoGestion();
+    };
+    document.addEventListener("visibilitychange", alVolverVisible);
+    quitarVisibilidadGestion = () => document.removeEventListener("visibilitychange", alVolverVisible);
 }

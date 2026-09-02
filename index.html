@@ -4,7 +4,16 @@
 <head>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Interfaz fija (2026-09-02, pedido explícito: "similar a
+         WhatsApp/Chess.com... que no se corra ni se desalinee al
+         pellizcar para hacer zoom"). maximum-scale=1 + user-scalable=no
+         bloquea el pellizco; touch-action:manipulation en css/base.css
+         suma la otra mitad (evita el zoom por doble-tap) sin tocar el
+         scroll normal. Sacrifica el zoom nativo de accesibilidad a
+         propósito — la app ya tiene su propio control de tamaño de
+         fuente donde hace falta, esto es una herramienta interna, no
+         un sitio público. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <title>Lucciano's Academy</title>
 

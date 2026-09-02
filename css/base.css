@@ -58,6 +58,10 @@ img, video{
 html{
     overflow-x:hidden;
     overflow-x:clip;
+    /* Mitad del bloqueo de zoom (ver el <meta viewport> en index.html):
+       esto apaga el zoom por doble-tap sin tocar el scroll normal
+       (pan-x/pan-y siguen andando). El pellizco lo bloquea el meta tag. */
+    touch-action:manipulation;
 }
 
 body{

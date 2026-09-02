@@ -3969,6 +3969,12 @@ table.data-table tbody tr:hover{
     align-items:center;
     justify-content:center;
     padding:min(6vw, 60px);
+    /* Mismo motivo que .carrusel-lightbox-img — el pellizco/doble-toque
+       de acá adentro es manual con JS (ver cursos.js), y con una foto
+       vertical/apaisada (object-fit:contain deja franjas oscuras a
+       los costados) un dedo del pellizco cae fácil afuera de la
+       imagen, sobre este overlay. */
+    touch-action:none;
 }
 
 .carrusel-lightbox[hidden]{ display:none; }
@@ -3979,6 +3985,12 @@ table.data-table tbody tr:hover{
     object-fit:contain;
     border-radius:8px;
     box-shadow:0 20px 60px rgba(0,0,0,.5);
+    /* Excepción puntual al bloqueo de zoom de toda la app (ver
+       js/pages/cursos.js, el pellizco/doble-toque de acá es manual con
+       JS) — "none" para que el navegador no le gane el gesto a nuestro
+       propio manejo, ni intente hacer scroll con dos dedos. */
+    touch-action:none;
+    user-select:none;
 }
 
 .carrusel-lightbox-cerrar{
