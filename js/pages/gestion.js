@@ -2414,12 +2414,43 @@ function actualizarFilaAplica(idTarea) {
         return;
     }
 
-    const estabaDesplegada = filaVieja?.classList.contains("desplegada");
+    // Mientras la tarjeta está desplegada (el usuario tocando las
+    // pills de día ahí mismo), NO reemplazar el nodo entero:
+    // outerHTML destruye y vuelve a crear todo, incluido el selector
+    // de días que está usando en ese instante — eso se veía como un
+    // parpadeo real, la tarjeta parecía "cerrarse y abrirse" en cada
+    // toque hasta terminar de elegir los días (reportado en vivo con
+    // video, 2026-09-02). Alcanza con actualizar en el lugar el
+    // pedacito que cambia (badge "En uso"/"Sin usar" + resumen de
+    // días), sin tocar el selector que sigue con sus propias pills
+    // (bindDiasControl les togglea ".activa" directo, sin pasar por
+    // acá) — ver bindDiasControl.
+    if (filaVieja && filaVieja.classList.contains("desplegada")) {
+        const enUso = tarea.dias.length > 0;
+        filaVieja.classList.toggle("en-uso", enUso);
+        const badge = filaVieja.querySelector(".badge-en-uso");
+        if (badge) {
+            badge.classList.toggle("activa", enUso);
+            badge.textContent = enUso ? "En uso" : "Sin usar";
+        }
+        const txt = filaVieja.querySelector(".tarea-gestion-txt");
+        let resumen = txt?.querySelector(".tarea-gestion-resumen-dias");
+        if (enUso) {
+            if (!resumen && txt) {
+                txt.insertAdjacentHTML("beforeend", `<span class="tarea-gestion-resumen-dias"></span>`);
+                resumen = txt.querySelector(".tarea-gestion-resumen-dias");
+            }
+            if (resumen) resumen.textContent = resumenDiasTexto(tarea);
+        } else {
+            resumen?.remove();
+        }
+        return;
+    }
+
     if (filaVieja) filaVieja.outerHTML = aplicaTareaHtml(tarea);
     else document.getElementById("lista-aplica-tareas")?.insertAdjacentHTML("beforeend", aplicaTareaHtml(tarea));
     const filaNueva = document.querySelector(`.fila-aplica-tarea[data-tarea-id="${idTarea}"]`);
     if (!filaNueva) return;
-    if (estabaDesplegada) filaNueva.classList.add("desplegada");
     // bindTarjetaNueva le engancha TODO lo que le corresponda (día,
     // desplegable, Editar, Eliminar) — antes solo se enganchaba el
     // desplegable y las pills de día, y Editar/Eliminar quedaban sin
