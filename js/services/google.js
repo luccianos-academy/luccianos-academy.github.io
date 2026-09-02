@@ -172,6 +172,14 @@ export function reabrirTareaGestionReal(tareaId, dia, sucursal) {
     return gasRequest("reabrirTareaGestion", { tareaId, dia, sucursal });
 }
 
+/** Borra ENTERO el registro de una tarea de un día puntual — solo
+ *  Admin (ver apps-script/Code.gs, eliminarCheckGestion). A diferencia
+ *  de reabrirTareaGestionReal (solo destraba), esto borra los datos de
+ *  verdad. */
+export function eliminarCheckGestionReal(tareaId, dia, sucursal) {
+    return gasRequest("eliminarCheckGestion", { tareaId, dia, sucursal });
+}
+
 /** Ciclos ya cerrados de Gestión de tareas ("Histórico") — Responsable
  *  de local no manda "sucursal" (el backend usa la suya); Admin/
  *  Supervisor sí, la que eligieron en el selector. Ver
@@ -196,12 +204,4 @@ export function obtenerHorarioRecordatorioGestionReal() {
 
 export function guardarHorarioRecordatorioGestionReal(hora) {
     return gasRequest("guardarHorarioRecordatorioGestion", { hora });
-}
-
-/** Borra, del ciclo VIGENTE nada más, las marcas hechas en un día
- *  posterior al de hoy — solo Admin. `sucursal` vacío = todos los
- *  locales de una sola vez. Ver apps-script/Code.gs,
- *  limpiarMarcasFuturasGestion. */
-export function limpiarMarcasFuturasGestionReal(sucursal) {
-    return gasRequest("limpiarMarcasFuturasGestion", { sucursal });
 }

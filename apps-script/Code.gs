@@ -159,11 +159,11 @@ function _despachar(body, usuarioActual) {
         case "actualizarDiasGestionSucursal": return actualizarDiasGestionSucursal(body.tareaId, body.dias, body.frecuencia, usuarioActual);
         case "actualizarCheckGestion": return actualizarCheckGestion(body.tareaId, body.dia, body.hecho, usuarioActual, body.subitemsMarcados);
         case "reabrirTareaGestion": return reabrirTareaGestion(body.tareaId, body.dia, body.sucursal, usuarioActual);
+        case "eliminarCheckGestion": return eliminarCheckGestion(body.tareaId, body.dia, body.sucursal, usuarioActual);
         case "obtenerHorarioRecordatorioGestion": return obtenerHorarioRecordatorioGestion(usuarioActual);
         case "guardarHorarioRecordatorioGestion": return guardarHorarioRecordatorioGestion(body.hora, usuarioActual);
         case "obtenerHistoricoGestion": return obtenerHistoricoGestion(body.sucursal, usuarioActual);
         case "eliminarHistoricoGestion": return eliminarHistoricoGestion(body.ciclo, usuarioActual);
-        case "limpiarMarcasFuturasGestion": return limpiarMarcasFuturasGestion(body.sucursal, usuarioActual);
         case "enviarPushPrueba": return enviarPushPrueba(usuarioActual);
         case "subirArchivo": return subirArchivo(body.nombreArchivo, body.extension, body.archivoBase64);
         case "subirFotoPerfil": return subirFotoPerfil(usuarioActual, body.extension, body.archivoBase64);
@@ -1224,7 +1224,19 @@ function _enviarPushATodos(usuarioIds, titulo, cuerpo, url) {
     const accessToken = _obtenerAccessTokenFCM();
 
     const ids = usuarioIds.map(String);
-    const tokens = _leerCrudo("Tokens").filter((t) => ids.includes(String(t.usuarioId)));
+    const tokensCrudos = _leerCrudo("Tokens").filter((t) => ids.includes(String(t.usuarioId)));
+    // Un mismo token puede haber quedado en más de una fila (ej. una
+    // revalidación en segundo plano que corrió con el caché local un
+    // paso atrasado, ver registrarToken en data/tokens.js) — sin este
+    // dedupe, ESE dispositivo recibía dos push idénticos por el mismo
+    // envío (reportado en vivo, 2026-09-02). Nunca más de un envío por
+    // token real, sin importar cuántas filas lo repitan.
+    const vistos = {};
+    const tokens = tokensCrudos.filter((t) => {
+        if (vistos[t.token]) return false;
+        vistos[t.token] = true;
+        return true;
+    });
 
     let enviados = 0;
     const fallidos = [];
@@ -1749,6 +1761,44 @@ function reabrirTareaGestion(tareaId, dia, sucursal, usuarioActual) {
     return _actualizarCrudo("GestionChecks", existente.id, { cerrada: "NO" });
 }
 
+/** Borra ENTERO el registro de una tarea de un día puntual (completa o
+ *  a medias) — hora, quién la marcó, sub-ítems, todo — dejándola como
+ *  si nadie la hubiera tocado ese día. Pedido explícito (2026-09-02,
+ *  maqueta aprobada): "un candado en cada tarea para borrar los datos
+ *  del sheet desde la app, en vez de entrar al sheet y borrar". A
+ *  diferencia de
+ *  reabrirTareaGestion (solo destraba, conserva los datos), esto los
+ *  elimina de verdad — por eso queda más restringido: SOLO Admin (ni
+ *  Supervisor ni el propio Responsable). */
+function eliminarCheckGestion(tareaId, dia, sucursal, usuarioActual) {
+    if (usuarioActual.rol !== "admin") {
+        return { ok: false, error: "Solo Administración puede borrar un registro." };
+    }
+    const suc = String(sucursal || "").trim();
+    if (!suc || !tareaId || !dia) return { ok: false, error: "Falta la tarea, el día o el local." };
+
+    // Mismo criterio que reabrirTareaGestion: la fila a borrar es la
+    // del CICLO ACTUAL, no una vieja de Histórico con el mismo
+    // tareaId+sucursal+dia.
+    const filaFrecuencia = _leerCrudo("GestionTareasSucursal").find(function (f) {
+        return String(f.tareaId) === String(tareaId) && String(f.sucursal).trim() === suc;
+    });
+    const frecuenciaTarea = filaFrecuencia && filaFrecuencia.frecuencia === "mensual" ? "mensual" : "semanal";
+    const ciclo = _cicloActual(frecuenciaTarea);
+
+    const existente = _leerCrudo("GestionChecks").find(function (f) {
+        if (String(f.tareaId) !== String(tareaId) || String(f.sucursal).trim() !== suc || String(f.dia) !== String(dia)) return false;
+        // Backfill de ciclo vacío (filas guardadas antes de que
+        // existiera esa columna) — mismo criterio que
+        // obtenerHistoricoGestion, si no esas filas viejas nunca
+        // "encontraban" nada para borrar.
+        const cicloDeEsta = f.ciclo || _cicloDeFecha(f.fechaModificacion, frecuenciaTarea);
+        return String(cicloDeEsta) === String(ciclo);
+    });
+    if (!existente) return { ok: false, error: "No se encontró ese registro — puede que ya se haya borrado." };
+    return _eliminarCrudo("GestionChecks", existente.id);
+}
+
 /** Ciclos YA CERRADOS de Gestión de tareas ("Histórico") — el reset
  *  automático de ciclo (ver _cicloActual) hace que lo tildado de un
  *  ciclo pasado deje de verse en "Tareas asignadas", pero no se pierde:
@@ -1817,71 +1867,6 @@ function eliminarHistoricoGestion(ciclo, usuarioActual) {
     return { ok: true, borradas: filas.length };
 }
 
-/** true si `dia` (nombre de día de semana, o número de día del mes) es
- *  POSTERIOR al de hoy — usa la misma hora efectiva (corte 04:00) que
- *  _esDiaDeHoyGestion, pero acá importa la dirección (antes/después),
- *  no solo si coincide. */
-function _diaEsFuturoGestion(dia) {
-    const DIAS_ISO = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-    const tz = Session.getScriptTimeZone();
-    const efectiva = new Date(new Date().getTime() - 4 * 60 * 60 * 1000);
-    const idxHoy = Number(Utilities.formatDate(efectiva, tz, "u"));
-    const numeroHoy = Number(Utilities.formatDate(efectiva, tz, "d"));
-    const idxDia = DIAS_ISO.indexOf(dia);
-    if (idxDia > 0) return idxDia > idxHoy;
-    const numDia = Number(dia);
-    return !isNaN(numDia) && numDia > numeroHoy;
-}
-
-/** Borra, del ciclo VIGENTE nada más (nunca toca Histórico, que ya son
- *  ciclos cerrados), las marcas hechas en un día posterior al de hoy —
- *  pedido explícito (2026-09-02): algunos Responsables tocaban un día
- *  futuro de la semana/mes "para probar", dejando marcas falsas. Solo
- *  Admin (a diferencia de eliminarHistoricoGestion, esto puede tocar
- *  CUALQUIER local, no solo el propio). `sucursalPedida` vacío = TODOS
- *  los locales de una sola vez ("así todos tienen las tareas limpias
- *  para empezar la semana") — el otro alcance pedido es UN local
- *  puntual, pasando su nombre. */
-function limpiarMarcasFuturasGestion(sucursalPedida, usuarioActual) {
-    if (usuarioActual.rol !== "admin") {
-        return { ok: false, error: "Solo Administración puede limpiar marcas futuras." };
-    }
-    const sucursal = String(sucursalPedida || "").trim();
-
-    // Frecuencia real de cada tarea, por sucursal (una tarea podría
-    // tener frecuencias distintas en locales distintos) — hace falta
-    // para el backfill de acá abajo, mismo motivo que obtenerHistoricoGestion.
-    const frecuencias = {};
-    _leerCrudo("GestionTareasSucursal").forEach(function (f) {
-        frecuencias[f.tareaId + "|" + String(f.sucursal || "").trim()] = f.frecuencia;
-    });
-
-    const cicloSemanalActual = _cicloActual("semanal");
-    const cicloMensualActual = _cicloActual("mensual");
-
-    const filas = _leerCrudo("GestionChecks").filter(function (f) {
-        const filaSucursal = String(f.sucursal || "").trim();
-        if (sucursal && filaSucursal !== sucursal) return false;
-
-        const frecuenciaTarea = frecuencias[f.tareaId + "|" + filaSucursal] === "mensual" ? "mensual" : "semanal";
-        // Filas guardadas antes de que existiera la columna "ciclo"
-        // quedaron con ese campo vacío para siempre — mismo backfill
-        // que ya usa obtenerHistoricoGestion (a partir de su propia
-        // fechaModificacion). Sin esto, una fila vieja marcada a
-        // futuro NUNCA calificaba como "del ciclo vigente" y quedaba
-        // afuera de esta limpieza — bug real, reportado en vivo:
-        // "dice que no hay marcas para borrar" con una tarea marcada
-        // a futuro bien a la vista.
-        const ciclo = f.ciclo || _cicloDeFecha(f.fechaModificacion, frecuenciaTarea);
-        const cicloActualDeEsta = frecuenciaTarea === "mensual" ? cicloMensualActual : cicloSemanalActual;
-        if (String(ciclo) !== String(cicloActualDeEsta)) return false;
-
-        return _diaEsFuturoGestion(f.dia);
-    });
-    filas.forEach(function (f) { _eliminarCrudo("GestionChecks", f.id); });
-    return { ok: true, borradas: filas.length };
-}
-
 function enviarPushPrueba(usuarioActual) {
     if (!usuarioActual || !usuarioActual.id) {
         return { ok: false, error: "Usuario no identificado." };
@@ -1890,7 +1875,13 @@ function enviarPushPrueba(usuarioActual) {
     const projectId = _propFCM("FCM_PROJECT_ID");
     const accessToken = _obtenerAccessTokenFCM();
 
-    const tokens = _leerCrudo("Tokens").filter((t) => String(t.usuarioId) === String(usuarioActual.id));
+    const tokensCrudos = _leerCrudo("Tokens").filter((t) => String(t.usuarioId) === String(usuarioActual.id));
+    const vistosPrueba = {};
+    const tokens = tokensCrudos.filter((t) => {
+        if (vistosPrueba[t.token]) return false;
+        vistosPrueba[t.token] = true;
+        return true;
+    });
 
     if (!tokens.length) {
         return { ok: false, error: "No tienes tokens de push registrados. Activa las notificaciones en tu perfil." };
@@ -1950,9 +1941,15 @@ function avisarVencimientosProximos() {
     const accessToken = _obtenerAccessTokenFCM();
     const tokens = _leerCrudo("Tokens");
 
+    const vistosVencimiento = {};
     usuarios.forEach((u) => {
         tokens
             .filter((t) => String(t.usuarioId) === String(u.id))
+            .filter((t) => {
+                if (vistosVencimiento[t.token]) return false;
+                vistosVencimiento[t.token] = true;
+                return true;
+            })
             .forEach((t) => {
                 const resultado = _enviarUnPush(
                     t.token,

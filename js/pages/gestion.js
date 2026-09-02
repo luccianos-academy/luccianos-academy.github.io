@@ -48,7 +48,7 @@ import {
     eliminarTarea as eliminarTareaBackend,
 } from "../data/gestionTareas.js";
 import { getDiasPorSucursal, guardarDiasSucursal } from "../data/gestionTareasSucursal.js";
-import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, getHistoricoGestion, eliminarHistoricoGestion, getHorarioRecordatorioGestion, guardarHorarioRecordatorioGestion, limpiarMarcasFuturasGestion } from "../data/gestionChecks.js";
+import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, eliminarCheckGestion, getHistoricoGestion, eliminarHistoricoGestion, getHorarioRecordatorioGestion, guardarHorarioRecordatorioGestion } from "../data/gestionChecks.js";
 import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
@@ -99,10 +99,22 @@ let vistaSeccion = "asignar";
  *  bindPushWrap), pero "Exportar a PDF" sigue siendo por día. */
 let diaActivo = null;
 
+/** "toDateString()" del día real en que diaActivo se confirmó como
+ *  válido por última vez — sin esto, una pestaña que queda abierta de
+ *  un día para el otro seguía reabriendo el mismo día viejo para
+ *  siempre: "Domingo" es un valor SIEMPRE válido para
+ *  DIAS_VISUAL.includes(), así que el guard de más abajo nunca lo
+ *  consideraba "inválido" aunque ya hubiera pasado a ser semana
+ *  pasada. Bug real reportado en vivo (2026-09-02, captura): el
+ *  calendario marcaba bien HOY con el punto dorado, pero el panel
+ *  abierto seguía siendo un domingo ya bloqueado por
+ *  esDiaDeHoyGestion, de una visita de días atrás. */
+let fechaDiaActivo = null;
+
 /** Claves "tareaId|dia" con cambios de sub-ítems tocados EN LOCAL pero
  *  todavía no guardados con el botón "Guardar" (ver bindTarjetaDesplegable,
  *  guardarAhora) — mientras haya al menos una, actualizarChecksEnDOM
- *  (el repaso de fondo cada 20s) se salta entero, para no pisar un
+ *  (el repaso de fondo cada 5s) se salta entero, para no pisar un
  *  progreso a medio marcar con lo último que SÍ llegó a guardarse. */
 const tareasSinGuardarGestion = new Set();
 
@@ -288,6 +300,47 @@ function fechaObjDiaSemana(nombreDia) {
     fecha.setDate(hoy.getDate() + (idxVisualObjetivo - idxVisualHoy));
     fecha.setHours(0, 0, 0, 0);
     return fecha;
+}
+
+/** Nombre de día de semana → día-del-mes (string), SOLO para los días
+ *  de ESTA semana que caen en el mes actual — ej. {Miércoles:"2",
+ *  Jueves:"3", ...}. Base para panelParaTareaYDia() de acá abajo. */
+function fechaDelMesPorDiaSemanaEstaSemana() {
+    const hoy = new Date();
+    const anio = hoy.getFullYear();
+    const mes = hoy.getMonth();
+    const mapa = {};
+    DIAS_VISUAL.forEach((nombre) => {
+        const f = fechaObjDiaSemana(nombre);
+        if (f.getFullYear() === anio && f.getMonth() === mes) mapa[nombre] = String(f.getDate());
+    });
+    return mapa;
+}
+
+/** En qué [data-panel-dia] vive REALMENTE una tarea+día — para una
+ *  semanal, el propio nombre de día, sin cambios. Para una MENSUAL
+ *  cuyo día-del-mes cae dentro de ESTA semana, el nombre de ESE día de
+ *  semana — se mezcla ahí, no en un panel de mes aparte.
+ *
+ * Bug real reportado en vivo (2026-09-02, con video): una tarea
+ * mensual asignada a "hoy" (o a cualquier día de esta semana) no
+ * aparecía en ningún lado alcanzable — el calendario ya hace apuntar
+ * ese día al panel SEMANAL (ver calendarioDiasHtml, nombrePorNumeroDia
+ * gana con el `||`), pero la tarjeta de la tarea mensual se seguía
+ * armando en un panel de MES aparte, con una clave distinta
+ * (data-panel-dia="2" en vez de "Miércoles") — invisible porque nada
+ * apuntaba ahí. Un día del mes que NO cae en esta semana (ej. el 29)
+ * sí funcionaba, porque para ese caso el calendario apunta
+ * directamente al panel de mes real.
+ *
+ * El "dia" que se usa para guardar/leer el check (ver tareaHtml,
+ * actualizarCheckGestion) NUNCA cambia acá — sigue siendo el día del
+ * mes real para una mensual; esta función solo decide DÓNDE vive la
+ * tarjeta en el DOM, no la clave con la que se guarda su estado. */
+function panelParaTareaYDia(tarea, dia) {
+    if (tarea.frecuencia !== "mensual") return dia;
+    const mapa = fechaDelMesPorDiaSemanaEstaSemana();
+    return Object.keys(mapa).find((nombre) => mapa[nombre] === String(dia)) || dia;
 }
 
 const MESES_CALENDARIO_GESTION = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -738,11 +791,22 @@ function tareaHtml(t, idUnico, dia) {
         <div class="tarea-gestion-push"${atrId}>${pushInteriorHtml}${exportarInteriorHtml}</div>
     ` : "";
 
+    // Candado rojo de Admin (2026-09-02, maqueta aprobada): "un
+    // candado en cada tarea para borrar los datos del sheet desde la
+    // app, en vez de entrar al sheet y borrar" — "Limpiar marcas
+    // futuras" no servía para esto porque solo toca días A FUTURO,
+    // nunca la tarea real del día. Visible en CUALQUIER tarea con
+    // algo marcado (completa o a medias), solo para Admin.
+    const puedeBorrarCheck = !!check && esAdminActual();
+    const btnBorrarCheck = puedeBorrarCheck
+        ? `<button type="button" class="btn-borrar-check-admin" data-borrar-check data-tarea-id="${t.id}" data-dia="${dia}" title="Borrar este registro (Admin)" aria-label="Borrar este registro">${Icon("tacho", { size: 15 })}</button>`
+        : "";
+
     if (t.subitems) {
         const marcados = check?.marcas || new Map();
         const firmas = check?.firmas || new Map();
         return `
-            <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}" data-desplegable${atrId}>
+            <div class="tarea-gestion tarea-gestion-desplegable${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}${puedeBorrarCheck ? " con-borrar-admin" : ""}" data-desplegable${atrId}>
                 <button type="button" class="tarea-gestion-header" data-toggle-desplegable>
                     <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
                     <span class="tarea-gestion-txt">
@@ -754,6 +818,7 @@ function tareaHtml(t, idUnico, dia) {
                     ${badgeIncidenciasHtml(t.subitems, marcados)}
                     <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
                 </button>
+                ${btnBorrarCheck}
                 ${bannerCerradaHtml(check, t.id, dia, diaEquivocado)}
                 <div class="tarea-gestion-subitems" data-subitems>
                     ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados, firmas, bloqueada)).join("")}
@@ -770,7 +835,7 @@ function tareaHtml(t, idUnico, dia) {
     }
 
     return `
-        <div class="tarea-gestion tarea-gestion-simple${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}"${atrId}>
+        <div class="tarea-gestion tarea-gestion-simple${check?.hecho ? " hecha" : ""}${bloqueada ? " bloqueada" : ""}${puedeBorrarCheck ? " con-borrar-admin" : ""}"${atrId}>
             <label class="tarea-gestion-label" for="${id}">
                 <input type="checkbox" id="${id}" class="tarea-gestion-check"${(esVistaLectura || bloqueada) ? " disabled" : ""}${check?.hecho ? " checked" : ""}>
                 <span class="tarea-gestion-ico">${Icon(t.icono, { size: 18 })}</span>
@@ -780,6 +845,7 @@ function tareaHtml(t, idUnico, dia) {
                     <span class="tarea-gestion-hora" data-hora>${hechoTexto}</span>
                 </span>
             </label>
+            ${btnBorrarCheck}
             ${bannerCerradaHtml(check, t.id, dia)}
             ${accionesTareaHtml()}
         </div>
@@ -999,8 +1065,34 @@ function recrearTareaEnPaneles(idTarea) {
     // dias vacío = "sin usar" — el .forEach de abajo simplemente no
     // agrega ninguna copia, no hace falta un guard aparte.
     tarea.dias.forEach((d) => {
-        const lista = document.querySelector(`[data-panel-dia="${d}"] .lista-tareas-gestion`);
-        if (!lista) return;
+        // Una mensual cuyo día cae dentro de esta semana vive en el
+        // panel SEMANAL de ese día, no en uno de mes aparte — ver
+        // panelParaTareaYDia. "d" (la clave real de guardado) no
+        // cambia, solo dónde se busca/inserta la tarjeta.
+        const panel = panelParaTareaYDia(tarea, d);
+        let lista = document.querySelector(`[data-panel-dia="${panel}"] .lista-tareas-gestion`);
+        if (!lista) {
+            // Día del mes que NINGUNA tarea usaba todavía — su panel
+            // nunca se llegó a construir en el render inicial (solo
+            // se arman paneles para diasMesConContenido de ESE
+            // momento). Sin esto, la tarjeta quedaba sin ningún lugar
+            // donde aparecer hasta recargar la página entera (bug
+            // real reportado en vivo, 2026-09-02, con video). Los
+            // paneles semanales (Lunes..Domingo) SIEMPRE existen desde
+            // el inicio, así que esta rama en la práctica solo se
+            // ejecuta para un día-del-mes nuevo.
+            const contenedor = document.getElementById("contenido-gestion-imprimible");
+            if (!contenedor) return;
+            const tituloPanel = tarea.frecuencia === "mensual" ? `${panel}/${new Date().getMonth() + 1}` : `${panel} ${fechaDelDiaSemana(panel)}`;
+            contenedor.insertAdjacentHTML("beforeend", `
+                <div class="section" data-panel-dia="${panel}" style="display:none">
+                    <h3>${tituloPanel}</h3>
+                    <div class="lista-tareas-gestion"></div>
+                </div>
+            `);
+            lista = contenedor.querySelector(`[data-panel-dia="${panel}"] .lista-tareas-gestion`);
+            if (!lista) return;
+        }
         // tareaHtml() devuelve DOS elementos hermanos (tarjeta + fila
         // de Push+Exportar) — buscarlos por atributo en vez de asumir
         // lastElementChild, que cambia según haya wrap o no
@@ -1029,6 +1121,12 @@ function recrearTareaEnPaneles(idTarea) {
     // también tiene que reflejar el estado nuevo — si no, queda
     // mostrando los días viejos hasta el próximo render.
     actualizarFilaAplica(idTarea);
+    // Un día-del-mes nuevo (o sacado) en una tarea MENSUAL tiene que
+    // verse reflejado en el calendario de "Tareas asignadas" — sin
+    // esto el punto nuevo recién aparecía recargando la página entera
+    // (reportado en vivo, 2026-09-02). No-op si el calendario no está
+    // en pantalla ahora mismo (ver actualizarCalendarioGestion).
+    actualizarCalendarioGestion();
 }
 
 /** Lee el form, valida (título + al menos un día) y guarda DE VERDAD
@@ -1398,29 +1496,6 @@ function cuerpoGestionHtml() {
         </div>
     ` : "";
 
-    // "Limpiar marcas futuras" (2026-09-02) — pedido explícito: algunos
-    // Responsables marcaban un día posterior al de hoy "para probar",
-    // dejando marcas falsas. El día equivocado ya queda bloqueado para
-    // marcar de acá en más (ver esDiaDeHoyGestion en tareaHtml), pero
-    // esto es para LIMPIAR lo que ya quedó mal cargado antes del fix —
-    // borra, del ciclo VIGENTE nada más (no toca Histórico), lo marcado
-    // en un día posterior a hoy. Dos alcances, los dos pedidos
-    // explícitamente: un local puntual, o todos de una sola vez ("así
-    // todos tienen las tareas limpias para empezar la semana").
-    const cardLimpieza = esAdminActual() ? `
-        <div class="card-recordatorio-gestion">
-            <div class="card-recordatorio-header">
-                ${Icon("tacho", { size: 16 })}
-                <span>Limpiar marcas futuras</span>
-                <span class="badge-solo-admin">Solo Admin</span>
-            </div>
-            <p class="card-recordatorio-desc">Borra las marcas hechas en un día posterior al de hoy (semana o mes en curso) — para cuando alguien tildó por error un día que todavía no llega. No toca lo ya archivado en Histórico.</p>
-            <div class="card-recordatorio-control">
-                <button type="button" class="btn btn-secondary" id="btn-limpiar-futuras-local"${sucursalActiva ? "" : " disabled"} title="${sucursalActiva ? "" : "Elegí un local en el selector de arriba"}">Limpiar ${sucursalActiva ? `"${escaparHtml(sucursalActiva)}"` : "este local"}</button>
-                <button type="button" class="btn btn-secondary" id="btn-limpiar-futuras-todos">Limpiar todos los locales</button>
-            </div>
-        </div>
-    ` : "";
     const hayLocal = !esVistaLectura || !!sucursalActiva;
     // "Histórico" (2026-08-31) — Responsable de local siempre (va
     // directo a la suya); Admin/Supervisor solo después de elegir un
@@ -1516,7 +1591,6 @@ function cuerpoGestionHtml() {
         return `
             ${acciones}
             ${cardRecordatorio}
-            ${cardLimpieza}
             ${catalogoHtml}
         `;
     }
@@ -1547,15 +1621,36 @@ function cuerpoGestionHtml() {
     // día de HOY (Lunes..Domingo) siempre resuelve a un panel real,
     // aunque esté vacío.
     const hoyClaveSemana = DIAS_VISUAL[(new Date().getDay() + 6) % 7];
-    if (!diaActivo || !(DIAS_VISUAL.includes(diaActivo) || diasMesConContenido.includes(diaActivo))) {
+    const hoyClaveFecha = new Date().toDateString();
+    // Si cambió el día real desde la última vez (pestaña que quedó
+    // abierta de una fecha para otra), se fuerza HOY sin importar qué
+    // día había quedado elegido — "Domingo" seguiría siendo "válido"
+    // para siempre si no se chequeara esto aparte.
+    if (fechaDiaActivo !== hoyClaveFecha || !diaActivo || !(DIAS_VISUAL.includes(diaActivo) || diasMesConContenido.includes(diaActivo))) {
         diaActivo = hoyClaveSemana;
+        fechaDiaActivo = hoyClaveFecha;
     }
 
-    const panelHtml = (d, titulo, tareasDelDia) => `
-        <div class="section" data-panel-dia="${d}"${d === diaActivo ? "" : ' style="display:none"'}>
+    // items[panel] = [{tarea, dia}] — "dia" es SIEMPRE la clave real
+    // de guardado (nombre de día para semanal, día-del-mes para
+    // mensual); "panel" es DÓNDE vive la tarjeta (panelParaTareaYDia
+    // los redirige al panel semanal cuando coinciden en esta semana).
+    // Se arma una sola vez acá para semanales Y mensuales por igual,
+    // en vez de dos .map() separados como antes — eso es justo lo que
+    // dejaba a una mensual de esta semana en un panel sin nadie
+    // apuntándole (bug real, ver panelParaTareaYDia).
+    const itemsPorPanel = {};
+    const agregarItem = (panel, tarea, dia) => {
+        (itemsPorPanel[panel] || (itemsPorPanel[panel] = [])).push({ tarea, dia });
+    };
+    tareasSemanales.forEach((t) => t.dias.forEach((d) => agregarItem(panelParaTareaYDia(t, d), t, d)));
+    tareasMensuales.forEach((t) => t.dias.forEach((d) => agregarItem(panelParaTareaYDia(t, d), t, d)));
+
+    const panelHtml = (panel, titulo, items) => `
+        <div class="section" data-panel-dia="${panel}"${panel === diaActivo ? "" : ' style="display:none"'}>
             <h3>${titulo}</h3>
             <div class="lista-tareas-gestion">
-                ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`, d)).join("") : avisoDiaVacioHtml()}
+                ${items.length ? items.map(({ tarea, dia }) => tareaHtml(tarea, `${tarea.id}-${dia}`, dia)).join("") : avisoDiaVacioHtml()}
             </div>
         </div>
     `;
@@ -1565,8 +1660,16 @@ function cuerpoGestionHtml() {
     // nota en diasControlHtml), pedido explícito: "quiero cambiar la
     // semana que sea de lunes a domingo".
     const mesActual = new Date().getMonth() + 1;
-    const panelesSemanalesHtml = DIAS_VISUAL.map((d) => panelHtml(d, `${d} ${fechaDelDiaSemana(d)}`, tareasSemanales.filter((t) => t.dias.includes(d)))).join("");
-    const panelesMensualesHtml = diasMesConContenido.map((d) => panelHtml(d, `${d}/${mesActual}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
+    const panelesSemanalesHtml = DIAS_VISUAL.map((d) => panelHtml(d, `${d} ${fechaDelDiaSemana(d)}`, itemsPorPanel[d] || [])).join("");
+    // Los días de "diasMesConContenido" que ya se mezclaron arriba (su
+    // día-del-mes cae en esta semana) no necesitan un panel de mes
+    // aparte — quedaría duplicado y, peor, inalcanzable desde el
+    // calendario (que para esos días apunta al panel semanal).
+    const diasMesMezcladosEstaSemana = new Set(Object.values(fechaDelMesPorDiaSemanaEstaSemana()));
+    const panelesMensualesHtml = diasMesConContenido
+        .filter((d) => !diasMesMezcladosEstaSemana.has(d))
+        .map((d) => panelHtml(d, `${d}/${mesActual}`, itemsPorPanel[d] || []))
+        .join("");
 
     // "Exportar a PDF" YA NO vive acá suelto — se mudó adentro de
     // cada fila de tarea (junto al push de esa tarea, ver tareaHtml)
@@ -1581,7 +1684,6 @@ function cuerpoGestionHtml() {
     return `
         ${acciones}
         ${cardRecordatorio}
-        ${cardLimpieza}
 
         <div class="tabs-gestion" id="tabs-seccion-gestion">
             <button class="tab-gestion${vistaSeccion === "asignar" ? " activa" : ""}" data-vista-seccion="asignar">Asignar tareas</button>
@@ -2501,8 +2603,30 @@ function bindPushWrap(wrap) {
             // Confirmación visible de que SÍ salió — antes quedaba
             // mudo en el caso de éxito, indistinguible de "no hizo
             // nada" (pedido explícito: "no se sabe si se envió").
-            wrap.innerHTML = `<button type="button" class="btn-enviar-push" disabled>✓ Enviado</button>`;
-            setTimeout(pintarBoton, 2000);
+            //
+            // "✓ Enviado" a secas no avisaba si ALGUIEN no lo recibió
+            // de verdad (token vencido, celular sin notificaciones
+            // activadas, etc.) — el backend siempre respondía ok:true
+            // aunque fallaran destinatarios puntuales. Pedido explícito
+            // (2026-09-02, caso real: un Responsable de turno no
+            // recibía los avisos y nadie se enteraba): mostrar cuántos
+            // de verdad lo recibieron, no solo que el botón "funcionó".
+            let mensajeEnvio, avisoParcial;
+            if (!r.destinatarios) {
+                mensajeEnvio = "Enviado — nadie activó push";
+                avisoParcial = true;
+            } else if (r.fallidos > 0) {
+                mensajeEnvio = `Enviado a ${r.enviados}/${r.destinatarios}`;
+                avisoParcial = true;
+            } else {
+                mensajeEnvio = "✓ Enviado";
+                avisoParcial = false;
+            }
+            wrap.innerHTML = `<button type="button" class="btn-enviar-push${avisoParcial ? " aviso-parcial" : ""}" disabled>${mensajeEnvio}</button>`;
+            // Un aviso parcial se queda más tiempo en pantalla — es
+            // justo el caso que antes pasaba desapercibido, dos
+            // segundos no alcanzan para notarlo.
+            setTimeout(pintarBoton, avisoParcial ? 4500 : 2000);
         } catch (err) {
             alert("No se pudo enviar el push — probá de nuevo.");
             pintarBoton();
@@ -2616,6 +2740,14 @@ function prepararSubitemsParaExportar(contenedorId) {
  *  redibuje entero cada vez que se cambia de mes. */
 let mesHistoricoActivo = null;
 
+/** "toDateString()" del día real en que mesHistoricoActivo se
+ *  confirmó por última vez — mismo motivo que fechaDiaActivo más
+ *  arriba: un mes pasado elegido (o el default de "mes actual" de una
+ *  visita de días atrás) sigue siendo "válido" para siempre mientras
+ *  tenga ciclos archivados, así que sin esto una pestaña vieja seguía
+ *  reabriendo agosto en pleno septiembre. */
+let fechaMesHistoricoActivo = null;
+
 /** Día del mes (número, ej. 12) elegido en el calendario de Histórico —
  *  null = se ve la lista de ciclos completa (comportamiento por
  *  defecto), un número = se ve solo ese día puntual. Pedido explícito
@@ -2725,8 +2857,14 @@ async function renderHistoricoGestion() {
     mesesConCiclos.add(mesActualISO); // siempre elegible, aunque esté vacío
     const mesesOrdenados = [...mesesConCiclos].sort().reverse();
 
-    if (!mesHistoricoActivo || !mesesConCiclos.has(mesHistoricoActivo)) {
+    const hoyClaveFechaHistorico = new Date().toDateString();
+    // Si cambió el día real desde la última vez (pestaña que quedó
+    // abierta de un mes para el otro), se fuerza el mes actual sin
+    // importar si el mes elegido antes sigue teniendo ciclos
+    // archivados (¡casi siempre los tiene!) — ver fechaMesHistoricoActivo.
+    if (fechaMesHistoricoActivo !== hoyClaveFechaHistorico || !mesHistoricoActivo || !mesesConCiclos.has(mesHistoricoActivo)) {
         mesHistoricoActivo = mesActualISO;
+        fechaMesHistoricoActivo = hoyClaveFechaHistorico;
     }
 
     const selectorMesesHtml = mesesOrdenados.length > 1 ? `
@@ -2948,16 +3086,23 @@ function catalogoHistorico(tareaId) {
     return TAREAS.find((t) => t.id === tareaId) || registroTareas.get(tareaId);
 }
 
-/** Todo lo que hay que re-enganchar cada vez que #cuerpo-gestion se
- *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
- *  cambia de local en el selector (mismo contenido, nodos nuevos). */
-function bindCuerpoGestion() {
-    // Calendario de "Tareas asignadas" — data-vista-dia activa, muestra
-    // el [data-panel-dia] que matchea, oculta el resto. Vive DENTRO de
-    // #seccion-tareas-asignadas, así que solo importa mientras esa
-    // sección está visible. El día de HOY ya arranca activo (ver
-    // cuerpoGestionHtml, diaActivo) — este listener solo atiende los
-    // cambios manuales de ahí en más.
+/** Días de este mes con alguna tarea MENSUAL asignada — recalculado a
+ *  partir de TAREAS/sucursalActiva en vivo (no un valor guardado de
+ *  cuando se armó la página), para poder refrescar el calendario en
+ *  caliente cada vez que "Asignar tareas" agrega/saca un día mensual.
+ *  Mismo criterio de alcance que cuerpoGestionHtml(). */
+function diasMesConContenidoActual() {
+    const hayLocalAhora = !esVistaLectura || !!sucursalActiva;
+    const tareasParaLocal = hayLocalAhora ? TAREAS.filter((t) => aplicaASucursal(t, sucursalActivaObj())) : TAREAS;
+    return [...new Set(tareasParaLocal.filter((t) => t.frecuencia === "mensual").flatMap((t) => t.dias))].sort((a, b) => Number(a) - Number(b));
+}
+
+/** Click de un día del calendario de "Tareas asignadas" — data-vista-dia
+ *  activa, muestra el [data-panel-dia] que matchea, oculta el resto.
+ *  Factorizado (2026-09-02) para poder re-engancharlo también después
+ *  de actualizarCalendarioGestion(), que reemplaza el innerHTML del
+ *  calendario entero y por lo tanto pierde estos listeners. */
+function bindCalendarioDiasGestion() {
     document.querySelectorAll("#calendario-dias-gestion [data-vista-dia]").forEach((btn) => {
         btn.addEventListener("click", () => {
             document.querySelectorAll("#calendario-dias-gestion [data-vista-dia]").forEach((b) => b.classList.remove("activo"));
@@ -2972,6 +3117,31 @@ function bindCuerpoGestion() {
             // mostrando/ocultando acá arriba.
         });
     });
+}
+
+/** Refresca los puntitos del calendario de "Tareas asignadas" sin
+ *  reconstruir toda la sección — pedido explícito (2026-09-02,
+ *  reportado en vivo): "cuando elijo aplicar una tarea por mes no sale
+ *  en el calendario". Causa real: elegir un día-del-mes en "Asignar
+ *  tareas" solo reconstruía los PANELES de esa tarea (recrearTareaEnPaneles),
+ *  nunca el calendario — el punto nuevo recién aparecía si se recargaba
+ *  la página entera. Se llama junto con recrearTareaEnPaneles en
+ *  cualquier lugar que cambie t.dias/t.frecuencia. No-op si el
+ *  calendario no está en el DOM ahora mismo (ej. "Asignar tareas"
+ *  activa, o sin local elegido). */
+function actualizarCalendarioGestion() {
+    const grilla = document.getElementById("calendario-dias-gestion");
+    const contenedor = grilla?.closest(".calendario-gestion");
+    if (!contenedor) return;
+    contenedor.innerHTML = calendarioDiasHtml(diasMesConContenidoActual(), diaActivo);
+    bindCalendarioDiasGestion();
+}
+
+/** Todo lo que hay que re-enganchar cada vez que #cuerpo-gestion se
+ *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
+ *  cambia de local en el selector (mismo contenido, nodos nuevos). */
+function bindCuerpoGestion() {
+    bindCalendarioDiasGestion();
 
     // "Asignar tareas" / "Tareas asignadas" — pedido explícito, con
     // croquis: dos secciones separadas en vez de todo amontonado en
@@ -3092,40 +3262,6 @@ function bindCuerpoGestion() {
         });
     }
 
-    // "Limpiar marcas futuras" (solo Admin, 2026-09-02) — dos botones,
-    // dos alcances pedidos explícitamente. Reusa manejarFalloGuardadoGestion
-    // (mismo aviso de "sin conexión" que el resto de Gestión) y
-    // refresca el cuerpo entero al terminar: puede haber destildado
-    // tareas que estaban a la vista.
-    const limpiarFuturas = (boton, sucursal, mensajeConfirm) => {
-        if (!confirm(mensajeConfirm)) return;
-        const textoOriginal = boton.textContent;
-        boton.disabled = true;
-        boton.textContent = "Limpiando...";
-        limpiarMarcasFuturasGestion(sucursal).then(async (r) => {
-            boton.disabled = false;
-            boton.textContent = textoOriginal;
-            if (!r?.ok) {
-                alert(r?.error || "No se pudo limpiar — probá de nuevo.");
-                return;
-            }
-            alert(r.borradas ? `Se limpiaron ${r.borradas} marca(s).` : "No había ninguna marca futura para limpiar.");
-            // Mismo mecanismo que elegirLocalGestion: puede haber
-            // destildado tareas que están a la vista ahora mismo.
-            if (r.borradas) {
-                await cargarDatos(sucursalActiva);
-                const cuerpo = document.getElementById("cuerpo-gestion");
-                if (cuerpo) { cuerpo.innerHTML = cuerpoGestionHtml(); bindCuerpoGestion(); }
-            }
-        }).catch((err) => manejarFalloGuardadoGestion(err, () => { boton.disabled = false; boton.textContent = textoOriginal; }));
-    };
-    document.getElementById("btn-limpiar-futuras-local")?.addEventListener("click", (e) => {
-        limpiarFuturas(e.currentTarget, sucursalActiva, `¿Limpiar las marcas futuras de "${sucursalActiva}"? No se puede deshacer.`);
-    });
-    document.getElementById("btn-limpiar-futuras-todos")?.addEventListener("click", (e) => {
-        limpiarFuturas(e.currentTarget, "", "¿Limpiar las marcas futuras de TODOS los locales? No se puede deshacer.");
-    });
-
     // "Reabrir tarea" (candado, solo Admin) — delegado en el mismo
     // contenedor estable que "Exportar a PDF" de abajo, mismo motivo:
     // el botón vive DENTRO de cada tarea (bannerCerradaHtml) y no
@@ -3145,6 +3281,29 @@ function bindCuerpoGestion() {
             }
             const clave = `${tareaId}|${dia}`;
             checksActivos[clave] = { ...checksActivos[clave], cerrada: false };
+            recrearTareaEnPaneles(tareaId);
+        }).catch((err) => manejarFalloGuardadoGestion(err, () => { btn.disabled = false; }));
+    });
+
+    // "Borrar registro" (candado rojo, solo Admin, 2026-09-02) — a
+    // diferencia de "Reabrir" (arriba), esto BORRA de verdad hora,
+    // quién la marcó y sus sub-ítems: la tarjeta vuelve a quedar sin
+    // tocar. Mismo contenedor delegado que Reabrir/Exportar, mismo
+    // motivo (el botón nace y muere con cada tarjeta).
+    document.getElementById("contenido-gestion-imprimible")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-borrar-check]");
+        if (!btn) return;
+        const { tareaId, dia } = btn.dataset;
+        const titulo = registroTareas.get(tareaId)?.titulo || "esta tarea";
+        if (!confirm(`¿Borrar el registro de "${titulo}" de este día? Se pierden la hora, quién lo marcó y sus sub-ítems — la tarea vuelve a quedar sin tocar. No se puede deshacer.`)) return;
+        btn.disabled = true;
+        eliminarCheckGestion(tareaId, dia, sucursalActiva).then((r) => {
+            if (!r?.ok) {
+                alert(r?.error || "No se pudo borrar — probá de nuevo.");
+                btn.disabled = false;
+                return;
+            }
+            delete checksActivos[`${tareaId}|${dia}`];
             recrearTareaEnPaneles(tareaId);
         }).catch((err) => manejarFalloGuardadoGestion(err, () => { btn.disabled = false; }));
     });
@@ -3260,7 +3419,7 @@ async function actualizarChecksEnDOM() {
     // la caché en memoria (20s) como la marca de frescura de
     // IndexedDB (hasta 5 min), que si no seguía devolviendo la copia
     // vieja sin pegarle al backend, aunque este refresco se dispare
-    // cada 20s. Sin esto el "casi en vivo" tardaba hasta 5 min en verse.
+    // cada 5s. Sin esto el "casi en vivo" tardaba hasta 5 min en verse.
     invalidar(HOJAS.GESTION_CHECKS);
     let frescos;
     try {
@@ -3278,7 +3437,7 @@ async function actualizarChecksEnDOM() {
         const dia = tarjeta.dataset.dia;
         const check = checksActivos[`${tareaId}|${dia}`];
         // Mismo criterio que tareaHtml — sin este chequeo acá, el
-        // repaso de fondo cada 20s pisaba el candado de "día
+        // repaso de fondo cada 5s pisaba el candado de "día
         // equivocado" que puso el render inicial, dejando la tarjeta
         // editable de nuevo a los 20s (bug real encontrado probando
         // este mismo fix: se veía bloqueada al abrir, pero se
@@ -3290,6 +3449,21 @@ async function actualizarChecksEnDOM() {
         if (hora) hora.textContent = hechoTexto;
         tarjeta.classList.toggle("hecha", !!check?.hecho);
         tarjeta.classList.toggle("bloqueada", bloqueada);
+
+        // Candado rojo de Admin — aparece/desaparece según si ahora
+        // hay algo marcado, mismo criterio que tareaHtml (puedeBorrarCheck).
+        const puedeBorrarCheckAhora = !!check && esAdminActual();
+        tarjeta.classList.toggle("con-borrar-admin", puedeBorrarCheckAhora);
+        const btnBorrarExistente = tarjeta.querySelector("[data-borrar-check]");
+        if (puedeBorrarCheckAhora && !btnBorrarExistente) {
+            // afterend de un hijo DE ADENTRO de la tarjeta (header si es
+            // desplegable, el <label> si es simple) — nunca de la
+            // tarjeta misma, eso la insertaría FUERA como hermana.
+            const destino = tarjeta.querySelector("[data-toggle-desplegable], .tarea-gestion-label");
+            destino?.insertAdjacentHTML("afterend", `<button type="button" class="btn-borrar-check-admin" data-borrar-check data-tarea-id="${tareaId}" data-dia="${dia}" title="Borrar este registro (Admin)" aria-label="Borrar este registro">${Icon("tacho", { size: 15 })}</button>`);
+        } else if (!puedeBorrarCheckAhora && btnBorrarExistente) {
+            btnBorrarExistente.remove();
+        }
 
         const checkSimple = tarjeta.querySelector(".tarea-gestion-check");
         if (checkSimple) {
@@ -3332,18 +3506,76 @@ async function actualizarChecksEnDOM() {
     });
 }
 
+/** Firma barata de un catálogo de tareas — para detectar "¿cambió de
+ *  verdad algo?" sin comparar objetos completos. Solo los campos que
+ *  se ven en pantalla; si el backend agrega uno nuevo que no se
+ *  muestra, no hace falta que dispare un refresco. */
+function firmaCatalogoGestion(tareas) {
+    return JSON.stringify(tareas.map((t) => [t.id, t.dias, t.frecuencia, t.titulo, t.detalle, t.icono, t.aplicaA, t.recordatorioHabilitado, t.recordatorioHora, (t.subitems || []).join("|")]));
+}
+
+/** Espejo de actualizarChecksEnDOM, pero para el CATÁLOGO — qué tareas
+ *  existen y qué días/frecuencia tiene cada una en ESTA sucursal.
+ *  Pedido explícito (2026-09-02): "el Responsable de local carga sus
+ *  tareas y no impacta al toque, hay que refrescar sí o sí" — el
+ *  repaso de 20s ya existente solo traía el "hecho" fresco (ver
+ *  arriba), nunca esto: un Admin mirando el mismo local, o el mismo
+ *  Responsable en otro celular, no veía una tarea nueva ni un día
+ *  agregado hasta recargar la página entera.
+ *
+ * Reconstruye TODO #cuerpo-gestion (mismo camino que elegirLocalGestion
+ * al cambiar de local) — pero SOLO si de verdad cambió algo
+ * (firmaCatalogoGestion), para no perder el desplegable/scroll de
+ * quien esté mirando algo puntual cada 5s porque sí. */
+async function actualizarCatalogoGestionEnDOM() {
+    if (!sucursalActiva) return;
+    // Mismos guards que actualizarChecksEnDOM — no pisar una edición
+    // en curso: sub-ítems sin guardar, un guardado de check reciente,
+    // o una ráfaga de días con el debounce todavía pendiente (ver
+    // bindDiasControl) — reconstruir el DOM ahí abajo perdería el
+    // toque que la persona acaba de hacer.
+    if (tareasSinGuardarGestion.size > 0) return;
+    if (timersDias.size > 0) return;
+    if (Date.now() - ultimaEdicionLocalGestion < MARGEN_EDICION_LOCAL_MS) return;
+
+    invalidar(HOJAS.GESTION_TAREAS);
+    invalidar(HOJAS.GESTION_TAREAS_SUCURSAL);
+    let catalogo, dias;
+    try {
+        [catalogo, dias] = await Promise.all([getTareas(), getDiasPorSucursal(sucursalActiva)]);
+    } catch (err) {
+        return; // silencioso — refresco de fondo, no una acción del usuario
+    }
+    catalogo.forEach((t) => {
+        const info = dias[t.id];
+        t.dias = info?.dias || [];
+        t.frecuencia = info?.frecuencia || "semanal";
+    });
+
+    if (firmaCatalogoGestion(catalogo) === firmaCatalogoGestion(TAREAS)) return; // nada cambió, no tocar el DOM
+
+    TAREAS = catalogo;
+    registroTareas.clear();
+    TAREAS.forEach((t) => registroTareas.set(t.id, t));
+
+    const cuerpo = document.getElementById("cuerpo-gestion");
+    if (!cuerpo) return;
+    cuerpo.innerHTML = cuerpoGestionHtml();
+    bindCuerpoGestion();
+}
+
 let intervaloChecksGestion = null;
 
 /** Marca de tiempo del último tilde/toque LOCAL en cualquier check —
  *  pedido explícito, con captura real: "el marcar sub-tareas las
  *  carga, las quita, las regresa de nuevo". Causa real: el repaso de
- *  fondo cada 20s (actualizarChecksEnDOM) puede llegar a leer el
+ *  fondo cada 5s (actualizarChecksEnDOM) puede llegar a leer el
  *  backend justo en el hueco entre "tocaste algo" y "el guardado
  *  (~1-2s de Apps Script) todavía no terminó de escribirse" — ese
  *  repaso trae el estado VIEJO y pisa el cambio recién hecho por un
  *  instante, hasta el próximo ciclo. Saltear un ciclo de repaso justo
- *  después de un toque local evita la carrera: 20s es margen de sobra
- *  para no perder nada real. */
+ *  después de un toque local evita la carrera: unos segundos de
+ *  margen alcanzan de sobra para que Apps Script termine de escribir. */
 let ultimaEdicionLocalGestion = 0;
 const MARGEN_EDICION_LOCAL_MS = 4000;
 
@@ -3370,18 +3602,22 @@ export function bindGestion() {
 
     bindCuerpoGestion();
 
-    // Refresco en segundo plano de los checks — cada 20s mientras se
+    // Refresco en segundo plano de los checks — cada 5s mientras se
     // esté en esta pantalla, sin recargar nada ni molestar lo que se
     // esté mirando. Se corta solo apenas el nodo desaparece (se
     // navegó a otra pantalla) — no hay hook de "salir de la página"
     // en este router, así que el propio intervalo se autochequea.
     if (intervaloChecksGestion) clearInterval(intervaloChecksGestion);
-    intervaloChecksGestion = setInterval(() => {
+    intervaloChecksGestion = setInterval(async () => {
         if (!document.getElementById("cuerpo-gestion")) {
             clearInterval(intervaloChecksGestion);
             intervaloChecksGestion = null;
             return;
         }
-        actualizarChecksEnDOM();
-    }, 20000);
+        // Primero los "hecho" (parcheo puntual, liviano); recién
+        // después el catálogo (puede reconstruir todo el cuerpo) —
+        // así, si reconstruye, lo hace con el check más fresco posible.
+        await actualizarChecksEnDOM();
+        actualizarCatalogoGestionEnDOM();
+    }, 5000);
 }

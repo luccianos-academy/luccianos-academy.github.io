@@ -33,13 +33,13 @@
 =============================*/
 
 import { fetchSheet, invalidar } from "../services/dataSource.js";
-import { actualizarCheckGestionReal, reabrirTareaGestionReal, obtenerHistoricoGestionReal, eliminarHistoricoGestionReal, obtenerHorarioRecordatorioGestionReal, guardarHorarioRecordatorioGestionReal, limpiarMarcasFuturasGestionReal } from "../services/google.js";
+import { actualizarCheckGestionReal, reabrirTareaGestionReal, eliminarCheckGestionReal, obtenerHistoricoGestionReal, eliminarHistoricoGestionReal, obtenerHorarioRecordatorioGestionReal, guardarHorarioRecordatorioGestionReal } from "../services/google.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { gestionChecksMock } from "./mock/gestionChecks.mock.js";
 import { gestionTareasSucursalMock } from "./mock/gestionTareasSucursal.mock.js";
 import { HOJAS, USE_MOCK_DATA } from "../config.js";
 import { parsearMarcaSubitem, parsearFirmaSubitem, serializarFirmaSubitem } from "../services/subitems.js";
-import { cicloActual } from "../services/gestionCiclo.js";
+import { cicloActual, cicloDeFecha } from "../services/gestionCiclo.js";
 
 function horaAhoraMock() {
     const d = new Date();
@@ -197,6 +197,26 @@ export async function reabrirTareaGestion(tareaId, dia, sucursal) {
     return r;
 }
 
+/** Borra ENTERO el registro de una tarea de un día puntual (completa o
+ *  a medias) — solo Admin. A diferencia de reabrirTareaGestion (solo
+ *  destraba, conserva los datos), esto los elimina de verdad. */
+export async function eliminarCheckGestion(tareaId, dia, sucursal) {
+    if (USE_MOCK_DATA) {
+        const ciclo = cicloActual(frecuenciaMock(tareaId, sucursal));
+        const existente = gestionChecksMock.find((f) => {
+            if (String(f.tareaId) !== String(tareaId) || String(f.dia) !== String(dia) || String(f.sucursal) !== String(sucursal)) return false;
+            const cicloDeEsta = f.ciclo || cicloDeFecha(f.fechaModificacion, frecuenciaMock(f.tareaId, f.sucursal));
+            return String(cicloDeEsta) === String(ciclo);
+        });
+        if (!existente) return { ok: false, error: "No se encontró ese registro — puede que ya se haya borrado." };
+        gestionChecksMock.splice(gestionChecksMock.indexOf(existente), 1);
+        return { ok: true };
+    }
+    const r = await eliminarCheckGestionReal(tareaId, dia, sucursal);
+    if (r?.ok) invalidar(HOJAS.GESTION_CHECKS);
+    return r;
+}
+
 /** Ciclos YA CERRADOS ("Histórico") de una sucursal — Responsable de
  *  local no manda "sucursal" (usa la propia, undefined acá); Admin/
  *  Supervisor sí, la que eligieron en el selector. Devuelve el array
@@ -230,40 +250,6 @@ export async function eliminarHistoricoGestion(ciclo, sucursal) {
         return { ok: true, borradas: aBorrar.length };
     }
     const r = await eliminarHistoricoGestionReal(ciclo);
-    if (r?.ok) invalidar(HOJAS.GESTION_CHECKS);
-    return r;
-}
-
-const DIAS_SEMANA_LIMPIEZA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-
-/** Espejo de _diaEsFuturo (Code.gs) para el modo mock — mismo corte a
- *  las 04:00 que el resto del ciclo. */
-function diaEsFuturoMock(dia) {
-    const efectiva = new Date(Date.now() - 4 * 60 * 60 * 1000);
-    const idxHoy = (efectiva.getDay() + 6) % 7; // lunes=0
-    const idxDia = DIAS_SEMANA_LIMPIEZA.indexOf(dia);
-    if (idxDia >= 0) return idxDia > idxHoy;
-    const numDia = Number(dia);
-    return !isNaN(numDia) && numDia > efectiva.getDate();
-}
-
-/** Borra, del ciclo VIGENTE nada más (no toca Histórico), las marcas
- *  hechas en un día posterior al de hoy — solo Admin. `sucursal` vacío
- *  = todos los locales de una sola vez, pedido explícito (2026-09-02):
- *  "así todos tienen las tareas limpias para empezar la semana". Ver
- *  apps-script/Code.gs, limpiarMarcasFuturasGestion. */
-export async function limpiarMarcasFuturasGestion(sucursal) {
-    if (USE_MOCK_DATA) {
-        const suc = String(sucursal || "").trim();
-        const aBorrar = gestionChecksMock.filter((f) => {
-            if (suc && String(f.sucursal || "").trim() !== suc) return false;
-            const ciclo = cicloActual(frecuenciaMock(f.tareaId, f.sucursal));
-            return String(f.ciclo) === String(ciclo) && diaEsFuturoMock(f.dia);
-        });
-        aBorrar.forEach((f) => gestionChecksMock.splice(gestionChecksMock.indexOf(f), 1));
-        return { ok: true, borradas: aBorrar.length };
-    }
-    const r = await limpiarMarcasFuturasGestionReal(sucursal);
     if (r?.ok) invalidar(HOJAS.GESTION_CHECKS);
     return r;
 }
