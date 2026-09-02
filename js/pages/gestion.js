@@ -857,50 +857,80 @@ function subtareaNuevaFilaHtml(raw = "") {
  *  del usuario, Admin: "yo cargo la tarea, ellos deciden si es mensual
  *  o semanal, no tengo que estar modificando nada" — se elige por
  *  local, junto a los días, ver frecuenciaTareaHtml. */
-function contenidoModalTarea({ tarea } = {}) {
+/** Ícono actual + toda la fila de opciones — pedido explícito
+ *  (2026-09-02, maqueta aprobada): "tema iconos deben ser imagen no
+ *  palabras". El <select> de antes listaba SOLO el nombre ("Limpieza",
+ *  "Caja / pedido"); acá cada opción es el ícono real (Icon()), con el
+ *  nombre como title/aria-label para quien lo necesite. El valor
+ *  elegido sigue viviendo en un <input type="hidden"> — leerCamposTarea
+ *  no cambia, solo cambia CÓMO se elige. */
+function selectorIconoTareaHtml(iconoActual) {
+    const valorInicial = iconoActual || ICONOS_TAREA[0].valor;
     return `
-        <label>Título
-            <textarea id="input-tarea-titulo" rows="1" placeholder="Ej: Inventario">${escaparHtml(tarea?.titulo || "")}</textarea>
-        </label>
+        <input type="hidden" id="input-tarea-icono" value="${valorInicial}">
+        <div class="selector-icono-tarea" id="selector-icono-tarea">
+            ${ICONOS_TAREA.map((i) => `
+                <button type="button" class="icono-tarea-opcion${i.valor === valorInicial ? " activo" : ""}" data-icono="${i.valor}" title="${i.label}" aria-label="${i.label}">${Icon(i.valor, { size: 18 })}</button>
+            `).join("")}
+        </div>
+    `;
+}
+
+function contenidoModalTarea({ tarea } = {}) {
+    const iconoActual = tarea?.icono || ICONOS_TAREA[0].valor;
+    return `
+        <div class="tarea-modal-header">
+            <div class="tarea-modal-icono-preview" id="tarea-modal-icono-preview">${Icon(iconoActual, { size: 20 })}</div>
+            <div class="tarea-modal-titulo-wrap">
+                <label>Título
+                    <textarea id="input-tarea-titulo" rows="1" placeholder="Ej: Inventario">${escaparHtml(tarea?.titulo || "")}</textarea>
+                </label>
+            </div>
+        </div>
         <label>Detalle (opcional, una línea)
             <textarea id="input-tarea-detalle" rows="1" placeholder="Ej: Antes de armar el pedido a fábrica.">${escaparHtml(tarea?.detalle || "")}</textarea>
         </label>
         <label>Ícono
-            <select id="input-tarea-icono">
-                ${ICONOS_TAREA.map((i) => `<option value="${i.valor}"${i.valor === tarea?.icono ? " selected" : ""}>${i.label}</option>`).join("")}
-            </select>
+            ${selectorIconoTareaHtml(iconoActual)}
         </label>
-        <label class="campo-subtareas-nueva">Sub-tareas (opcional)
-            <div id="lista-subtareas-nueva">${(tarea?.subitems || []).map(subtareaNuevaFilaHtml).join("")}</div>
-            <button type="button" class="btn-agregar-subtarea-nueva" id="btn-agregar-subtarea-nueva">+ Agregar sub-tarea</button>
-            <!-- "Cargar varias de una" — pedido explícito: una tarea
-                 tipo "Checklist diaria" con 10 sub-tareas, armar cada
-                 fila a mano una por una era demasiado. Pegar una por
-                 línea y agregarlas todas juntas, cada una como "2
-                 estados" (Hecho/No hecho) por default — se puede
-                 cambiar el tipo de cada fila después, individual,
-                 como cualquier otra. -->
-            <details class="detalle-carga-masiva-subtareas">
-                <summary>Cargar varias de una (pegar, una por línea)</summary>
-                <textarea id="input-subtareas-pegadas" rows="4" placeholder="Orden de cámara
+        <div class="tarea-modal-grupo">
+            <p class="tarea-modal-grupo-titulo">Sub-tareas</p>
+            <label class="campo-subtareas-nueva">
+                <div id="lista-subtareas-nueva">${(tarea?.subitems || []).map(subtareaNuevaFilaHtml).join("")}</div>
+                <button type="button" class="btn-agregar-subtarea-nueva" id="btn-agregar-subtarea-nueva">+ Agregar sub-tarea</button>
+                <!-- "Cargar varias de una" — pedido explícito: una tarea
+                     tipo "Checklist diaria" con 10 sub-tareas, armar cada
+                     fila a mano una por una era demasiado. Pegar una por
+                     línea y agregarlas todas juntas, cada una como "2
+                     estados" (Hecho/No hecho) por default — se puede
+                     cambiar el tipo de cada fila después, individual,
+                     como cualquier otra. -->
+                <details class="detalle-carga-masiva-subtareas">
+                    <summary>Cargar varias de una (pegar, una por línea)</summary>
+                    <textarea id="input-subtareas-pegadas" rows="4" placeholder="Orden de cámara
 Orden de depósito
 Limpieza profunda de deck"></textarea>
-                <button type="button" class="btn btn-secondary" id="btn-agregar-subtareas-pegadas">Agregar estas líneas</button>
-            </details>
-        </label>
-        <label>¿A quién le aplica? (vacío = a todos)
-            ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
-        </label>
-        <label class="campo-recordatorio-tarea">
-            <span class="check-recordatorio-tarea-label">
-                <input type="checkbox" id="input-tarea-recordatorio-habilitado" style="width:auto;display:inline-block;margin-right:8px"${tarea?.recordatorioHabilitado === "NO" ? "" : " checked"}>
-                Recordatorio automático habilitado
-            </span>
-            <select id="input-tarea-recordatorio-hora">
-                <option value="">Usar el horario general</option>
-                ${Array.from({ length: 24 }, (_, h) => `<option value="${h}"${String(h) === String(tarea?.recordatorioHora ?? "") ? " selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("")}
-            </select>
-        </label>
+                    <button type="button" class="btn btn-secondary" id="btn-agregar-subtareas-pegadas">Agregar estas líneas</button>
+                </details>
+            </label>
+        </div>
+        <div class="tarea-modal-grupo">
+            <p class="tarea-modal-grupo-titulo">Alcance y recordatorio</p>
+            <label>¿A quién le aplica? (vacío = a todos)
+                ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
+            </label>
+            <label class="campo-recordatorio-tarea">
+                <span class="check-recordatorio-tarea-label">
+                    <input type="checkbox" id="input-tarea-recordatorio-habilitado" class="tarea-modal-toggle-input"${tarea?.recordatorioHabilitado === "NO" ? "" : " checked"}>
+                    <span class="tarea-modal-toggle-switch" aria-hidden="true"></span>
+                    Recordatorio automático habilitado
+                </span>
+                <select id="input-tarea-recordatorio-hora">
+                    <option value="">Usar el horario general</option>
+                    ${Array.from({ length: 24 }, (_, h) => `<option value="${h}"${String(h) === String(tarea?.recordatorioHora ?? "") ? " selected" : ""}>${String(h).padStart(2, "0")}:00</option>`).join("")}
+                </select>
+            </label>
+        </div>
     `;
 }
 
@@ -937,6 +967,18 @@ function bindModalTarea() {
     });
 
     bindMultiSelectAlcance("input-tarea-alcance");
+
+    // Selector de íconos como imágenes — un click elige, pisa el
+    // <input type="hidden"> que sigue leyendo leerCamposTarea(), y
+    // refresca el preview grande de al lado del título.
+    document.getElementById("selector-icono-tarea")?.addEventListener("click", (e) => {
+        const btn = e.target.closest(".icono-tarea-opcion");
+        if (!btn) return;
+        document.getElementById("input-tarea-icono").value = btn.dataset.icono;
+        document.querySelectorAll("#selector-icono-tarea .icono-tarea-opcion").forEach((b) => b.classList.toggle("activo", b === btn));
+        const preview = document.getElementById("tarea-modal-icono-preview");
+        if (preview) preview.innerHTML = Icon(btn.dataset.icono, { size: 20 });
+    });
 }
 
 /** Reconstruye en el DOM TODAS las copias de una tarea (una por cada
@@ -1160,11 +1202,21 @@ function abrirCarruselTareas(idInicial) {
     function mostrar() {
         const idActual = orden[indice];
         const tarea = registroTareas.get(idActual);
+        // Puntos de progreso — maqueta aprobada 2026-09-02. Con más de
+        // 10 tareas en el catálogo, 20+ puntitos sería ruido visual sin
+        // decir nada más que el número ya dice — se cae solo a la
+        // etiqueta de texto en ese caso.
+        const puntosHtml = orden.length <= 10
+            ? `<div class="carrusel-tarea-puntos">${orden.map((_, i) => `<span class="carrusel-tarea-punto${i === indice ? " activo" : ""}"></span>`).join("")}</div>`
+            : "";
         const contenidoHtml = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-                <button type="button" class="btn btn-secondary" id="btn-tarea-anterior" ${indice === 0 ? "disabled" : ""}>‹ Anterior</button>
-                <span class="text-sm text-muted">Tarea ${indice + 1} / ${orden.length}</span>
-                <button type="button" class="btn btn-secondary" id="btn-tarea-siguiente" ${indice === orden.length - 1 ? "disabled" : ""}>Siguiente ›</button>
+            <div class="carrusel-tarea-nav">
+                <button type="button" class="carrusel-tarea-nav-flecha" id="btn-tarea-anterior" ${indice === 0 ? "disabled" : ""} aria-label="Tarea anterior">‹</button>
+                <div class="carrusel-tarea-nav-centro">
+                    ${puntosHtml}
+                    <p class="carrusel-tarea-nav-etiqueta">Tarea ${indice + 1} de ${orden.length}</p>
+                </div>
+                <button type="button" class="carrusel-tarea-nav-flecha${indice === orden.length - 1 ? "" : " destacada"}" id="btn-tarea-siguiente" ${indice === orden.length - 1 ? "disabled" : ""} aria-label="Tarea siguiente">›</button>
             </div>
             ${contenidoModalTarea({ tarea })}
             <div style="display:flex;justify-content:space-between;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
