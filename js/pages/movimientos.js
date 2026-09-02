@@ -20,12 +20,15 @@
 
 import { Header } from "../components/header.js";
 import { ActivityFeed } from "../components/activityFeed.js";
+import { Icon } from "../components/icons.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
 import { getLocalesVisibles } from "../data/sucursales.js";
 import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { mismoId } from "../services/ids.js";
+import { getTokens } from "../data/tokens.js";
+import { escaparHtml } from "../services/html.js";
 
 const DIAS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -166,6 +169,56 @@ function listaHtml(entradas) {
     `).join("");
 }
 
+/** Mismo equipo que ve actividadVisible() (Admin = toda la red,
+ *  Supervisor = su equipo, acotado por "Elegir mis locales" si es
+ *  Capacitador) — reusado acá para el resumen de push, así los dos
+ *  paneles de esta pantalla siempre hablan del mismo universo de
+ *  gente. */
+async function colaboradoresVisibles(usuario, usuarios) {
+    if (usuario.rol === "admin") return usuarios.filter((u) => u.rol === "colaborador");
+    let misLocales = await getLocalesVisibles(usuario);
+    if (usuario.capacitador) {
+        const elegidos = getLocalesElegidos(usuario);
+        if (elegidos.length) misLocales = misLocales.filter((n) => elegidos.includes(n));
+    }
+    return usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal));
+}
+
+/** "Push activado en tu equipo" — pedido explícito (2026-09-02): "en
+ *  gestión de movimiento... así veo de un pantallazo" + "traer la
+ *  información de token con esa misma lógica" (señalando esta
+ *  pantalla). Mismo patrón pill+lista expandible que el resultado de
+ *  push al publicar una News — el número siempre visible, los
+ *  nombres un toque más allá, nunca un bloque de texto. */
+function resumenPushHtml({ total, conPush, sinPush }) {
+    if (!total) return "";
+    // Los dos lados con el mismo trato — pedido explícito (2026-09-02,
+    // viendo el pill "con push" sin forma de abrirlo): "y muestra si
+    // quienes tiene el push, no soy adivino". Ninguno de los dos
+    // pills asume nada: los nombres están siempre a un toque, para
+    // los dos casos.
+    const pillLista = (clave, nombres, claseBadge, etiqueta) => nombres.length ? `
+        <button type="button" class="pill-expandible-toggle" data-toggle-lista="${clave}">
+            <span class="badge ${claseBadge}">${etiqueta}</span>
+            <span class="pill-expandible-chevron">${Icon("flecha-der", { size: 14 })}</span>
+        </button>
+    ` : `<span class="badge ${claseBadge}">${etiqueta}</span>`;
+    const listaOculta = (clave, nombres) => nombres.length
+        ? `<div class="pill-expandible-lista" data-lista="${clave}" hidden>${nombres.map((n) => `<div class="pill-expandible-item">${escaparHtml(n)}</div>`).join("")}</div>`
+        : "";
+    return `
+        <div class="section" style="margin-bottom:14px" data-resumen-push>
+            <p style="margin:0 0 8px;font-size:13px;color:var(--muted)">Push activado en tu equipo</p>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                ${pillLista("con-push", conPush, "badge-success", `${conPush.length}/${total} con push`)}
+                ${pillLista("sin-push", sinPush, "badge-muted", `${sinPush.length} sin push`)}
+            </div>
+            ${listaOculta("con-push", conPush)}
+            ${listaOculta("sin-push", sinPush)}
+        </div>
+    `;
+}
+
 function filtrosHtml() {
     const pills = CATEGORIAS.map((c) => `<button class="pill-categoria${c.id === filtroCategoria ? " activa" : ""}" data-categoria="${c.id}">${c.label}</button>`).join("");
     return `
@@ -187,8 +240,26 @@ let entradasActuales = [];
 export async function Movimientos() {
     entradasActuales = await actividadVisible();
 
+    // Resumen de push — solo Admin/Supervisor: la hoja "Tokens" no la
+    // puede leer nadie más en el backend (_esGestion en Code.gs), y
+    // mostrárselo a otro rol sería un falso "sin push" para todos por
+    // un rechazo de permiso, no un dato real (mismo criterio ya
+    // aplicado en Colaboradores).
+    const usuario = getUsuarioActual();
+    const puedeVerPush = usuario.rol === "admin" || usuario.rol === "supervisor";
+    let resumenPush = "";
+    if (puedeVerPush) {
+        const [usuarios, tokens] = await Promise.all([getUsuarios(), getTokens()]);
+        const equipo = await colaboradoresVisibles(usuario, usuarios);
+        const idsConPush = new Set(tokens.map((t) => String(t.usuarioId)));
+        const conPush = equipo.filter((u) => idsConPush.has(String(u.id)));
+        const sinPush = equipo.filter((u) => !idsConPush.has(String(u.id)));
+        resumenPush = resumenPushHtml({ total: equipo.length, conPush: conPush.map((u) => u.nombre), sinPush: sinPush.map((u) => u.nombre) });
+    }
+
     return `
         ${Header("Movimientos de gestión", "Altas, bajas y cambios hechos desde la plataforma, agrupados por día. Se actualiza solo.")}
+        ${resumenPush}
         ${filtrosHtml()}
         <div id="movimientos-lista">${listaHtml(entradasActuales)}</div>
     `;
@@ -202,6 +273,19 @@ function redibujarLista() {
 let intervaloMovimientos = null;
 
 export function bindMovimientos() {
+    // Un solo listener para los dos pills ("con push" y "sin push") —
+    // cada uno abre/cierra SU lista puntual, identificada por el mismo
+    // data-toggle-lista/data-lista (ver resumenPushHtml).
+    document.querySelector("[data-resumen-push]")?.addEventListener("click", (e) => {
+        const toggle = e.target.closest("[data-toggle-lista]");
+        if (!toggle) return;
+        const clave = toggle.dataset.toggleLista;
+        const lista = document.querySelector(`[data-resumen-push] [data-lista="${clave}"]`);
+        if (!lista) return;
+        lista.hidden = !lista.hidden;
+        toggle.classList.toggle("abierto", !lista.hidden);
+    });
+
     document.getElementById("movimientos-pills")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-categoria]");
         if (!btn) return;

@@ -58,6 +58,7 @@ import { getCursos } from "../data/cursos.js";
 import { getEvaluaciones } from "../data/evaluaciones.js";
 import { getLecciones } from "../data/lecciones.js";
 import { registrarEvento } from "../data/auditoria.js";
+import { getTokens } from "../data/tokens.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
@@ -145,6 +146,16 @@ function badgeAcceso(colaborador) {
 function badgeVencimiento(colaborador) {
     const e = estadoAcceso(colaborador);
     return `<span class="badge ${e.clase}">${e.texto}</span>`;
+}
+
+/** "Push activo" / "Sin push" — pedido explícito (2026-09-02): "saber
+ *  quiénes tienen habilitado el push, todos los usuarios". Un usuario
+ *  puede tener más de un token (celular + PC, ver data/tokens.js) —
+ *  acá solo importa si tiene AL MENOS uno, no cuántos. */
+function badgePush(colaborador, idsConPush) {
+    return idsConPush.has(String(colaborador.id))
+        ? `<span class="badge badge-success">Push activo</span>`
+        : `<span class="badge badge-muted">Sin push</span>`;
 }
 
 /** Versión liviana de AutocompleteSucursal para el campo de
@@ -388,7 +399,7 @@ function checkboxMail(id, email, nombre) {
     return `<input type="checkbox" class="mail-check" style="width:auto" data-mail-id="${id}" data-mail-email="${email}" data-mail-nombre="${escaparHtml(nombre)}">`;
 }
 
-const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
+const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail, puedeVerPush = false) => [
     ...(puedeEnviarMail ? [{ key: "seleccion", label: "" }] : []),
     { key: "nombre", label: "Nombre" },
     { key: "email", label: "Email" },
@@ -396,6 +407,7 @@ const COLUMNAS_BASE = (mostrarSucursal, puedeEnviarMail) => [
     ...(mostrarSucursal ? [{ key: "sucursal", label: "Sucursal" }] : []),
     { key: "progresoBadge", label: "Progreso" },
     { key: "estadoBadge", label: "Estado" },
+    ...(puedeVerPush ? [{ key: "pushBadge", label: "Push" }] : []),
     { key: "ultimoIngresoBadge", label: `Último ingreso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="El acceso se renueva solo cada vez que la persona entra, así que no hace falta ir extendiéndolo. Si alguien deja de entrar, su acceso caduca solo a los ${DIAS_ACCESO_INICIAL} días. Esta columna te muestra a quién conviene revisar.">ⓘ</span>` },
     { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Se renueva solo a 30 días cada vez que la persona entra. Tocá los tres puntos (⋮) para editar, deshabilitar el acceso o volver a habilitarlo.">ⓘ</span>` },
     { key: "acciones", label: "" },
@@ -459,7 +471,7 @@ function badgeProgreso({ pct, hechos, total }) {
     `;
 }
 
-function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin) {
+function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, idsConPush) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
     return {
         ...c,
@@ -476,6 +488,7 @@ function filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, curs
         estadoBadge: badgeAcceso(c),
         ultimoIngresoBadge: badgeUltimoIngreso(c),
         accesoBadge: badgeVencimiento(c),
+        pushBadge: idsConPush ? badgePush(c, idsConPush) : "",
         acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),
     };
 }
@@ -603,7 +616,7 @@ function resumenSemaforoHtml(colaboradores, asignaciones, cursos, resultados, pu
  *  explícito del usuario. Admin sigue viendo la versión simple
  *  (COLUMNAS_BASE) — no se pidió este detalle ahí, y ya maneja 3
  *  pestañas de rol. */
-const COLUMNAS_SEMAFORO_GESTION = (cursos, conSeleccion = false) => [
+const COLUMNAS_SEMAFORO_GESTION = (cursos, conSeleccion = false, puedeVerPush = false) => [
     // El supervisor ve ESTA tabla, no la de admin, así que la columna de
     // selección tiene que existir también acá o la barra de acciones en
     // lote no tendría sobre qué operar. Va condicionada porque el
@@ -621,12 +634,13 @@ const COLUMNAS_SEMAFORO_GESTION = (cursos, conSeleccion = false) => [
     // tocar (celular, ver bindColaboradores) — pedido del usuario.
     ...cursos.map((cur, i) => ({ key: `curso_${cur.id}`, label: `<span class="mod-tooltip" data-tooltip-texto="${cur.nombre}">M${i + 1}</span>` })),
     { key: "estadoBadge", label: "Estado" },
+    ...(puedeVerPush ? [{ key: "pushBadge", label: "Push" }] : []),
     { key: "ultimoIngresoBadge", label: `Último ingreso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="El acceso se renueva solo cada vez que la persona entra, así que no hace falta ir extendiéndolo. Si alguien deja de entrar, su acceso caduca solo a los ${DIAS_ACCESO_INICIAL} días. Esta columna te muestra a quién conviene revisar.">ⓘ</span>` },
     { key: "accesoBadge", label: `Acceso<span class="mod-tooltip kpi-ayuda" data-tooltip-texto="Se renueva solo a 30 días cada vez que la persona entra. Tocá los tres puntos (⋮) para editar, deshabilitar el acceso o volver a habilitarlo.">ⓘ</span>` },
     { key: "acciones", label: "" },
 ];
 
-function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo) {
+function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo, idsConPush) {
     const progreso = progresoColaborador(c, asignaciones, cursos);
     const cursosAplicables = cursosDeLaPersona(cursos, c);
     const { vistas: leccionesVistas, total: leccionesTotal } = leccionesDePersona(c, cursosAplicables, asignaciones, leccionesParaSemaforo);
@@ -642,6 +656,7 @@ function filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cu
         estadoBadge: badgeAcceso(c),
         ultimoIngresoBadge: badgeUltimoIngreso(c),
         accesoBadge: badgeVencimiento(c),
+        pushBadge: idsConPush ? badgePush(c, idsConPush) : "",
         acciones: filaAcciones(c, puedeDeshabilitar, puedeEditar, esAdmin),
     };
     cursos.forEach((cur) => {
@@ -809,14 +824,25 @@ export async function Colaboradores() {
     // sin ese resumen ("ya está en Reportes"), pero es justo la pieza
     // que sirve para comparar un local contra otro, que es para lo que
     // Admin usa "Elegir mis locales" acá.
-    const [asignaciones, cursos, resultados, evaluaciones, lecciones] = await Promise.all([
+    // Columna "Push" (2026-09-02, pedido explícito: "saber quiénes
+    // tienen habilitado el push, todos los usuarios") — la hoja
+    // "Tokens" solo la puede leer Admin/Supervisor en el backend (ver
+    // PERMISOS_ESCRITURA/_esGestion en Code.gs); un Encargado mirando
+    // su propio equipo se comería un rechazo silencioso y vería
+    // "Sin push" para todos, algo falso. Se pide solo cuando sí hay
+    // permiso, y la columna ni se muestra para el resto.
+    const puedeVerPush = esAdmin || usuario.rol === "supervisor";
+
+    const [asignaciones, cursos, resultados, evaluaciones, lecciones, tokens] = await Promise.all([
         getAsignaciones(),
         getCursos(),
         getResultados(),
         esAdmin ? [] : getEvaluaciones(),
         esAdmin ? [] : getLecciones(),
+        puedeVerPush ? getTokens() : [],
     ]);
     const cursosConEvaluacion = esAdmin ? new Set() : new Set(evaluaciones.map((p) => String(p.cursoId)));
+    const idsConPush = new Set(tokens.map((t) => String(t.usuarioId)));
     // Se pasa el array crudo: leccionesDePersona necesita filtrar por
     // alcance persona por persona, y un mapa ya contado no lo permite.
     const leccionesParaSemaforo = esAdmin ? [] : lecciones;
@@ -846,11 +872,11 @@ export async function Colaboradores() {
     // colaborador en dos tablas separadas. Admin sigue con la versión
     // simple (columnas de siempre) — ese detalle ya lo tiene en Reportes.
     const armarFila = esAdmin
-        ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin)
-        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo);
+        ? (c) => filaDeColaborador(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, idsConPush)
+        : (c) => filaSemaforoGestion(c, puedeDeshabilitar, puedeEditar, asignaciones, cursos, esAdmin, resultados, cursosConEvaluacion, leccionesParaSemaforo, puedeVerPush ? idsConPush : null);
     const columnasTabla = esAdmin
-        ? COLUMNAS_BASE(false, esAdmin)
-        : COLUMNAS_SEMAFORO_GESTION(cursos, puedeAccionesEnLote);
+        ? COLUMNAS_BASE(false, esAdmin, puedeVerPush)
+        : COLUMNAS_SEMAFORO_GESTION(cursos, puedeAccionesEnLote, puedeVerPush);
 
     let cuerpoHtml;
     if (gruposPorSucursal) {
@@ -873,7 +899,7 @@ export async function Colaboradores() {
     } else {
         const filasSinOrdenar = colaboradores.map(armarFila);
         const filas = esAdmin ? ordenarPorFechaAltaDescendente(filasSinOrdenar) : ordenarPorProgresoAscendente(filasSinOrdenar);
-        cuerpoHtml = Table(esAdmin ? COLUMNAS_BASE(esAdmin, esAdmin) : columnasTabla, filas);
+        cuerpoHtml = Table(esAdmin ? COLUMNAS_BASE(esAdmin, esAdmin, puedeVerPush) : columnasTabla, filas);
     }
 
     // Pestañas de supervisor/admin: solo existen para Admin — el
