@@ -1003,12 +1003,13 @@ function recrearTareaEnPaneles(idTarea) {
  *  el título de una tarea borraría de la pantalla los días que ese
  *  mismo local ya había elegido (aunque en la Sheet de
  *  GestionTareasSucursal sigan intactos). */
-async function confirmarTarea(idEditado = null) {
+/** Pura extracción de campos — sin validar ni guardar. Separada de
+ *  confirmarTarea() para que el carrusel de edición (abrirCarruselTareas)
+ *  pueda comparar "¿cambió algo?" sin necesidad de tocar el backend,
+ *  mismo criterio que leerCamposPregunta()/validarPregunta() en
+ *  evaluaciones.js. */
+function leerCamposTarea(idEditado) {
     const titulo = document.getElementById("input-tarea-titulo").value.trim();
-    if (!titulo) {
-        alert("Ponele un título a la tarea antes de guardar.");
-        return false;
-    }
     const detalle = document.getElementById("input-tarea-detalle").value.trim();
     const icono = document.getElementById("input-tarea-icono").value;
     // Cada fila arma su propio string codificado (services/subitems.js)
@@ -1039,7 +1040,23 @@ async function confirmarTarea(idEditado = null) {
     // para las tareas que no eligieron uno propio.
     const recordatorioHabilitado = document.getElementById("input-tarea-recordatorio-habilitado")?.checked ? "SI" : "NO";
     const recordatorioHora = document.getElementById("input-tarea-recordatorio-hora")?.value || "";
-    const datos = { icono, titulo, detalle, aplicaA, noAplicaA, recordatorioHabilitado, recordatorioHora, ...(subitems.length ? { subitems } : {}) };
+    return { icono, titulo, detalle, aplicaA, noAplicaA, recordatorioHabilitado, recordatorioHora, ...(subitems.length ? { subitems } : {}) };
+}
+
+/** null = está todo bien. Única regla real hoy: el título es
+ *  obligatorio (mismo mensaje que ya usaba confirmarTarea). */
+function validarTarea({ titulo }) {
+    if (!titulo) return "Ponele un título a la tarea antes de guardar.";
+    return null;
+}
+
+async function confirmarTarea(idEditado = null) {
+    const datos = leerCamposTarea(idEditado);
+    const error = validarTarea(datos);
+    if (error) {
+        alert(error);
+        return false;
+    }
 
     if (idEditado) {
         const r = await actualizarTareaBackend(idEditado, datos);
@@ -1089,20 +1106,119 @@ async function eliminarTarea(idTarea) {
     TAREAS = TAREAS.filter((t) => t.id !== idTarea);
 }
 
-/** Abre el modal de tarea — sin argumentos, "+ Nueva tarea"; con
- *  `idEditado` + `tarea`, "Editar" precargado. */
-function abrirModalTarea({ idEditado = null, tarea = null } = {}) {
+/** Abre el modal de "+ Nueva tarea" — editar una existente va por
+ *  abrirCarruselTareas() más abajo, no por acá. */
+function abrirModalTarea() {
     const idModal = "modal-tarea";
     abrirModal(
-        Modal({ id: idModal, titulo: idEditado ? "Editar tarea" : "Nueva tarea", contenidoHtml: contenidoModalTarea({ tarea }), textoConfirmar: "Guardar" }),
+        Modal({ id: idModal, titulo: "Nueva tarea", contenidoHtml: contenidoModalTarea({}), textoConfirmar: "Guardar" }),
         idModal,
         async () => {
-            const ok = await confirmarTarea(idEditado);
+            const ok = await confirmarTarea(null);
             if (!ok) return;
             cerrarModal(idModal);
         },
     );
     bindModalTarea();
+}
+
+/** Editar el catálogo de tareas como un carrusel — Anterior/Siguiente
+ *  sin cerrar y reabrir un modal por cada una, mismo patrón ya usado
+ *  en evaluaciones.js (abrirCarruselPreguntas) — pedido explícito
+ *  (2026-09-02): "así no tengo que entrar y salir a cada rato como
+ *  tenemos en la app". El orden a recorrer es el DEL CATÁLOGO EN
+ *  PANTALLA en ese momento (Mensuales → Semanales en uso → Sin usar,
+ *  o el orden plano de TAREAS sin local elegido) — se lee del propio
+ *  DOM en vez de reconstruir esa agrupación acá, así el carrusel
+ *  siempre navega en el mismo orden que el usuario ya está viendo.
+ *
+ * Se guarda solo, sin preguntar, la que se está por dejar atrás — pero
+ * SOLO si algo cambió; si no se tocó nada, navegar no gasta un
+ * guardado de más. "Guardar cambios" cubre quedarse en una sola tarea
+ * sin moverse. */
+function abrirCarruselTareas(idInicial) {
+    const modalId = "modal-carrusel-tareas";
+    let orden = Array.from(document.querySelectorAll("#lista-aplica-tareas [data-editar-tarea]"))
+        .map((btn) => btn.closest(".tarea-gestion")?.dataset.tareaId)
+        .filter(Boolean);
+    // Por si "Editar" se tocó desde algún otro lugar que no sea el
+    // catálogo (no debería pasar hoy, pero un orden vacío no debe
+    // romper el carrusel) — al menos la tarea que se pidió editar.
+    if (!orden.includes(idInicial)) orden = [idInicial];
+    let indice = orden.indexOf(idInicial);
+    let valoresAlMostrar = null;
+
+    function huboCambios() {
+        return JSON.stringify(leerCamposTarea(orden[indice])) !== valoresAlMostrar;
+    }
+
+    async function guardarActual() {
+        const ok = await confirmarTarea(orden[indice]);
+        return ok;
+    }
+
+    function mostrar() {
+        const idActual = orden[indice];
+        const tarea = registroTareas.get(idActual);
+        const contenidoHtml = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <button type="button" class="btn btn-secondary" id="btn-tarea-anterior" ${indice === 0 ? "disabled" : ""}>‹ Anterior</button>
+                <span class="text-sm text-muted">Tarea ${indice + 1} / ${orden.length}</span>
+                <button type="button" class="btn btn-secondary" id="btn-tarea-siguiente" ${indice === orden.length - 1 ? "disabled" : ""}>Siguiente ›</button>
+            </div>
+            ${contenidoModalTarea({ tarea })}
+            <div style="display:flex;justify-content:space-between;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)">
+                <button type="button" class="btn btn-secondary" id="btn-eliminar-tarea-actual">Eliminar esta tarea</button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-tarea-actual">Guardar cambios</button>
+            </div>
+        `;
+
+        // textoConfirmar vacío a propósito: la navegación/guardado de
+        // este modal es toda propia (Anterior/Siguiente/Guardar), no el
+        // botón único de abrirModal.
+        abrirModal(Modal({ id: modalId, titulo: "Editar tareas", contenidoHtml, textoConfirmar: "" }), modalId);
+        bindModalTarea();
+        valoresAlMostrar = JSON.stringify(leerCamposTarea(idActual));
+
+        document.getElementById("btn-tarea-anterior")?.addEventListener("click", () => moverA(indice - 1));
+        document.getElementById("btn-tarea-siguiente")?.addEventListener("click", () => moverA(indice + 1));
+
+        document.getElementById("btn-guardar-tarea-actual").addEventListener("click", async (e) => {
+            const boton = e.currentTarget;
+            boton.disabled = true;
+            boton.textContent = "Guardando...";
+            const ok = await guardarActual();
+            boton.disabled = false;
+            boton.textContent = "Guardar cambios";
+            if (ok) valoresAlMostrar = JSON.stringify(leerCamposTarea(idActual));
+        });
+
+        document.getElementById("btn-eliminar-tarea-actual").addEventListener("click", async () => {
+            const idABorrar = idActual;
+            await eliminarTarea(idABorrar);
+            // eliminarTarea() ya pide confirm() y avisa si falla — si el
+            // registro sigue existiendo, no se confirmó/no se pudo borrar.
+            if (registroTareas.get(idABorrar)) return;
+            orden.splice(indice, 1);
+            if (!orden.length) { cerrarModal(modalId); return; }
+            if (indice >= orden.length) indice = orden.length - 1;
+            cerrarModal(modalId);
+            mostrar();
+        });
+    }
+
+    async function moverA(nuevoIndice) {
+        if (nuevoIndice < 0 || nuevoIndice >= orden.length) return;
+        if (huboCambios()) {
+            const ok = await guardarActual();
+            if (!ok) return; // se queda en la actual para que corrija
+        }
+        indice = nuevoIndice;
+        cerrarModal(modalId);
+        mostrar();
+    }
+
+    mostrar();
 }
 
 /** "+ Cargar varias" — pedido explícito con captura real: una lista
@@ -2162,8 +2278,7 @@ function actualizarFilaAplica(idTarea) {
 function bindEditarTarea(boton) {
     boton.addEventListener("click", () => {
         const idTarea = boton.closest(".tarea-gestion").dataset.tareaId;
-        const tarea = registroTareas.get(idTarea);
-        if (tarea) abrirModalTarea({ idEditado: idTarea, tarea });
+        if (registroTareas.get(idTarea)) abrirCarruselTareas(idTarea);
     });
 }
 
