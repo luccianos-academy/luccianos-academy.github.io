@@ -9,6 +9,8 @@ import { protegerMedia } from "./services/protegerMedia.js";
 import { autoExpandirTextareas } from "./services/autoExpandirTextareas.js";
 import { bindAvatarFallback } from "./components/avatar.js";
 import { iniciarChequeoDeVersion } from "./services/actualizacion.js";
+import { haySesion, getUsuarioActual } from "./services/auth.js";
+import { revalidarPushSiYaEstaConcedido } from "./services/push.js";
 import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
@@ -64,7 +66,17 @@ async function initApp() {
         // Avisa si se publicó una versión nueva mientras la app estaba
         // abierta — instalada como PWA no hay forma de darse cuenta.
         iniciarChequeoDeVersion();
-        
+
+        // Push: si el permiso ya está concedido pero el token real
+        // quedó viejo/inválido (service worker reinstalado, storage
+        // limpiado por inactividad, etc.), nadie se enteraba hasta
+        // entrar a Mi Perfil a mano — se revalida solo, en segundo
+        // plano, en cada carga. No pide permiso de nuevo ni bloquea el
+        // arranque (ver revalidarPushSiYaEstaConcedido).
+        if (haySesion()) {
+            revalidarPushSiYaEstaConcedido(getUsuarioActual());
+        }
+
         console.log('[APP] ✅ App fully initialized');
     } catch (err) {
         console.error('[APP] ❌ Initialization error:', err);

@@ -42,6 +42,40 @@ export function estadoPermisoPush() {
     return Notification.permission;
 }
 
+/** Re-registra el token en segundo plano, SIN pedir el permiso de
+ *  nuevo — pensado para correr solo en cada carga de la app (ver
+ *  app.js), no desde ningún botón. Pedido explícito (2026-09-02,
+ *  reportado en vivo por un Responsable de local vía WhatsApp): "el
+ *  push no me llega, tuve que volver a entrar a la app". Causa real:
+ *  el token se registra UNA sola vez (al activar el permiso) y nunca
+ *  más — si el navegador lo revoca, el service worker se reinstala, o
+ *  el celular limpió datos del sitio por inactividad, el permiso
+ *  nativo sigue en "granted" pero el token real quedó viejo/inválido,
+ *  y nadie se entera hasta entrar a Mi Perfil y notar "Reintentar".
+ *  Mientras tanto, los push simplemente no llegan.
+ *
+ *  Nunca pide permiso (si está en "default"/"denied" no hace nada —
+ *  eso sigue siendo decisión explícita de la persona, vía el banner o
+ *  Mi Perfil) y nunca interrumpe nada si falla: registrarToken() ya es
+ *  idempotente (no duplica si el token no cambió), así que llamar esto
+ *  en cada carga es seguro y barato. */
+export async function revalidarPushSiYaEstaConcedido(usuario) {
+    if (!usuario || !soportaPush() || estadoPermisoPush() !== "granted") return;
+    try {
+        inicializarFirebase();
+        const registro = await navigator.serviceWorker.ready;
+        const messaging = firebase.messaging();
+        const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
+        if (token) await registrarToken(usuario.id, token, usuario.nombre);
+    } catch (err) {
+        // Silencioso a propósito — corre en segundo plano en CADA carga
+        // de la app, sin botón ni feedback visual. Si el token sigue
+        // sin registrarse, Mi Perfil ya lo detecta (chequea la hoja
+        // Tokens real, no el permiso) y ofrece "Reintentar".
+        console.warn("No se pudo revalidar el token de push:", err.message);
+    }
+}
+
 /** Pide el permiso nativo y, si lo acepta, registra el token para
  *  este usuario. Devuelve {ok, motivo} en vez de tirar — la UI que
  *  llama a esto decide qué mostrar según el motivo (denegado por el
