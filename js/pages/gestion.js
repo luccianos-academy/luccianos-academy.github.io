@@ -272,12 +272,86 @@ function frecuenciaTareaHtml(t) {
  *  todo se calcula en el sistema VISUAL (lunes=0) de punta a punta.
  */
 function fechaDelDiaSemana(nombreDia) {
+    const fecha = fechaObjDiaSemana(nombreDia);
+    return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+}
+
+/** Mismo cálculo que fechaDelDiaSemana, factorizado para devolver el
+ *  Date entero (no solo el string "DD/M") — lo necesita el calendario
+ *  de "Tareas asignadas" (calendarioDiasHtml) para ubicar cada día de
+ *  ESTA semana en la grilla del mes real. */
+function fechaObjDiaSemana(nombreDia) {
     const hoy = new Date();
     const idxVisualHoy = (hoy.getDay() + 6) % 7; // Date.getDay(): domingo=0 → acá lunes=0
     const idxVisualObjetivo = DIAS_VISUAL.indexOf(nombreDia);
     const fecha = new Date(hoy);
     fecha.setDate(hoy.getDate() + (idxVisualObjetivo - idxVisualHoy));
-    return `${fecha.getDate()}/${fecha.getMonth() + 1}`;
+    fecha.setHours(0, 0, 0, 0);
+    return fecha;
+}
+
+const MESES_CALENDARIO_GESTION = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/** Calendario de mes para "Tareas asignadas" — reemplaza la fila de
+ *  pills que mezclaba nombre de día de semana ("Lunes 24/8") con
+ *  número de día del mes ("5/9") en una sola fila. Pedido explícito
+ *  (2026-09-02, con captura real): "no se entiende qué día es",
+ *  debería verse "tipo calendario del mes".
+ *
+ * Siempre el mes ACTUAL — no hay "otro mes" que ejecutar acá: lo ya
+ * cerrado vive en Histórico, de solo lectura (con su propio selector
+ * de mes). El calendario no cambia qué días le tocan a cada tarea
+ * (eso lo sigue decidiendo "Asignar tareas", sin cambios) — es solo
+ * una forma más clara de navegar los mismos paneles que ya existían.
+ *
+ * Punto dorado = ese día tiene un panel real para mostrar: es uno de
+ * los 7 días de ESTA semana (las tareas semanales siempre tienen
+ * panel, aunque esté vacío ese día puntual) o es un día de ESTE mes
+ * con alguna tarea mensual asignada (diasMesConContenido). Cualquier
+ * otro día del mes queda sin punto y deshabilitado — no existe ningún
+ * panel al que llevarlo. */
+function calendarioDiasHtml(diasMesConContenido, diaClaveActivo) {
+    const hoy = new Date();
+    const anio = hoy.getFullYear();
+    const mes = hoy.getMonth();
+    const hoyNum = hoy.getDate();
+
+    // Día del mes (número) → nombre de día de semana, solo para los 7
+    // días de la semana que contiene a "hoy" y caen en este mismo mes
+    // (una semana a caballo de fin de mes deja algunos de esos 7 días
+    // en el mes anterior/siguiente — esos simplemente no aparecen acá,
+    // el calendario solo dibuja EL MES actual).
+    const nombrePorNumeroDia = {};
+    DIAS_VISUAL.forEach((nombre) => {
+        const f = fechaObjDiaSemana(nombre);
+        if (f.getFullYear() === anio && f.getMonth() === mes) {
+            nombrePorNumeroDia[f.getDate()] = nombre;
+        }
+    });
+
+    const primerDiaVisual = (new Date(anio, mes, 1).getDay() + 6) % 7; // lunes=0
+    const ultimoDia = new Date(anio, mes + 1, 0).getDate();
+
+    let celdas = "";
+    for (let i = 0; i < primerDiaVisual; i++) celdas += `<span class="calendario-gestion-relleno"></span>`;
+    for (let d = 1; d <= ultimoDia; d++) {
+        const clave = nombrePorNumeroDia[d] || (diasMesConContenido.includes(String(d)) ? String(d) : "");
+        const clases = ["calendario-gestion-dia"];
+        if (d === hoyNum) clases.push("hoy");
+        if (clave) clases.push("con-tareas");
+        if (clave && clave === diaClaveActivo) clases.push("activo");
+        celdas += clave
+            ? `<button type="button" class="${clases.join(" ")}" data-vista-dia="${clave}">${d}</button>`
+            : `<span class="${clases.join(" ")}">${d}</span>`;
+    }
+
+    return `
+        <div class="calendario-gestion-mes">${MESES_CALENDARIO_GESTION[mes]} ${anio}</div>
+        <div class="calendario-gestion-encabezado">
+            <span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+        </div>
+        <div class="calendario-gestion-grilla" id="calendario-dias-gestion">${celdas}</div>
+    `;
 }
 
 /** Pedido explícito: "que el selector de días me permita poner más de
@@ -297,7 +371,7 @@ function fechaDelDiaSemana(nombreDia) {
  *  porque se entiende que son los días de la semana y se va a
  *  programar cada semana". Esto es un patrón RECURRENTE (todos los
  *  lunes, no ESTE lunes puntual) — la fecha sí importa en "Tareas
- *  asignadas" (pillsDiaHtml, cuerpoGestionHtml), que es donde se
+ *  asignadas" (calendarioDiasHtml, cuerpoGestionHtml), que es donde se
  *  ejecuta/exporta un día real y puntual. */
 function diasControlHtml(t) {
     const esMensual = t.frecuencia === "mensual";
@@ -1240,8 +1314,24 @@ function cuerpoGestionHtml() {
     // por igual: ya no hay ninguna diferencia de UI entre vista lectura
     // y edición acá, solo si las pills son <button> o <span> (ver
     // diasControlHtml) y si hay o no botón "+ Nueva tarea"/"Enviar push".
+    // Solo los días del mes que YA tienen algo asignado — nadie
+    // necesita navegar 31 pills, la mayoría vacías, para encontrar la
+    // única tarea mensual real.
+    const diasMesConContenido = [...new Set(tareasMensuales.flatMap((t) => t.dias))].sort((a, b) => Number(a) - Number(b));
+
+    // Día activo al entrar: el que ya estaba elegido (ej. se cambió de
+    // local sin recargar la página) si sigue siendo válido, si no HOY
+    // — antes acá no se preseleccionaba nada y la pantalla arrancaba
+    // sin ningún panel visible hasta el primer toque. El nombre de
+    // día de HOY (Lunes..Domingo) siempre resuelve a un panel real,
+    // aunque esté vacío.
+    const hoyClaveSemana = DIAS_VISUAL[(new Date().getDay() + 6) % 7];
+    if (!diaActivo || !(DIAS_VISUAL.includes(diaActivo) || diasMesConContenido.includes(diaActivo))) {
+        diaActivo = hoyClaveSemana;
+    }
+
     const panelHtml = (d, titulo, tareasDelDia) => `
-        <div class="section" data-panel-dia="${d}" style="display:none">
+        <div class="section" data-panel-dia="${d}"${d === diaActivo ? "" : ' style="display:none"'}>
             <h3>${titulo}</h3>
             <div class="lista-tareas-gestion">
                 ${tareasDelDia.length ? tareasDelDia.map((t) => tareaHtml(t, `${t.id}-${d}`, d)).join("") : avisoDiaVacioHtml()}
@@ -1255,15 +1345,7 @@ function cuerpoGestionHtml() {
     // semana que sea de lunes a domingo".
     const mesActual = new Date().getMonth() + 1;
     const panelesSemanalesHtml = DIAS_VISUAL.map((d) => panelHtml(d, `${d} ${fechaDelDiaSemana(d)}`, tareasSemanales.filter((t) => t.dias.includes(d)))).join("");
-
-    // Solo los días del mes que YA tienen algo asignado — nadie
-    // necesita navegar 31 pills, la mayoría vacías, para encontrar la
-    // única tarea mensual real.
-    const diasMesConContenido = [...new Set(tareasMensuales.flatMap((t) => t.dias))].sort((a, b) => Number(a) - Number(b));
     const panelesMensualesHtml = diasMesConContenido.map((d) => panelHtml(d, `${d}/${mesActual}`, tareasMensuales.filter((t) => t.dias.includes(d)))).join("");
-
-    const pillsDiaHtml = DIAS_VISUAL.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d} ${fechaDelDiaSemana(d)}</button>`).join("")
-        + diasMesConContenido.map((d) => `<button class="tab-gestion" data-vista-dia="${d}">${d}/${mesActual}</button>`).join("");
 
     // "Exportar a PDF" YA NO vive acá suelto — se mudó adentro de
     // cada fila de tarea (junto al push de esa tarea, ver tareaHtml)
@@ -1292,13 +1374,13 @@ function cuerpoGestionHtml() {
             ${catalogoHtml}
         </div>
 
-        <!-- "Tareas asignadas": pills de día/fecha — tocás una, ves
+        <!-- "Tareas asignadas": calendario del mes — tocás un día, ves
              las tareas de ESE día, las marcás hechas, mandás push por
              tarea, junto al push de esa misma tarea (ver tareaHtml)
              — "Asignar tareas" no tiene nada de esto. -->
         <div id="seccion-tareas-asignadas"${vistaSeccion === "ejecutar" ? "" : ' style="display:none"'}>
-            <div class="tabs-gestion" id="tabs-dias-gestion">
-                ${pillsDiaHtml}
+            <div class="calendario-gestion">
+                ${calendarioDiasHtml(diasMesConContenido, diaActivo)}
             </div>
             <div id="contenido-gestion-imprimible">
                 ${membreteHtml("Guía de Gestión", sucursalActiva)}
@@ -2313,6 +2395,87 @@ function prepararSubitemsParaExportar(contenedorId) {
  *  agrupados por ciclo, más reciente primero. Se llama recién al abrir
  *  la pestaña (ver bindCuerpoGestion), no en la carga inicial — nadie
  *  paga el costo de este fetch si nunca la mira. */
+/** "AAAA-MM" elegido en Histórico — null = todavía no se decidió
+ *  (arranca en el mes actual, ver renderHistoricoGestion). Vive acá
+ *  arriba, no en el DOM, para sobrevivir a que el contenedor se
+ *  redibuje entero cada vez que se cambia de mes. */
+let mesHistoricoActivo = null;
+
+/** Día del mes (número, ej. 12) elegido en el calendario de Histórico —
+ *  null = se ve la lista de ciclos completa (comportamiento por
+ *  defecto), un número = se ve solo ese día puntual. Pedido explícito
+ *  (2026-09-02): "en histórico también debería estar el calendario,
+ *  así puedo sacar PDF por día" — antes Histórico solo ofrecía
+ *  descargar el CICLO entero (la semana o el mes completos juntos). */
+let diaHistoricoActivo = null;
+
+function etiquetaMes(mesISO) {
+    const [anio, mes] = mesISO.split("-").map(Number);
+    const nombre = MESES_CALENDARIO_GESTION[mes - 1];
+    return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${anio}`;
+}
+
+const DIAS_SEMANA_ES_HISTORICO = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/** "Martes 12 de agosto" a partir de "AAAA-MM-DD". */
+function etiquetaDiaHistorico(fechaIso) {
+    const [anio, mes, dia] = fechaIso.split("-").map(Number);
+    const fecha = new Date(anio, mes - 1, dia);
+    const nombreDia = DIAS_SEMANA_ES_HISTORICO[fecha.getDay()];
+    return `${nombreDia.charAt(0).toUpperCase()}${nombreDia.slice(1)} ${dia} de ${MESES_CALENDARIO_GESTION[mes - 1]}`;
+}
+
+/** Fecha real ("AAAA-MM-DD") de una fila de GestionChecks archivada —
+ *  hace falta para poder ubicarla en un calendario real, cosa que el
+ *  dato crudo no da directo: una fila mensual guarda el día del mes
+ *  suelto en `dia` ("12"), y una semanal guarda el NOMBRE del día
+ *  ("Martes") relativo al lunes que es su `ciclo`. Devuelve null si el
+ *  dato no matchea ninguno de los dos formatos esperados (no debería
+ *  pasar, pero mejor no romper el calendario por una fila rara). */
+function fechaIsoDeFilaHistorico(f) {
+    if (/^\d{4}-\d{2}$/.test(String(f.ciclo))) {
+        const dia = Number(f.dia);
+        if (!dia) return null;
+        return `${f.ciclo}-${String(dia).padStart(2, "0")}`;
+    }
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(f.ciclo));
+    if (!m) return null;
+    const offset = DIAS_VISUAL.indexOf(f.dia);
+    if (offset < 0) return null;
+    const fecha = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    fecha.setDate(fecha.getDate() + offset);
+    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
+}
+
+/** Mismo look que calendarioDiasHtml (Tareas asignadas) pero para un
+ *  mes/año arbitrario ya cerrado, no siempre "el mes de hoy" — y con
+ *  días con datos marcados por número de día del mes, no por nombre de
+ *  día de semana (acá cualquier día del mes puede tener archivo). */
+function calendarioMesHistoricoHtml(anio, mes, diasConDatos, diaSeleccionado) {
+    const hoy = new Date();
+    const esMesActual = hoy.getFullYear() === anio && hoy.getMonth() === mes;
+    const primerDiaVisual = (new Date(anio, mes, 1).getDay() + 6) % 7;
+    const ultimoDia = new Date(anio, mes + 1, 0).getDate();
+    let celdas = "";
+    for (let i = 0; i < primerDiaVisual; i++) celdas += `<span class="calendario-gestion-relleno"></span>`;
+    for (let d = 1; d <= ultimoDia; d++) {
+        const tieneDatos = diasConDatos.has(d);
+        const clases = ["calendario-gestion-dia"];
+        if (esMesActual && d === hoy.getDate()) clases.push("hoy");
+        if (tieneDatos) clases.push("con-tareas");
+        if (tieneDatos && d === diaSeleccionado) clases.push("activo");
+        celdas += tieneDatos
+            ? `<button type="button" class="${clases.join(" ")}" data-dia-historico="${d}">${d}</button>`
+            : `<span class="${clases.join(" ")}">${d}</span>`;
+    }
+    return `
+        <div class="calendario-gestion">
+            <div class="calendario-gestion-encabezado"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+            <div class="calendario-gestion-grilla" id="calendario-dias-historico">${celdas}</div>
+        </div>
+    `;
+}
+
 async function renderHistoricoGestion() {
     const contenedor = document.getElementById("contenido-historico-gestion");
     if (!contenedor) return;
@@ -2322,16 +2485,6 @@ async function renderHistoricoGestion() {
     // suya). Admin/Supervisor: la que eligieron en el selector.
     const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
 
-    if (!filas.length) {
-        contenedor.innerHTML = `
-            <div class="vacio-historico-gestion">
-                ${Icon("calendario", { size: 26 })}
-                <p>Todavía no hay ciclos archivados — el primero va a aparecer cuando termine esta semana o este mes.</p>
-            </div>
-        `;
-        return;
-    }
-
     const catalogo = {};
     TAREAS.forEach((t) => { catalogo[t.id] = t; });
 
@@ -2340,16 +2493,119 @@ async function renderHistoricoGestion() {
         if (!porCiclo.has(f.ciclo)) porCiclo.set(f.ciclo, []);
         porCiclo.get(f.ciclo).push(f);
     });
-    // Más reciente primero — "AAAA-MM-DD" y "AAAA-MM" ordenan bien como
-    // texto plano, no hace falta parsear fechas para esto.
-    const ciclosOrdenados = [...porCiclo.keys()].sort().reverse();
+
+    // Se entra a Histórico y se ve el MES ACTUAL primero — pedido
+    // explícito (2026-09-02): "uno entra a histórico y se encuentra
+    // con elegí mes, se ve el mes corriente, cuando haya más meses
+    // podés elegir el que necesitás". Antes era una lista plana de
+    // TODOS los ciclos juntos, sin separar por mes — imposible de
+    // ubicar apenas hubiera más de un par de semanas archivadas.
+    //
+    // "AAAA-MM" sale de los primeros 7 caracteres tanto de un ciclo
+    // semanal ("AAAA-MM-DD", el lunes de esa semana — cae en el mes
+    // de ESE lunes, no en el que la semana termine) como de uno
+    // mensual ("AAAA-MM", ya es exactamente eso).
+    const mesesConCiclos = new Set([...porCiclo.keys()].map((c) => c.slice(0, 7)));
+    const mesActualISO = new Date().toISOString().slice(0, 7);
+    mesesConCiclos.add(mesActualISO); // siempre elegible, aunque esté vacío
+    const mesesOrdenados = [...mesesConCiclos].sort().reverse();
+
+    if (!mesHistoricoActivo || !mesesConCiclos.has(mesHistoricoActivo)) {
+        mesHistoricoActivo = mesActualISO;
+    }
+
+    const selectorMesesHtml = mesesOrdenados.length > 1 ? `
+        <div class="tabs-gestion">
+            ${mesesOrdenados.map((m) => `<button type="button" class="tab-gestion${m === mesHistoricoActivo ? " activa" : ""}" data-mes-historico="${m}">${etiquetaMes(m)}</button>`).join("")}
+        </div>
+    ` : "";
+
+    // Calendario de días con archivo dentro del mes elegido — pedido
+    // explícito (2026-09-02): "en histórico también debería estar el
+    // calendario, así puedo sacar PDF por día". Se calcula sobre TODAS
+    // las filas (no solo las de ciclosDelMes de abajo): una semana cuyo
+    // lunes cae a fin de mes puede tener días sueltos que caen en el
+    // mes siguiente, y estos sí tienen que verse en SU propio calendario
+    // aunque el ciclo entero se liste bajo el mes del lunes.
+    const [anioMesActivo, numMesActivo] = mesHistoricoActivo.split("-").map(Number);
+    const filasConFecha = filas
+        .map((f) => ({ ...f, _fechaIso: fechaIsoDeFilaHistorico(f) }))
+        .filter((f) => f._fechaIso && f._fechaIso.slice(0, 7) === mesHistoricoActivo);
+    const diasConDatos = new Set(filasConFecha.map((f) => Number(f._fechaIso.slice(8, 10))));
+
+    if (diaHistoricoActivo && !diasConDatos.has(diaHistoricoActivo)) diaHistoricoActivo = null;
+
+    const calendarioHtml = diasConDatos.size
+        ? calendarioMesHistoricoHtml(anioMesActivo, numMesActivo - 1, diasConDatos, diaHistoricoActivo)
+        : "";
 
     // Solo el Responsable de local de ESE local puede borrar — Admin/
     // Supervisor mirando un local ajeno, no (mismo gate que el server,
-    // ver eliminarHistoricoGestion en Code.gs).
+    // ver eliminarHistoricoGestion en Code.gs). "Descargar PDF de un
+    // día puntual" no tiene ese riesgo (no borra nada), lo ve cualquiera
+    // que ya llegó hasta acá.
     const puedeBorrar = usuarioEncargadoActivo;
 
-    contenedor.innerHTML = ciclosOrdenados.map((ciclo) => {
+    // Vista "un día puntual" — reemplaza la lista de ciclos mientras
+    // haya un día elegido en el calendario de arriba.
+    if (diaHistoricoActivo) {
+        const fechaIso = `${mesHistoricoActivo}-${String(diaHistoricoActivo).padStart(2, "0")}`;
+        const filasDia = filasConFecha.filter((f) => f._fechaIso === fechaIso);
+        const completasDia = filasDia.filter((f) => String(f.hecho).toUpperCase() === "SI").length;
+        const filasDiaHtml = filasDia.map((f) => {
+            const titulo = catalogo[f.tareaId]?.titulo || f.tareaId;
+            const completa = String(f.hecho).toUpperCase() === "SI";
+            return `
+                <div class="fila-tarea-historico${completa ? "" : " no-completada"}">
+                    <span class="estado-ico-historico ${completa ? "ok" : "no"}">${Icon(completa ? "check" : "cerrar", { size: 12 })}</span>
+                    <span class="fila-tarea-historico-txt">
+                        <strong>${escaparHtml(titulo)}</strong>
+                        <span>${completa ? `Hecho ${f.hora || ""}${f.marcadoPor ? ` · ${escaparHtml(f.marcadoPor)}` : ""}` : "No completada"}</span>
+                    </span>
+                </div>
+            `;
+        }).join("");
+        contenedor.innerHTML = `
+            ${selectorMesesHtml}
+            ${calendarioHtml}
+            <div class="ciclo-card-historico">
+                <div class="ciclo-header-historico">
+                    <span class="ciclo-ico-historico">${Icon("calendario", { size: 17 })}</span>
+                    <span class="ciclo-titulo-historico">
+                        <strong>${etiquetaDiaHistorico(fechaIso)}</strong>
+                        <span>${escaparHtml(filasDia[0]?.sucursal || "")}</span>
+                    </span>
+                    <span class="pill-progreso-historico ${filasDia.length && completasDia === filasDia.length ? "completo" : "parcial"}">${completasDia}/${filasDia.length} completadas</span>
+                    <div class="ciclo-acciones-historico">
+                        <button type="button" class="btn-mini-historico volver" data-volver-historico="1">${Icon("flecha-izq", { size: 14 })} Ver todo el mes</button>
+                        <button type="button" class="btn-mini-historico descargar" data-descargar-dia="${fechaIso}" data-sucursal-dia="${escaparHtml(filasDia[0]?.sucursal || "")}">${Icon("descargar", { size: 14 })} Descargar PDF</button>
+                    </div>
+                </div>
+                <div class="ciclo-tareas-historico">${filasDiaHtml || `<p class="text-muted text-sm">Sin tareas registradas ese día.</p>`}</div>
+            </div>
+        `;
+        return;
+    }
+
+    const ciclosDelMes = [...porCiclo.keys()].filter((c) => c.slice(0, 7) === mesHistoricoActivo)
+        // Más reciente primero — "AAAA-MM-DD" y "AAAA-MM" ordenan bien
+        // como texto plano, no hace falta parsear fechas para esto.
+        .sort().reverse();
+
+    if (!ciclosDelMes.length && !diasConDatos.size) {
+        contenedor.innerHTML = `
+            ${selectorMesesHtml}
+            <div class="vacio-historico-gestion">
+                ${Icon("calendario", { size: 26 })}
+                <p>${mesHistoricoActivo === mesActualISO
+                    ? "Este mes todavía no hay ningún ciclo archivado — el primero va a aparecer cuando termine esta semana o este mes."
+                    : "Este mes no tiene ciclos archivados."}</p>
+            </div>
+        `;
+        return;
+    }
+
+    contenedor.innerHTML = selectorMesesHtml + calendarioHtml + ciclosDelMes.map((ciclo) => {
         const filasCiclo = porCiclo.get(ciclo);
         const completas = filasCiclo.filter((f) => String(f.hecho).toUpperCase() === "SI").length;
         const esMensual = /^\d{4}-\d{2}$/.test(ciclo);
@@ -2397,16 +2653,18 @@ async function renderHistoricoGestion() {
  *  de archivada, el PDF muestra la versión ACTUAL de la tarea, no la
  *  histórica — no vale la pena guardar una copia completa de la
  *  definición para ese caso borde. */
-async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
-    const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
-    const filasCiclo = filas.filter((f) => String(f.ciclo) === String(ciclo));
-    if (!filasCiclo.length) {
-        alert("No se encontró ese ciclo — puede que ya se haya borrado.");
+/** Hace el trabajo compartido de armar y bajar el PDF, sea de un ciclo
+ *  entero o de un solo día — ver exportarCicloHistorico/
+ *  exportarDiaHistorico más abajo, que solo difieren en QUÉ filas
+ *  juntan y el título. */
+async function exportarFilasHistoricoComoPdf(filasGrupo, tituloPdf, sucursal) {
+    if (!filasGrupo.length) {
+        alert("No se encontró información para exportar — puede que ya se haya borrado.");
         return;
     }
 
-    const checksDelCiclo = {};
-    filasCiclo.forEach((f) => {
+    const checksDelGrupo = {};
+    filasGrupo.forEach((f) => {
         const marcas = new Map();
         String(f.subitemsMarcados || "").split(",").filter(Boolean).forEach((entrada) => {
             const marca = parsearMarcaSubitem(entrada);
@@ -2417,7 +2675,7 @@ async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
             const firma = parsearFirmaSubitem(entrada);
             firmas.set(firma.indice, firma);
         });
-        checksDelCiclo[`${f.tareaId}|${f.dia}`] = {
+        checksDelGrupo[`${f.tareaId}|${f.dia}`] = {
             marcadoPor: f.marcadoPor || "", hora: f.hora || "",
             hecho: String(f.hecho).toUpperCase() === "SI", marcas, firmas,
             cerrada: String(f.cerrada).toUpperCase() === "SI", cerradaPor: f.cerradaPor || "", cerradaHora: f.cerradaHora || "",
@@ -2426,14 +2684,14 @@ async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
 
     const previoChecks = checksActivos;
     const previoLectura = esVistaLectura;
-    checksActivos = checksDelCiclo;
+    checksActivos = checksDelGrupo;
     esVistaLectura = true; // Histórico es de solo lectura, pase lo que pase con el usuario real.
 
     const contenedor = document.createElement("div");
     contenedor.id = "contenido-historico-imprimible";
     contenedor.style.cssText = "position:fixed; left:-9999px; top:0;";
-    contenedor.innerHTML = membreteHtml(`Guía de Gestión — ${etiquetaCiclo(ciclo)}`, sucursalDelCiclo);
-    filasCiclo.forEach((f) => {
+    contenedor.innerHTML = membreteHtml(`Guía de Gestión — ${tituloPdf}`, sucursal);
+    filasGrupo.forEach((f) => {
         const tarea = catalogoHistorico(f.tareaId);
         if (!tarea) return;
         contenedor.insertAdjacentHTML("beforeend", tareaHtml(tarea, `hist-${f.tareaId}-${f.dia}`, f.dia));
@@ -2442,13 +2700,29 @@ async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
 
     const marcasAgregadas = prepararSubitemsParaExportar("contenido-historico-imprimible");
     try {
-        exportarAPdf("contenido-historico-imprimible", `Guía de Gestión — ${etiquetaCiclo(ciclo)}`, { soloDescarga: true });
+        exportarAPdf("contenido-historico-imprimible", `Guía de Gestión — ${tituloPdf}`, { soloDescarga: true });
     } finally {
         marcasAgregadas.forEach((m) => m.remove());
         contenedor.remove();
         checksActivos = previoChecks;
         esVistaLectura = previoLectura;
     }
+}
+
+async function exportarCicloHistorico(ciclo, sucursalDelCiclo) {
+    const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
+    const filasCiclo = filas.filter((f) => String(f.ciclo) === String(ciclo));
+    await exportarFilasHistoricoComoPdf(filasCiclo, etiquetaCiclo(ciclo), sucursalDelCiclo);
+}
+
+/** Mismo PDF que exportarCicloHistorico pero acotado a UN día real
+ *  (ver fechaIsoDeFilaHistorico) — pedido explícito (2026-09-02) para
+ *  no tener que bajar la semana/mes entera cuando solo hace falta un
+ *  día puntual. */
+async function exportarDiaHistorico(fechaIso, sucursalDelDia) {
+    const filas = await getHistoricoGestion(usuarioEncargadoActivo ? undefined : sucursalActiva);
+    const filasDia = filas.filter((f) => fechaIsoDeFilaHistorico(f) === fechaIso);
+    await exportarFilasHistoricoComoPdf(filasDia, etiquetaDiaHistorico(fechaIso), sucursalDelDia);
 }
 
 /** Tarea del catálogo por id, para el PDF de Histórico — registroTareas
@@ -2463,14 +2737,16 @@ function catalogoHistorico(tareaId) {
  *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
  *  cambia de local en el selector (mismo contenido, nodos nuevos). */
 function bindCuerpoGestion() {
-    // Pills de "Tareas asignadas" (día de semana + fecha, o día del mes
-    // + fecha) — data-vista-dia activa, muestra el [data-panel-dia] que
-    // matchea, oculta el resto. Vive DENTRO de #seccion-tareas-asignadas,
-    // así que solo importa mientras esa sección está visible.
-    document.querySelectorAll("#tabs-dias-gestion [data-vista-dia]").forEach((btn) => {
+    // Calendario de "Tareas asignadas" — data-vista-dia activa, muestra
+    // el [data-panel-dia] que matchea, oculta el resto. Vive DENTRO de
+    // #seccion-tareas-asignadas, así que solo importa mientras esa
+    // sección está visible. El día de HOY ya arranca activo (ver
+    // cuerpoGestionHtml, diaActivo) — este listener solo atiende los
+    // cambios manuales de ahí en más.
+    document.querySelectorAll("#calendario-dias-gestion [data-vista-dia]").forEach((btn) => {
         btn.addEventListener("click", () => {
-            document.querySelectorAll("#tabs-dias-gestion [data-vista-dia]").forEach((b) => b.classList.remove("activa"));
-            btn.classList.add("activa");
+            document.querySelectorAll("#calendario-dias-gestion [data-vista-dia]").forEach((b) => b.classList.remove("activo"));
+            btn.classList.add("activo");
             diaActivo = btn.dataset.vistaDia;
             document.querySelectorAll("[data-panel-dia]").forEach((panel) => {
                 panel.style.display = panel.dataset.panelDia === diaActivo ? "" : "none";
@@ -2514,6 +2790,30 @@ function bindCuerpoGestion() {
     // en el contenedor (las tarjetas se re-arman enteras cada vez que
     // se abre la pestaña, ver renderHistoricoGestion).
     document.getElementById("contenido-historico-gestion")?.addEventListener("click", (e) => {
+        const btnMes = e.target.closest("[data-mes-historico]");
+        if (btnMes) {
+            mesHistoricoActivo = btnMes.dataset.mesHistorico;
+            diaHistoricoActivo = null; // un día de OTRO mes no tiene sentido acá
+            renderHistoricoGestion();
+            return;
+        }
+        const btnDia = e.target.closest("[data-dia-historico]");
+        if (btnDia) {
+            diaHistoricoActivo = Number(btnDia.dataset.diaHistorico);
+            renderHistoricoGestion();
+            return;
+        }
+        const btnVolver = e.target.closest("[data-volver-historico]");
+        if (btnVolver) {
+            diaHistoricoActivo = null;
+            renderHistoricoGestion();
+            return;
+        }
+        const btnDescargarDia = e.target.closest("[data-descargar-dia]");
+        if (btnDescargarDia) {
+            exportarDiaHistorico(btnDescargarDia.dataset.descargarDia, btnDescargarDia.dataset.sucursalDia);
+            return;
+        }
         const btnDescargar = e.target.closest("[data-descargar-ciclo]");
         if (btnDescargar) {
             exportarCicloHistorico(btnDescargar.dataset.descargarCiclo, btnDescargar.dataset.sucursalCiclo);

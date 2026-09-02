@@ -5876,6 +5876,109 @@ table.data-table tbody tr:hover{
     border-color:var(--gold);
 }
 
+/* Calendario de "Tareas asignadas" (gestion.js, calendarioDiasHtml) —
+   reemplaza la fila de pills que mezclaba "Lunes 24/8" con "5/9" en
+   una sola fila, pedido explícito (2026-09-02, con captura real):
+   "no se entiende qué día es". Maqueta aprobada por el usuario antes
+   de escribir esto. */
+.calendario-gestion{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+    padding:16px;
+    margin-top:18px;
+    /* Sin este tope, en desktop ".content" ocupa todo el ancho libre
+       (no tiene su propio max-width, ver css/layout.css) y como la
+       grilla es 7 columnas de 1fr con los días en aspect-ratio:1,
+       cada círculo terminaba estirado a lo gigante — bug real
+       reportado en vivo (2026-09-02). En mobile 480px ya es
+       prácticamente el ancho completo, así que no achica nada ahí. */
+    max-width:480px;
+}
+
+.calendario-gestion-mes{
+    text-align:center;
+    color:var(--text);
+    font-size:15px;
+    font-weight:600;
+    margin-bottom:14px;
+    text-transform:capitalize;
+}
+
+.calendario-gestion-encabezado{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    margin-bottom:6px;
+}
+.calendario-gestion-encabezado span{
+    text-align:center;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:600;
+}
+
+.calendario-gestion-grilla{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:4px;
+}
+
+/* <span> (relleno del inicio de mes, o día sin ningún panel real) y
+   <button> (día con panel) comparten forma — solo cambia si se puede
+   tocar. Un día sin punto ni fondo no tiene nada asignado ni esta
+   semana ni este mes; existe en la grilla por prolijidad (se ve el
+   mes completo) pero no lleva a ningún lado. */
+.calendario-gestion-relleno,
+.calendario-gestion-dia{
+    aspect-ratio:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:none;
+    border-radius:50%;
+    background:transparent;
+    color:var(--text);
+    font-size:13px;
+    font-family:inherit;
+}
+
+button.calendario-gestion-dia.con-tareas{
+    cursor:pointer;
+    position:relative;
+}
+button.calendario-gestion-dia.con-tareas::after{
+    content:"";
+    position:absolute;
+    bottom:3px;
+    left:50%;
+    transform:translateX(-50%);
+    width:4px;
+    height:4px;
+    border-radius:50%;
+    background:var(--gold-deep);
+}
+span.calendario-gestion-dia{
+    color:var(--muted);
+}
+
+.calendario-gestion-dia.hoy{
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    font-weight:600;
+}
+.calendario-gestion-dia.hoy::after{
+    background:var(--gold-deep);
+}
+
+.calendario-gestion-dia.activo{
+    background:var(--gold);
+    color:var(--black);
+    font-weight:600;
+}
+.calendario-gestion-dia.activo::after{
+    background:var(--black);
+}
+
 /* #tabs-seccion-gestion = "Asignar tareas"/"Tareas asignadas" — el
    cambio de sección real, mockup confirmado por el usuario. Reusa
    .tab-gestion (mismos colores/estados) pero pedía su propio peso:
@@ -6867,6 +6970,12 @@ table.data-table tbody tr:hover{
 .btn-mini-historico.descargar:hover{ background:#332c1f; }
 .btn-mini-historico.eliminar{ background:transparent; color:var(--danger); border:1px solid rgba(229,103,92,.4); }
 .btn-mini-historico.eliminar:hover{ background:var(--danger-soft); }
+/* "Ver todo el mes" (calendario de Histórico, volver de la vista de un
+   día a la lista de ciclos) — sin esta regla hereda el botón blanco
+   por default del navegador, ya que la base .btn-mini-historico no
+   pone fondo/color propios (eso lo hacen .descargar/.eliminar). */
+.btn-mini-historico.volver{ background:transparent; color:var(--muted); border:1px solid var(--line); }
+.btn-mini-historico.volver:hover{ background:var(--card); color:var(--text); }
 .btn-mini-historico:disabled{ opacity:.5; cursor:not-allowed; }
 
 .ciclo-tareas-historico{ padding:6px 10px; }
