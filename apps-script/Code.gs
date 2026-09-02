@@ -1848,13 +1848,35 @@ function limpiarMarcasFuturasGestion(sucursalPedida, usuarioActual) {
     }
     const sucursal = String(sucursalPedida || "").trim();
 
+    // Frecuencia real de cada tarea, por sucursal (una tarea podría
+    // tener frecuencias distintas en locales distintos) — hace falta
+    // para el backfill de acá abajo, mismo motivo que obtenerHistoricoGestion.
+    const frecuencias = {};
+    _leerCrudo("GestionTareasSucursal").forEach(function (f) {
+        frecuencias[f.tareaId + "|" + String(f.sucursal || "").trim()] = f.frecuencia;
+    });
+
     const cicloSemanalActual = _cicloActual("semanal");
     const cicloMensualActual = _cicloActual("mensual");
 
     const filas = _leerCrudo("GestionChecks").filter(function (f) {
-        if (sucursal && String(f.sucursal || "").trim() !== sucursal) return false;
-        const esCicloVigente = String(f.ciclo) === cicloSemanalActual || String(f.ciclo) === cicloMensualActual;
-        return esCicloVigente && _diaEsFuturoGestion(f.dia);
+        const filaSucursal = String(f.sucursal || "").trim();
+        if (sucursal && filaSucursal !== sucursal) return false;
+
+        const frecuenciaTarea = frecuencias[f.tareaId + "|" + filaSucursal] === "mensual" ? "mensual" : "semanal";
+        // Filas guardadas antes de que existiera la columna "ciclo"
+        // quedaron con ese campo vacío para siempre — mismo backfill
+        // que ya usa obtenerHistoricoGestion (a partir de su propia
+        // fechaModificacion). Sin esto, una fila vieja marcada a
+        // futuro NUNCA calificaba como "del ciclo vigente" y quedaba
+        // afuera de esta limpieza — bug real, reportado en vivo:
+        // "dice que no hay marcas para borrar" con una tarea marcada
+        // a futuro bien a la vista.
+        const ciclo = f.ciclo || _cicloDeFecha(f.fechaModificacion, frecuenciaTarea);
+        const cicloActualDeEsta = frecuenciaTarea === "mensual" ? cicloMensualActual : cicloSemanalActual;
+        if (String(ciclo) !== String(cicloActualDeEsta)) return false;
+
+        return _diaEsFuturoGestion(f.dia);
     });
     filas.forEach(function (f) { _eliminarCrudo("GestionChecks", f.id); });
     return { ok: true, borradas: filas.length };
