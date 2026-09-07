@@ -338,39 +338,16 @@
     margin-top:2px;
 }
 
-/* Botón de Google reducido a sólo el ícono (ver login.js) — esta
-   píldora lo envuelve junto con el texto propio "Ingresar", para que
-   se lea como un único botón chico y sutil en vez de la píldora ancha
-   con texto en inglés que Google arma por default. */
-.login-google-pill{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    width:fit-content;
-    margin:0 auto;
-    padding:6px 22px 6px 8px;
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.14);
-    background:rgba(255,255,255,.06);
-    transition:background .18s ease, border-color .18s ease;
-}
-
-.login-google-pill:hover{
-    background:rgba(255,255,255,.12);
-    border-color:rgba(255,255,255,.25);
-}
-
-.login-google-texto{
-    font-size:14px;
-    font-weight:600;
-    color:var(--text);
-    pointer-events:none;
-}
-
+/* Botón COMPLETO de Google (ver login.js, type:"standard") — antes
+   era solo un ícono envuelto en una píldora propia con texto "Ingresar"
+   al lado (un <span> sin click real, bug real reportado en vivo). Ahora
+   lo que se ve ES el botón entero que dibuja Google en su iframe, así
+   que no hace falta ninguna píldora/decoración propia alrededor — solo
+   centrarlo. */
 .login-google-slot{
     display:flex;
     justify-content:center;
+    margin:0 auto;
 }
 
 .login-card .logo,

@@ -328,10 +328,7 @@ async function abrirModalLogin() {
                     ? embebido
                         ? `<div class="login-error">Google no deja iniciar sesión desde acá adentro (WhatsApp, Instagram, etc.). Copiá este link y abrilo en Safari o Chrome.</div>
                            <button class="btn btn-secondary" id="btn-copiar-link-login" type="button">Copiar link</button>`
-                        : `<div class="login-google-pill">
-                            <div id="google-btn-slot" class="login-google-slot"></div>
-                            <span class="login-google-texto">Ingresar</span>
-                           </div>
+                        : `<div id="google-btn-slot" class="login-google-slot"></div>
                            <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome.
                                <button class="btn-link-copiar-nota" id="btn-copiar-link-login" type="button">Copiar link</button>
                            </div>`
@@ -422,20 +419,25 @@ function inicializarGoogleSignIn() {
         callback: onGoogleCredential,
     });
 
-    // Botón sólo-ícono (sin el rótulo en inglés de Google) — el texto
-    // "Ingresar" de al lado es propio, así queda un botón más chico y
-    // sutil en vez de la píldora blanca ancha por defecto.
+    // Botón COMPLETO de Google (type:"standard"), no solo el ícono —
+    // bug real reportado en vivo: antes el ícono chico era el único
+    // pedazo realmente clickeable (lo renderiza Google adentro de su
+    // propio iframe), mientras el texto "Ingresar" de al lado era un
+    // <span> decorativo sin click — mucha gente tocaba ahí, no pasaba
+    // nada, y terminaba sin poder entrar. Con "standard" el botón
+    // entero (ícono + texto, ambos dibujados por Google en el mismo
+    // iframe) es una sola superficie clickeable, sin zonas muertas.
+    // hl=es en el <script> de index.html fuerza el texto en español.
     //
     // theme:"filled_black" en vez de "outline" — Google solo ofrece 3
-    // temas y "outline" renderiza un círculo BLANCO fijo (no es CSS
-    // nuestro: el botón lo dibuja Google adentro de su propio iframe,
-    // no se puede recolorear desde afuera). Con el resto de la app en
-    // paleta oscura desde el 25/07, ese círculo blanco quedó como el
-    // único elemento claro de toda la pantalla — "filled_black" es la
-    // única opción de las tres que combina.
+    // temas y "outline" renderiza blanco fijo (no es CSS nuestro: el
+    // botón lo dibuja Google adentro de su propio iframe, no se puede
+    // recolorear desde afuera). Con el resto de la app en paleta
+    // oscura desde el 25/07, "filled_black" es la única de las tres
+    // que combina.
     window.google.accounts.id.renderButton(
         document.getElementById("google-btn-slot"),
-        { type: "icon", theme: "filled_black", size: "large", shape: "circle" }
+        { type: "standard", theme: "filled_black", size: "large", shape: "pill", text: "signin", logo_alignment: "left" }
     );
 }
 

@@ -44,7 +44,11 @@
     <link rel="stylesheet" href="css/components.css">
     <link rel="stylesheet" href="css/responsive.css">
 
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- hl=es: fuerza el botón de Google en español (antes caía al
+         idioma del navegador, mostrando "Sign in with Google" en
+         inglés en algunos teléfonos — inconsistente con el resto de
+         la app, 100% en español). -->
+    <script src="https://accounts.google.com/gsi/client?hl=es" async defer></script>
 
     <!-- Firebase Cloud Messaging (push real) — build "compat" a
          propósito: mismo estilo de API que usa sw.js vía importScripts

@@ -638,15 +638,24 @@ function subitemFilaHtml(id, is, subitemsRaw, marcados, firmas = new Map(), bloq
         // representado únicamente por el círculo ok/incidencia/grave
         // del estado3, sin selector de causa aparte.
 
-        // En $0 el signo no significa nada — ninguno de los dos botones
-        // arranca marcado (mismo criterio que al resetear desde "OK").
+        // Bug real reportado en vivo (2026-09-06): "Cuadra" arrancaba
+        // marcado en verde SOLO PORQUE el valor por default es $0 — la
+        // persona veía el botón ya seleccionado, asumía que no había
+        // que tocar nada, y esa fila NUNCA quedaba "tocada" de verdad
+        // (ver dataset.tocado / leerMarcaFilaSubitem). Resultado: la
+        // tarea quedaba incompleta (ej. 3/4) sin que nadie entendiera
+        // por qué, porque a simple vista los 4 ítems se veían iguales
+        // de "confirmados". Ahora NINGÚN botón ni el borde del campo
+        // "$" arrancan marcados hasta que la fila esté realmente
+        // tocada (tieneMarca) — recién ahí "Cuadra" se enciende si
+        // además no hay incidencia.
         return `
-            <div class="subitem-numerico ${incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}" data-signo="${signo}" data-tocado="${tieneMarca ? "1" : "0"}">
+            <div class="subitem-numerico ${!tieneMarca ? "" : incidencia ? "incidencia" : "ok"}" data-subitem-tipo="numerico" data-subitem-indice="${is}" data-signo="${signo}" data-tocado="${tieneMarca ? "1" : "0"}">
                 <span>${escaparHtml(titulo)}</span>
                 ${firmaHtml}
                 <div class="subitem-numerico-control">
                     <div class="signo-toggle">
-                        <button type="button" class="signo-btn cuadra${incidencia ? "" : " activo"}" data-accion-cuadra${soloLectura ? " disabled" : ""}>Cuadra</button>
+                        <button type="button" class="signo-btn cuadra${tieneMarca && !incidencia ? " activo" : ""}" data-accion-cuadra${soloLectura ? " disabled" : ""}>Cuadra</button>
                         <button type="button" class="signo-btn falta${incidencia && signo === "-" ? " activo" : ""}" data-signo="-"${soloLectura ? " disabled" : ""}>Falta</button>
                         <button type="button" class="signo-btn sobra${incidencia && signo === "+" ? " activo" : ""}" data-signo="+"${soloLectura ? " disabled" : ""}>Sobra</button>
                     </div>
