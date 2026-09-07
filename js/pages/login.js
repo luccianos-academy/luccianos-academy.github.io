@@ -39,6 +39,7 @@ import { renderFullScreen } from "../ui.js";
 import { abrirModal, cerrarModal } from "../components/modal.js";
 import { login, ROLES } from "../services/auth.js";
 import { verificarLoginGoogle } from "../services/google.js";
+import { revalidarPushSiYaEstaConcedido } from "../services/push.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { GOOGLE_CLIENT_ID, ES_ENTORNO_PRUEBA } from "../config.js";
@@ -402,6 +403,7 @@ async function entrarComo(rol, usuarios) {
 
     login(usuario);
     registrarEvento(usuario.id, "login", `Ingreso de ${usuario.nombre}`);
+    revalidarPushSiYaEstaConcedido(usuario);
     navigate(destinoPostLogin(usuario), { replace: true });
 }
 
@@ -460,6 +462,23 @@ async function onGoogleCredential(response) {
 
         login(resultado.usuario, resultado.sessionToken);
         registrarEvento(resultado.usuario.id, "login", `Ingreso de ${resultado.usuario.nombre}`);
+        // Bug real reportado en vivo (2026-09-07): "a veces la sesión se
+        // cierra y el push no llega". Causa real: revalidarPushSiYaEsta
+        // Concedido (services/push.js) solo corre en app.js al arrancar
+        // la app, y SOLO si en ese momento ya había sesión — si la
+        // sesión firmada venció (24hs, ver SESION_DURACION_MS en
+        // Code.gs) el backend fuerza un logout+reload automático
+        // (manejarSesionInvalida en services/google.js) y la persona
+        // queda en la pantalla de login. Si mientras tanto el token de
+        // push real se puso viejo/inválido (el celular reinstaló el
+        // service worker, limpió datos por inactividad, etc. — algo
+        // normal), nadie lo revalida hasta el PRÓXIMO arranque en frío
+        // CON sesión ya activa — que puede tardar días. Revalidando acá,
+        // en el momento exacto en que la persona vuelve a loguearse
+        // (sin esperar a que cierre y reabra la app entera), el token
+        // se repara al toque en vez de quedar muerto hasta la próxima
+        // vez que alguien reinicie el navegador/PWA desde cero.
+        revalidarPushSiYaEstaConcedido(resultado.usuario);
         cerrarModal(MODAL_ID);
         navigate(destinoPostLogin(resultado.usuario), { replace: true });
 
