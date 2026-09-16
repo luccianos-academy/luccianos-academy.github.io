@@ -2227,9 +2227,17 @@ function subirArchivo(nombreArchivo, extension, archivoBase64) {
         const archivo = carpetaMes.createFile(blob);
         archivo.setSharing(DriveApp.Access.ANYONE, DriveApp.Permission.VIEW);
 
+        // Si es una imagen, se guarda el link de thumbnail (sirve
+        // directo como src de <img>). Para el resto (PDF, video, etc.)
+        // se mantiene archivo.getUrl(), pensado para abrirse en una
+        // pestaña, no para embeberse.
+        const url = tipo === "Imagenes"
+            ? "https://drive.google.com/thumbnail?id=" + archivo.getId() + "&sz=w1000"
+            : archivo.getUrl();
+
         return {
             ok: true,
-            url: archivo.getUrl(),
+            url: url,
             archivoId: archivo.getId(),
             nombre: nombreArchivo
         };
