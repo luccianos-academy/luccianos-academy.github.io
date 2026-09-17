@@ -191,21 +191,33 @@ function setupAsignacionesFaltantesPorAprobado() {
   const resultados = _leerCrudo('Resultados');
   const asignaciones = _leerCrudo('Asignaciones');
 
+  // String() en las dos puntas de la clave a propósito — Sheets puede
+  // devolver el mismo id como Number en una hoja y String en la otra
+  // según cómo se haya tipeado la celda alguna vez, y "16|8" (números)
+  // vs "16|8" (strings) da la MISMA clave con String(), pero un id
+  // sin castear puede quedar comparando number+string silenciosamente
+  // distinto de lo esperado en casos puntuales.
   const completadas = {};
   asignaciones.forEach(function (a) {
     if (String(a.estado) === 'completado') {
-      completadas[a.colaboradorId + '|' + a.cursoId] = true;
+      completadas[String(a.colaboradorId) + '|' + String(a.cursoId)] = true;
     }
   });
 
   const yaProcesados = {};
   let creadas = 0;
   let actualizadas = 0;
+  let salteados = 0;
 
   resultados.forEach(function (r) {
     if (String(r.aprobado).toUpperCase() !== 'SI') return;
-    const clave = r.colaboradorId + '|' + r.cursoId;
-    if (completadas[clave] || yaProcesados[clave]) return;
+    const clave = String(r.colaboradorId) + '|' + String(r.cursoId);
+    if (completadas[clave]) {
+      console.log('· ya estaba completada — colaborador ' + r.colaboradorId + ' (' + (typeof r.colaboradorId) + '), curso ' + r.cursoId + ' (' + (typeof r.cursoId) + ')');
+      salteados++;
+      return;
+    }
+    if (yaProcesados[clave]) return; // segundo Resultado aprobado del mismo par, ya resuelto en esta misma pasada
     yaProcesados[clave] = true;
 
     const existente = asignaciones.find(function (a) {
@@ -224,12 +236,12 @@ function setupAsignacionesFaltantesPorAprobado() {
         progreso: 100,
         fechaAlta: r.fechaFinalizacion || '',
       });
-      console.log('✓ Asignación creada — colaborador ' + r.colaboradorId + ', curso ' + r.cursoId + ', nota ' + r.nota);
+      console.log('✓ Asignación creada — colaborador ' + r.colaboradorId + ' (' + (typeof r.colaboradorId) + '), curso ' + r.cursoId + ' (' + (typeof r.cursoId) + '), nota ' + r.nota);
       creadas++;
     }
   });
 
-  console.log('Total: ' + creadas + ' Asignaciones creadas, ' + actualizadas + ' actualizadas.');
+  console.log('Total: ' + creadas + ' creadas, ' + actualizadas + ' actualizadas, ' + salteados + ' ya estaban completadas.');
 }
 
 function setupManualesArchivos() {
