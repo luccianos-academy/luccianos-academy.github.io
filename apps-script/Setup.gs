@@ -1802,6 +1802,50 @@ function dondeEstanLasFotos() {
 }
 
 /**
+ * setupDesafioDiario() — crea las hojas "DesafioResultados" y
+ * "DesafioHistorial" (Fase 2 del Desafío Diario, ver artifact de la
+ * propuesta). Idempotente: si alguna ya existe, no la toca.
+ *
+ * "DesafioResultados": una fila por cada vez que alguien juega — el
+ * ranking del mes en curso se calcula sumando "puntos" de estas
+ * filas, filtrando por "fecha" del mes. Nace vacía.
+ *
+ * "DesafioHistorial": recién se usa cuando cierre el primer mes (Fase
+ * 4, todavía no construida) — la foto congelada de un mes ya cerrado,
+ * para no tener que sumar filas viejas de DesafioResultados para
+ * siempre. También nace vacía.
+ */
+function setupDesafioDiario() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  var hojaResultados = ss.getSheetByName('DesafioResultados');
+  if (hojaResultados) {
+    console.log('La hoja "DesafioResultados" ya existe — no se toca.');
+  } else {
+    hojaResultados = ss.insertSheet('DesafioResultados');
+    var encResultados = ['id', 'colaboradorId', 'fecha', 'correctas', 'tiempoUsado', 'puntos', 'fechaModificacion'];
+    hojaResultados.getRange(1, 1, 1, encResultados.length).setValues([encResultados]);
+    hojaResultados.setFrozenRows(1);
+    console.log('✓ Hoja "DesafioResultados" creada con: ' + encResultados.join(' | '));
+  }
+
+  var hojaHistorial = ss.getSheetByName('DesafioHistorial');
+  if (hojaHistorial) {
+    console.log('La hoja "DesafioHistorial" ya existe — no se toca.');
+  } else {
+    hojaHistorial = ss.insertSheet('DesafioHistorial');
+    var encHistorial = ['id', 'mes', 'colaboradorId', 'puesto', 'puntos', 'fechaModificacion'];
+    hojaHistorial.getRange(1, 1, 1, encHistorial.length).setValues([encHistorial]);
+    hojaHistorial.setFrozenRows(1);
+    console.log('✓ Hoja "DesafioHistorial" creada con: ' + encHistorial.join(' | '));
+  }
+
+  console.log('');
+  console.log('Ambas quedan VACÍAS a propósito — se llenan solas jugando el');
+  console.log('desafío y cerrando meses, no hace falta cargar nada a mano.');
+}
+
+/**
  * Editar OnChange para que auto-actualice fechaModificacion
  * (Agregar a existentes onEdit/onChange handlers, o crear trigger manual)
  */

@@ -148,6 +148,12 @@ export const HOJAS = {
     // Check "hecho" persistido, por sucursal y por día — ver
     // apps-script/README.md.
     GESTION_CHECKS: "GestionChecks",
+    // Desafío diario (#/desafio) — una fila por cada vez que alguien
+    // juega, ver apps-script/README.md. El ranking del mes en curso se
+    // calcula sumando estas filas; DESAFIO_HISTORIAL guarda la foto
+    // congelada de un mes ya cerrado.
+    DESAFIO_RESULTADOS: "DesafioResultados",
+    DESAFIO_HISTORIAL: "DesafioHistorial",
 };
 
 /**

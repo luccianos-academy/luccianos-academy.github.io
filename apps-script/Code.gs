@@ -95,6 +95,17 @@ const PERMISOS_ESCRITURA = {
     // queda abierta a cualquier autenticado —no está en las hojas
     // restringidas— porque sin ella el catálogo no se puede filtrar.
     Disponibilidad: { crear: ["admin"], actualizar: ["admin"], eliminar: ["admin"] },
+    // Desafío Diario — cualquier rol que juegue crea SU PROPIO
+    // resultado del día (validado server-side en desafioJugarHoy, no
+    // solo acá: esto solo dice QUIÉN puede escribir la hoja, no
+    // valida "una vez por día" ni el requisito de módulos aprobados).
+    // Nunca se actualiza un resultado ya guardado — cada intento es
+    // una fila nueva, mismo criterio que Resultados.
+    DesafioResultados: { crear: ["admin", "supervisor", "colaborador"], actualizar: [], eliminar: ["admin"] },
+    // DesafioHistorial lo escribe el cierre de mes (trigger server-side,
+    // sin pasar por el endpoint "escribir" normal) — "admin" queda solo
+    // como excepción para corregir algo a mano si hiciera falta.
+    DesafioHistorial: { crear: ["admin"], actualizar: ["admin"], eliminar: ["admin"] },
 };
 
 // Hojas cuya lectura queda restringida (el resto la lee cualquier
