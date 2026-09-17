@@ -29,9 +29,11 @@ import { Icon } from "../components/icons.js";
 import { MaestroBurbuja } from "../components/maestro.js";
 import { getCursos } from "../data/cursos.js";
 import { getPreguntasPorCurso } from "../data/evaluaciones.js";
-import { crearResultado } from "../data/resultados.js";
+import { crearResultado, getResultadosPorColaborador } from "../data/resultados.js";
+import { getAsignacionesPorColaborador } from "../data/asignaciones.js";
+import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js";
 import { registrarEvento } from "../data/auditoria.js";
-import { getUsuarioActual } from "../services/auth.js";
+import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { navigate } from "../router.js";
 
 const CANTIDAD_PREGUNTAS = 30;
@@ -85,14 +87,59 @@ export async function Examen(params = []) {
     resetearEstado();
 
     const cursoId = params && params[0];
-    const [cursos, todasLasPreguntas] = await Promise.all([
+    const usuario = getUsuarioActual();
+    // Admin/Supervisor "viendo como" prueban el examen sin haber
+    // avanzado ningún curso real — el gate de abajo no aplica ahí,
+    // mismo criterio "modoPrueba" que ya usa pages/cursos.js.
+    const modoPrueba = estaViendoComo() || usuario.rol === "supervisor" || usuario.rol === "admin";
+
+    const [cursos, todasLasPreguntas, asignaciones, resultados] = await Promise.all([
         getCursos(),
         getPreguntasPorCurso(cursoId),
+        modoPrueba ? Promise.resolve([]) : getAsignacionesPorColaborador(usuario.id),
+        modoPrueba ? Promise.resolve([]) : getResultadosPorColaborador(usuario.id),
     ]);
 
     const curso = cursos.find((c) => String(c.id) === String(cursoId));
     if (!curso) {
         return EmptyState({ titulo: "Curso no encontrado", accionLabel: "Volver a Mis cursos", accionHref: "#/cursos" });
+    }
+
+    // El gate real: hasta ahora nada impedía llegar acá sin haber
+    // completado las lecciones (bug real encontrado en producción,
+    // 2026-09-17 — Valentina Cerutti y 7 colaboradores más terminaron
+    // con un examen aprobado y el curso en 0% de progreso, porque
+    // rendir el examen solo pasa por acá, nunca por el chequeo de
+    // "completado" que sí tienen los CTA de pages/cursos.js y
+    // pages/misEvaluaciones.js — esos son solo la puerta visible, no
+    // una verificación real). Sin esto, tampoco tenía sentido el
+    // cooldown de 48hs de abajo: alcanzaba con teclear esta misma URL
+    // de nuevo para saltárselo.
+    if (!modoPrueba) {
+        const asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId));
+        if (!asignacion || asignacion.estado !== "completado") {
+            return `
+                <a class="btn btn-secondary" href="#/cursos/${cursoId}">← Volver a ${curso.nombre}</a>
+                ${Header("Examen", curso.nombre)}
+                ${EmptyState({
+                    titulo: "Todavía no completaste las lecciones",
+                    detalle: `Terminá todas las lecciones obligatorias de ${curso.nombre} para poder rendir el examen.`,
+                    accionLabel: `Ir a ${curso.nombre}`,
+                    accionHref: `#/cursos/${cursoId}`,
+                })}
+            `;
+        }
+
+        const resultadosCurso = resultados.filter((r) => String(r.cursoId) === String(cursoId));
+        const espera = proximoReintento(resultadosCurso);
+        if (espera) {
+            const ultimoIntento = resultadosCurso[resultadosCurso.length - 1];
+            return `
+                <a class="btn btn-secondary" href="#/cursos/${cursoId}">← Volver a ${curso.nombre}</a>
+                ${Header("Examen", curso.nombre)}
+                ${EmptyState({ titulo: "Todavía no podés reintentar", detalle: mensajeCooldown(espera, ultimoIntento.nota) })}
+            `;
+        }
     }
 
     if (!todasLasPreguntas.length) {

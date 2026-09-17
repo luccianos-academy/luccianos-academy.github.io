@@ -47,11 +47,22 @@ const TIPOS = [
 ];
 
 // Mismos cortes que ya usa el resto de la app para "avance" (ver
-// css/variables.css --success/--warning/--danger) — 85%+ es un
+// css/variables.css --success/--warning/--danger) — 80%+ es un
 // desempeño sólido, por debajo de 60% ya amerita atención directa.
 // Ajustables acá nomás si el criterio real de negocio es otro.
-const UMBRAL_VERDE = 85;
+// Pedido explícito (2026-09-17): "Resultado 80-100% verde, 60-79%
+// amarillo, 0-59% rojo" para el progreso de lecciones.
+const UMBRAL_VERDE = 80;
 const UMBRAL_AMARILLO = 60;
+
+// Mismos cortes, pero para la NOTA del examen (escala 0-10, no %) —
+// pedido explícito (2026-09-17): "evaluaciones: 8-10 verde, 6-7,9
+// amarillo, 0-5,9 rojo". Es un criterio DISTINTO del de aprobar el
+// examen en sí (25/30 = 8,3, ver examen.js MINIMO_CORRECTAS_APROBACION):
+// a propósito, alguien que no aprobó pero sacó 6-7,9 se ve en amarillo,
+// no en rojo — el color acá describe el puntaje, no si pasó o no.
+const UMBRAL_NOTA_VERDE = 8;
+const UMBRAL_NOTA_AMARILLO = 6;
 
 export function nivelDe(promedio) {
     if (promedio >= UMBRAL_VERDE) return "VERDE";
@@ -200,9 +211,15 @@ export function leccionesDePersona(persona, cursosAplicables, asignaciones, lecc
  *  rindiera. */
 export function estadoEvaluacion(colaborador, curso, resultados, cursosConEvaluacion) {
     if (!cursosConEvaluacion.has(String(curso.id))) return "";
-    const r = resultados.find((x) => String(x.colaboradorId) === String(colaborador.id) && String(x.cursoId) === String(curso.id));
-    if (!r) return `<span class="text-xs text-muted">Sin rendir</span>`;
-    const tono = r.aprobado ? "success" : "danger";
+    const resultadosCurso = resultados.filter((x) => String(x.colaboradorId) === String(colaborador.id) && String(x.cursoId) === String(curso.id));
+    if (!resultadosCurso.length) return `<span class="text-xs text-muted">Sin rendir</span>`;
+    // Mismo criterio que cursos.js/misEvaluaciones.js para "cuál intento
+    // mostrar": si aprobó alguna vez, ese es el resultado que cuenta —
+    // antes acá se tomaba el PRIMER resultado guardado (.find sin más),
+    // así que a alguien que reprobó y después aprobó le seguía
+    // apareciendo el intento reprobado.
+    const r = resultadosCurso.find((x) => x.aprobado) || resultadosCurso[resultadosCurso.length - 1];
+    const tono = r.nota >= UMBRAL_NOTA_VERDE ? "success" : r.nota >= UMBRAL_NOTA_AMARILLO ? "warning" : "danger";
     const icono = r.aprobado ? "✓" : "✗";
     return `<span class="text-xs progreso-mini-texto-${tono}">${icono} ${r.nota}</span>`;
 }

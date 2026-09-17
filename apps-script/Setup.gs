@@ -171,6 +171,67 @@ function setupNoticiasDirigidoA() {
  *
  * Sin la columna el código no rompe: lee "" y cae al fallback de "url".
  */
+/**
+ * setupAsignacionesFaltantesPorAprobado() — completa la Asignación de
+ * un curso cuando existe un Resultado aprobado pero la Asignación
+ * nunca quedó en "completado".
+ *
+ * examen.js nunca toca la hoja Asignaciones — solo escribe en
+ * Resultados — y hasta el fix del 2026-09-17 nada impedía llegar a
+ * rendir sin haber completado las lecciones. Caso real detectado:
+ * Valentina Cerutti (Chocolatería, nota 9, 2026-08-28) y 6
+ * colaboradores más, con casos hasta el mismo 2026-09-17 — el
+ * semáforo les mostraba el curso en 0% pese al examen aprobado.
+ *
+ * Solo actúa sobre pares (colaboradorId, cursoId) con un Resultado
+ * aprobado y SIN Asignación en estado "completado" — no toca nada más
+ * (un curso reprobado sigue en 0%, correctamente).
+ */
+function setupAsignacionesFaltantesPorAprobado() {
+  const resultados = _leerCrudo('Resultados');
+  const asignaciones = _leerCrudo('Asignaciones');
+
+  const completadas = {};
+  asignaciones.forEach(function (a) {
+    if (String(a.estado) === 'completado') {
+      completadas[a.colaboradorId + '|' + a.cursoId] = true;
+    }
+  });
+
+  const yaProcesados = {};
+  let creadas = 0;
+  let actualizadas = 0;
+
+  resultados.forEach(function (r) {
+    if (String(r.aprobado).toUpperCase() !== 'SI') return;
+    const clave = r.colaboradorId + '|' + r.cursoId;
+    if (completadas[clave] || yaProcesados[clave]) return;
+    yaProcesados[clave] = true;
+
+    const existente = asignaciones.find(function (a) {
+      return String(a.colaboradorId) === String(r.colaboradorId) && String(a.cursoId) === String(r.cursoId);
+    });
+
+    if (existente) {
+      _actualizarCrudo('Asignaciones', existente.id, { progreso: 100, estado: 'completado' });
+      console.log('✓ Asignación actualizada a completado — colaborador ' + r.colaboradorId + ', curso ' + r.cursoId);
+      actualizadas++;
+    } else {
+      _escribirCrudo('Asignaciones', {
+        colaboradorId: r.colaboradorId,
+        cursoId: r.cursoId,
+        estado: 'completado',
+        progreso: 100,
+        fechaAlta: r.fechaFinalizacion || '',
+      });
+      console.log('✓ Asignación creada — colaborador ' + r.colaboradorId + ', curso ' + r.cursoId + ', nota ' + r.nota);
+      creadas++;
+    }
+  });
+
+  console.log('Total: ' + creadas + ' Asignaciones creadas, ' + actualizadas + ' actualizadas.');
+}
+
 function setupManualesArchivos() {
   const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Manuales');
   if (!hoja) {

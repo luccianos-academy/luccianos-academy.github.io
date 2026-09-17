@@ -15,6 +15,10 @@ function normalizarResultado(f) {
         nota: Number(f.nota) || 0,
         aprobado: String(f.aprobado || "").toUpperCase() === "SI",
         fechaFinalizacion: f.fechaFinalizacion || "",
+        // Timestamp real (ms), no solo la fecha del día — lo necesita
+        // el cooldown de 48hs entre intentos (services/cooldownExamen.js)
+        // para calcular la hora exacta, no solo el día.
+        fechaModificacion: Number(f.fechaModificacion) || 0,
     };
 }
 

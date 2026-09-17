@@ -29,6 +29,7 @@ import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getAsignacionesPorColaborador, crearAsignacion, actualizarAsignacion } from "../data/asignaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
+import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
@@ -608,11 +609,15 @@ async function renderDetalleCurso(usuario, cursoId) {
                 </div>
             `;
         } else if (ultimoIntento) {
+            // Cooldown de 48hs (services/cooldownExamen.js) — antes se
+            // podía reintentar en el acto, sin ningún incentivo real a
+            // repasar el contenido entre intento e intento.
+            const espera = proximoReintento(resultadosCurso);
             examenHtml = `
                 <div class="examen-cta examen-cta-pendiente">
                     <span class="examen-cta-icono">${Icon("warning", { size: 22 })}</span>
-                    <div><h3>No aprobaste tu último intento</h3><p class="text-sm text-muted">Nota: ${ultimoIntento.nota}/10</p></div>
-                    <a class="btn btn-primary" href="#/examen/${cursoId}">Volver a intentar</a>
+                    <div><h3>No aprobaste tu último intento</h3><p class="text-sm text-muted">${espera ? mensajeCooldown(espera, ultimoIntento.nota) : `Nota: ${ultimoIntento.nota}/10`}</p></div>
+                    ${espera ? "" : `<a class="btn btn-primary" href="#/examen/${cursoId}">Volver a intentar</a>`}
                 </div>
             `;
         } else {

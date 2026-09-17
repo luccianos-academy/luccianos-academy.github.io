@@ -20,11 +20,12 @@ import { EmptyState } from "../components/emptyState.js";
 import { Icon } from "../components/icons.js";
 import { getAsignacionesPorColaborador } from "../data/asignaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
+import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js";
 import { getCursos } from "../data/cursos.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { cursosDeLaPersona } from "../services/alcance.js";
 
-function tarjetaExamen({ curso, estado, nota }) {
+function tarjetaExamen({ curso, estado, nota, espera }) {
     if (estado === "pendiente") {
         return `
             <div class="examen-cta">
@@ -42,11 +43,13 @@ function tarjetaExamen({ curso, estado, nota }) {
             </div>
         `;
     }
+    // Cooldown de 48hs (services/cooldownExamen.js) — mismo criterio
+    // que pages/cursos.js.
     return `
         <div class="examen-cta examen-cta-pendiente">
             <span class="examen-cta-icono">${Icon("warning", { size: 22 })}</span>
-            <div><h3>${curso.nombre}</h3><p class="text-sm text-muted">No aprobaste tu último intento — Nota: ${nota}/10</p></div>
-            <a class="btn btn-primary" href="#/examen/${curso.id}">Volver a intentar</a>
+            <div><h3>${curso.nombre}</h3><p class="text-sm text-muted">${espera ? mensajeCooldown(espera, nota) : `No aprobaste tu último intento — Nota: ${nota}/10`}</p></div>
+            ${espera ? "" : `<a class="btn btn-primary" href="#/examen/${curso.id}">Volver a intentar</a>`}
         </div>
     `;
 }
@@ -74,7 +77,7 @@ export async function MisEvaluaciones() {
             const aprobado = resultadosCurso.find((r) => r.aprobado);
             const ultimoIntento = resultadosCurso[resultadosCurso.length - 1];
             if (aprobado) return { curso, estado: "aprobado", nota: aprobado.nota };
-            if (ultimoIntento) return { curso, estado: "no_aprobado", nota: ultimoIntento.nota };
+            if (ultimoIntento) return { curso, estado: "no_aprobado", nota: ultimoIntento.nota, espera: proximoReintento(resultadosCurso) };
             return { curso, estado: "pendiente" };
         });
 
