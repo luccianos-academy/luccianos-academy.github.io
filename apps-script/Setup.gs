@@ -116,6 +116,52 @@ function setupNoticiasSegmentacion() {
 }
 
 /**
+ * setupNoticiasDirigidoA() — agrega la columna "dirigidoA" a Noticias.
+ *
+ * Es la columna que guarda EL MODO de destinatario ("paises",
+ * "colaboradores-local", "encargados-propios", "encargados-franquicias",
+ * "usuarios-especificos", "solo-admin"). Sin ella, producción venía
+ * mandando TODAS las News a TODO el mundo: _escribirCrudo solo escribe
+ * las columnas que existen en la hoja, así que el destinatario elegido
+ * en el formulario se descartaba en silencio, y al leer volvía vacío —
+ * que puedeVerNoticia (js/data/noticias.js) interpreta como broadcast.
+ * Una News dirigida a Chile, o solo a locales propios, le llegaba igual
+ * a todos, y el push también (ver Code.gs, rama "!dirigidoA").
+ *
+ * Las filas YA cargadas se dejan vacías a propósito: siguen
+ * comportándose igual que hasta ahora (visibles para todos). Cambiarles
+ * el alcance retroactivamente es una decisión de contenido, no de
+ * migración — se hace a mano desde la app si hace falta.
+ */
+function setupNoticiasDirigidoA() {
+  const hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Noticias');
+  if (!hoja) {
+    console.log('No existe la hoja Noticias.');
+    return;
+  }
+
+  const columna = 'dirigidoA';
+  const headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  const indice = headers.findIndex(h => String(h).trim().toLowerCase() === columna.toLowerCase());
+
+  if (indice !== -1) {
+    if (headers[indice] === columna) {
+      console.log('✓ La columna ' + columna + ' ya existe.');
+    } else {
+      hoja.getRange(1, indice + 1).setValue(columna);
+      console.log('✓ Encabezado corregido ("' + headers[indice] + '" → "' + columna + '").');
+    }
+  } else {
+    hoja.getRange(1, hoja.getLastColumn() + 1).setValue(columna);
+    console.log('✓ Columna ' + columna + ' agregada.');
+  }
+
+  const filas = Math.max(0, hoja.getLastRow() - 1);
+  console.log('Noticias ya cargadas que quedan sin destinatario (siguen visibles para todos): ' + filas);
+  console.log('De acá en adelante, cada News nueva guarda a quién va dirigida.');
+}
+
+/**
  * setupManualesArchivos() — agrega la columna "archivos" a Manuales.
  *
  * JSON de [{url, label}, ...] — un mismo manual puede agrupar más de

@@ -972,6 +972,13 @@ function _usuarioDeSesion(email) {
         sucursal: String(fila.sucursal || "").trim(),
         foto: String(fila.foto || "").trim(),
         activo: activo,
+        // Lo usa puedeVerNoticia (js/data/noticias.js) para no volcarle
+        // el histórico de News a alguien que se incorpora hoy. Va acá y
+        // no se pide aparte porque el cliente guarda ESTE objeto como
+        // sesión y decide con él. Si viene vacío (sesión vieja, guardada
+        // antes de que existiera este campo), el filtro no se aplica y
+        // la persona sigue viendo todo como hasta ahora.
+        fechaAlta: String(fila.fechaAlta || "").trim().slice(0, 10),
     };
 }
 

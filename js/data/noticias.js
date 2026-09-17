@@ -170,6 +170,13 @@ function normalizarNoticia(f) {
     };
 }
 
+/** Quién queda alcanzado por el "no heredás el histórico de News": solo
+ *  las altas POSTERIORES a esta fecha. Todos los que ya estaban al
+ *  2026-09-17 siguen viendo lo mismo de siempre — ver el comentario
+ *  largo dentro de puedeVerNoticia para por qué el corte es fijo y no
+ *  se compara contra fechaAlta a secas. */
+const CORTE_HISTORICO_NEWS = "2026-09-17";
+
 /** Quién ve una noticia. News es SOLO para colaboradores como público
  *  objetivo — Admin y Supervisor (incluido Capacitador) SIEMPRE la ven
  *  (copia automática, "supervisión al tanto de todo"). El resto se
@@ -198,6 +205,29 @@ export function puedeVerNoticia(noticia, usuario, sucursales = []) {
 
     // Supervisión y Admin ven/reciben copia de TODO el resto.
     if (usuario.rol === "admin" || usuario.rol === "supervisor") return true;
+
+    // Bandeja limpia para quien se incorpora DESPUÉS de esta fecha: una
+    // News publicada antes de su alta no le aparece. Sin esto, alguien
+    // cargado hoy abría la app y se encontraba con meses de avisos
+    // ajenos —de otro país, de franquicias, de operativas ya
+    // terminadas— como si fueran nuevos.
+    //
+    // El corte fijo NO es una fecha arbitraria ni se puede mover para
+    // atrás: los 163 usuarios que ya existían tienen fechaAlta
+    // 2026-07-17 (la carga inicial de la nómina, no el día real en que
+    // entró cada uno), y hay News del 2026-07-16 — un solo día antes.
+    // Comparando contra fechaAlta a secas, toda esa gente perdía las
+    // News anteriores al 17/7 apenas volviera a loguearse. Quedó
+    // decidido que a los que ya están no les cambia nada.
+    //
+    // Va DESPUÉS de usuariosEspecificos a propósito: si a una News
+    // vieja le agregan a esta persona por nombre, es una decisión
+    // explícita de que la vea, y esa gana.
+    const fechaAlta = String(usuario.fechaAlta || "").trim().slice(0, 10);
+    const fechaNoticia = String(noticia.fecha || "").trim().slice(0, 10);
+    if (fechaAlta && fechaNoticia && fechaAlta > CORTE_HISTORICO_NEWS && fechaNoticia < fechaAlta) {
+        return false;
+    }
 
     // Compat: noticias viejas sin dirigidoA pero con visiblePara/sucursal
     // por el modelo anterior — se respetan como estaban.
