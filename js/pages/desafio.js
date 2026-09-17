@@ -221,7 +221,21 @@ function renderPreguntaActual() {
             </div>
         </div>
     `;
+    evitarHoverFantasma("desafio-opciones");
     bindOpciones(p);
+}
+
+/** Evita el "hover fantasma": si el mouse queda quieto en el mismo
+ *  punto de pantalla entre una pregunta y la siguiente, el navegador
+ *  aplica :hover a la opción nueva que cayó justo ahí debajo, aunque
+ *  el usuario no la haya tocado — se ve como si ya viniera marcada
+ *  en dorado. Apagar pointer-events un instante fuerza al navegador
+ *  a re-evaluar el hover recién cuando el mouse se mueva de verdad. */
+function evitarHoverFantasma(idContenedor) {
+    const el = document.getElementById(idContenedor);
+    if (!el) return;
+    el.style.pointerEvents = "none";
+    requestAnimationFrame(() => { el.style.pointerEvents = ""; });
 }
 
 function bindOpciones(pregunta) {
