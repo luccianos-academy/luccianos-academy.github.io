@@ -85,6 +85,31 @@
     gap:18px;
 }
 
+/* Tarjeta "Desafío diario" — Inicio del Colaborador (pages/inicioColaborador.js) */
+
+.tarjeta-desafio{
+    background:linear-gradient(160deg, var(--gold-soft), var(--card));
+    border-color:#4a3c22;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.tarjeta-desafio.jugado{
+    background:var(--card);
+    border-color:var(--line);
+}
+.tarjeta-desafio-header{
+    display:flex;
+    align-items:center;
+    gap:9px;
+}
+.tarjeta-desafio-header h3{
+    margin:0;
+}
+.tarjeta-desafio .btn{
+    align-self:flex-start;
+}
+
 /* ── Centro de notificaciones (pages/notificaciones.js) ─────────── */
 
 .notif-tabs{

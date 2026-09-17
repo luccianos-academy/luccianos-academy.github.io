@@ -31,7 +31,9 @@ import { getDesafioResultadosPorColaborador, crearDesafioResultado, yaJugoHoy, h
 import { getUsuarioActual } from "../services/auth.js";
 import { cursosDeLaPersona } from "../services/alcance.js";
 
-const CANTIDAD_PREGUNTAS = 15;
+// Exportada para que pages/inicioColaborador.js pueda mostrar "X/15
+// correctas" en la tarjeta de estado sin duplicar el número mágico.
+export const CANTIDAD_PREGUNTAS = 15;
 const DURACION_SEGUNDOS = 180; // 3 minutos
 const PUNTOS_POR_CORRECTA = 10;
 

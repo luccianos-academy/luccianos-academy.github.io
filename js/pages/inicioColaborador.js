@@ -25,6 +25,8 @@ import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getColaboradoresPorSucursal } from "../data/usuarios.js";
+import { getDesafioResultadosPorColaborador, hoyISO } from "../data/desafio.js";
+import { CANTIDAD_PREGUNTAS } from "./desafio.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { cursosDeLaPersona } from "../services/alcance.js";
 
@@ -69,13 +71,53 @@ function checklistItem(texto, hecho) {
     `;
 }
 
+/** 3 estados posibles, mismo criterio que el gate real de
+ *  pages/desafio.js (no solo cosmético acá): falta aprobar algún
+ *  módulo, ya jugó hoy, o está listo para jugar. */
+function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
+    const encabezado = `
+        <div class="tarjeta-desafio-header">
+            ${Icon("trofeo", { size: 20 })}
+            <h3>Desafío diario</h3>
+        </div>
+    `;
+
+    if (faltantesDesafio.length) {
+        return `
+            <div class="card tarjeta-desafio">
+                ${encabezado}
+                <p class="text-sm text-muted">Para participar necesitás aprobar el examen de todos tus módulos. Te ${faltantesDesafio.length === 1 ? "falta" : "faltan"}: ${faltantesDesafio.map((c) => c.nombre).join(", ")}.</p>
+                <a class="btn btn-secondary" href="#/cursos">Ir a Mis cursos</a>
+            </div>
+        `;
+    }
+
+    if (desafioHoy) {
+        return `
+            <div class="card tarjeta-desafio jugado">
+                ${encabezado}
+                <p class="text-sm text-muted">${desafioHoy.correctas}/${CANTIDAD_PREGUNTAS} correctas · ${desafioHoy.puntos} puntos sumados al ranking del mes. Volvé mañana para seguir sumando.</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="card tarjeta-desafio">
+            ${encabezado}
+            <p class="text-sm text-muted">${CANTIDAD_PREGUNTAS} preguntas de todos tus módulos · 3 minutos. Sumás puntos para el ranking mensual.</p>
+            <a class="btn btn-primary" href="#/desafio">Empezar desafío</a>
+        </div>
+    `;
+}
+
 export async function InicioColaborador() {
 
     const usuario = getUsuarioActual();
-    const [asignaciones, resultados, cursos] = await Promise.all([
+    const [asignaciones, resultados, cursos, desafioResultados] = await Promise.all([
         getAsignacionesPorColaborador(usuario.id),
         getResultadosPorColaborador(usuario.id),
         getCursos(),
+        getDesafioResultadosPorColaborador(usuario.id),
     ]);
 
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
@@ -86,6 +128,12 @@ export async function InicioColaborador() {
     // un colaborador raso veía "8 módulos" en vez de 7 y una tarjeta
     // de un curso al que después no puede entrar.
     const cursosAplicables = cursosDeLaPersona(cursos, usuario);
+
+    // Mismo chequeo que el gate real de pages/desafio.js — acá solo
+    // decide qué tarjeta mostrar, la ruta lo vuelve a verificar.
+    const faltantesDesafio = cursosAplicables.filter((c) =>
+        !resultados.some((r) => String(r.cursoId) === String(c.id) && r.aprobado));
+    const desafioHoy = desafioResultados.find((f) => f.fecha === hoyISO());
 
     // Mismo criterio que pages/colaboradores.js: % sobre el TOTAL de
     // cursos aplicables, no solo los ya empezados — si no, terminar 1
@@ -268,6 +316,10 @@ export async function InicioColaborador() {
                 accionLabel: "Ver Academia",
                 accionHref: "#/cursos",
             })}
+        </div>
+
+        <div class="section">
+            ${tarjetaDesafioHtml(faltantesDesafio, desafioHoy)}
         </div>
 
         <div class="section">
