@@ -172,6 +172,120 @@ function setupNoticiasDirigidoA() {
  * Sin la columna el código no rompe: lee "" y cae al fallback de "url".
  */
 /**
+ * _planLimpiezaAsignacionesDuplicadas() — agrupa Asignaciones por
+ * (colaboradorId, cursoId) y arma el plan de qué fila conservar y
+ * cuáles borrar, para los pares con MÁS DE UNA fila y contenido
+ * distinto entre ellas (un duplicado con el mismo estado/progreso no
+ * se toca — no hay nada que decidir, cualquiera de las dos es igual
+ * de válida y no está causando el problema).
+ *
+ * Caso real (2026-09-17, encontrado por Fiorela Lopez mostrando 6% de
+ * progreso pese a tener el examen de Cafetería aprobado con 8.3): el
+ * bug histórico de falta de bloqueo en "Marcar como vista" (ya
+ * corregido, ver README/memoria del 2026-09-01) dejó, para 3
+ * colaboradores, DOS filas de Asignación para el mismo curso — una
+ * completada al 100% y otra "en_progreso" con menos. progresoCursoDePersona()
+ * usa `.find()`, que toma la PRIMERA que encuentra en el array tal
+ * como llega del backend — y ese orden no es fiable (no es
+ * necesariamente el orden físico de la hoja), así que a veces
+ * encuentra la buena y a veces la incompleta. La limpieza real es
+ * dejar UNA sola fila por par, no "elegir mejor cuál mirar primero".
+ */
+function _planLimpiezaAsignacionesDuplicadas() {
+  const sheet = _sheet('Asignaciones');
+  const datos = sheet.getDataRange().getValues();
+  const headers = datos[0];
+  const col = {};
+  headers.forEach(function (h, i) { col[h] = i; });
+
+  const grupos = {};
+  for (let i = 1; i < datos.length; i++) {
+    const fila = datos[i];
+    const colId = fila[col.colaboradorId];
+    const cursoId = fila[col.cursoId];
+    if (colId === '' || cursoId === '') continue;
+    const clave = String(colId) + '|' + String(cursoId);
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push({ numeroFila: i + 1, estado: fila[col.estado], progreso: fila[col.progreso] });
+  }
+
+  const plan = [];
+  Object.keys(grupos).forEach(function (clave) {
+    const filas = grupos[clave];
+    if (filas.length < 2) return;
+    const firmas = filas.map(function (f) { return String(f.estado) + '|' + f.progreso; });
+    const distintos = firmas.some(function (f) { return f !== firmas[0]; });
+    if (!distintos) return;
+
+    const completadas = filas.filter(function (f) { return String(f.estado) === 'completado'; });
+    const conservar = completadas.length
+      ? completadas[completadas.length - 1]
+      : filas.reduce(function (a, b) { return (Number(b.progreso) || 0) > (Number(a.progreso) || 0) ? b : a; });
+    const borrar = filas.filter(function (f) { return f.numeroFila !== conservar.numeroFila; });
+
+    plan.push({ clave: clave, conservar: conservar, borrar: borrar });
+  });
+  return plan;
+}
+
+/** SOLO LECTURA — imprime el plan sin tocar nada. Correr esta ANTES
+ *  que setupLimpiarAsignacionesDuplicadas() para revisar qué se va a
+ *  conservar y qué se va a borrar. */
+function diagnosticoLimpiezaAsignaciones() {
+  const plan = _planLimpiezaAsignacionesDuplicadas();
+  console.log('Pares con filas duplicadas a limpiar: ' + plan.length);
+  plan.forEach(function (p) {
+    const borrarTxt = p.borrar.map(function (f) { return 'fila ' + f.numeroFila + ' (' + f.estado + '/' + f.progreso + ')'; }).join(', ');
+    console.log(
+      'colaborador|curso=' + p.clave +
+      ' — CONSERVAR fila ' + p.conservar.numeroFila + ' (' + p.conservar.estado + '/' + p.conservar.progreso + ')' +
+      ' — BORRAR: ' + borrarTxt
+    );
+  });
+}
+
+/**
+ * setupLimpiarAsignacionesDuplicadas() — ejecuta el plan de arriba:
+ * borra las filas sobrantes de verdad. Corré primero
+ * diagnosticoLimpiezaAsignaciones() y revisá el log antes de correr
+ * esta.
+ *
+ * Todos los borrados de TODOS los pares se juntan en una sola lista y
+ * se ordenan de mayor a menor número de fila antes de borrar — si se
+ * borrara par por par, borrar una fila de un par correría hacia
+ * arriba los números de fila de los pares que todavía faltan
+ * procesar, y el siguiente borrado caería en la fila equivocada.
+ */
+function setupLimpiarAsignacionesDuplicadas() {
+  const plan = _planLimpiezaAsignacionesDuplicadas();
+  const sheet = _sheet('Asignaciones');
+
+  // Si la fila que se conserva es "completado" pero con progreso
+  // vacío (visto en un caso real), corregirlo a 100 ANTES de borrar
+  // nada — así no depende de qué se borre primero.
+  const headers = sheet.getDataRange().getValues()[0];
+  const colProgreso = headers.indexOf('progreso') + 1;
+  let corregidas = 0;
+  plan.forEach(function (p) {
+    if (String(p.conservar.estado) === 'completado' && !p.conservar.progreso) {
+      sheet.getRange(p.conservar.numeroFila, colProgreso).setValue(100);
+      corregidas++;
+    }
+  });
+
+  const todasLasFilasABorrar = [];
+  plan.forEach(function (p) {
+    p.borrar.forEach(function (f) { todasLasFilasABorrar.push(f.numeroFila); });
+  });
+  todasLasFilasABorrar.sort(function (a, b) { return b - a; });
+  todasLasFilasABorrar.forEach(function (numeroFila) {
+    sheet.deleteRow(numeroFila);
+  });
+
+  console.log('Total: ' + todasLasFilasABorrar.length + ' filas duplicadas borradas, ' + corregidas + ' con progreso corregido a 100.');
+}
+
+/**
  * diagnosticoAsignacionesFaltantes() — SOLO LECTURA, no escribe nada.
  *
  * setupAsignacionesFaltantesPorAprobado() marcó 4 pares puntuales como
