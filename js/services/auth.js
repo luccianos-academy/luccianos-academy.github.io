@@ -187,6 +187,10 @@ const PERMISOS_PAGINA = {
     newsnueva: ["admin", "supervisor"],
     cursos:         ["admin", "colaborador", "supervisor"],
     examen:         ["admin", "colaborador"],
+    // Solo Colaborador: a diferencia de examen.js, acá no hay "vista
+    // previa" de Admin ni modo repaso de Supervisor — es un juego
+    // personal con ranking propio, no contenido para auditar.
+    desafio:        ["colaborador"],
     // "Gestión semanal" (#/gestion) — Admin gestiona el catálogo de
     // tareas; Supervisor (incluye Capacitador) entra en modo lectura
     // con el selector de local (Fase 2, 2026-08-25); Responsable de

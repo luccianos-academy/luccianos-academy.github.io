@@ -24,6 +24,7 @@ import { Colaboradores, bindColaboradores } from "./pages/colaboradores.js";
 import { Cursos, bindCursos } from "./pages/cursos.js";
 import { Examen, bindExamen } from "./pages/examen.js";
 import { Entrenamiento, bindEntrenamiento } from "./pages/entrenamiento.js";
+import { Desafio, bindDesafio } from "./pages/desafio.js";
 import { Perfil, bindPerfil } from "./pages/perfil.js";
 import { NotFound } from "./pages/notFound.js";
 import { Locales, bindLocales } from "./pages/locales.js";
@@ -59,6 +60,7 @@ const RUTAS = {
     cursos:        { render: Cursos, bind: bindCursos },
     examen:        { render: Examen, bind: bindExamen },
     entrenamiento: { render: Entrenamiento, bind: bindEntrenamiento },
+    desafio:       { render: Desafio, bind: bindDesafio },
     perfil:        { render: Perfil, bind: bindPerfil },
     locales:       { render: Locales, bind: bindLocales },
     alertas:       { render: Alertas },
