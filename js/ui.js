@@ -11,8 +11,24 @@ import { Icon } from "./components/icons.js";
 import { estaViendoComo, getUsuarioActual } from "./services/auth.js";
 import { getItem, setItem } from "./services/storage.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "./services/push.js";
+import { esIOS, yaInstalada } from "./services/installPrompt.js";
+import { Modal, abrirModal } from "./components/modal.js";
+import { PUSH_DISPONIBLE, USE_MOCK_DATA } from "./config.js";
 
 const CLAVE_PUSH_CERRADO = "banner_push_cerrado";
+const CLAVE_PUSH_IOS_CERRADO = "banner_push_ios_cerrado";
+
+/** Una semana, no un día como el banner de Android: en iPhone lo que
+ *  se pide no es un permiso de un toque sino instalar la app, y no
+ *  hay forma de saber si la persona ya lo hizo y decidió que no —
+ *  preguntar todos los días sería hostigar. */
+const DIAS_REAPARECE_IOS = 7;
+
+function diasDesde(fechaISO) {
+    if (!fechaISO) return Infinity;
+    const ms = Date.now() - new Date(fechaISO + "T00:00:00").getTime();
+    return ms / 86400000;
+}
 
 /**
  * Renderiza el layout base (sidebar + contenido) dentro de #app
@@ -67,7 +83,7 @@ export function renderLayout(rutaActiva) {
  */
 function BannerPush(usuario) {
     if (!usuario) return "";
-    if (!soportaPush()) return "";
+    if (!soportaPush()) return BannerPushIOS(usuario);
     if (estadoPermisoPush() !== "default") return "";
     if (getItem(CLAVE_PUSH_CERRADO, "") === new Date().toISOString().slice(0, 10)) return "";
 
@@ -80,7 +96,66 @@ function BannerPush(usuario) {
     `;
 }
 
+/**
+ * Mismo banner, para el iPhone que todavía no tiene la app instalada.
+ *
+ * En iOS el push web NO existe en Safari-pestaña: window.Notification
+ * recién aparece cuando la app corre agregada a la pantalla de inicio.
+ * Por eso soportaPush() da false y, hasta ahora, esa persona no veía
+ * NINGÚN aviso: no es que dijera que no, es que nunca se le ofreció
+ * (29 de 261 con push activado, septiembre 2026 — la mayoría del resto
+ * son estos). El InstallBanner del sidebar sí invita a instalar, pero
+ * vive detrás del menú hamburguesa y habla de "instalar la app", sin
+ * mencionar los avisos, que es lo único que a esta persona le importa
+ * acá.
+ *
+ * No lleva botón que instale porque en iOS no existe tal cosa
+ * (beforeinstallprompt es de Chrome): lo único honesto es explicar los
+ * pasos, y para eso está el instructivo.
+ */
+function BannerPushIOS(usuario) {
+    if (!usuario) return "";
+    if (!PUSH_DISPONIBLE || USE_MOCK_DATA) return "";
+    if (!esIOS() || yaInstalada()) return "";
+    if (diasDesde(getItem(CLAVE_PUSH_IOS_CERRADO, "")) < DIAS_REAPARECE_IOS) return "";
+
+    return `
+        <div class="banner-push" data-push-banner-ios>
+            <span class="banner-push-ios-texto">
+                ${Icon("compartir", { size: 16 })}
+                <span><strong>Activá los avisos en tu iPhone.</strong> Hace falta agregar la app a tu pantalla de inicio.</span>
+            </span>
+            <button class="btn btn-primary banner-push-activar" data-push-ios-como>Cómo se hace</button>
+            <button class="banner-push-cerrar" data-push-ios-cerrar aria-label="Cerrar">${Icon("cerrar", { size: 14 })}</button>
+        </div>
+    `;
+}
+
+const INSTRUCTIVO_IOS_ID = "modal-push-ios";
+
+function instructivoIOSHtml() {
+    const pasos = [
+        `Abajo en Safari, tocá ${Icon("compartir", { size: 15 })} <strong>Compartir</strong>`,
+        `Deslizá y elegí <strong>Agregar a inicio</strong>`,
+        `Confirmá con <strong>Agregar</strong>`,
+        `Entrá por el ícono nuevo y tocá <strong>Activar</strong> cuando aparezca el aviso`,
+    ];
+
+    // El texto va envuelto en un <span>: el <li> es flex (para alinear
+    // el número con el texto) y sin envoltura cada <strong> y cada
+    // ícono se vuelve un flex item suelto — los pasos se partían en
+    // columnas en vez de leerse como una frase.
+    return `
+        <ol class="pasos-ios">
+            ${pasos.map((p) => `<li><span>${p}</span></li>`).join("")}
+        </ol>
+        <p class="pasos-ios-nota">El último paso es el que activa los avisos — agregar la app sola no alcanza.</p>
+    `;
+}
+
 function bindBannerPush(usuario) {
+    bindBannerPushIOS();
+
     const banner = document.querySelector("[data-push-banner]");
     if (!banner) return;
 
@@ -107,6 +182,33 @@ function bindBannerPush(usuario) {
                 alert("No se pudo activar. Podés reintentarlo desde Mi perfil en un momento.");
             }
         }
+    });
+}
+
+function bindBannerPushIOS() {
+    const banner = document.querySelector("[data-push-banner-ios]");
+    if (!banner) return;
+
+    const ocultarPorUnaSemana = () => {
+        setItem(CLAVE_PUSH_IOS_CERRADO, new Date().toISOString().slice(0, 10));
+        banner.remove();
+    };
+
+    banner.querySelector("[data-push-ios-cerrar]")?.addEventListener("click", ocultarPorUnaSemana);
+
+    banner.querySelector("[data-push-ios-como]")?.addEventListener("click", () => {
+        abrirModal(
+            Modal({
+                id: INSTRUCTIVO_IOS_ID,
+                titulo: "Recibir avisos en iPhone",
+                contenidoHtml: instructivoIOSHtml(),
+                textoConfirmar: "",
+            }),
+            INSTRUCTIVO_IOS_ID
+        );
+        // Ya leyó los pasos: seguir mostrándole el banner en cada
+        // pantalla no agrega nada. Si no instaló, vuelve en una semana.
+        ocultarPorUnaSemana();
     });
 }
 

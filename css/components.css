@@ -5158,6 +5158,73 @@ table.data-table tbody tr:hover{
     opacity:1;
 }
 
+/* Variante iPhone: el texto lleva el ícono de Compartir al lado para
+   que se reconozca el botón del que habla antes de leer la frase. */
+.banner-push-ios-texto{
+    display:inline-flex;
+    align-items:flex-start;
+    gap:7px;
+    text-align:left;
+}
+
+.banner-push-ios-texto svg{
+    flex-shrink:0;
+    margin-top:1px;
+}
+
+.pasos-ios{
+    margin:0;
+    padding:0;
+    list-style:none;
+    counter-reset:paso;
+}
+
+.pasos-ios li{
+    counter-increment:paso;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    font-size:14px;
+    line-height:1.45;
+    padding:9px 0;
+}
+
+.pasos-ios li::before{
+    content:counter(paso);
+    flex-shrink:0;
+    width:22px;
+    height:22px;
+    border-radius:50%;
+    background:var(--gold-soft);
+    color:var(--gold);
+    font-size:12.5px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+/* El último paso es el que realmente activa el push: sin él la
+   persona instala la app y se queda esperando avisos que nunca
+   pidió. Va resaltado para que no se lea como un trámite más. */
+.pasos-ios li:last-child::before{
+    background:var(--gold);
+    color:var(--bg);
+}
+
+.pasos-ios svg{
+    vertical-align:-3px;
+}
+
+.pasos-ios-nota{
+    margin:10px 0 0;
+    padding:9px 11px;
+    background:var(--muted-soft);
+    border-radius:8px;
+    color:var(--muted);
+    font-size:12.5px;
+    line-height:1.45;
+}
+
 @media (max-width:600px){
     .banner-push{
         font-size:12.5px;
