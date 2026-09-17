@@ -37,6 +37,7 @@ const MEDALLAS = ["🥇", "🥈", "🥉"];
 let mesesDisponibles = [];
 let datosPorMes = {};
 let mesActivo = "";
+let totalColaboradores = 0;
 let esAdminActivo = false;
 
 // Exportada para que pages/inicioColaborador.js pueda armar el mismo
@@ -121,6 +122,8 @@ export async function Ranking() {
         getDesafioResultados(),
         getDesafioHistorial(),
     ]);
+
+    totalColaboradores = usuarios.filter((u) => u.rol === "colaborador").length;
 
     const mesActual = mesActualISO();
     const mesesHistorial = [...new Set(historial.map((f) => f.mes))]
@@ -217,7 +220,7 @@ function renderCuerpoRanking() {
         <div class="ranking-header">
             <h2>${infoMes.label}</h2>
             <p>${infoMes.enCurso ? `Termina en ${diasHastaFinDeMes()} días` : "Cerrado — el premio ya se entregó"}</p>
-            ${esAdminActivo ? `<p class="resumen-admin">${datos.activos.length} colaborador${datos.activos.length === 1 ? "" : "es"} participaron este mes${datos.excluidos.length ? ` · ${datos.excluidos.length} excluido${datos.excluidos.length === 1 ? "" : "s"}` : ""}</p>` : ""}
+            ${esAdminActivo ? `<p class="resumen-admin">${datos.activos.length} de ${totalColaboradores} colaboradores ${infoMes.enCurso ? "jugaron este mes — el resto todavía no participó" : "participaron este mes"}${datos.excluidos.length ? ` · ${datos.excluidos.length} excluido${datos.excluidos.length === 1 ? "" : "s"}` : ""}</p>` : ""}
         </div>
         <div class="lista-ranking">${filasHtml}</div>
         ${excluidosHtml}
