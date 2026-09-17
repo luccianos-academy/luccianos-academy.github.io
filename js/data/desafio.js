@@ -21,6 +21,10 @@ function normalizarResultado(f) {
     return {
         id: f.id,
         colaboradorId: f.colaboradorId,
+        // Solo para poder leer la Sheet a simple vista (auditoría
+        // manual) — el ranking real siempre arma el nombre haciendo
+        // join con Usuarios por id, nunca lee este campo.
+        colaboradorNombre: String(f.colaboradorNombre || "").trim(),
         fecha: String(f.fecha || "").trim().slice(0, 10),
         correctas: Number(f.correctas) || 0,
         tiempoUsado: Number(f.tiempoUsado) || 0,
@@ -72,9 +76,10 @@ export function totalDelMes(filasColaborador, anioMes = mesActualISO()) {
         .reduce((suma, f) => suma + f.puntos, 0);
 }
 
-export async function crearDesafioResultado({ colaboradorId, correctas, tiempoUsado, puntos }) {
+export async function crearDesafioResultado({ colaboradorId, colaboradorNombre, correctas, tiempoUsado, puntos }) {
     return writeSheet(HOJAS.DESAFIO_RESULTADOS, {
         colaboradorId,
+        colaboradorNombre,
         fecha: hoyISO(),
         correctas,
         tiempoUsado,
@@ -87,6 +92,7 @@ function normalizarHistorial(f) {
         id: f.id,
         mes: String(f.mes || "").trim(),
         colaboradorId: f.colaboradorId,
+        colaboradorNombre: String(f.colaboradorNombre || "").trim(),
         puesto: Number(f.puesto) || 0,
         puntos: Number(f.puntos) || 0,
     };

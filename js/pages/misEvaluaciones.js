@@ -40,6 +40,7 @@ function tarjetaExamen({ curso, estado, nota, espera }) {
             <div class="examen-cta examen-cta-aprobado">
                 <span class="examen-cta-icono">${Icon("trofeo", { size: 22 })}</span>
                 <div><h3>${curso.nombre}</h3><p class="text-sm text-muted">Aprobado — Nota: ${nota}/10</p></div>
+                <a class="btn btn-secondary" href="#/entrenamiento/${curso.id}">Entrenamiento libre</a>
             </div>
         `;
     }

@@ -266,6 +266,7 @@ async function terminarQuiz() {
     try {
         resultado = await crearDesafioResultado({
             colaboradorId: usuario.id,
+            colaboradorNombre: usuario.nombre,
             correctas: correctasActuales,
             tiempoUsado: segundosUsados,
             puntos,

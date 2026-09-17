@@ -2483,7 +2483,8 @@ function _cerrarMesDesafio(mesISO) {
         .sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo);
 
     participantes.forEach((p, i) => {
-        _escribirCrudo("DesafioHistorial", { mes: mesISO, colaboradorId: p.colaboradorId, puesto: i + 1, puntos: p.puntos });
+        const nombreParticipante = (usuariosPorId[p.colaboradorId] && usuariosPorId[p.colaboradorId].nombre) || "";
+        _escribirCrudo("DesafioHistorial", { mes: mesISO, colaboradorId: p.colaboradorId, colaboradorNombre: nombreParticipante, puesto: i + 1, puntos: p.puntos });
     });
 
     const medallas = ["🥇 1°", "🥈 2°", "🥉 3°"];

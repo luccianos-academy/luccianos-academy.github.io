@@ -2013,3 +2013,51 @@ function setupExcluidoDesafio() {
   hoja.getRange(1, headers.length + 1).setValue('excluidoDesafio');
   console.log('✓ Columna "excluidoDesafio" agregada a Usuarios (vacía = participa normalmente).');
 }
+
+/**
+ * Agrega la columna "colaboradorNombre" a DesafioResultados y
+ * DesafioHistorial — solo para poder leer esas hojas a simple vista
+ * en Sheets (antes solo tenían colaboradorId, un número sin
+ * contexto). El ranking real de la app nunca lee esta columna, sigue
+ * armando el nombre por join con Usuarios.
+ *
+ * Además de agregar la columna (si no existe), RELLENA el nombre en
+ * las filas que ya estén cargadas sin él, buscando por colaboradorId
+ * en Usuarios — así los datos de prueba que ya jugaste quedan
+ * legibles también, no solo los que se creen de acá en más.
+ * Idempotente: correrla de nuevo no pisa un nombre ya cargado ni
+ * duplica la columna.
+ */
+function setupNombreEnDesafio() {
+  var usuarios = _leerCrudo('Usuarios');
+  var nombrePorId = {};
+  usuarios.forEach(function (u) { nombrePorId[String(u.id)] = u.nombre; });
+
+  ['DesafioResultados', 'DesafioHistorial'].forEach(function (nombreHoja) {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nombreHoja);
+    if (!hoja) { console.log('No se encontró la hoja "' + nombreHoja + '" — saltada.'); return; }
+
+    var headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+    var colNombre = headers.indexOf('colaboradorNombre');
+    if (colNombre === -1) {
+      hoja.getRange(1, headers.length + 1).setValue('colaboradorNombre');
+      colNombre = headers.length; // 0-based, recién agregada
+      console.log('✓ Columna "colaboradorNombre" agregada a ' + nombreHoja + '.');
+    } else {
+      console.log('La columna "colaboradorNombre" ya existe en ' + nombreHoja + '.');
+    }
+
+    var colId = headers.indexOf('colaboradorId');
+    var datos = hoja.getDataRange().getValues();
+    var completados = 0;
+    for (var i = 1; i < datos.length; i++) {
+      var yaTieneNombre = String(datos[i][colNombre] || '').trim() !== '';
+      if (yaTieneNombre) continue;
+      var nombre = nombrePorId[String(datos[i][colId])];
+      if (!nombre) continue;
+      _escribirCeldaSinAdivinar(hoja.getRange(i + 1, colNombre + 1), nombre);
+      completados++;
+    }
+    console.log('  → ' + completados + ' fila(s) de ' + nombreHoja + ' completadas con el nombre.');
+  });
+}
