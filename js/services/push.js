@@ -18,6 +18,7 @@
 import { FIREBASE_CONFIG, FIREBASE_VAPID_KEY, PUSH_DISPONIBLE, USE_MOCK_DATA } from "../config.js";
 import { registrarToken } from "../data/tokens.js";
 import { enviarPushReal, enviarPushGestionReal } from "./google.js";
+import { esIOS, yaInstalada } from "./installPrompt.js";
 
 let appInicializada = false;
 
@@ -40,6 +41,21 @@ export function soportaPush() {
 export function estadoPermisoPush() {
     if (!("Notification" in window)) return "no-soportado";
     return Notification.permission;
+}
+
+/** Una sola condición, usada tanto por el banner de bienvenida como
+ *  por el punto persistente del avatar (ui.js, topbar.js) — para no
+ *  terminar con dos criterios ligeramente distintos de "esta persona
+ *  todavía no activó sus avisos" que un día se desincronicen.
+ *
+ *  En iPhone sin instalar, soportaPush() da false pero SÍ hay algo que
+ *  ofrecer (instalar la app) — a diferencia de un navegador sin
+ *  soporte real o un iOS demasiado viejo, donde no hay ningún paso que
+ *  dar y no tiene sentido insistir. */
+export function necesitaActivarPush() {
+    if (!PUSH_DISPONIBLE || USE_MOCK_DATA) return false;
+    if (soportaPush()) return estadoPermisoPush() === "default";
+    return esIOS() && !yaInstalada();
 }
 
 /** Re-registra el token en segundo plano, SIN pedir el permiso de

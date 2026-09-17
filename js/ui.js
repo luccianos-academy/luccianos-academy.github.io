@@ -9,26 +9,23 @@ import { BottomNav } from "./components/bottomNav.js";
 import { EmptyState } from "./components/emptyState.js";
 import { Icon } from "./components/icons.js";
 import { estaViendoComo, getUsuarioActual } from "./services/auth.js";
-import { getItem, setItem } from "./services/storage.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "./services/push.js";
 import { esIOS, yaInstalada } from "./services/installPrompt.js";
-import { Modal, abrirModal } from "./components/modal.js";
+import { abrirInstructivoPushIOS } from "./components/instructivoPushIOS.js";
 import { PUSH_DISPONIBLE, USE_MOCK_DATA } from "./config.js";
 
-const CLAVE_PUSH_CERRADO = "banner_push_cerrado";
-const CLAVE_PUSH_IOS_CERRADO = "banner_push_ios_cerrado";
-
-/** Una semana, no un día como el banner de Android: en iPhone lo que
- *  se pide no es un permiso de un toque sino instalar la app, y no
- *  hay forma de saber si la persona ya lo hizo y decidió que no —
- *  preguntar todos los días sería hostigar. */
-const DIAS_REAPARECE_IOS = 7;
-
-function diasDesde(fechaISO) {
-    if (!fechaISO) return Infinity;
-    const ms = Date.now() - new Date(fechaISO + "T00:00:00").getTime();
-    return ms / 86400000;
-}
+/** Los avisos de push viven SOLO en Inicio, arriba de todo: ahí se
+ *  ven sin buscarlos, y no acompañan a la persona por el resto de la
+ *  app mientras trabaja.
+ *
+ *  Cerrarlos dura lo que dure la app abierta — no se guarda en el
+ *  teléfono a propósito. La próxima vez que entre vuelve a estar, sin
+ *  llegar a ser molesto: alcanza con tocar la X para sacárselo de
+ *  encima ahora. Y cuando la persona activa los avisos de verdad,
+ *  deja de aparecer para siempre solo, porque la condición que lo
+ *  muestra deja de cumplirse. */
+let bannerPushCerrado = false;
+let bannerPushIOSCerrado = false;
 
 /**
  * Renderiza el layout base (sidebar + contenido) dentro de #app
@@ -53,7 +50,7 @@ export function renderLayout(rutaActiva) {
                 <button class="btn btn-secondary" id="btn-volver-admin">Volver a mi cuenta</button>
             </div>
         ` : ""}
-        ${BannerPush(usuario)}
+        ${rutaActiva === "inicio" ? BannerPush(usuario) : ""}
         ${TopBar()}
         <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
         <div class="layout">
@@ -78,14 +75,12 @@ export function renderLayout(rutaActiva) {
  * Solo aparece con el permiso en estado "default" (nunca preguntado)
  * — "denied"/"granted" son decisiones ya tomadas, no hay nada que
  * este banner pueda ofrecer ahí (mismo criterio que pages/perfil.js).
- * Se puede cerrar, pero solo por hoy — reaparece mañana si sigue sin
- * activarse.
  */
 function BannerPush(usuario) {
     if (!usuario) return "";
     if (!soportaPush()) return BannerPushIOS(usuario);
     if (estadoPermisoPush() !== "default") return "";
-    if (getItem(CLAVE_PUSH_CERRADO, "") === new Date().toISOString().slice(0, 10)) return "";
+    if (bannerPushCerrado) return "";
 
     return `
         <div class="banner-push" data-push-banner>
@@ -117,7 +112,7 @@ function BannerPushIOS(usuario) {
     if (!usuario) return "";
     if (!PUSH_DISPONIBLE || USE_MOCK_DATA) return "";
     if (!esIOS() || yaInstalada()) return "";
-    if (diasDesde(getItem(CLAVE_PUSH_IOS_CERRADO, "")) < DIAS_REAPARECE_IOS) return "";
+    if (bannerPushIOSCerrado) return "";
 
     return `
         <div class="banner-push" data-push-banner-ios>
@@ -131,28 +126,6 @@ function BannerPushIOS(usuario) {
     `;
 }
 
-const INSTRUCTIVO_IOS_ID = "modal-push-ios";
-
-function instructivoIOSHtml() {
-    const pasos = [
-        `Abajo en Safari, tocá ${Icon("compartir", { size: 15 })} <strong>Compartir</strong>`,
-        `Deslizá y elegí <strong>Agregar a inicio</strong>`,
-        `Confirmá con <strong>Agregar</strong>`,
-        `Entrá por el ícono nuevo y tocá <strong>Activar</strong> cuando aparezca el aviso`,
-    ];
-
-    // El texto va envuelto en un <span>: el <li> es flex (para alinear
-    // el número con el texto) y sin envoltura cada <strong> y cada
-    // ícono se vuelve un flex item suelto — los pasos se partían en
-    // columnas en vez de leerse como una frase.
-    return `
-        <ol class="pasos-ios">
-            ${pasos.map((p) => `<li><span>${p}</span></li>`).join("")}
-        </ol>
-        <p class="pasos-ios-nota">El último paso es el que activa los avisos — agregar la app sola no alcanza.</p>
-    `;
-}
-
 function bindBannerPush(usuario) {
     bindBannerPushIOS();
 
@@ -160,7 +133,7 @@ function bindBannerPush(usuario) {
     if (!banner) return;
 
     banner.querySelector("[data-push-cerrar]")?.addEventListener("click", () => {
-        setItem(CLAVE_PUSH_CERRADO, new Date().toISOString().slice(0, 10));
+        bannerPushCerrado = true;
         banner.remove();
     });
 
@@ -173,7 +146,7 @@ function bindBannerPush(usuario) {
         // sentido seguir mostrando el banner en esta sesión — "denied"
         // no se puede volver a preguntar (decisión del navegador) y
         // "ok" ya no hace falta.
-        setItem(CLAVE_PUSH_CERRADO, new Date().toISOString().slice(0, 10));
+        bannerPushCerrado = true;
         banner.remove();
         if (!resultado.ok) {
             if (resultado.motivo === "denegado") {
@@ -189,26 +162,18 @@ function bindBannerPushIOS() {
     const banner = document.querySelector("[data-push-banner-ios]");
     if (!banner) return;
 
-    const ocultarPorUnaSemana = () => {
-        setItem(CLAVE_PUSH_IOS_CERRADO, new Date().toISOString().slice(0, 10));
+    const ocultar = () => {
+        bannerPushIOSCerrado = true;
         banner.remove();
     };
 
-    banner.querySelector("[data-push-ios-cerrar]")?.addEventListener("click", ocultarPorUnaSemana);
+    banner.querySelector("[data-push-ios-cerrar]")?.addEventListener("click", ocultar);
 
     banner.querySelector("[data-push-ios-como]")?.addEventListener("click", () => {
-        abrirModal(
-            Modal({
-                id: INSTRUCTIVO_IOS_ID,
-                titulo: "Recibir avisos en iPhone",
-                contenidoHtml: instructivoIOSHtml(),
-                textoConfirmar: "",
-            }),
-            INSTRUCTIVO_IOS_ID
-        );
-        // Ya leyó los pasos: seguir mostrándole el banner en cada
-        // pantalla no agrega nada. Si no instaló, vuelve en una semana.
-        ocultarPorUnaSemana();
+        abrirInstructivoPushIOS();
+        // Ya leyó los pasos: dejarle el banner puesto no agrega nada.
+        // Si no instaló, vuelve la próxima vez que abra la app.
+        ocultar();
     });
 }
 

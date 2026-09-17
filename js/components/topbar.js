@@ -23,6 +23,7 @@ import { Avatar } from "./avatar.js";
 import { getNoticiasVisibles, estaLeida } from "../data/noticias.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { invalidarTodo } from "../services/dataSource.js";
+import { necesitaActivarPush } from "../services/push.js";
 // navigate se importa dinámicamente dentro de refrescarDatos(): el
 // router importa ui.js, que importa este archivo — un import estático
 // acá cerraría el ciclo router → ui → topbar → router. Funcionaría por
@@ -86,11 +87,27 @@ export function CampanaBoton(variant = "topbar") {
 /** Avatar de 48px junto a la campana (topbar mobile / sidebar
  *  desktop) — pedido explícito del usuario, "arriba a la derecha, le
  *  da valor". Lleva a Mi perfil, mismo criterio que la campana lleva
- *  a News. */
+ *  a News.
+ *
+ *  El puntito dorado es el aviso "subliminal" de que faltan activar
+ *  las notificaciones — deliberadamente NO es otra campana (ya hay
+ *  una, la de News; dos iguales al lado confunden cuál es cuál) y NO
+ *  tiene forma de cerrarlo: es un recordatorio pasivo, siempre en
+ *  pantalla mientras haga falta, sin molestar. Lleva al mismo lugar
+ *  de siempre (Mi Perfil), donde ya vive el bloque real de activar
+ *  push — no hace falta nada nuevo ahí salvo el instructivo de iOS
+ *  (ver bloquePush en pages/perfil.js). Desaparece solo en cuanto la
+ *  persona activa los avisos, porque necesitaActivarPush() pasa a
+ *  dar false. */
 export function AvatarHeaderBoton() {
     const usuario = getUsuarioActual();
     if (!usuario) return "";
-    return `<a class="avatar-header-btn" href="#/perfil" aria-label="Mi perfil">${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "xl" })}</a>`;
+    const conAviso = necesitaActivarPush();
+    return `
+        <a class="avatar-header-btn${conAviso ? " avatar-header-btn-aviso" : ""}" href="#/perfil" aria-label="Mi perfil${conAviso ? " — activá tus notificaciones" : ""}">
+            ${Avatar({ nombre: usuario.nombre, foto: usuario.foto, size: "xl" })}
+        </a>
+    `;
 }
 
 /**

@@ -460,11 +460,26 @@
     display:block;
     flex-shrink:0;
     line-height:0;
+    position:relative;
     transition:var(--transition);
 }
 
 .avatar-header-btn:hover{
     opacity:.85;
+}
+
+/* El puntito de "activá tus notificaciones" — deliberadamente chico y
+   sin animación: es un recordatorio de fondo, no una alerta. */
+.avatar-header-btn-aviso::after{
+    content:"";
+    position:absolute;
+    top:0;
+    right:0;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:var(--gold);
+    border:2px solid var(--bg);
 }
 
 /* Foto grande de "Mi perfil" (140px, pedido explícito del usuario) —

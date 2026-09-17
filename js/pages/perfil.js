@@ -13,6 +13,7 @@ import { Icon } from "../components/icons.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
+import { abrirInstructivoPushIOS } from "../components/instructivoPushIOS.js";
 import { getTokensDeUsuario } from "../data/tokens.js";
 import { actualizarUsuario, getUsuarios, ETIQUETA_RESPONSABLE_LOCAL, ETIQUETA_RESPONSABLE_TURNO } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
@@ -71,9 +72,20 @@ function motivoSinPush() {
 
 async function bloquePush(usuario) {
     if (!soportaPush()) {
+        // El caso "iPhone sin instalar" tiene arreglo con pasos
+        // concretos — se lo suma el mismo instructivo interactivo del
+        // banner de Inicio, no una segunda explicación en texto plano.
+        // Los otros dos motivos (navegador sin soporte, iOS viejo) no
+        // tienen pasos que dar, así que ahí sigue solo el párrafo.
+        const conInstructivo = esIOS() && !yaInstalada();
         return `
             <div class="card" style="max-width:420px;margin-top:16px">
-                <div class="item"><span>Notificaciones push</span><strong class="text-sm text-muted">No disponibles</strong></div>
+                <div class="item">
+                    <span>Notificaciones push</span>
+                    ${conInstructivo
+                        ? `<button class="btn btn-secondary" id="btn-como-activar-push-ios" style="width:auto">Cómo se hace</button>`
+                        : `<strong class="text-sm text-muted">No disponibles</strong>`}
+                </div>
                 <p class="text-xs text-muted" style="margin-top:8px">${motivoSinPush()}</p>
             </div>
         `;
@@ -325,6 +337,8 @@ export function bindPerfil() {
             inputArchivoFoto.value = "";
         }
     });
+
+    document.getElementById("btn-como-activar-push-ios")?.addEventListener("click", abrirInstructivoPushIOS);
 
     document.getElementById("btn-activar-push")?.addEventListener("click", async (e) => {
         const btn = e.currentTarget;
