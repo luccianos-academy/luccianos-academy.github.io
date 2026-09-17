@@ -4618,6 +4618,24 @@ table.data-table tbody tr:hover{
     accent-color:var(--gold);
 }
 
+/* Feedback inmediato del entrenamiento libre (pages/entrenamiento.js)
+   — el examen real (pages/examen.js) nunca usa estas clases: ahí el
+   resultado se revela recién al final, no pregunta por pregunta. */
+.examen-opcion.disabled{
+    cursor:default;
+    pointer-events:none;
+}
+
+.examen-opcion.correcta{
+    border-color:var(--success);
+    background:rgba(151,196,89,.12);
+}
+
+.examen-opcion.incorrecta{
+    border-color:var(--danger);
+    background:rgba(224,104,95,.12);
+}
+
 .oculto{
     display:none !important;
 }
@@ -4984,6 +5002,8 @@ table.data-table tbody tr:hover{
 .examen-cta{
     display:flex;
     align-items:center;
+    flex-wrap:wrap;
+    row-gap:10px;
     gap:16px;
     background:var(--card);
     border:1px solid var(--line);
@@ -4996,7 +5016,12 @@ table.data-table tbody tr:hover{
     font-size:16px;
 }
 
-.examen-cta .btn{
+/* margin-left:auto solo en el PRIMER botón — con dos botones (ej.
+   "Entrenamiento libre" + "Rendir de nuevo", modo prueba), el segundo
+   ya queda pegado al primero por el gap normal; si ambos tuvieran
+   auto, el wrap en mobile los separaba cada uno a su propia derecha
+   en vez de quedar juntos. */
+.examen-cta .btn:first-of-type{
     margin-left:auto;
 }
 

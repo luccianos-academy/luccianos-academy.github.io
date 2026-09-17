@@ -619,6 +619,7 @@ async function renderDetalleCurso(usuario, cursoId) {
                 <div class="examen-cta examen-cta-aprobado">
                     <span class="examen-cta-icono">${Icon("trofeo", { size: 22 })}</span>
                     <div><h3>Aprobaste el examen</h3><p class="text-sm text-muted">Nota: ${aprobado.nota}/10</p></div>
+                    <a class="btn btn-secondary" href="#/entrenamiento/${cursoId}">Entrenamiento libre</a>
                     ${modoPrueba ? `<a class="btn btn-secondary" href="#/examen/${cursoId}">Rendir de nuevo (modo prueba)</a>` : ""}
                 </div>
             `;
