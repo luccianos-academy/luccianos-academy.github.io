@@ -25,8 +25,9 @@ import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
 import { getLeccionesPorCurso } from "../data/lecciones.js";
 import { getColaboradoresPorSucursal } from "../data/usuarios.js";
-import { getDesafioResultadosPorColaborador, hoyISO } from "../data/desafio.js";
+import { getDesafioResultadosPorColaborador, getDesafioHistorial, hoyISO } from "../data/desafio.js";
 import { CANTIDAD_PREGUNTAS } from "./desafio.js";
+import { nombreMes } from "./ranking.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { cursosDeLaPersona } from "../services/alcance.js";
 
@@ -105,6 +106,7 @@ function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
 
     return `
         <div class="card tarjeta-desafio">
+            <span class="chip-tarjeta-desafio">Hoy</span>
             ${encabezado}
             <p class="text-sm text-muted">${CANTIDAD_PREGUNTAS} preguntas de todos tus módulos · 3 minutos. Sumás puntos para el ranking mensual.</p>
             <a class="btn btn-primary" href="#/desafio">Empezar desafío</a>
@@ -113,14 +115,29 @@ function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
     `;
 }
 
+const MEDALLAS_INSIGNIA = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+/** El mes MÁS RECIENTE que ya cerró (Fase 4 — el cierre automático
+ *  llena DesafioHistorial el día 1 de cada mes). Si ese colaborador
+ *  quedó en el Top 3, se lo recuerda acá — no hace falta persistir
+ *  nada aparte, se deriva del historial cada vez que carga Inicio. */
+function insigniaMesAnteriorHtml(historial, usuarioId) {
+    if (!historial.length) return "";
+    const ultimoMes = historial.map((f) => f.mes).sort((a, b) => b.localeCompare(a))[0];
+    const miFila = historial.find((f) => f.mes === ultimoMes && String(f.colaboradorId) === String(usuarioId) && f.puesto <= 3);
+    if (!miFila) return "";
+    return `<span class="insignia-mes">${MEDALLAS_INSIGNIA[miFila.puesto]} ${miFila.puesto}° en ${nombreMes(ultimoMes)}</span>`;
+}
+
 export async function InicioColaborador() {
 
     const usuario = getUsuarioActual();
-    const [asignaciones, resultados, cursos, desafioResultados] = await Promise.all([
+    const [asignaciones, resultados, cursos, desafioResultados, desafioHistorial] = await Promise.all([
         getAsignacionesPorColaborador(usuario.id),
         getResultadosPorColaborador(usuario.id),
         getCursos(),
         getDesafioResultadosPorColaborador(usuario.id),
+        getDesafioHistorial(),
     ]);
 
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));
@@ -284,7 +301,7 @@ export async function InicioColaborador() {
 
         <div class="hero-lobby">
             <div class="hero-lobby-eyebrow">Lucciano's Academy</div>
-            <h1>Bienvenido/a, ${usuario.nombre.split(" ")[0]}.</h1>
+            <h1>Bienvenido/a, ${usuario.nombre.split(" ")[0]}. ${insigniaMesAnteriorHtml(desafioHistorial, usuario.id)}</h1>
             <p class="hero-lobby-sub">${nivel} · ${usuario.sucursal || "Sin sucursal asignada"}${fechaMasVieja ? ` · En Lucciano's Academy desde ${formatearFecha(fechaMasVieja)}` : ""}</p>
             <a class="hero-lobby-cta" href="#/cursos${continuar ? "/" + continuar.cursoId : ""}">
                 <div>

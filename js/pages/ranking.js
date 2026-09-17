@@ -39,7 +39,10 @@ let datosPorMes = {};
 let mesActivo = "";
 let esAdminActivo = false;
 
-function nombreMes(anioMes) {
+// Exportada para que pages/inicioColaborador.js pueda armar el mismo
+// texto de mes ("Septiembre") para la insignia del Top 3, sin
+// duplicar la función.
+export function nombreMes(anioMes) {
     const [anio, mes] = anioMes.split("-").map(Number);
     const d = new Date(anio, mes - 1, 1);
     const nombre = d.toLocaleDateString("es-AR", { month: "long" });

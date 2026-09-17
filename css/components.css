@@ -88,15 +88,45 @@
 /* Tarjeta "Desafío diario" — Inicio del Colaborador (pages/inicioColaborador.js) */
 
 .tarjeta-desafio{
+    position:relative;
     background:linear-gradient(160deg, var(--gold-soft), var(--card));
-    border-color:#4a3c22;
+    border:1.5px solid var(--gold);
+    box-shadow:0 0 18px -6px rgba(194,160,101,.4);
     display:flex;
     flex-direction:column;
     gap:10px;
+    animation:pulso-tarjeta-desafio 3.5s ease-in-out infinite;
 }
+/* Ya jugó hoy / le faltan módulos: vuelve al tratamiento neutro de
+   una card cualquiera — el resaltado es solo para invitar a jugar,
+   no tiene sentido mantenerlo una vez que ya no hay nada que hacer
+   hoy. */
 .tarjeta-desafio.jugado{
     background:var(--card);
-    border-color:var(--line);
+    border:1px solid var(--line);
+    box-shadow:var(--shadow);
+    animation:none;
+}
+@keyframes pulso-tarjeta-desafio{
+    0%, 100% { box-shadow:0 0 16px -6px rgba(194,160,101,.35); }
+    50% { box-shadow:0 0 26px -4px rgba(194,160,101,.65); }
+}
+@media (prefers-reduced-motion: reduce){
+    .tarjeta-desafio{ animation:none; }
+}
+.chip-tarjeta-desafio{
+    position:absolute;
+    top:-10px;
+    right:18px;
+    background:var(--gold);
+    color:#1a1610;
+    font-size:10.5px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    padding:3px 11px;
+    border-radius:999px;
+    box-shadow:0 4px 10px -2px rgba(0,0,0,.4);
 }
 .tarjeta-desafio-header{
     display:flex;
@@ -108,6 +138,20 @@
 }
 .tarjeta-desafio .btn{
     align-self:flex-start;
+}
+.insignia-mes{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    vertical-align:middle;
+    background:var(--gold-soft);
+    border:1px solid #4a3c22;
+    border-radius:20px;
+    padding:3px 10px 3px 7px;
+    font-size:12px;
+    font-family:inherit;
+    font-weight:600;
+    color:var(--gold-deep);
 }
 .link-ranking{
     display:block;

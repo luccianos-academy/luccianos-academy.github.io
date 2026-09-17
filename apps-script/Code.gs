@@ -2411,3 +2411,133 @@ function _getMimeType(extension) {
     };
     return tipos[extension.toLowerCase()] || null;
 }
+
+/* ============================================================
+   CIERRE DE MES — DESAFÍO DIARIO (Fase 4)
+
+   El ranking del mes EN CURSO se calcula siempre en vivo sumando
+   DesafioResultados (ver pages/ranking.js) — nunca hace falta
+   "resetear" nada para eso: al cambiar el mes, esas filas viejas
+   quedan afuera del filtro de fecha solas. Lo único que hace el
+   cierre es congelar una FOTO del mes que terminó en
+   DesafioHistorial (para no tener que sumar filas viejas de
+   DesafioResultados para siempre) y avisarle al Top 3 con un push.
+
+   Nunca se borra ni se toca DesafioResultados — queda como
+   auditoría real de cada intento, para siempre.
+============================================================ */
+
+const NOMBRES_MES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+/** Nombre fijo en español, sin depender del idioma configurado en el
+ *  proyecto de Apps Script (Utilities.formatDate con "MMMM" sí
+ *  depende de eso, y podía devolver el mes en inglés). */
+function _nombreMesDesafio(mesISO) {
+    const idx = Number(mesISO.split("-")[1]) - 1;
+    return NOMBRES_MES_ES[idx] || mesISO;
+}
+
+/**
+ * Cierra un mes puntual del Desafío Diario: arma el ranking final
+ * sumando DesafioResultados de ese mes, lo congela en
+ * DesafioHistorial (un puesto por participante) y manda un push al
+ * Top 3. Idempotente: si ese mes ya tiene filas en DesafioHistorial,
+ * no hace nada — así el trigger diario puede correr de más sin
+ * duplicar el cierre ni volver a felicitar al Top 3 dos veces.
+ *
+ * Mismo criterio que el ranking en vivo: un colaborador con
+ * Usuarios.excluidoDesafio=SI no entra al cierre — no tendría
+ * sentido congelarle un puesto ni felicitarlo si el Admin lo sacó
+ * del ranking.
+ */
+function _cerrarMesDesafio(mesISO) {
+    const yaCerrado = _leerCrudo("DesafioHistorial").some((f) => String(f.mes) === String(mesISO));
+    if (yaCerrado) {
+        console.log("El mes " + mesISO + " ya estaba cerrado — no se hizo nada.");
+        return { ok: true, yaEstaba: true };
+    }
+
+    const resultadosDelMes = _leerCrudo("DesafioResultados").filter((f) => String(f.fecha || "").slice(0, 7) === mesISO);
+    if (!resultadosDelMes.length) {
+        console.log("Nadie jugó en " + mesISO + " — no se generó historial.");
+        return { ok: true, participantes: 0 };
+    }
+
+    const usuariosPorId = {};
+    _leerCrudo("Usuarios").forEach((u) => { usuariosPorId[String(u.id)] = u; });
+
+    const totales = {};
+    resultadosDelMes.forEach((r) => {
+        const id = String(r.colaboradorId);
+        if (!totales[id]) totales[id] = { puntos: 0, tiempo: 0 };
+        totales[id].puntos += Number(r.puntos) || 0;
+        totales[id].tiempo += Number(r.tiempoUsado) || 0;
+    });
+
+    const participantes = Object.keys(totales)
+        .filter((id) => {
+            const u = usuariosPorId[id];
+            return !u || String(u.excluidoDesafio || "").trim().toUpperCase() !== "SI";
+        })
+        .map((id) => ({ colaboradorId: id, puntos: totales[id].puntos, tiempo: totales[id].tiempo }))
+        .sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo);
+
+    participantes.forEach((p, i) => {
+        _escribirCrudo("DesafioHistorial", { mes: mesISO, colaboradorId: p.colaboradorId, puesto: i + 1, puntos: p.puntos });
+    });
+
+    const medallas = ["🥇 1°", "🥈 2°", "🥉 3°"];
+    participantes.slice(0, 3).forEach((p, i) => {
+        _enviarPushATodos([p.colaboradorId], "¡Felicitaciones!",
+            "Terminaste " + medallas[i] + " en el Desafío Diario de " + _nombreMesDesafio(mesISO) + " con " + p.puntos + " puntos.",
+            "#/ranking");
+    });
+
+    console.log("Mes " + mesISO + " cerrado: " + participantes.length + " participantes, historial guardado, Top " + Math.min(3, participantes.length) + " avisado por push.");
+    return { ok: true, participantes: participantes.length };
+}
+
+/** Handler del trigger diario (ver instalarTriggerCierreMesDesafio) —
+ *  solo actúa el día 1 de cada mes, cerrando el mes que acaba de
+ *  terminar. Cualquier otro día no hace nada. */
+function _cerrarMesDesafioSiCorresponde() {
+    const hoy = new Date();
+    const esPrimerDiaDelMes = Number(Utilities.formatDate(hoy, Session.getScriptTimeZone(), "d")) === 1;
+    if (!esPrimerDiaDelMes) return;
+
+    const mesAnteriorDate = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+    const mesACerrar = Utilities.formatDate(mesAnteriorDate, Session.getScriptTimeZone(), "yyyy-MM");
+    _cerrarMesDesafio(mesACerrar);
+}
+
+/** Correr UNA SOLA VEZ desde el editor (elegirla en el desplegable de
+ *  "Ejecutar") para instalar el trigger — no hace falta tocar nada
+ *  más. Mismo patrón que instalarTriggerRecordatoriosGestion: borra
+ *  cualquier trigger viejo de esta misma función antes de crear uno
+ *  nuevo, así correrla de nuevo nunca deja dos triggers duplicados. */
+function instalarTriggerCierreMesDesafio() {
+    let borrados = 0;
+    ScriptApp.getProjectTriggers().forEach((t) => {
+        if (t.getHandlerFunction() === "_cerrarMesDesafioSiCorresponde") {
+            ScriptApp.deleteTrigger(t);
+            borrados++;
+        }
+    });
+    ScriptApp.newTrigger("_cerrarMesDesafioSiCorresponde")
+        .timeBased()
+        .everyDays(1)
+        .atHour(1)
+        .create();
+    return "Trigger instalado" + (borrados ? " (se reemplazó " + borrados + " trigger viejo)" : "") + " — corre todos los días a la 1am y cierra el mes anterior automáticamente el día 1 de cada mes.";
+}
+
+/** Solo para STAGING — fuerza el cierre del mes EN CURSO ya mismo,
+ *  sin esperar al día 1 del que viene, para poder probar el flujo
+ *  completo (historial + push al Top 3) de una. NUNCA correr esto en
+ *  producción a mitad de un mes real — cerraría el mes antes de
+ *  tiempo con datos incompletos. */
+function forzarCierreDelMesEnCursoDesafio() {
+    const mes = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+    const resultado = _cerrarMesDesafio(mes);
+    console.log(JSON.stringify(resultado));
+}
