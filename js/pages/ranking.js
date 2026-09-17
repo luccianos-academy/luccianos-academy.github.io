@@ -226,14 +226,20 @@ function renderCuerpoRanking() {
             const id = btn.dataset.excluir;
             btn.disabled = true;
             try {
-                await actualizarUsuario(id, { excluidoDesafio: "SI" });
+                // El backend puede rechazar la escritura (ej. permisos)
+                // sin lanzar excepción — sin chequear ok, esto quedaba
+                // "excluido" en pantalla aunque nunca se hubiera
+                // guardado en Usuarios (mismo defecto ya corregido en
+                // pages/desafio.js).
+                const resultado = await actualizarUsuario(id, { excluidoDesafio: "SI" });
+                if (!resultado || !resultado.ok) throw new Error((resultado && resultado.error) || "El backend rechazó el cambio");
                 const persona = datos.activos.find((p) => String(p.colaboradorId) === String(id));
                 datos.activos = datos.activos.filter((p) => String(p.colaboradorId) !== String(id));
                 if (persona) { persona.excluido = true; datos.excluidos.push(persona); }
                 renderCuerpoRanking();
             } catch (err) {
                 btn.disabled = false;
-                alert("No se pudo excluir — revisá tu conexión e intentá de nuevo.");
+                alert("No se pudo excluir: " + (err.message || "revisá tu conexión e intentá de nuevo."));
             }
         });
     });
@@ -243,14 +249,15 @@ function renderCuerpoRanking() {
             const id = btn.dataset.reincluir;
             btn.disabled = true;
             try {
-                await actualizarUsuario(id, { excluidoDesafio: "NO" });
+                const resultado = await actualizarUsuario(id, { excluidoDesafio: "NO" });
+                if (!resultado || !resultado.ok) throw new Error((resultado && resultado.error) || "El backend rechazó el cambio");
                 const persona = datos.excluidos.find((p) => String(p.colaboradorId) === String(id));
                 datos.excluidos = datos.excluidos.filter((p) => String(p.colaboradorId) !== String(id));
                 if (persona) { persona.excluido = false; datos.activos.push(persona); datos.activos.sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo); }
                 renderCuerpoRanking();
             } catch (err) {
                 btn.disabled = false;
-                alert("No se pudo reincluir — revisá tu conexión e intentá de nuevo.");
+                alert("No se pudo reincluir: " + (err.message || "revisá tu conexión e intentá de nuevo."));
             }
         });
     });

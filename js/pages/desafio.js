@@ -262,8 +262,9 @@ async function terminarQuiz() {
     const usuario = getUsuarioActual();
     const puntos = correctasActuales * PUNTOS_POR_CORRECTA;
 
+    let resultado;
     try {
-        await crearDesafioResultado({
+        resultado = await crearDesafioResultado({
             colaboradorId: usuario.id,
             correctas: correctasActuales,
             tiempoUsado: segundosUsados,
@@ -278,10 +279,22 @@ async function terminarQuiz() {
         return;
     }
 
+    // Bug real encontrado en vivo (2026-09-17): el backend puede
+    // rechazar la escritura (ej. falta de permisos en Code.gs) sin
+    // que la llamada de red explote — writeSheet devuelve {ok:false}
+    // en vez de lanzar. Sin este chequeo, se mostraba "¡Buen
+    // desafío!" con el resultado sin guardar en la Sheet, dejando
+    // jugar de nuevo porque yaJugoHoy() nunca encontraba la fila.
+    if (!resultado || !resultado.ok) {
+        terminado = false;
+        mostrarErrorGuardado(resultado && resultado.error);
+        return;
+    }
+
     mostrarResumen(correctasActuales, puntos, segundosUsados);
 }
 
-function mostrarErrorGuardado() {
+function mostrarErrorGuardado(motivo) {
     const cont = document.getElementById("desafio-contenido");
     if (!cont) return;
     cont.innerHTML = `
@@ -289,7 +302,7 @@ function mostrarErrorGuardado() {
             <div class="examen-resultado-icono">${Icon("warning", { size: 28 })}</div>
             <div>
                 <h3>No se pudo guardar tu resultado</h3>
-                <p class="text-sm text-muted">Revisá tu conexión e intentá de nuevo.</p>
+                <p class="text-sm text-muted">${motivo ? motivo : "Revisá tu conexión e intentá de nuevo."}</p>
             </div>
             <button class="btn btn-primary" id="btn-reintentar-guardado">Reintentar</button>
         </div>
