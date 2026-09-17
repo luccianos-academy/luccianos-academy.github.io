@@ -172,6 +172,45 @@ function setupNoticiasDirigidoA() {
  * Sin la columna el código no rompe: lee "" y cae al fallback de "url".
  */
 /**
+ * diagnosticoAsignacionesFaltantes() — SOLO LECTURA, no escribe nada.
+ *
+ * setupAsignacionesFaltantesPorAprobado() marcó 4 pares puntuales como
+ * "ya estaba completada" (Federico Ontiveros/curso 8, Elías Nuñez/
+ * curso 5, Gonzalo blanco/curso 7, Coral Pucheu/curso 6), pero
+ * verificado por fuera (descarga directa de la planilla) esas filas
+ * NO existen en Asignaciones — hay una discrepancia real entre lo que
+ * ve este script y lo que se ve por otro lado. Esta función imprime,
+ * para esos 4 pares puntuales, el contenido LITERAL (JSON.stringify)
+ * de cada fila de Asignaciones que tenga ese colaboradorId — para ver
+ * si hay algo raro (espacios, mayúsculas, un cursoId que no es el que
+ * se espera) que no se nota mirando la planilla a simple vista.
+ */
+function diagnosticoAsignacionesFaltantes() {
+  const asignaciones = _leerCrudo('Asignaciones');
+  const pares = [
+    ['Federico Ontiveros', 1786486587421, '8'],
+    ['Elías Nuñez', 42, '5'],
+    ['Gonzalo blanco', 8, '7'],
+    ['Coral Pucheu', 57, '6'],
+  ];
+
+  pares.forEach(function (p) {
+    const nombre = p[0], colId = p[1], cursoId = p[2];
+    console.log('=== ' + nombre + ' (colaboradorId=' + colId + ', cursoId buscado=' + cursoId + ') ===');
+    const filasDelColaborador = asignaciones.filter(function (a) {
+      return String(a.colaboradorId) === String(colId);
+    });
+    if (!filasDelColaborador.length) {
+      console.log('  NINGUNA fila de Asignaciones con ese colaboradorId.');
+    } else {
+      filasDelColaborador.forEach(function (a) {
+        console.log('  ' + JSON.stringify(a));
+      });
+    }
+  });
+}
+
+/**
  * setupAsignacionesFaltantesPorAprobado() — completa la Asignación de
  * un curso cuando existe un Resultado aprobado pero la Asignación
  * nunca quedó en "completado".
