@@ -182,6 +182,7 @@ export const MODULOS = [
     { id: "colaboradores",  nombre: "Mi equipo",            icono: "usuarios" },
     { id: "gestion",        nombre: "Gestión de tareas",    icono: "calendario" },
     { id: "coordinacionoperativa", nombre: "Comunicaciones", icono: "comentario" },
+    { id: "ranking",        nombre: "Ranking",              icono: "trofeo" },
     { id: "recursos",       nombre: "Recursos",             icono: "integraciones" },
     { id: "manuales",       nombre: "Manuales",             icono: "reportes" },
     { id: "perfil",         nombre: "Mi perfil",            icono: "perfil" },

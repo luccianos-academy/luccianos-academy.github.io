@@ -139,9 +139,9 @@ export const MENU_POR_ROL = {
     // sumarlo a MENU_POR_ROL.colaborador — no hace falta tocar esto.
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "gestion", "coordinacionoperativa", "recursos", "manuales", "configuracion", "perfil",
+        "academia", "gestion", "coordinacionoperativa", "recursos", "manuales", "ranking", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "locales", "gestion", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "locales", "gestion", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "ranking", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -194,7 +194,7 @@ const PERMISOS_PAGINA = {
     // Colaborador ve el Top 10 y su propio puesto (si entra ahí);
     // Admin ve la lista completa y puede excluir/reincluir — ambos
     // casos los resuelve la propia pantalla, no el gating de rol.
-    ranking:        ["admin", "colaborador"],
+    ranking:        ["admin", "supervisor", "colaborador"],
     // "Gestión semanal" (#/gestion) — Admin gestiona el catálogo de
     // tareas; Supervisor (incluye Capacitador) entra en modo lectura
     // con el selector de local (Fase 2, 2026-08-25); Responsable de
