@@ -1865,3 +1865,151 @@ function actualizarFechaModificacion(e) {
   const fila = rango.getRow();
   hoja.getRange(fila, indiceColumna + 1).setValue(new Date());
 }
+
+/**
+ * Solo para STAGING (REPO) — herramienta de prueba, NUNCA correr en
+ * el Apps Script de producción.
+ *
+ * Completa TODOS los cursos existentes para un usuario puntual: una
+ * Asignación al 100%/completado y un Resultado aprobado por curso —
+ * para poder probar pantallas que requieren tener todo aprobado (ej.
+ * el Desafío Diario) sin tener que marcar lección por lección y
+ * rendir examen por examen a mano. No completa SOLO los cursos que
+ * le "aplican" según país/local/Gestión (services/alcance.js) — usa
+ * la hoja "Cursos" entera a propósito, así el gate de "todos los
+ * módulos aprobados" queda cubierto sin duplicar acá esa lógica de
+ * alcance.
+ *
+ * Es idempotente: correrla dos veces no duplica nada (revisa qué ya
+ * existe antes de crear) y no borra ni pisa datos de otros usuarios.
+ *
+ * Depende de _leerCrudo/_escribirCrudo/_actualizarCrudo (Code.gs) —
+ * hace falta pegar el proyecto completo, como siempre.
+ *
+ * Uso: correr primero diagnosticoCompletarUsuario('Busquets') para
+ * confirmar que matchea al usuario correcto (o resolver el caso de
+ * nombre ambiguo), y recién después setupCompletarTodoParaUsuario
+ * con ese mismo nombre o con el id exacto que imprimió el diagnóstico.
+ */
+function diagnosticoCompletarUsuario(nombreOId) {
+  const usuarios = _leerCrudo('Usuarios');
+  const candidatos = usuarios.filter((u) =>
+    String(u.id) === String(nombreOId) ||
+    String(u.nombre || '').toLowerCase().indexOf(String(nombreOId).toLowerCase()) !== -1);
+
+  if (!candidatos.length) {
+    console.log('No se encontró ningún usuario que matchee "' + nombreOId + '"');
+    return;
+  }
+  candidatos.forEach((u) => {
+    console.log('id=' + u.id + ' · nombre=' + u.nombre + ' · rol=' + u.rol + ' · sucursal=' + u.sucursal);
+  });
+  if (candidatos.length > 1) {
+    console.log('');
+    console.log('Hay más de un candidato — pasá el id exacto (no el nombre) a setupCompletarTodoParaUsuario.');
+    return;
+  }
+
+  const cursos = _leerCrudo('Cursos');
+  console.log('');
+  console.log('Se completarían estos ' + cursos.length + ' cursos: ' + cursos.map((c) => c.nombre).join(', '));
+}
+
+function setupCompletarTodoParaUsuario(nombreOId) {
+  const usuarios = _leerCrudo('Usuarios');
+  const candidatos = usuarios.filter((u) =>
+    String(u.id) === String(nombreOId) ||
+    String(u.nombre || '').toLowerCase().indexOf(String(nombreOId).toLowerCase()) !== -1);
+
+  if (!candidatos.length) {
+    console.log('No se encontró ningún usuario que matchee "' + nombreOId + '"');
+    return;
+  }
+  if (candidatos.length > 1) {
+    console.log('Hay más de un usuario que matchea "' + nombreOId + '" — corré diagnosticoCompletarUsuario primero y pasá el id exacto acá.');
+    return;
+  }
+  const usuario = candidatos[0];
+  console.log('Completando TODOS los cursos para: id=' + usuario.id + ' · ' + usuario.nombre);
+
+  const cursos = _leerCrudo('Cursos');
+  const asignaciones = _leerCrudo('Asignaciones');
+  const resultados = _leerCrudo('Resultados');
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  let nuevasAsig = 0, actualizadasAsig = 0, nuevosRes = 0, yaAprobados = 0;
+
+  cursos.forEach((curso) => {
+    const asigExistente = asignaciones.find((a) =>
+      String(a.colaboradorId) === String(usuario.id) && String(a.cursoId) === String(curso.id));
+
+    if (asigExistente) {
+      if (asigExistente.estado !== 'completado' || Number(asigExistente.progreso) !== 100) {
+        _actualizarCrudo('Asignaciones', asigExistente.id, { progreso: 100, estado: 'completado' });
+        actualizadasAsig++;
+      }
+    } else {
+      _escribirCrudo('Asignaciones', { colaboradorId: usuario.id, cursoId: curso.id, progreso: 100, estado: 'completado', fechaAlta: hoy });
+      nuevasAsig++;
+    }
+
+    const yaAprobado = resultados.some((r) =>
+      String(r.colaboradorId) === String(usuario.id) && String(r.cursoId) === String(curso.id) && String(r.aprobado).toUpperCase() === 'SI');
+
+    if (yaAprobado) {
+      yaAprobados++;
+    } else {
+      _escribirCrudo('Resultados', { colaboradorId: usuario.id, cursoId: curso.id, nota: 10, aprobado: 'SI', fechaFinalizacion: hoy });
+      nuevosRes++;
+    }
+  });
+
+  console.log('');
+  console.log('Listo — ' + usuario.nombre + ' quedó con los ' + cursos.length + ' cursos completados y aprobados.');
+  console.log('Asignaciones: ' + nuevasAsig + ' nuevas, ' + actualizadasAsig + ' actualizadas a 100%.');
+  console.log('Resultados: ' + nuevosRes + ' nuevos aprobados, ' + yaAprobados + ' que ya estaban aprobados.');
+}
+
+/**
+ * El botón "Ejecutar" del editor de Apps Script no deja pasar
+ * parámetros — llama a la función sin argumentos, y con "Busquets"
+ * como parámetro de diagnosticoCompletarUsuario/
+ * setupCompletarTodoParaUsuario eso da "undefined". Estas dos son el
+ * mismo par de arriba con el nombre ya puesto adentro, para poder
+ * correrlas tal cual desde el botón.
+ */
+function diagnosticoCompletarBusquets() {
+  diagnosticoCompletarUsuario('Busquets');
+}
+
+function setupCompletarBusquets() {
+  setupCompletarTodoParaUsuario('Busquets');
+}
+
+/** "Busquets" matcheaba a DOS usuarios (el admin real y el
+ *  colaborador de prueba) — esta apunta directo al id del
+ *  colaborador de prueba, "Maximo Busquets ( Prueba )", que es el
+ *  que puede jugar el Desafío Diario (esa ruta es solo para rol
+ *  colaborador, el admin no entra ahí). */
+function setupCompletarMaximoBusquets() {
+  setupCompletarTodoParaUsuario('1785940890903');
+}
+
+/**
+ * Agrega la columna "excluidoDesafio" a Usuarios (Fase 3 del
+ * Desafío Diario — pages/ranking.js). Vacía por defecto para todos
+ * los usuarios existentes = participan normalmente. Idempotente:
+ * si la columna ya existe, no hace nada.
+ */
+function setupExcluidoDesafio() {
+  var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Usuarios');
+  var headers = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+
+  if (headers.indexOf('excluidoDesafio') !== -1) {
+    console.log('La columna "excluidoDesafio" ya existe en Usuarios — no se hizo nada.');
+    return;
+  }
+
+  hoja.getRange(1, headers.length + 1).setValue('excluidoDesafio');
+  console.log('✓ Columna "excluidoDesafio" agregada a Usuarios (vacía = participa normalmente).');
+}

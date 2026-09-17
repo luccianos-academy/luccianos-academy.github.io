@@ -72,6 +72,12 @@ function normalizarUsuario(f) {
         // es lo honesto: de los ingresos anteriores a este cambio no hay
         // registro. Es lo que alimenta la vista de cuentas dormidas.
         ultimoIngreso: String(f.ultimoIngreso || "").trim().slice(0, 10),
+        // Excluido del Ranking del Desafío Diario (pages/ranking.js) —
+        // acción manual del Admin, ej. sospecha de trampa. Vacío = SI
+        // participa normalmente. NUNCA se puede excluir a alguien que
+        // esté en el podio (1° a 3°) del mes en curso — eso lo verifica
+        // la propia pantalla, no esta capa de datos.
+        excluidoDesafio: String(f.excluidoDesafio || "").trim().toUpperCase() === "SI",
     };
 }
 

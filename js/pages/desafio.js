@@ -154,6 +154,7 @@ function renderYaJugado(resultadoHoy) {
             </div>
         </div>
         <p class="text-sm text-muted" style="margin-top:12px">Volvé mañana para seguir sumando.</p>
+        <a class="btn btn-secondary" style="margin-top:12px" href="#/ranking">Ver ranking del mes</a>
     `;
 }
 
@@ -308,5 +309,6 @@ function mostrarResumen(correctas, puntos, tiempoUsado) {
             </div>
         </div>
         <p class="text-sm text-muted" style="margin-top:12px">Volvé mañana para seguir sumando.</p>
+        <a class="btn btn-secondary" style="margin-top:12px" href="#/ranking">Ver ranking del mes</a>
     `;
 }

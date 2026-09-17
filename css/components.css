@@ -109,6 +109,156 @@
 .tarjeta-desafio .btn{
     align-self:flex-start;
 }
+.link-ranking{
+    display:block;
+    margin-top:4px;
+    font-size:12.5px;
+    color:var(--gold-deep);
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:3px;
+}
+
+/* Ranking del Desafío Diario (pages/ranking.js) */
+
+.selector-mes{
+    width:100%;
+    max-width:280px;
+    margin-bottom:18px;
+    padding:10px 32px 10px 12px;
+    border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    background:var(--card) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="%23c2a065" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>') no-repeat right 12px center;
+    color:var(--text);
+    font-family:inherit;
+    font-size:13px;
+    font-weight:600;
+    appearance:none;
+    -webkit-appearance:none;
+    cursor:pointer;
+}
+.selector-mes:focus{
+    outline:none;
+    border-color:var(--gold);
+}
+.ranking-header{
+    text-align:center;
+    margin-bottom:16px;
+}
+.ranking-header h2{
+    font-size:19px;
+    margin:0 0 3px;
+    color:var(--gold);
+}
+.ranking-header p{
+    font-size:12.5px;
+    color:var(--muted);
+    margin:0;
+}
+.resumen-admin{
+    color:var(--gold-deep) !important;
+    margin-top:6px !important;
+}
+.lista-ranking{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+.fila-ranking{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px 8px;
+    border-radius:var(--radius-sm);
+}
+.fila-ranking.yo{
+    background:var(--gold-soft);
+    border:1px solid #4a3c22;
+}
+.puesto{
+    width:24px;
+    text-align:center;
+    font-size:14px;
+    color:var(--muted);
+    flex-shrink:0;
+}
+.puesto.medalla{
+    font-size:18px;
+}
+.datos-ranking{
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+}
+.nombre-ranking{
+    font-size:13.5px;
+    color:var(--text);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.sucursal-ranking{
+    font-size:11px;
+    color:var(--muted);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.puntos-ranking{
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--muted);
+    font-variant-numeric:tabular-nums;
+    flex-shrink:0;
+}
+.fila-ranking.top3 .puntos-ranking{
+    color:var(--gold);
+}
+.nota-premio{
+    text-align:center;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:16px;
+}
+.separador-corte{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:8px 4px;
+    font-size:10.5px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.03em;
+}
+.separador-corte::before, .separador-corte::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background:var(--line);
+}
+.boton-excluir{
+    font-size:10.5px;
+    color:var(--danger);
+    background:none;
+    border:1px solid var(--danger);
+    border-radius:6px;
+    padding:3px 8px;
+    cursor:pointer;
+    flex-shrink:0;
+}
+.panel-excluidos{
+    margin-top:20px;
+    padding-top:14px;
+    border-top:1px solid var(--line);
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+.panel-excluidos > p{
+    margin:0 8px 6px;
+}
 
 /* ── Centro de notificaciones (pages/notificaciones.js) ─────────── */
 

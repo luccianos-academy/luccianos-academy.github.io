@@ -88,6 +88,7 @@ function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
                 ${encabezado}
                 <p class="text-sm text-muted">Para participar necesitás aprobar el examen de todos tus módulos. Te ${faltantesDesafio.length === 1 ? "falta" : "faltan"}: ${faltantesDesafio.map((c) => c.nombre).join(", ")}.</p>
                 <a class="btn btn-secondary" href="#/cursos">Ir a Mis cursos</a>
+                <a class="link-ranking" href="#/ranking">Ver ranking del mes ↗</a>
             </div>
         `;
     }
@@ -97,6 +98,7 @@ function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
             <div class="card tarjeta-desafio jugado">
                 ${encabezado}
                 <p class="text-sm text-muted">${desafioHoy.correctas}/${CANTIDAD_PREGUNTAS} correctas · ${desafioHoy.puntos} puntos sumados al ranking del mes. Volvé mañana para seguir sumando.</p>
+                <a class="link-ranking" href="#/ranking">Ver ranking del mes ↗</a>
             </div>
         `;
     }
@@ -106,6 +108,7 @@ function tarjetaDesafioHtml(faltantesDesafio, desafioHoy) {
             ${encabezado}
             <p class="text-sm text-muted">${CANTIDAD_PREGUNTAS} preguntas de todos tus módulos · 3 minutos. Sumás puntos para el ranking mensual.</p>
             <a class="btn btn-primary" href="#/desafio">Empezar desafío</a>
+            <a class="link-ranking" href="#/ranking">Ver ranking del mes ↗</a>
         </div>
     `;
 }
