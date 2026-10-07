@@ -2631,6 +2631,32 @@ table.data-table tbody tr:hover{
 }
 
 #arbol-contenido .arbol-hoja input{ width:auto; }
+
+/* Encabezado de categoría dentro del catálogo (Cannoli, Mini Icepops...):
+   un tilde que maneja todos sus productos a la vez. */
+#arbol-contenido .arbol-grupo{ margin:2px 0 6px; }
+
+#arbol-contenido .arbol-grupo-cab{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    margin:0;
+    padding:7px 10px 5px;
+    cursor:pointer;
+}
+
+#arbol-contenido .arbol-grupo-cab input{ width:auto; }
+
+.arbol-grupo-nombre{
+    flex:1;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    color:var(--gold-deep);
+}
+
+#arbol-contenido .arbol-grupo .arbol-hoja{ margin-left:14px; }
 #arbol-contenido .arbol-hoja:hover{ background:var(--surface-2); }
 
 /* Destildado = no lo tiene. Se atenúa y se tacha para poder recorrer

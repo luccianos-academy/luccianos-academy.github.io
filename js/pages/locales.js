@@ -15,10 +15,10 @@ import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
 import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, claveProducto, alcanceDe } from "../data/disponibilidad.js";
-import { PRODUCTOS_CHOCOLATERIA } from "../data/productosChocolateria.js";
-import { PRODUCTOS_HELADERIA } from "../data/productosHeladeria.js";
-import { PRODUCTOS_ICEPOPS } from "../data/productosIcepops.js";
-import { PRODUCTOS_PASTELERIA } from "../data/productosPasteleria.js";
+import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/productosChocolateria.js";
+import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
+import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
+import { PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA } from "../data/productosPasteleria.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { escaparHtml } from "../services/html.js";
@@ -27,11 +27,26 @@ import { navigate } from "../router.js";
 // Los productos viven en el código (data/productos*.js); acá sólo hace
 // falta saber cuáles son de cada curso para armar el árbol.
 const CATALOGO_POR_CURSO = {
-    "Chocolatería": [PRODUCTOS_CHOCOLATERIA],
-    "Heladería": [PRODUCTOS_HELADERIA],
-    "Icepops": [PRODUCTOS_ICEPOPS],
-    "Pastelería": [PRODUCTOS_PASTELERIA],
+    "Chocolatería": [PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA],
+    "Heladería": [PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA],
+    "Icepops": [PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS],
+    "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
 };
+
+/** Agrupa los productos por su categoría principal, en el orden de las
+ *  pills del catálogo. Sin esto el modal mostraba 57 productos de
+ *  Icepops en una sola lista y no había forma de sacar de un golpe, por
+ *  ejemplo, todos los Cannoli sin tocar los Mini Icepops. La categoría
+ *  principal es la primera (la misma que usa claveProducto), así un
+ *  producto con varias categorías aparece una sola vez. */
+function agruparPorCategoria(productos, categorias) {
+    const principal = (p) => (p.categorias || [p.categoria])[0] || "Otros";
+    const orden = [...(categorias || [])];
+    productos.forEach((p) => { if (!orden.includes(principal(p))) orden.push(principal(p)); });
+    return orden
+        .map((nombre) => ({ nombre, productos: productos.filter((p) => principal(p) === nombre) }))
+        .filter((g) => g.productos.length);
+}
 
 /** Cuenta cuántos ítems tienen restringido a este local, separados por
  *  TIPO (Módulos/Lecciones/Catálogo) — pedido explícito del usuario:
@@ -818,6 +833,7 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         + (soloLectura ? " disabled" : "");
 
     const productosDe = (nombreCurso) => (CATALOGO_POR_CURSO[nombreCurso] || [[]])[0];
+    const categoriasDe = (nombreCurso) => (CATALOGO_POR_CURSO[nombreCurso] || [[], []])[1];
     const alcances = (nombreCurso) => mapaDisponibilidad(disponibilidad, nombreCurso);
 
     const bloques = cursos.map((curso) => {
@@ -852,20 +868,28 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                     <button type="button" class="arbol-toggle" data-abrir="catalogo-${curso.id}">Ver</button>
                 </label>
                 <div class="arbol-hijos" id="catalogo-${curso.id}" hidden>
-                    ${misProductos.map((prod) => {
-                        const clave = claveProducto(prod, misProductos);
-                        // Si el nombre se repite en otra categoría, se aclara de cuál
-                        // es: sin esto "Semiamargo" aparece dos veces idéntico.
-                        const aclaracion = clave !== prod.nombre ? ` <span class="arbol-meta">${escaparHtml(prod.categoria || (prod.categorias || [])[0])}</span>` : "";
-                        return `
-                        <label class="arbol-hoja">
-                            <input type="checkbox" data-tipo="producto" data-curso="${escaparHtml(curso.nombre)}"
-                                   data-id="${escaparHtml(clave)}" data-nombre="${escaparHtml(prod.nombre)}" data-rama-de="catalogo-${curso.id}"
-                                   ${attrs(estado(alcanceDe(alc, prod, misProductos).noAplicaA))}>
-                            ${prod.foto ? `<img class="arbol-foto" src="${escaparHtml(prod.foto)}" alt="" loading="lazy">` : ""}
-                            <span>${escaparHtml(prod.nombre)}</span>${aclaracion}
-                        </label>`;
-                    }).join("")}
+                    ${agruparPorCategoria(misProductos, categoriasDe(curso.nombre)).map((grupo, gi) => `
+                        <div class="arbol-grupo">
+                            <label class="arbol-grupo-cab">
+                                <input type="checkbox" data-rama="cat-${curso.id}-${gi}" data-rama-de="catalogo-${curso.id}" ${soloLectura ? "disabled" : ""}>
+                                <span class="arbol-grupo-nombre">${escaparHtml(grupo.nombre)}</span>
+                                <span class="arbol-meta">${grupo.productos.length}</span>
+                            </label>
+                            ${grupo.productos.map((prod) => {
+                                const clave = claveProducto(prod, misProductos);
+                                // Si el nombre se repite en otra categoría, se aclara de cuál
+                                // es: sin esto "Semiamargo" aparece dos veces idéntico.
+                                const aclaracion = clave !== prod.nombre ? ` <span class="arbol-meta">${escaparHtml(grupo.nombre)}</span>` : "";
+                                return `
+                                <label class="arbol-hoja">
+                                    <input type="checkbox" data-tipo="producto" data-curso="${escaparHtml(curso.nombre)}"
+                                           data-id="${escaparHtml(clave)}" data-nombre="${escaparHtml(prod.nombre)}" data-rama-de="cat-${curso.id}-${gi}"
+                                           ${attrs(estado(alcanceDe(alc, prod, misProductos).noAplicaA))}>
+                                    ${prod.foto ? `<img class="arbol-foto" src="${escaparHtml(prod.foto)}" alt="" loading="lazy">` : ""}
+                                    <span>${escaparHtml(prod.nombre)}</span>${aclaracion}
+                                </label>`;
+                            }).join("")}
+                        </div>`).join("")}
                 </div>
             </div>` : "";
 
@@ -950,15 +974,34 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         toggle.textContent = caja.hidden ? "Ver" : "Ocultar";
     });
 
+    // Tocar una rama ("Catálogo", una categoría, "Lecciones") arrastra a
+    // sus hijos, y si el hijo es otra rama (Catálogo → Cannoli) sigue
+    // bajando hasta los productos.
+    const arrastrar = (rama, valor) => {
+        document.querySelectorAll(`[data-rama-de="${rama}"]`).forEach((chk) => {
+            chk.indeterminate = false;
+            chk.checked = valor;
+            if (chk.dataset.rama) arrastrar(chk.dataset.rama, valor);
+        });
+    };
+
+    // El encabezado de una categoría refleja a sus productos: tildado si
+    // los tiene a todos, destildado si a ninguno, indeterminado si mezcla.
+    const sincronizarCategorias = () => {
+        document.querySelectorAll('#arbol-contenido [data-rama^="cat-"]').forEach((cab) => {
+            const hijos = [...document.querySelectorAll(`[data-rama-de="${cab.dataset.rama}"]`)];
+            const todos = hijos.every((h) => h.checked && !h.indeterminate);
+            const ninguno = hijos.every((h) => !h.checked && !h.indeterminate);
+            cab.checked = todos;
+            cab.indeterminate = !todos && !ninguno;
+        });
+    };
+    sincronizarCategorias();
+
     document.getElementById("arbol-contenido").addEventListener("change", (e) => {
-        // Tocar una rama ("Catálogo", "Lecciones") arrastra a sus hijos.
-        if (e.target.dataset.rama) {
-            document.querySelectorAll(`[data-rama-de="${e.target.dataset.rama}"]`).forEach((chk) => {
-                chk.indeterminate = false;
-                chk.checked = e.target.checked;
-            });
-        }
+        if (e.target.dataset.rama) arrastrar(e.target.dataset.rama, e.target.checked);
         if (e.target.dataset.mezcla !== undefined) e.target.indeterminate = false;
+        sincronizarCategorias();
     });
 
     document.getElementById("buscador-arbol").addEventListener("input", (e) => {
@@ -966,6 +1009,14 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
         document.querySelectorAll("#arbol-contenido .arbol-hijos").forEach((c) => { c.hidden = !q; });
         document.querySelectorAll("#arbol-contenido .arbol-hoja").forEach((hoja) => {
             hoja.style.display = !q || hoja.textContent.toLowerCase().includes(q) ? "" : "none";
+        });
+        document.querySelectorAll("#arbol-contenido .arbol-grupo").forEach((g) => {
+            const nombre = g.querySelector(".arbol-grupo-nombre").textContent.toLowerCase();
+            const hay = !q || nombre.includes(q) || [...g.querySelectorAll(".arbol-hoja")].some((h) => h.style.display !== "none");
+            g.style.display = hay ? "" : "none";
+            // Si la búsqueda coincide con la categoría ("cannoli"), se
+            // muestran todos sus productos, no solo los que repiten la palabra.
+            if (q && nombre.includes(q)) g.querySelectorAll(".arbol-hoja").forEach((h) => { h.style.display = ""; });
         });
         document.querySelectorAll("#arbol-contenido .arbol-modulo").forEach((mod) => {
             const raiz = mod.querySelector(".arbol-raiz-nombre").textContent.toLowerCase();
