@@ -19,6 +19,7 @@ import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/product
 import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
 import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
 import { PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA } from "../data/productosPasteleria.js";
+import { PRODUCTOS_CAFETERIA, CATEGORIAS_CAFETERIA } from "../data/productosCafeteria.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { escaparHtml } from "../services/html.js";
@@ -31,6 +32,7 @@ const CATALOGO_POR_CURSO = {
     "Heladería": [PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA],
     "Icepops": [PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS],
     "Pastelería": [PRODUCTOS_PASTELERIA, CATEGORIAS_PASTELERIA],
+    "Cafetería": [PRODUCTOS_CAFETERIA, CATEGORIAS_CAFETERIA],
 };
 
 /** Agrupa los productos por su categoría principal, en el orden de las
