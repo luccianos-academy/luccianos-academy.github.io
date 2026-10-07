@@ -65,6 +65,32 @@ export function mapaDisponibilidad(filas, nombreCurso) {
     return mapa;
 }
 
+/**
+ * Clave con la que se guarda la excepción de un producto.
+ *
+ * Alcanza con el nombre cuando es único dentro del catálogo del curso.
+ * Pero hay nombres repetidos en categorías distintas (Chocolatería:
+ * "Semiamargo" es un Alfajor Y un Conito; Icepops: "Pistacchio" es
+ * Luxury, Cannoli y Geladot). Con el nombre solo, destildar uno
+ * destildaba todos los homónimos a la vez y no había forma de sacar
+ * uno sin el otro. En esos casos la clave lleva la categoría:
+ * "Alfajores: Semiamargo". Los nombres únicos NO cambian de clave, así
+ * que las excepciones ya guardadas siguen valiendo.
+ */
+export function claveProducto(prod, productosDelCurso) {
+    const cat = prod.categoria || (prod.categorias || [])[0];
+    const repetido = (productosDelCurso || []).filter((p) => p.nombre === prod.nombre).length > 1;
+    return repetido && cat ? `${cat}: ${prod.nombre}` : prod.nombre;
+}
+
+/** Alcance de un producto dado el mapa del curso. Si no tiene excepción
+ *  propia (clave con categoría) cae a la vieja, guardada solo por
+ *  nombre: así lo que ya estaba destildado antes de este cambio sigue
+ *  destildado en todos los homónimos hasta que alguien lo corrija a mano. */
+export function alcanceDe(mapa, prod, productosDelCurso) {
+    return mapa.get(claveProducto(prod, productosDelCurso)) || mapa.get(prod.nombre) || {};
+}
+
 /** Excluye o devuelve un producto para un país/local puntual, sin tocar
  *  el resto de su alcance. Es la operación que hace la pantalla:
  *  destildar en Chile no debería alterar lo que pasa en Uruguay. */

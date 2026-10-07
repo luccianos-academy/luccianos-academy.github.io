@@ -14,7 +14,7 @@ import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, elimin
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
-import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad } from "../data/disponibilidad.js";
+import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, claveProducto, alcanceDe } from "../data/disponibilidad.js";
 import { PRODUCTOS_CHOCOLATERIA } from "../data/productosChocolateria.js";
 import { PRODUCTOS_HELADERIA } from "../data/productosHeladeria.js";
 import { PRODUCTOS_ICEPOPS } from "../data/productosIcepops.js";
@@ -852,14 +852,20 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                     <button type="button" class="arbol-toggle" data-abrir="catalogo-${curso.id}">Ver</button>
                 </label>
                 <div class="arbol-hijos" id="catalogo-${curso.id}" hidden>
-                    ${misProductos.map((prod) => `
+                    ${misProductos.map((prod) => {
+                        const clave = claveProducto(prod, misProductos);
+                        // Si el nombre se repite en otra categoría, se aclara de cuál
+                        // es: sin esto "Semiamargo" aparece dos veces idéntico.
+                        const aclaracion = clave !== prod.nombre ? ` <span class="arbol-meta">${escaparHtml(prod.categoria || (prod.categorias || [])[0])}</span>` : "";
+                        return `
                         <label class="arbol-hoja">
                             <input type="checkbox" data-tipo="producto" data-curso="${escaparHtml(curso.nombre)}"
-                                   data-id="${escaparHtml(prod.nombre)}" data-rama-de="catalogo-${curso.id}"
-                                   ${attrs(estado((alc.get(prod.nombre) || {}).noAplicaA))}>
+                                   data-id="${escaparHtml(clave)}" data-nombre="${escaparHtml(prod.nombre)}" data-rama-de="catalogo-${curso.id}"
+                                   ${attrs(estado(alcanceDe(alc, prod, misProductos).noAplicaA))}>
                             ${prod.foto ? `<img class="arbol-foto" src="${escaparHtml(prod.foto)}" alt="" loading="lazy">` : ""}
-                            <span>${escaparHtml(prod.nombre)}</span>
-                        </label>`).join("")}
+                            <span>${escaparHtml(prod.nombre)}</span>${aclaracion}
+                        </label>`;
+                    }).join("")}
                 </div>
             </div>` : "";
 
@@ -916,7 +922,10 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                     const lec = lecciones.find((l) => String(l.id) === chk.dataset.id);
                     await actualizarLeccion(lec.id, { noAplicaA: conAmbitos(lec.noAplicaA, ambitos, chk.checked) });
                 } else {
-                    const actual = alcances(chk.dataset.curso).get(chk.dataset.id) || {};
+                    const mapa = alcances(chk.dataset.curso);
+                    // Si todavía no tiene fila propia, parte de la vieja (por nombre solo)
+                    // para no perder otros países que ya estaban destildados ahí.
+                    const actual = mapa.get(chk.dataset.id) || mapa.get(chk.dataset.nombre) || {};
                     await guardarDisponibilidad(chk.dataset.curso, chk.dataset.id,
                         { noAplicaA: conAmbitos(actual.noAplicaA, ambitos, chk.checked) }, disponibilidad);
                 }

@@ -33,7 +33,7 @@ import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
-import { getDisponibilidad, mapaDisponibilidad } from "../data/disponibilidad.js";
+import { getDisponibilidad, mapaDisponibilidad, alcanceDe } from "../data/disponibilidad.js";
 import { ES_ENTORNO_PRUEBA } from "../config.js";
 import { escaparHtml } from "../services/html.js";
 
@@ -652,7 +652,7 @@ async function renderDetalleCurso(usuario, cursoId) {
         const [productos, categorias] = galeriaCruda;
         const alcances = mapaDisponibilidad(await getDisponibilidad(), curso.nombre);
         const visibles = productos.filter((prod) =>
-            aplicaAlUsuario(alcances.get(prod.nombre) || {}, usuario));
+            aplicaAlUsuario(alcanceDe(alcances, prod, productos), usuario));
         // Una categoría que se quedó sin productos no se muestra: la
         // pill existiría, se tocaría, y la grilla quedaría vacía sin
         // explicar por qué.
