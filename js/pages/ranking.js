@@ -143,7 +143,7 @@ export async function Ranking() {
     mesActivo = mesActual;
 
     return `
-        ${Header("Ranking del Desafío Diario", "El Top 3 de cada mes gana el premio.")}
+        ${Header("Ranking del Desafío Diario", "Los puntos de cada día se suman en el ranking del mes.")}
         ${mesesDisponibles.length > 1 ? `
             <select class="selector-mes" id="ranking-selector-mes">
                 ${mesesDisponibles.map((m) => `<option value="${m.clave}">${m.label}</option>`).join("")}
@@ -219,12 +219,11 @@ function renderCuerpoRanking() {
     cont.innerHTML = `
         <div class="ranking-header">
             <h2>${infoMes.label}</h2>
-            <p>${infoMes.enCurso ? `Termina en ${diasHastaFinDeMes()} días` : "Cerrado — el premio ya se entregó"}</p>
+            <p>${infoMes.enCurso ? `Termina en ${diasHastaFinDeMes()} días` : "Mes cerrado"}</p>
             ${esAdminActivo ? `<p class="resumen-admin">${datos.activos.length} de ${totalColaboradores} colaboradores ${infoMes.enCurso ? "jugaron este mes — el resto todavía no participó" : "participaron este mes"}${datos.excluidos.length ? ` · ${datos.excluidos.length} excluido${datos.excluidos.length === 1 ? "" : "s"}` : ""}</p>` : ""}
         </div>
         <div class="lista-ranking">${filasHtml}</div>
         ${excluidosHtml}
-        <p class="nota-premio">Puestos 1° a 3° ganan el premio del mes</p>
     `;
 
     cont.querySelectorAll("[data-excluir]").forEach((btn) => {
