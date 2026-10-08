@@ -369,7 +369,7 @@ const IMAGENES_POR_LECCION = {
     ],
     7: [{ src: "assets/img/cursos/heladeria-pase-1.jpg", caption: "Comparar las dos mitades y elegir la de mejor apariencia" }, { src: "assets/img/cursos/heladeria-pase-2.jpg", caption: "Completar la vasqueta" }, { src: "assets/img/cursos/heladeria-pase-3.jpg", caption: "Formar los picos sobre la superficie" }, { src: "assets/img/cursos/heladeria-pase-4.jpg", caption: "Vasqueta terminada, con su cartel de sabor" }, { src: "assets/img/cursos/heladeria-pase-5.jpg", caption: "Cartel de sabor" }, { src: "assets/img/cursos/heladeria-pase-6.jpg", caption: "Colocar en el abatidor" }, { src: "assets/img/cursos/heladeria-pase-7.jpg", caption: "Exhibida en la vitrina" }],
     9: [{ src: "assets/img/cursos/heladeria-bano-chocolate-1.jpg", caption: "Cono antes del baño" }, { src: "assets/img/cursos/heladeria-bano-chocolate-2.jpg", caption: "Primer contacto con el chocolate" }, { src: "assets/img/cursos/heladeria-bano-chocolate-3.jpg", caption: "Girando para cubrir todo el cono" }, { src: "assets/img/cursos/heladeria-bano-chocolate-4.jpg", caption: "Retirando el exceso de chocolate" }, { src: "assets/img/cursos/heladeria-bano-chocolate-5.jpg", caption: "Cono terminado" }],
-    5: [{ src: "assets/img/cursos/heladeria-gramajes.png", caption: "Vasos y conos — gramaje por presentación" }, { src: "assets/img/cursos/heladeria-gramajes-potes.jpg", caption: "Potes Take Away, Consumo Ahora e Icepop Take Away" }],
+    5: [{ src: "assets/img/cursos/heladeria-gramajes.png", caption: "Vasos y conos — gramaje por presentación", noAplicaA: "Chile" }, { src: "assets/img/cursos/heladeria-gramajes-chile.png", caption: "Vasos y conos — gramaje por presentación", aplicaA: "Chile" }, { src: "assets/img/cursos/heladeria-gramajes-potes.jpg", caption: "Potes Take Away, Consumo Ahora e Icepop Take Away" }],
     8: [{ src: "assets/img/cursos/heladeria-vitrina-icepops.jpg", caption: "Vitrina de icepops y bombones exhibidos" }, { src: "assets/img/cursos/heladeria-vitrina-mostrador.jpg", caption: "Mostrador y exhibidor de gelato" }, { src: "assets/img/cursos/heladeria-vitrina-sabores.jpg", caption: "Vitrina con sabores etiquetados" }],
     23: [{ src: "assets/img/caja/caja-ingreso-personal-1.jpg", caption: "Vista principal del sistema" }, { src: "assets/img/caja/caja-ingreso-personal-2.jpg", caption: "Versión del sistema" }, { src: "assets/img/caja/caja-ingreso-personal-3.jpg", caption: "Fichaje de personal" }, { src: "assets/img/caja/caja-ingreso-personal-4.jpg", caption: "Inicio de caja diaria" }, { src: "assets/img/caja/caja-ingreso-personal-5.jpg", caption: "Inicio de caja: ingreso del cajero" }],
     24: [{ src: "assets/img/caja/caja-facturacion-1.jpg", caption: "Selección de productos" }, { src: "assets/img/caja/caja-facturacion-2.jpg", caption: "Sistema de facturación" }, { src: "assets/img/caja/caja-facturacion-3.jpg", caption: "Cierre de venta en efectivo" }, { src: "assets/img/caja/caja-facturacion-4.jpg", caption: "Consumo de bolsas" }, { src: "assets/img/caja/caja-facturacion-5.jpg", caption: "Formas de pago: efectivo y tarjeta" }],
@@ -429,6 +429,20 @@ function renderVideoCarrusel(videos, titulo) {
     `;
 }
 
+/** Las imágenes del carrusel de una lección que le corresponden a quien
+ *  mira. Cada item puede traer aplicaA/noAplicaA (mismo criterio que
+ *  cursos, lecciones y preguntas — ver services/alcance.js): así un país
+ *  que no tiene, por ejemplo, el vaso chico ve una versión de la lámina
+ *  sin él, y el resto la de siempre. Sin ninguna imagen para esa persona,
+ *  devuelve null y la lección no muestra carrusel. */
+function imagenesDeLaLeccion(leccionId) {
+    const items = IMAGENES_POR_LECCION[leccionId];
+    if (!items) return null;
+    const usuario = getUsuarioActual();
+    const visibles = items.filter((it) => aplicaAlUsuario(it, usuario));
+    return visibles.length ? visibles : null;
+}
+
 function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
     const tieneVideo = esUrlValida(l.video);
     // No hay forma de saber si el colaborador miró el video completo
@@ -442,8 +456,8 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
         ${l.objetivo ? `<p class="text-sm text-muted" style="margin-top:6px">${l.objetivo}</p>` : ""}
         ${VIDEOS_MULTIPLES_POR_LECCION[l.id]
             ? renderVideoCarrusel(VIDEOS_MULTIPLES_POR_LECCION[l.id], l.titulo)
-            : IMAGENES_POR_LECCION[l.id]
-            ? renderCarrusel(IMAGENES_POR_LECCION[l.id], l.titulo)
+            : imagenesDeLaLeccion(l.id)
+            ? renderCarrusel(imagenesDeLaLeccion(l.id), l.titulo)
             : VIDEO_POR_LECCION[l.id]
             ? `<div class="leccion-video-wrap">
                 <video class="leccion-imagen" data-src="${VIDEO_POR_LECCION[l.id]}" poster="${POSTER_POR_LECCION[l.id] || ""}" muted controls playsinline preload="none"></video>
