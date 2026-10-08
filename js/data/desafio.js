@@ -47,11 +47,16 @@ export async function getDesafioResultadosPorColaborador(colaboradorId) {
     return filas.filter((f) => String(f.colaboradorId) === String(colaboradorId));
 }
 
-/** "YYYY-MM-DD"/"YYYY-MM" en UTC — mismo criterio simple que ya usa el
- *  resto de la app para fechas (crearResultado en data/resultados.js,
- *  fechaAlta, etc.), sin sumar una librería de fechas para esto. */
+/** "YYYY-MM-DD"/"YYYY-MM" en hora LOCAL de quien juega. Antes se sacaba
+ *  de toISOString() (UTC): en Argentina el día "cambiaba" a las 21:00 —
+ *  una partida a las 22:00 del 7 quedaba guardada como del 8, se podía
+ *  jugar dos veces en lo que para la persona era el mismo día, y las
+ *  partidas de la última noche del mes caían en el mes siguiente. El
+ *  cierre de mes del backend (Code.gs) ya usa la zona horaria del
+ *  script, que es la misma. */
 export function hoyISO() {
-    return new Date().toISOString().slice(0, 10);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 export function mesActualISO() {

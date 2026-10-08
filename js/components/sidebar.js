@@ -48,7 +48,15 @@ let miUsuarioIdPedido = null;
 // Colaborador en la misma sesión del navegador, sin quedarse con la
 // cache vieja.
 function asegurarMiUsuarioCache(usuario) {
-    if (usuario.rol !== "colaborador") return;
+    if (usuario.rol !== "colaborador") {
+        // Sin esto, un Admin que usó "Ver como" sobre un Colaborador con el
+        // acceso por vencer seguía viendo SU badge "VENCE" en Inicio después
+        // de volver a su cuenta: la cache quedaba con el Colaborador viejo y
+        // nadie la limpiaba (el aviso es solo para el acceso propio).
+        miUsuarioCache = null;
+        miUsuarioIdPedido = null;
+        return;
+    }
     if (String(miUsuarioIdPedido) === String(usuario.id)) return;
     miUsuarioIdPedido = usuario.id;
     obtenerMiUsuario(usuario).then((u) => {
