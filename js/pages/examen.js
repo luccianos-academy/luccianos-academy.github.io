@@ -28,7 +28,7 @@ import { EmptyState } from "../components/emptyState.js";
 import { Icon } from "../components/icons.js";
 import { MaestroBurbuja } from "../components/maestro.js";
 import { getCursos } from "../data/cursos.js";
-import { getPreguntasPorCurso } from "../data/evaluaciones.js";
+import { getPreguntasPorCurso, preguntasQueLeAplican } from "../data/evaluaciones.js";
 import { crearResultado, getResultadosPorColaborador } from "../data/resultados.js";
 import { getAsignacionesPorColaborador } from "../data/asignaciones.js";
 import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js";
@@ -93,12 +93,15 @@ export async function Examen(params = []) {
     // mismo criterio "modoPrueba" que ya usa pages/cursos.js.
     const modoPrueba = estaViendoComo() || usuario.rol === "supervisor" || usuario.rol === "admin";
 
-    const [cursos, todasLasPreguntas, asignaciones, resultados] = await Promise.all([
+    const [cursos, bancoCompleto, asignaciones, resultados] = await Promise.all([
         getCursos(),
         getPreguntasPorCurso(cursoId),
         modoPrueba ? Promise.resolve([]) : getAsignacionesPorColaborador(usuario.id),
         modoPrueba ? Promise.resolve([]) : getResultadosPorColaborador(usuario.id),
     ]);
+    // Solo las preguntas que le corresponden a SU país/local: no tiene
+    // sentido evaluar sobre un producto o lección que no tiene.
+    const todasLasPreguntas = preguntasQueLeAplican(bancoCompleto, usuario);
 
     const curso = cursos.find((c) => String(c.id) === String(cursoId));
     if (!curso) {

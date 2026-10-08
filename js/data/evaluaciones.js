@@ -16,6 +16,7 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { evaluacionesMock } from "./mock/evaluaciones.mock.js";
 import { HOJAS } from "../config.js";
+import { aplicaAlUsuario } from "../services/alcance.js";
 
 /**
  * Acepta tanto una fila plana de Sheets (opcion1/opcion2/opcion3 +
@@ -39,6 +40,13 @@ function normalizarPregunta(f) {
         opciones,
         respuestaCorrecta,
         puntaje: Number(f.puntaje) || 0,
+        // Alcance por país/local, igual que Cursos/Lecciones (ver
+        // services/alcance.js): vacío = le aplica a todos. Se declara por
+        // pregunta porque una pregunta sobre un producto que un país no
+        // vende (ej. Cannoli en Chile) no la puede contestar quien no lo
+        // tiene. Se edita desde Locales → "Contenido que tienen".
+        aplicaA: String(f.aplicaA || "").trim(),
+        noAplicaA: String(f.noAplicaA || "").trim(),
     };
 }
 
@@ -63,6 +71,14 @@ export async function getEvaluaciones() {
         console.warn(`No se pudo leer '${HOJAS.EVALUACIONES}':`, err.message);
         return [];
     }
+}
+
+/** Deja solo las preguntas que le corresponden a esta persona según su
+ *  país/local. Admin y Supervisor las ven todas (aplicaAlUsuario). Es lo
+ *  que se usa para ARMAR un examen, entrenamiento o desafío; el banco
+ *  completo (getPreguntasPorCurso) sigue siendo el que ve el editor. */
+export function preguntasQueLeAplican(preguntas, usuario) {
+    return (preguntas || []).filter((p) => aplicaAlUsuario(p, usuario));
 }
 
 export async function getPreguntasPorCurso(cursoId) {

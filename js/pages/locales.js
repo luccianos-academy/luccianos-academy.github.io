@@ -14,6 +14,7 @@ import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, elimin
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
+import { getEvaluaciones, actualizarPregunta } from "../data/evaluaciones.js";
 import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, claveProducto, alcanceDe } from "../data/disponibilidad.js";
 import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/productosChocolateria.js";
 import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
@@ -50,6 +51,13 @@ function agruparPorCategoria(productos, categorias) {
         .filter((g) => g.productos.length);
 }
 
+/** Una pregunta entera no entra en un tooltip ni en una fila del árbol:
+ *  se recorta, y el texto completo queda en el atributo title. */
+function textoCorto(texto, max = 90) {
+    const t = String(texto || "").replace(/\s+/g, " ").trim();
+    return t.length > max ? t.slice(0, max - 1) + "…" : t;
+}
+
 /** Cuenta cuántos ítems tienen restringido a este local, separados por
  *  TIPO (Módulos/Lecciones/Catálogo) — pedido explícito del usuario:
  *  "1 módulo, 2 lecciones, 20 catálogo", así se sabe DE QUÉ son las
@@ -66,6 +74,7 @@ const TIPOS_RESTRICCION = [
     // "Catálogo" no cambia con la cantidad — pedido explícito: "20
     // catálogo", no "20 catálogos".
     { key: "Catálogo", singular: "catálogo", plural: "catálogo", tono: "badge-violeta" },
+    { key: "Evaluaciones", singular: "pregunta", plural: "preguntas", tono: "badge-success" },
 ];
 
 function contarRestricciones(items, local) {
@@ -257,8 +266,8 @@ export async function Locales() {
     // nuevos: eso es un cambio estructural y queda en el Admin. Editar,
     // activar y marcar propio/franquicia sí puede — el backend ya se lo
     // permite (Code.gs, Sucursales.actualizar).
-    const [locales, cursos, lecciones, disponibilidad] = await Promise.all([
-        getSucursales(), getCursos(), getLecciones(), getDisponibilidad(),
+    const [locales, cursos, lecciones, disponibilidad, preguntas] = await Promise.all([
+        getSucursales(), getCursos(), getLecciones(), getDisponibilidad(), getEvaluaciones(),
     ]);
     const misLocales = esAdmin ? [] : await getMisLocales(usuario, locales);
 
@@ -277,6 +286,7 @@ export async function Locales() {
         ...cursos.map((c) => ({ nombre: c.nombre, tipo: "Cursos", noAplicaA: c.noAplicaA })),
         ...lecciones.map((l) => ({ nombre: l.titulo, tipo: "Lecciones", noAplicaA: l.noAplicaA })),
         ...disponibilidad.map((d) => ({ nombre: d.producto || d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA })),
+        ...preguntas.map((q) => ({ nombre: textoCorto(q.pregunta), tipo: "Evaluaciones", noAplicaA: q.noAplicaA })),
     ].filter((it) => it.noAplicaA);
     locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosItems, l); });
 
@@ -815,8 +825,8 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
     // aviso — se enteran cuando alguien reclama que no ve algo.
     const soloLectura = getUsuarioActual()?.rol !== "admin";
 
-    const [cursos, lecciones, disponibilidad] = await Promise.all([
-        getCursos(), getLecciones(), getDisponibilidad(),
+    const [cursos, lecciones, disponibilidad, preguntas] = await Promise.all([
+        getCursos(), getLecciones(), getDisponibilidad(), getEvaluaciones(),
     ]);
     const modalId = "modal-contenido";
 
@@ -857,6 +867,25 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                             <input type="checkbox" data-tipo="leccion" data-id="${l.id}"
                                    data-rama-de="lecciones-${curso.id}" ${attrs(estado(l.noAplicaA))}>
                             <span>${escaparHtml(l.titulo)}</span>
+                        </label>`).join("")}
+                </div>
+            </div>` : "";
+
+        const misPreguntas = preguntas.filter((q) => String(q.cursoId) === String(curso.id));
+        const subPreguntas = misPreguntas.length ? `
+            <div class="arbol-rama">
+                <label class="arbol-sub">
+                    <input type="checkbox" data-rama="preguntas-${curso.id}" ${soloLectura ? "disabled" : ""}>
+                    <span class="arbol-sub-nombre">Evaluaciones</span>
+                    <span class="arbol-meta">${misPreguntas.length}</span>
+                    <button type="button" class="arbol-toggle" data-abrir="preguntas-${curso.id}">Ver</button>
+                </label>
+                <div class="arbol-hijos" id="preguntas-${curso.id}" hidden>
+                    ${misPreguntas.map((q) => `
+                        <label class="arbol-hoja" title="${escaparHtml(q.pregunta)}">
+                            <input type="checkbox" data-tipo="pregunta" data-id="${q.id}"
+                                   data-rama-de="preguntas-${curso.id}" ${attrs(estado(q.noAplicaA))}>
+                            <span>${escaparHtml(textoCorto(q.pregunta))}</span>
                         </label>`).join("")}
                 </div>
             </div>` : "";
@@ -904,6 +933,7 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                 </label>
                 ${subCatalogo}
                 ${subLecciones}
+                ${subPreguntas}
             </div>`;
     }).join("");
 
@@ -914,7 +944,7 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                 : `Destildá lo que <strong>${escaparHtml(etiquetaAmbito)}</strong>
                    ${ambitos.length === 1 ? "no tiene" : "no tienen"}. Lo que no toques queda como está.`}
         </p>
-        <input type="search" id="buscador-arbol" placeholder="Buscar módulo, lección o producto...">
+        <input type="search" id="buscador-arbol" placeholder="Buscar módulo, lección, producto o pregunta...">
         <div id="arbol-contenido" style="margin-top:14px">${bloques}</div>
     `;
 
@@ -944,6 +974,9 @@ async function abrirModalContenido(ambitos, etiquetaAmbito) {
                 if (chk.dataset.tipo === "curso") {
                     const curso = cursos.find((c) => String(c.id) === chk.dataset.id);
                     await actualizarCurso(curso.id, { noAplicaA: conAmbitos(curso.noAplicaA, ambitos, chk.checked) });
+                } else if (chk.dataset.tipo === "pregunta") {
+                    const q = preguntas.find((x) => String(x.id) === chk.dataset.id);
+                    await actualizarPregunta(q.id, { noAplicaA: conAmbitos(q.noAplicaA, ambitos, chk.checked) });
                 } else if (chk.dataset.tipo === "leccion") {
                     const lec = lecciones.find((l) => String(l.id) === chk.dataset.id);
                     await actualizarLeccion(lec.id, { noAplicaA: conAmbitos(lec.noAplicaA, ambitos, chk.checked) });
