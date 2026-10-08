@@ -25,7 +25,7 @@ import { Header } from "../components/header.js";
 import { EmptyState } from "../components/emptyState.js";
 import { Icon } from "../components/icons.js";
 import { getCursos } from "../data/cursos.js";
-import { getEvaluaciones } from "../data/evaluaciones.js";
+import { getEvaluaciones, preguntasQueLeAplican } from "../data/evaluaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getDesafioResultadosPorColaborador, crearDesafioResultado, yaJugoHoy, hoyISO } from "../data/desafio.js";
 import { getUsuarioActual } from "../services/auth.js";
@@ -103,7 +103,7 @@ export async function Desafio() {
         `;
     }
 
-    const banco = todasLasPreguntas.filter((p) =>
+    const banco = preguntasQueLeAplican(todasLasPreguntas, usuario).filter((p) =>
         cursosQueAplican.some((c) => String(c.id) === String(p.cursoId)));
 
     if (banco.length < CANTIDAD_PREGUNTAS) {

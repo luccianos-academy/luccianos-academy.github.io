@@ -18,7 +18,7 @@ import { Header } from "../components/header.js";
 import { EmptyState } from "../components/emptyState.js";
 import { Icon } from "../components/icons.js";
 import { getCursos } from "../data/cursos.js";
-import { getPreguntasPorCurso } from "../data/evaluaciones.js";
+import { getPreguntasPorCurso, preguntasQueLeAplican } from "../data/evaluaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getUsuarioActual } from "../services/auth.js";
 
@@ -40,11 +40,12 @@ export async function Entrenamiento(params = []) {
     cursoIdActivo = null; // se re-habilita más abajo solo si pasa el gate
 
     const usuario = getUsuarioActual();
-    const [cursos, resultados, preguntas] = await Promise.all([
+    const [cursos, resultados, bancoCompleto] = await Promise.all([
         getCursos(),
         getResultadosPorColaborador(usuario.id),
         getPreguntasPorCurso(cursoId),
     ]);
+    const preguntas = preguntasQueLeAplican(bancoCompleto, usuario);
 
     const curso = cursos.find((c) => String(c.id) === String(cursoId));
     if (!curso) {
