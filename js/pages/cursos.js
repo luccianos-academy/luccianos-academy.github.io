@@ -384,6 +384,18 @@ const IMAGENES_POR_LECCION = {
     89: [{ src: "assets/img/caja/caja-posnet-1.jpg", caption: "Cobro con tarjeta" }, { src: "assets/img/caja/caja-posnet-2.jpg", caption: "Cierre del posnet" }, { src: "assets/img/caja/caja-posnet-3.jpg", caption: "Lotes de tarjetas" }],
     90: [{ src: "assets/img/caja/caja-fabrica-stock-1.jpg", caption: "Menú de Utilidades" }, { src: "assets/img/caja/caja-fabrica-stock-2.jpg", caption: "Pedido a fábrica" }, { src: "assets/img/caja/caja-fabrica-stock-3.jpg", caption: "Ingreso de mercadería" }, { src: "assets/img/caja/caja-fabrica-stock-4.jpg", caption: "Informe de stock" }],
     91: [{ src: "assets/img/caja/caja-reportes-utilidades-1.jpg", caption: "Ventas sin cargo" }, { src: "assets/img/caja/caja-reportes-utilidades-2.jpg", caption: "Venta por producto" }, { src: "assets/img/caja/caja-reportes-utilidades-3.jpg", caption: "Registro de fichadas" }, { src: "assets/img/caja/caja-reportes-utilidades-4.jpg", caption: "Devoluciones" }, { src: "assets/img/caja/caja-reportes-utilidades-5.jpg", caption: "Envío de vasquetas" }],
+    99: [
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-9.jpg", caption: "Elementos de la etiquetadora — antes de empezar" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-1.jpg", caption: "01 · Pantalla principal — Editar, Imprimir, Ajustes" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-2.jpg", caption: "02 · Ajustes → ajustar fecha y hora del equipo" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-3.jpg", caption: "03 · Documento → Nuevo o Cargar" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-4.jpg", caption: "04 · Añadir → Fecha →" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-5.jpg", caption: "05 · Campo Fecha + Período de validez" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-6.jpg", caption: "06 · Ingresar los días de validez (ej. Conitos pink 45 / clásico 55, Alfajores pink 60 / clásico 70)" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-7.jpg", caption: "07 · Añadir → Texto → escribir VTO, luego ajustar el texto y el tamaño" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-3.jpg", caption: "08 · Guardar como — nombrar el documento (ej. Conitos pistacho/pink 45 días)" },
+        { src: "assets/img/chocolateria/chocolateria-etiquetadora-10.jpg", caption: "09 · Limpieza de contactos con alcohol isopropílico" },
+    ],
 };
 
 // Cada item es { src, caption } — la imagen es la página completa del
