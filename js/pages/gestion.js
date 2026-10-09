@@ -1419,7 +1419,7 @@ async function eliminarTarea(idTarea) {
 function abrirModalTarea() {
     const idModal = "modal-tarea";
     abrirModal(
-        Modal({ id: idModal, titulo: "Nueva tarea", contenidoHtml: contenidoModalTarea({}), textoConfirmar: "Guardar" }),
+        Modal({ id: idModal, titulo: "Nueva tarea", contenidoHtml: contenidoModalTarea({}), textoConfirmar: "Guardar", claseExtra: "modal-suave" }),
         idModal,
         async () => {
             const ok = await confirmarTarea(null);
@@ -1494,7 +1494,7 @@ function abrirCarruselTareas(idInicial) {
         // textoConfirmar vacío a propósito: la navegación/guardado de
         // este modal es toda propia (Anterior/Siguiente/Guardar), no el
         // botón único de abrirModal.
-        abrirModal(Modal({ id: modalId, titulo: "Editar tareas", contenidoHtml, textoConfirmar: "" }), modalId);
+        abrirModal(Modal({ id: modalId, titulo: "Editar tareas", contenidoHtml, textoConfirmar: "", claseExtra: "modal-suave" }), modalId);
         bindModalTarea();
         valoresAlMostrar = JSON.stringify(leerCamposTarea(idActual));
 
@@ -1559,7 +1559,7 @@ Orden de depósito
 Limpieza profunda de deck" style="width:100%;box-sizing:border-box;resize:vertical;"></textarea>
     `;
     abrirModal(
-        Modal({ id: idModal, titulo: "Cargar varias tareas", contenidoHtml, textoConfirmar: "Crear todas" }),
+        Modal({ id: idModal, titulo: "Cargar varias tareas", contenidoHtml, textoConfirmar: "Crear todas", claseExtra: "modal-suave" }),
         idModal,
         async () => {
             const textarea = document.getElementById("input-carga-masiva-titulos");
@@ -2003,12 +2003,17 @@ export async function Gestion() {
     // el patrón sea el mismo en toda la app en vez de un one-off acá.
     const comoFuncionaBtn = `<button type="button" class="compose-ayuda" id="btn-ayuda-gestion">${Icon("idea", { size: 16 })} ¿Cómo funciona?</button>`;
 
+    // .pagina-suave: la pantalla entera usa el azul suave (--info) en vez
+    // del dorado para lo elegido y los botones principales — ver el bloque
+    // "Gestión de tareas en azul suave" en components.css.
     return `
+        <div class="pagina-suave">
         ${Header("Gestión de tareas", "Organizá las tareas de tu local, por día o por mes", { accion: comoFuncionaBtn })}
 
         ${esVistaLectura ? selectorLocalHtml() : ""}
 
         <div id="cuerpo-gestion">${cuerpoGestionHtml()}</div>
+        </div>
     `;
 }
 

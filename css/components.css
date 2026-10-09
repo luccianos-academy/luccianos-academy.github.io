@@ -7964,3 +7964,66 @@ span.calendario-gestion-dia{
     color:#0b1520;
 }
 .contenido-nuevo-card .btn-primary:hover{ background:#8bb7e6; }
+
+
+/* ============================
+   Gestión de tareas en azul suave (--info) — mismo lenguaje que los
+   formularios de Manuales y News: lo elegido va en azul tenue, los
+   botones principales en azul, y el dorado queda para la marca. Se pisa
+   acá (al final del archivo) y no en cada regla original para que sea un
+   solo bloque fácil de revertir. El verde/rojo/amarillo de ESTADO
+   (hecha, incidencia, grave) no se toca: eso es semántica, no acento.
+=============================*/
+.pagina-suave .btn-primary{
+    background:var(--info);
+    color:#0b1520;
+}
+.pagina-suave .btn-primary:hover{ background:#8bb7e6; }
+
+.tab-gestion:hover{ border-color:rgba(111,163,216,.5); color:var(--text); }
+.tab-gestion.activa,
+.pill-dia-tarea.activa,
+.pagina-suave .pill-categoria.activa{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+.pill-dia-tarea:hover,
+.pagina-suave .pill-categoria:hover{ border-color:rgba(111,163,216,.5); }
+
+.toggle-frecuencia-btn.activa{
+    background:var(--info-soft);
+    color:var(--info);
+    box-shadow:inset 0 0 0 1px rgba(111,163,216,.5);
+}
+
+.tarea-gestion-ico{
+    background:var(--info-soft);
+    color:var(--info);
+}
+.tarea-gestion-check{ accent-color:var(--info); }
+
+button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
+.calendario-gestion-dia.hoy{
+    background:var(--info-soft);
+    color:var(--info);
+}
+.calendario-gestion-dia.hoy::after{ background:var(--info); }
+.calendario-gestion-dia.activo{
+    background:var(--info);
+    color:#0b1520;
+}
+.calendario-gestion-dia.activo::after{ background:#0b1520; }
+
+/* Selector de alcance por país dentro de los modales de tarea. */
+.alcance-pais .pill-categoria.activa,
+.campo-alcance-tarea .pill-categoria.activa{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+
+.pagina-suave .btn-agregar-subtarea-nueva,
+.modal-suave .btn-agregar-subtarea-nueva{ color:var(--info); }
+.pagina-suave .toggle-switch input[type="checkbox"]:checked,
+.modal-suave .toggle-switch input[type="checkbox"]:checked{ background:var(--info); }
