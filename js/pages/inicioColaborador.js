@@ -23,13 +23,14 @@ import { Icon } from "../components/icons.js";
 import { getAsignacionesPorColaborador, getAsignaciones } from "../data/asignaciones.js";
 import { getResultadosPorColaborador } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
-import { getLeccionesPorCurso } from "../data/lecciones.js";
+import { getLeccionesPorCurso, getLecciones } from "../data/lecciones.js";
 import { getColaboradoresPorSucursal } from "../data/usuarios.js";
 import { getDesafioResultadosPorColaborador, getDesafioHistorial, hoyISO } from "../data/desafio.js";
 import { CANTIDAD_PREGUNTAS } from "./desafio.js";
 import { nombreMes } from "./ranking.js";
 import { getUsuarioActual } from "../services/auth.js";
-import { cursosDeLaPersona } from "../services/alcance.js";
+import { cursosDeLaPersona, leccionesDeLaPersona } from "../services/alcance.js";
+import { leccionesNuevasDeCurso } from "../services/contenidoNuevo.js";
 
 // Por cantidad de cursos completados, no por promedio de progreso —
 // completar un curso es de un solo sentido (nunca "se descompleta"),
@@ -68,6 +69,31 @@ function checklistItem(texto, hecho) {
         <div class="checklist-item${hecho ? " done" : ""}">
             ${Icon(hecho ? "check" : "candado", { size: 15 })}
             <span>${texto}</span>
+        </div>
+    `;
+}
+
+/** Aviso de lecciones nuevas en cursos que la persona ya tenía. */
+function tarjetaContenidoNuevoHtml(novedades) {
+    if (!novedades.length) return "";
+    const total = novedades.reduce((s, n) => s + n.nuevas.length, 0);
+    const primera = novedades[0];
+    const titulo = novedades.length === 1
+        ? `Hay contenido nuevo en ${primera.curso.nombre}`
+        : `Hay contenido nuevo en ${novedades.length} cursos`;
+    const detalle = novedades.length === 1
+        ? `${total === 1 ? "1 lección nueva" : total + " lecciones nuevas"} · ${primera.nuevas[0].titulo}`
+        : `${total} lecciones nuevas · ${novedades.map((n) => n.curso.nombre).join(", ")}`;
+    return `
+        <div class="section">
+            <div class="contenido-nuevo-card">
+                <span class="contenido-nuevo-icono">${Icon("idea", { size: 22 })}</span>
+                <div class="contenido-nuevo-texto">
+                    <strong>${titulo}</strong>
+                    <span>${detalle}</span>
+                </div>
+                <a class="btn btn-primary" href="#/cursos/${primera.curso.id}">Ver novedades</a>
+            </div>
         </div>
     `;
 }
@@ -216,6 +242,17 @@ export async function InicioColaborador() {
         }
     }
 
+    // Contenido agregado a un curso que ya tenía (en especial uno al
+    // 100%, que si no se enteraría por otra vía) — ver
+    // services/contenidoNuevo.js. Se muestra solo de los cursos que le
+    // aplican a la persona y que ya tiene asignados.
+    const todasLasLecciones = await getLecciones();
+    const novedades = cursosAplicables.map((c) => {
+        const asignacion = asignaciones.find((a) => String(a.cursoId) === String(c.id));
+        const deLaPersona = leccionesDeLaPersona(todasLasLecciones.filter((l) => String(l.cursoId) === String(c.id)), usuario);
+        return { curso: c, nuevas: leccionesNuevasDeCurso(deLaPersona, asignacion, usuario.id) };
+    }).filter((n) => n.nuevas.length);
+
     const completoCurso = (nombre) => {
         const curso = cursos.find((c) => c.nombre === nombre);
         if (!curso) return false;
@@ -315,6 +352,8 @@ export async function InicioColaborador() {
                 <div class="camino-pips">${caminoPips}</div>
             </div>
         </div>
+
+        ${tarjetaContenidoNuevoHtml(novedades)}
 
         <div class="section">
             <h2>Continuá donde quedaste</h2>

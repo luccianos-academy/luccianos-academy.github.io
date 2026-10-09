@@ -54,6 +54,11 @@ function normalizarLeccion(f) {
         aplicaA: String(f.aplicaA || "").trim(),
         // Ver la nota en data/cursos.js — mismo campo, misma semántica.
         noAplicaA: String(f.noAplicaA || "").trim(),
+        // YYYY-MM-DD. Solo la completan las lecciones cargadas con
+        // "Avisar como contenido nuevo" — es lo que dispara la etiqueta
+        // "Nuevo" para quien ya tenía el curso (ver
+        // services/contenidoNuevo.js). Vacío = nunca avisa.
+        fechaPublicacion: String(f.fechaPublicacion || "").slice(0, 10),
     };
 }
 
@@ -82,11 +87,12 @@ export async function crearLeccion({
     // silencio lo que no está nombrado acá.
     aplicaA = "", noAplicaA = "",
     obligatoria = "SI",
+    fechaPublicacion = "",
 }) {
     return writeSheet(HOJAS.LECCIONES, {
         cursoId, orden, titulo, objetivo, duracionMinutos,
         video, manual, manualLabel, imagen, procedimiento, errores,
-        buenasPracticas, consejo, resumen, estado, aplicaA, noAplicaA, obligatoria,
+        buenasPracticas, consejo, resumen, estado, aplicaA, noAplicaA, obligatoria, fechaPublicacion,
     }, leccionesMock);
 }
 

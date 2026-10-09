@@ -23,6 +23,31 @@ import { Icon } from "../components/icons.js";
 import { escaparHtml } from "../services/html.js";
 import { gasRequest } from "../services/google.js";
 
+// paisesA guarda países sueltos ("Argentina") o país + tipo de local
+// ("Argentina:Propios") — ver data/manuales.js → puedeVerManual. En la
+// pantalla se edita como pastillas de país + UNA pastilla de tipo que
+// vale para todos los países elegidos.
+function leerPaisesA(valor) {
+    const tokens = String(valor || "").split(",").map((t) => t.trim()).filter(Boolean);
+    const paises = [];
+    let tipo = "todos";
+    tokens.forEach((t) => {
+        const m = t.match(/^(.+):(propios|franquicias)$/i);
+        if (m) { paises.push(m[1].trim()); tipo = m[2].toLowerCase(); } else paises.push(t);
+    });
+    return { paises, tipo };
+}
+
+function escribirPaisesA(paises, tipo) {
+    return paises.map((p) => (tipo === "propios" ? `${p}:Propios` : tipo === "franquicias" ? `${p}:Franquicias` : p)).join(",");
+}
+
+const TIPOS_LOCAL_MANUAL = [
+    { valor: "todos", etiqueta: "Todos los locales" },
+    { valor: "propios", etiqueta: "Solo propios" },
+    { valor: "franquicias", etiqueta: "Solo franquicias" },
+];
+
 // "capacitador" no es un rol real (ver data/usuarios.js — es un
 // Supervisor con otra etiqueta), pero necesita su propio checkbox acá
 // para poder dirigir contenido solo a capacitadores sin que lo vea
@@ -62,8 +87,9 @@ function camposManualHtml(m = {}, sucursales = []) {
     const paisesDisponibles = [...new Set(sucursales.map((s) => s.pais).filter(Boolean))]
         .sort((a, b) => a === "Argentina" ? -1 : b === "Argentina" ? 1 : a.localeCompare(b));
     const esManualNuevo = !m.id;
-    const paisesElegidos = m.paisesA
-        ? m.paisesA.split(",").map((p) => p.trim()).filter(Boolean)
+    const { paises: paisesGuardados, tipo: tipoLocalActual } = leerPaisesA(m.paisesA);
+    const paisesElegidos = paisesGuardados.length
+        ? paisesGuardados
         : (esManualNuevo ? ["Argentina"] : []);
     const checkboxesHtml = ROLES_COMPARTIR.map((r) => `
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin-top:0">
@@ -102,7 +128,11 @@ function camposManualHtml(m = {}, sucursales = []) {
         <div class="galeria-pills" id="pills-paises-manual">
             ${paisesDisponibles.map((p) => `<button type="button" class="pill-categoria${paisesElegidos.includes(p) ? " activa" : ""}" data-pill-pais="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
         </div>
-        <p class="text-xs text-muted" style="margin-top:4px">Sin ningún país tildado, el manual no se acota por país — se rige solo por Rol/Local.</p>
+        <label style="margin-top:14px">Tipo de local <span class="mod-tooltip" data-tooltip-texto="Vale para todos los países que tildaste arriba. Con 'Solo propios', un colaborador de una franquicia no lo ve.">ⓘ</span></label>
+        <div class="galeria-pills" id="pills-tipo-manual">
+            ${TIPOS_LOCAL_MANUAL.map((t) => `<button type="button" class="pill-categoria${tipoLocalActual === t.valor ? " activa" : ""}" data-pill-tipo-local="${t.valor}">${t.etiqueta}</button>`).join("")}
+        </div>
+        <p class="text-xs text-muted" style="margin-top:4px">Sin ningún país tildado, el manual no se acota por país ni por tipo de local — se rige solo por Rol/Local.</p>
     `;
 }
 
@@ -121,9 +151,10 @@ function chipsVisibilidadHtml(m) {
         ? `<span class="badge badge-muted">${locales.length} local${locales.length > 1 ? "es" : ""}</span>`
         : "";
 
-    const paises = m.paisesA ? m.paisesA.split(",").map((p) => p.trim()).filter(Boolean) : [];
+    const { paises, tipo } = leerPaisesA(m.paisesA);
+    const sufijoTipo = tipo === "propios" ? " · solo propios" : tipo === "franquicias" ? " · solo franquicias" : "";
     const chipPaises = paises.length
-        ? `<span class="badge badge-info" title="${escaparHtml(paises.join(", "))}">${paises.length === 1 ? paises[0] : `${paises.length} países`}</span>`
+        ? `<span class="badge badge-info" title="${escaparHtml(paises.join(", ") + sufijoTipo)}">${(paises.length === 1 ? paises[0] : `${paises.length} países`) + sufijoTipo}</span>`
         : "";
 
     return chipsRoles + chipLocales + chipPaises;
@@ -142,13 +173,14 @@ function leerCamposManual() {
         if (url) archivos.push({ url, label });
     });
     const paisesElegidos = [...document.querySelectorAll("#pills-paises-manual .pill-categoria.activa")].map((p) => p.dataset.pillPais);
+    const tipoLocal = document.querySelector("#pills-tipo-manual .pill-categoria.activa")?.dataset.pillTipoLocal || "todos";
     return {
         titulo: document.getElementById("input-titulo").value.trim(),
         categoria: document.getElementById("input-categoria").value.trim(),
         archivos,
         visiblePara: rolesElegidos.join(","),
         sucursal: document.getElementById("input-sucursal-manual").value.trim(),
-        paisesA: paisesElegidos.join(","),
+        paisesA: escribirPaisesA(paisesElegidos, tipoLocal),
     };
 }
 
@@ -275,6 +307,13 @@ async function abrirModalManual(manual = null) {
     // patrón que News.
     document.querySelectorAll("#pills-paises-manual [data-pill-pais]").forEach((pill) => {
         pill.addEventListener("click", () => pill.classList.toggle("activa"));
+    });
+
+    // Tipo de local — una sola opción a la vez.
+    document.querySelectorAll("#pills-tipo-manual [data-pill-tipo-local]").forEach((pill) => {
+        pill.addEventListener("click", () => {
+            document.querySelectorAll("#pills-tipo-manual [data-pill-tipo-local]").forEach((p) => p.classList.toggle("activa", p === pill));
+        });
     });
 
     const listaArchivos = document.getElementById("lista-archivos-manual");

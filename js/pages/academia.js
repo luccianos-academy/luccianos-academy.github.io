@@ -220,6 +220,14 @@ function camposLeccionEditorHtml(l = {}) {
                     </label>
                     <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Destildá esto para contenido de referencia que no todos necesitan (ej. una máquina que no todos los locales tienen). Queda visible igual, pero sin botón de "Marcar como vista" y sin contar para el % de progreso ni el examen.</p>
 
+                    ${l.id ? "" : `
+                    <label class="toggle-switch" style="margin-top:20px">
+                        Avisar como contenido nuevo
+                        <input type="checkbox" id="input-avisar-nuevo" checked>
+                    </label>
+                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Marca la lección con "Nuevo" y muestra un aviso en el Inicio de quienes ya tenían este curso (incluso al 100%). Dura 60 días. Destildalo si es una corrección menor.</p>
+                    `}
+
                     <label class="toggle-switch" style="margin-top:20px">
                         Activa
                         <input type="checkbox" id="input-activa" ${l.estado !== "Inactivo" ? "checked" : ""}>
@@ -256,7 +264,16 @@ function leerCamposLeccionEditor() {
         orden: Number(document.getElementById("input-orden").value) || 0,
         obligatoria: document.getElementById("input-obligatoria").checked ? "SI" : "NO",
         estado: document.getElementById("input-activa").checked ? "Activo" : "Inactivo",
+        // Solo existe el toggle al crear; al editar no se toca la fecha.
+        ...(document.getElementById("input-avisar-nuevo")?.checked ? { fechaPublicacion: hoyLocalISO() } : {}),
     };
+}
+
+/** Hoy como YYYY-MM-DD en hora LOCAL — toISOString() da la fecha UTC, y de
+ *  noche en Argentina ya es "mañana" (mismo bug que tuvo el Desafío). */
+function hoyLocalISO() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /**

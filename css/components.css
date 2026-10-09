@@ -7658,3 +7658,53 @@ span.calendario-gestion-dia{
     font-size:13px;
     color:var(--muted);
 }
+
+
+/* Contenido nuevo (ver services/contenidoNuevo.js) — dorado de marca, a
+   propósito distinto del violeta del Desafío y de los estados
+   (éxito/alerta/error), para que "Nuevo" se lea como novedad y no como
+   un estado de la lección. */
+.badge-nuevo{
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    border:1px solid rgba(194,160,101,.4);
+    margin-left:8px;
+}
+.leccion-item-nueva{
+    background:linear-gradient(0deg, rgba(194,160,101,.06), rgba(194,160,101,.06)), var(--card);
+}
+.curso-aviso-nuevas{
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    color:var(--muted);
+}
+.curso-aviso-nuevas .badge-nuevo{ margin-left:0; }
+
+.contenido-nuevo-card{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    background:var(--card);
+    border:1px solid rgba(194,160,101,.4);
+    border-radius:var(--radius);
+    padding:16px 18px;
+    box-shadow:var(--shadow);
+}
+.contenido-nuevo-icono{
+    width:42px;
+    height:42px;
+    border-radius:var(--radius-sm);
+    background:var(--gold-soft);
+    color:var(--gold-deep);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+}
+.contenido-nuevo-texto{ flex:1; min-width:200px; }
+.contenido-nuevo-texto strong{ display:block; font-size:15px; }
+.contenido-nuevo-texto span{ font-size:13px; color:var(--muted); }

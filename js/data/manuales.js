@@ -76,10 +76,24 @@ export function puedeVerManual(manual, usuario, sucursales = []) {
     // de todo lo demás porque es una condición más, no un modo
     // separado: un manual puede estar restringido por país Y por rol Y
     // por local, todo a la vez.
+    //
+    // Cada token es un país ("Argentina") o un país + tipo de local
+    // ("Argentina:Propios", "Chile:Franquicias") — el mismo formato que
+    // ya entiende services/alcance.js. Con tipo, la persona tiene que
+    // ser de ese país Y trabajar en un local de ese tipo.
     const paisesA = String(manual.paisesA || "").trim();
     if (paisesA && usuario.rol === "colaborador") {
-        const paises = paisesA.split(",").map(normalizar).filter(Boolean);
-        if (!paises.includes(normalizar(paisDe(usuario, sucursales)))) return false;
+        const miPais = normalizar(paisDe(usuario, sucursales));
+        const miSuc = sucursales.find((x) => normalizar(x.nombre) === normalizar(usuario.sucursal));
+        const miTipo = miSuc ? (miSuc.esPropio ? "propios" : "franquicias") : "";
+        const aplica = paisesA.split(",").map((t) => t.trim()).filter(Boolean).some((token) => {
+            if (token.includes(":")) {
+                const [pais, tipo] = token.split(":").map(normalizar);
+                return pais === miPais && !!miTipo && tipo === miTipo;
+            }
+            return normalizar(token) === miPais;
+        });
+        if (!aplica) return false;
     }
 
     const visiblePara = String(manual.visiblePara || "").trim();

@@ -33,6 +33,7 @@ import { proximoReintento, mensajeCooldown } from "../services/cooldownExamen.js
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual, estaViendoComo } from "../services/auth.js";
 import { aplicaAlUsuario, leccionesDeLaPersona } from "../services/alcance.js";
+import { leccionesNuevasDeCurso, marcarLeccionNuevaVista } from "../services/contenidoNuevo.js";
 import { getDisponibilidad, mapaDisponibilidad, alcanceDe } from "../data/disponibilidad.js";
 import { ES_ENTORNO_PRUEBA } from "../config.js";
 import { escaparHtml } from "../services/html.js";
@@ -482,6 +483,41 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
     `;
 }
 
+/** Ids de las lecciones que el curso abierto le muestra como "Nuevo" a
+ *  esta persona (ver services/contenidoNuevo.js). Se calcula UNA vez al
+ *  abrir el curso y se conserva mientras dure la visita: la etiqueta se
+ *  apaga recién en la próxima, no en el momento de verla. */
+let leccionesNuevasIds = new Set();
+
+function etiquetaNuevo(l) {
+    return leccionesNuevasIds.has(String(l.id)) ? `<span class="badge badge-nuevo">Nuevo</span>` : "";
+}
+
+/** Cuando una lección nueva queda a la vista, se anota como vista. Sin
+ *  IntersectionObserver (navegadores muy viejos) se anota al abrir el
+ *  curso. No se anota cuando un admin mira "como" otra persona: le
+ *  apagaría el aviso a alguien que no lo vio. */
+function observarLeccionesNuevas(raiz, usuario) {
+    if (estaViendoComo() || !leccionesNuevasIds.size) return;
+    // Una lección todavía bloqueada (alguien a mitad del curso) no cuenta
+    // como vista: el aviso tiene que seguir hasta que pueda abrirla.
+    const items = raiz.querySelectorAll("[data-leccion-nueva]:not(.bloqueada)");
+    if (!items.length) return;
+    const anotar = (el) => marcarLeccionNuevaVista(usuario.id, el.dataset.leccionNueva);
+    if (!("IntersectionObserver" in window)) { items.forEach(anotar); return; }
+    // Se observa el ENCABEZADO de cada lección y no la lección entera:
+    // una lección larga en un celular nunca llega a tener una fracción
+    // alta de su altura a la vista, y no se anotaría jamás.
+    const obs = new IntersectionObserver((entradas) => {
+        entradas.forEach((e) => {
+            if (!e.isIntersecting) return;
+            anotar(e.target.closest("[data-leccion-nueva]"));
+            obs.unobserve(e.target);
+        });
+    }, { threshold: 0.6 });
+    items.forEach((el) => obs.observe(el.querySelector(".leccion-item-header") || el));
+}
+
 /** El HTML de la lista de lecciones obligatorias — separado de
  *  renderDetalleCurso para poder reconstruir SOLO esto (ver el handler
  *  de "Marcar como vista", más abajo) sin volver a pedir curso/
@@ -495,10 +531,10 @@ function filasLeccionesObligatoriasHtml(leccionesObligatorias, leccionesVistas, 
         const cuerpo = (vista || esActual) ? renderCuerpoLeccion(l, esActual, i, puedeMarcarVista) : `<p class="text-sm text-muted" style="margin-top:6px">Completá la lección anterior para desbloquearla.</p>`;
 
         return `
-            <div class="leccion-item${vista ? " vista" : ""}${bloqueada ? " bloqueada" : ""}">
+            <div class="leccion-item${vista ? " vista" : ""}${bloqueada ? " bloqueada" : ""}${leccionesNuevasIds.has(String(l.id)) ? " leccion-item-nueva" : ""}"${leccionesNuevasIds.has(String(l.id)) ? ` data-leccion-nueva="${l.id}"` : ""}>
                 <div class="leccion-item-header">
                     <span class="leccion-numero">${vista ? Icon("check", { size: 14 }) : l.orden}</span>
-                    <h3>${l.titulo}</h3>${etiquetaVariante(l)}
+                    <h3>${l.titulo}</h3>${etiquetaVariante(l)}${etiquetaNuevo(l)}
                     ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
                 </div>
                 ${cuerpo}
@@ -558,6 +594,8 @@ async function renderDetalleCurso(usuario, cursoId) {
     const asignacion = asignaciones.find((a) => String(a.cursoId) === String(cursoId)) || null;
     const progreso = asignacion ? asignacion.progreso : 0;
 
+    leccionesNuevasIds = new Set(leccionesNuevasDeCurso(lecciones, asignacion, usuario.id).map((l) => String(l.id)));
+
     if (!lecciones.length) {
         return `
             <a class="btn btn-secondary" href="#/cursos">← Volver a Mis cursos</a>
@@ -595,11 +633,11 @@ async function renderDetalleCurso(usuario, cursoId) {
     // nada real: sin botón "Marcar como vista", nunca se dispara el
     // handler que lo leería.
     const filasOpcionales = leccionesOpcionales.map((l, i) => `
-        <div class="leccion-item leccion-item-opcional">
+        <div class="leccion-item leccion-item-opcional${leccionesNuevasIds.has(String(l.id)) ? " leccion-item-nueva" : ""}"${leccionesNuevasIds.has(String(l.id)) ? ` data-leccion-nueva="${l.id}"` : ""}>
             <div class="leccion-item-header">
                 <span class="leccion-numero leccion-numero-opcional" title="No obligatoria">${Icon("alertas", { size: 14 })}</span>
                 <h3>${l.titulo}</h3>
-                <span class="badge badge-muted">Opcional</span>
+                <span class="badge badge-muted">Opcional</span>${etiquetaNuevo(l)}
                 ${l.duracionMinutos ? `<span class="leccion-duracion">${l.duracionMinutos} min</span>` : ""}
             </div>
             ${renderCuerpoLeccion(l, true, i, false)}
@@ -714,6 +752,7 @@ async function renderDetalleCurso(usuario, cursoId) {
                 <div class="curso-progreso-sticky">
                     <div class="stat-progress-bar wide"><i style="width:${progreso}%"></i></div>
                     <p class="text-sm text-muted" style="margin-top:8px">${progreso}% completado · ${leccionesVistas}/${leccionesObligatorias.length} lecciones</p>
+                    ${leccionesNuevasIds.size ? `<p class="text-sm curso-aviso-nuevas"><span class="badge badge-nuevo">${leccionesNuevasIds.size === 1 ? "1 nueva" : leccionesNuevasIds.size + " nuevas"}</span> Sumamos contenido a este curso — buscá la etiqueta Nuevo en las lecciones.</p>` : ""}
                 </div>
             `}
 
@@ -1009,6 +1048,7 @@ function bindLeccionesInteractivas(raiz, cursoId) {
                 if (lista) {
                     lista.innerHTML = filasLeccionesObligatoriasHtml(lecciones, nuevasVistas, modoPrueba, puedeMarcarVista);
                     bindLeccionesInteractivas(lista, cursoId);
+                    observarLeccionesNuevas(lista, usuario);
                 }
                 const barra = document.querySelector(".curso-progreso-sticky .stat-progress-bar > i");
                 if (barra) barra.style.width = `${nuevoProgreso}%`;
@@ -1111,4 +1151,5 @@ export function bindCursos(params = []) {
 
     bindLightboxCarrusel();
     bindLeccionesInteractivas(document, cursoId);
+    observarLeccionesNuevas(document, getUsuarioActual());
 }
