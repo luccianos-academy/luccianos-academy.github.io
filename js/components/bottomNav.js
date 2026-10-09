@@ -117,6 +117,15 @@ export const TABS_POR_ROL = {
     ],
 };
 
+// En la barra de abajo cada etiqueta tiene que entrar en UNA línea: con
+// "Gestión de tareas" partido en dos, esa pestaña quedaba más alta que
+// las demás y la barra entera se estiraba por encima de los íconos.
+// Mi Perfil / Accesos rápidos siguen mostrando el nombre completo.
+const LABEL_CORTO_BARRA = {
+    "Gestión de tareas": "Tareas",
+    "Nuestra Historia": "Historia",
+};
+
 export function BottomNav(rutaActiva) {
     const usuario = getUsuarioActual();
     let tabs = usuario && TABS_POR_ROL[usuario.rol];
@@ -148,7 +157,7 @@ export function BottomNav(rutaActiva) {
             ${tabs.map((t) => `
                 <a class="bottom-nav-item${t.id === rutaEfectiva ? " active" : ""}" href="${t.href}">
                     ${Icon(t.icono, { size: 22 })}
-                    <span>${t.label}</span>
+                    <span>${LABEL_CORTO_BARRA[t.label] || t.label}</span>
                     ${t.id === "coordinacionoperativa" && noLeidasCache > 0 ? `<span class="bottom-nav-badge">${noLeidasCache}</span>` : ""}
                 </a>
             `).join("")}

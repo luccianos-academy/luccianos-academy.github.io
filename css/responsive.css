@@ -241,6 +241,15 @@
         border-radius:22px;
     }
 
+    /* Una sola línea por etiqueta: la barra tiene alto fijo y no se
+       estira si una etiqueta es larga. */
+    html .bottom-nav-item span{
+        max-width:100%;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    }
+
     html .bottom-nav-item.active{
         color:#fff;
         background:rgba(255,255,255,.18);
