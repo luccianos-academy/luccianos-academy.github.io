@@ -585,6 +585,32 @@ function aplicaTareaHtml(t) {
     `;
 }
 
+/** Guía de los tres círculos de un sub-ítem "3 estados": ✓ verde / ! amarillo
+ *  / ✕ rojo, con su palabra, alineados encima de las columnas de cada fila.
+ *  Son solo una guía (div, sin clase .estado-btn: ningún handler los toma).
+ *  Pedido explícito del usuario: "hay algunos que no lo entendieron, no
+ *  hay que dejar nada al azar". Va FUERA de [data-subitems] a propósito:
+ *  varias funciones recorren sus hijos directos como si fueran las filas
+ *  (leerMarcaFilaSubitem, el conteo de incidencias), y una fila de más ahí
+ *  las rompe. Solo aparece en las tareas que tienen algún sub-ítem estado3. */
+function leyendaEstado3Html(subitems) {
+    const hay = subitems.some((raw) => parsearSubitem(raw).tipo === TIPOS_SUBITEM.ESTADO3);
+    if (!hay) return "";
+    return `
+        <div class="leyenda-estado3" aria-label="Guía de los tres círculos">
+            <div class="leyenda-estado3-txt">
+                <strong>Tocá un círculo por cada ítem</strong>
+                <span>Elegí el que describe cómo está.</span>
+            </div>
+            <div class="leyenda-estado3-cols" aria-hidden="true">
+                <div class="leyenda-estado3-col"><span class="leyenda-circulo ok">✓</span><small>Bien</small></div>
+                <div class="leyenda-estado3-col"><span class="leyenda-circulo al">!</span><small>Atención</small></div>
+                <div class="leyenda-estado3-col"><span class="leyenda-circulo no">✕</span><small>Problema</small></div>
+            </div>
+        </div>
+    `;
+}
+
 /** UNA fila de sub-ítem, según su tipo (ver services/subitems.js) —
  *  pedido explícito, con maqueta confirmada: "arqueo de caja" no
  *  entra en un checklist binario, necesita poder marcar una
@@ -845,6 +871,7 @@ function tareaHtml(t, idUnico, dia) {
                 </button>
                 ${btnBorrarCheck}
                 ${bannerCerradaHtml(check, t.id, dia, diaEquivocado)}
+                ${leyendaEstado3Html(t.subitems)}
                 <div class="tarea-gestion-subitems" data-subitems>
                     ${t.subitems.map((s, is) => subitemFilaHtml(id, is, t.subitems, marcados, firmas, bloqueada)).join("")}
                 </div>

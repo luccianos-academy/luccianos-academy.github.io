@@ -5992,7 +5992,7 @@ table.data-table tbody tr:hover{
 }
 .subitem-estado3-fila span:not(.subitem-firma){ flex:1; font-size:13.5px; color:var(--text); min-width:0; }
 
-.estados3{ display:flex; gap:6px; flex-shrink:0; }
+.estados3{ display:flex; gap:20px; flex-shrink:0; }
 .estado-btn{
     width:30px;
     height:30px;
@@ -8134,3 +8134,52 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
     color:var(--info);
     border:1px solid rgba(111,163,216,.4);
 }
+
+
+/* Guía de los tres círculos (leyendaEstado3Html, gestion.js) — misma
+   grilla que las filas: columnas de 30px con 20px de separación, pegadas
+   al borde derecho, así cada palabra queda justo encima de su círculo.
+   La separación de las filas pasó de 6 a 20px para que entren las
+   palabras (y de paso los círculos quedan más cómodos de tocar). */
+.leyenda-estado3{
+    display:none;
+    align-items:flex-end;
+    gap:12px;
+    padding:12px 18px 10px 66px;
+    border-top:1px solid var(--line);
+}
+.tarea-gestion-desplegable.desplegada .leyenda-estado3{ display:flex; }
+.leyenda-estado3-txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.leyenda-estado3-txt strong{ font-size:13px; font-weight:600; color:var(--text); }
+.leyenda-estado3-txt span{ font-size:12px; color:var(--muted); }
+.leyenda-estado3-cols{ display:flex; gap:20px; flex-shrink:0; }
+.leyenda-estado3-col{
+    width:30px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+}
+.leyenda-estado3-col small{
+    font-size:9.5px;
+    line-height:1.1;
+    color:var(--muted);
+    white-space:nowrap;
+}
+.leyenda-circulo{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:2px solid;
+    font-size:13px;
+    font-weight:700;
+    cursor:default;
+    user-select:none;
+    pointer-events:none;
+}
+.leyenda-circulo.ok{ border-color:var(--success); color:var(--success); background:var(--success-soft); }
+.leyenda-circulo.al{ border-color:var(--warning); color:var(--warning); background:var(--warning-soft); }
+.leyenda-circulo.no{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
