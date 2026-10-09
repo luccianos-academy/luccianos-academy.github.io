@@ -1014,7 +1014,148 @@ Limpieza profunda de deck"></textarea>
                 </select>
             </label>
         </div>
+        <div class="tarea-modal-grupo">
+            <p class="tarea-modal-grupo-titulo">Vista previa</p>
+            <button type="button" class="btn btn-secondary" id="btn-vista-previa-tarea">${Icon("play", { size: 15 })} Ver cómo la ve el Responsable</button>
+            <div id="tarea-vista-previa" hidden></div>
+        </div>
     `;
+}
+
+/** Vista previa de la tarea tal como la ve un Responsable, con lo que
+ *  hay AHORA en el formulario (sin guardar nada antes). Pedido del
+ *  Admin: "cada vez que creo una tarea no puedo ver cómo la ven ellos"
+ *  — su usuario no puede operar Gestión de tareas (modo lectura) ni
+ *  tampoco con "Ver como", porque el servidor lo identifica con su
+ *  cuenta real y rechaza asignar días o marcar. Esto no necesita el
+ *  servidor: se dibuja la MISMA tarjeta (mismas clases, mismas filas
+ *  por tipo — subitemFilaHtml) y los círculos responden al toque, pero
+ *  todo queda en pantalla, no se guarda ni se manda ningún aviso. */
+function bindVistaPreviaTarea() {
+    const boton = document.getElementById("btn-vista-previa-tarea");
+    const contenedor = document.getElementById("tarea-vista-previa");
+    if (!boton || !contenedor) return;
+
+    let subitemsActuales = [];
+
+    function actualizarResumen() {
+        const items = [];
+        const marcados = new Map();
+        let respondidas = 0;
+        contenedor.querySelectorAll("[data-subitem-tipo]").forEach((fila) => {
+            const tipo = fila.dataset.subitemTipo;
+            const indice = fila.dataset.subitemIndice;
+            let marca = null;
+            if (tipo === TIPOS_SUBITEM.ESTADO3 || tipo === TIPOS_SUBITEM.ESTADO2) {
+                const estado = fila.dataset.estadoActual;
+                if (estado) marca = { indice, tipo, estado, motivo: "" };
+            } else if (tipo === TIPOS_SUBITEM.CHECKBOX) {
+                if (fila.querySelector("input")?.checked) marca = { indice, tipo };
+            } else if (tipo === TIPOS_SUBITEM.NUMERICO) {
+                if (fila.dataset.tocado === "1") {
+                    const magnitud = Number(String(fila.querySelector(".input-numerico-subitem")?.value || "0").replace(",", ".")) || 0;
+                    marca = { indice, tipo, valor: fila.dataset.signo === "-" ? -magnitud : magnitud };
+                }
+            }
+            if (marca) { respondidas++; marcados.set(String(indice), marca); }
+            items.push({ titulo: parsearSubitem(subitemsActuales[indice]).titulo, marca });
+        });
+        const tarjeta = contenedor.querySelector("[data-vp-card]");
+        const progreso = contenedor.querySelector("[data-vp-progreso]");
+        if (progreso) progreso.textContent = `${respondidas}/${subitemsActuales.length}`;
+        tarjeta?.classList.toggle("hecha", subitemsActuales.length > 0 && respondidas === subitemsActuales.length);
+        const badge = contenedor.querySelector("[data-badge-incidencia]");
+        if (badge) badge.innerHTML = badgeIncidenciaContenido(subitemsActuales, marcados);
+    }
+
+    contenedor.addEventListener("click", (e) => {
+        if (e.target.closest("[data-vp-toggle]")) {
+            e.target.closest("[data-vp-card]").classList.toggle("desplegada");
+            return;
+        }
+        const btnEstado = e.target.closest(".estado-btn, .estado2-btn");
+        if (btnEstado) {
+            const fila = btnEstado.closest("[data-subitem-tipo]");
+            fila.dataset.estadoActual = btnEstado.dataset.estado;
+            fila.querySelectorAll(".estado-btn, .estado2-btn").forEach((b) => b.classList.toggle("activo", b === btnEstado));
+            actualizarResumen();
+            return;
+        }
+        const btnSigno = e.target.closest(".signo-btn");
+        if (btnSigno) {
+            const fila = btnSigno.closest(".subitem-numerico");
+            const esCuadra = btnSigno.hasAttribute("data-accion-cuadra");
+            if (esCuadra) fila.querySelector(".input-numerico-subitem").value = "";
+            else fila.dataset.signo = btnSigno.dataset.signo;
+            fila.dataset.tocado = "1";
+            fila.querySelectorAll(".signo-btn").forEach((b) => b.classList.toggle("activo", b === btnSigno));
+            fila.classList.toggle("ok", esCuadra);
+            fila.classList.toggle("incidencia", !esCuadra);
+            actualizarResumen();
+        }
+    });
+    contenedor.addEventListener("change", actualizarResumen);
+    contenedor.addEventListener("input", (e) => {
+        const fila = e.target.closest(".subitem-numerico");
+        if (!fila) return;
+        fila.dataset.tocado = "1";
+        actualizarResumen();
+    });
+
+    boton.addEventListener("click", () => {
+        const c = leerCamposTarea(null);
+        contenedor.hidden = false;
+        if (!c.titulo) {
+            contenedor.innerHTML = `<p class="text-sm text-muted" style="margin-top:10px">Escribí un título para ver la vista previa.</p>`;
+            return;
+        }
+        subitemsActuales = c.subitems || [];
+        // subitemFilaHtml respeta esVistaLectura (Admin entra en modo
+        // lectura → círculos deshabilitados): se apaga solo mientras se
+        // dibuja la vista previa y se devuelve tal cual estaba.
+        const previoLectura = esVistaLectura;
+        esVistaLectura = false;
+        let tarjetaHtml;
+        try {
+            if (subitemsActuales.length) {
+                tarjetaHtml = `
+                    <div class="tarea-gestion tarea-gestion-desplegable desplegada" data-vp-card>
+                        <button type="button" class="tarea-gestion-header" data-vp-toggle>
+                            <span class="tarea-gestion-ico">${Icon(c.icono, { size: 18 })}</span>
+                            <span class="tarea-gestion-txt">
+                                <strong>${escaparHtml(c.titulo)}</strong>
+                                <span>${escaparHtml(c.detalle)}</span>
+                            </span>
+                            <span class="tarea-gestion-progreso" data-vp-progreso>0/${subitemsActuales.length}</span>
+                            <span class="tarea-gestion-badge-incidencia" data-badge-incidencia></span>
+                            <span class="tarea-gestion-chevron">${Icon("flecha-der", { size: 16 })}</span>
+                        </button>
+                        <div class="tarea-gestion-subitems" data-subitems>
+                            ${subitemsActuales.map((raw, i) => subitemFilaHtml("vp", i, subitemsActuales, new Map(), new Map(), false)).join("")}
+                        </div>
+                    </div>`;
+            } else {
+                tarjetaHtml = `
+                    <div class="tarea-gestion tarea-gestion-simple" data-vp-card>
+                        <label class="tarea-gestion-label" for="vp-simple">
+                            <input type="checkbox" id="vp-simple" class="tarea-gestion-check">
+                            <span class="tarea-gestion-ico">${Icon(c.icono, { size: 18 })}</span>
+                            <span class="tarea-gestion-txt">
+                                <strong>${escaparHtml(c.titulo)}</strong>
+                                <span>${escaparHtml(c.detalle)}</span>
+                            </span>
+                        </label>
+                    </div>`;
+            }
+        } finally {
+            esVistaLectura = previoLectura;
+        }
+        contenedor.innerHTML = `
+            <p class="text-xs text-muted" style="margin:10px 0 8px">Así la ve un Responsable. Es solo una prueba: no se guarda nada.</p>
+            ${tarjetaHtml}
+        `;
+        actualizarResumen();
+    });
 }
 
 function bindModalTarea() {
@@ -1050,6 +1191,7 @@ function bindModalTarea() {
     });
 
     bindMultiSelectAlcance("input-tarea-alcance");
+    bindVistaPreviaTarea();
 
     // Selector de íconos como imágenes — un click elige, pisa el
     // <input type="hidden"> que sigue leyendo leerCamposTarea(), y
