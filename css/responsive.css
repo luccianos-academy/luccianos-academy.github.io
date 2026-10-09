@@ -273,6 +273,25 @@
         box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 24px rgba(0,0,0,.25);
     }
 
+    /* Los títulos de sección ("Lucciano's Agüero CABA", "Viernes 9/10"…)
+       se pegaban arriba al scrollear y llevaban fondo negro sólido
+       (var(--bg)) para tapar lo que pasa por detrás: con las manchas de
+       color de fondo se veía como un rectángulo negro pegado al título
+       (reportado en Gestión y en Colaboradores). Un desenfoque en vez del
+       negro dejaba otra caja, así que en el celular el título simplemente
+       deja de pegarse: queda en su lugar, sin fondo. En escritorio no
+       cambia nada (ahí el fondo es liso y el negro no se nota). */
+    html .section > h3{
+        position:static;
+        background:transparent;
+    }
+
+    /* La barra de acciones del pie (News, etc.) se desvanecía a negro
+       sólido; ahora a un negro suave que deja ver el fondo. */
+    html .compose-footer{
+        background:linear-gradient(to top, rgba(14,13,12,.8) 55%, transparent);
+    }
+
     html .card{
         background:rgba(255,255,255,.05);
         border:1px solid rgba(255,255,255,.1);
