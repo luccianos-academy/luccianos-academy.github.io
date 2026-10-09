@@ -7721,11 +7721,11 @@ span.calendario-gestion-dia{
 =============================*/
 .modal.modal-suave{ max-width:620px; }
 
-.modal-suave .btn-primary{
+.modal-overlay:not(.login-overlay) .modal .btn-primary{
     background:var(--info);
     color:#0b1520;
 }
-.modal-suave .btn-primary:hover{ background:#8bb7e6; }
+.modal-overlay:not(.login-overlay) .modal .btn-primary:hover{ background:#8bb7e6; }
 
 .fs-bloque{
     border-top:1px solid var(--line);
@@ -8024,26 +8024,26 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
 }
 
 .pagina-suave .btn-agregar-subtarea-nueva,
-.modal-suave .btn-agregar-subtarea-nueva{ color:var(--info); }
+.modal-overlay:not(.login-overlay) .modal .btn-agregar-subtarea-nueva{ color:var(--info); }
 .pagina-suave .toggle-switch input[type="checkbox"]:checked,
-.modal-suave .toggle-switch input[type="checkbox"]:checked{ background:var(--info); }
+.modal-overlay:not(.login-overlay) .modal .toggle-switch input[type="checkbox"]:checked{ background:var(--info); }
 
 
 /* ============================
-   Modal de vidrio (Liquid Glass) — los modales .modal-suave (Manuales,
+   Modal de vidrio (Liquid Glass) — los modales .modal-overlay:not(.login-overlay) .modal (Manuales,
    Gestión de tareas): panel translúcido con desenfoque, borde fino con
    brillo arriba, dos resplandores suaves de color de fondo (sin algo de
    color detrás el vidrio se ve como un gris plano) y las tarjetas
    internas también en vidrio. Pedido explícito (2026-10-09): el cuadro
    "se ve genérico, no da sensación premium".
 =============================*/
-.modal-overlay:has(.modal-suave){
+.modal-overlay:not(.login-overlay){
     background:rgba(8,8,10,.5);
     -webkit-backdrop-filter:blur(10px) saturate(1.3);
     backdrop-filter:blur(10px) saturate(1.3);
 }
 
-.modal.modal-suave{
+.modal-overlay:not(.login-overlay) .modal{
     background:
         radial-gradient(circle 260px at 0% 0%, rgba(194,130,70,.30), transparent 70%),
         radial-gradient(circle 280px at 100% 100%, rgba(60,140,150,.28), transparent 70%),
@@ -8058,8 +8058,8 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
         0 30px 80px rgba(0,0,0,.55);
 }
 
-.modal-suave .modal-header h2{ font-size:21px; letter-spacing:-.01em; }
-.modal-suave .modal-close{
+.modal-overlay:not(.login-overlay) .modal .modal-header h2{ font-size:21px; letter-spacing:-.01em; }
+.modal-overlay:not(.login-overlay) .modal .modal-close{
     width:34px;
     height:34px;
     border-radius:50%;
@@ -8071,65 +8071,65 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
     align-items:center;
     justify-content:center;
 }
-.modal-suave .modal-close:hover{ background:rgba(255,255,255,.14); }
+.modal-overlay:not(.login-overlay) .modal .modal-close:hover{ background:rgba(255,255,255,.14); }
 
 /* Tarjetas internas (sub-tareas, alcance, bloques del formulario). */
-.modal-suave .tarea-modal-grupo,
-.modal-suave .fs-bloque-vidrio{
+.modal-overlay:not(.login-overlay) .modal .tarea-modal-grupo,
+.modal-overlay:not(.login-overlay) .modal .fs-bloque-vidrio{
     background:rgba(255,255,255,.05);
     border:1px solid rgba(255,255,255,.11);
     border-radius:18px;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
 }
-.modal-suave .tarea-modal-grupo-titulo{ color:rgba(243,237,226,.6); }
+.modal-overlay:not(.login-overlay) .modal .tarea-modal-grupo-titulo{ color:rgba(243,237,226,.6); }
 
 /* Campos: vidrio más oscuro que el panel, con borde fino y un anillo azul
    al enfocar. */
-.modal-suave .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]),
-.modal-suave .modal-body select,
-.modal-suave .modal-body textarea{
+.modal-overlay:not(.login-overlay) .modal .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]),
+.modal-overlay:not(.login-overlay) .modal .modal-body select,
+.modal-overlay:not(.login-overlay) .modal .modal-body textarea{
     background:rgba(8,8,10,.35);
     border:1px solid rgba(255,255,255,.12);
     border-radius:14px;
     transition:border-color var(--transition), box-shadow var(--transition);
 }
-.modal-suave .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):focus,
-.modal-suave .modal-body select:focus,
-.modal-suave .modal-body textarea:focus{
+.modal-overlay:not(.login-overlay) .modal .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):focus,
+.modal-overlay:not(.login-overlay) .modal .modal-body select:focus,
+.modal-overlay:not(.login-overlay) .modal .modal-body textarea:focus{
     outline:none;
     border-color:rgba(111,163,216,.65);
     box-shadow:0 0 0 3px rgba(111,163,216,.18);
 }
-.modal-suave .modal-body .fs-archivo{
+.modal-overlay:not(.login-overlay) .modal .modal-body .fs-archivo{
     background:rgba(8,8,10,.3);
     border-color:rgba(255,255,255,.1);
 }
 
 /* Íconos elegibles y el interruptor de recordatorio, en azul. */
-.modal-suave .icono-tarea-opcion{
+.modal-overlay:not(.login-overlay) .modal .icono-tarea-opcion{
     background:rgba(255,255,255,.05);
     border-color:rgba(255,255,255,.12);
     border-radius:14px;
 }
-.modal-suave .icono-tarea-opcion:hover{ border-color:rgba(111,163,216,.6); }
-.modal-suave .icono-tarea-opcion.activo{
+.modal-overlay:not(.login-overlay) .modal .icono-tarea-opcion:hover{ border-color:rgba(111,163,216,.6); }
+.modal-overlay:not(.login-overlay) .modal .icono-tarea-opcion.activo{
     background:var(--info-soft);
     border-color:rgba(111,163,216,.6);
     color:var(--info);
 }
-.modal-suave .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch{ background:var(--info); }
-.modal-suave .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch::after{ background:#0b1520; }
+.modal-overlay:not(.login-overlay) .modal .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch{ background:var(--info); }
+.modal-overlay:not(.login-overlay) .modal .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch::after{ background:#0b1520; }
 
 /* Botones del pie: el secundario como vidrio. */
-.modal-suave .modal-footer .btn-secondary{
+.modal-overlay:not(.login-overlay) .modal .modal-footer .btn-secondary{
     background:rgba(255,255,255,.08);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
 }
-.modal-suave .modal-footer .btn-secondary:hover{ background:rgba(255,255,255,.14); }
-.modal-suave .fs-seg{ background:rgba(8,8,10,.3); border-color:rgba(255,255,255,.1); }
-.modal-suave .fs-pill{ border-color:rgba(255,255,255,.14); }
-.modal-suave .fs-pill.activa{ border-color:rgba(111,163,216,.55); }
-.modal-suave .tarea-modal-icono-preview{
+.modal-overlay:not(.login-overlay) .modal .modal-footer .btn-secondary:hover{ background:rgba(255,255,255,.14); }
+.modal-overlay:not(.login-overlay) .modal .fs-seg{ background:rgba(8,8,10,.3); border-color:rgba(255,255,255,.1); }
+.modal-overlay:not(.login-overlay) .modal .fs-pill{ border-color:rgba(255,255,255,.14); }
+.modal-overlay:not(.login-overlay) .modal .fs-pill.activa{ border-color:rgba(111,163,216,.55); }
+.modal-overlay:not(.login-overlay) .modal .tarea-modal-icono-preview{
     background:var(--info-soft);
     color:var(--info);
     border:1px solid rgba(111,163,216,.4);
@@ -8183,3 +8183,160 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
 .leyenda-circulo.ok{ border-color:var(--success); color:var(--success); background:var(--success-soft); }
 .leyenda-circulo.al{ border-color:var(--warning); color:var(--warning); background:var(--warning-soft); }
 .leyenda-circulo.no{ border-color:var(--danger); color:var(--danger); background:var(--danger-soft); }
+
+
+/* Secciones de formularios dentro de un modal (ej. News al editar) y
+   otras cajas internas: también en vidrio. */
+.modal-overlay:not(.login-overlay) .modal .form-seccion,
+.modal-overlay:not(.login-overlay) .modal .card{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.11);
+    border-radius:18px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+}
+
+
+/* Lo elegido dentro de los modales en azul, no en dorado: pastillas,
+   tarjetas de opción (radio-card), casillas, cajas de info y chips. */
+.modal-overlay:not(.login-overlay) .modal .pill-categoria{
+    background:transparent;
+    border-color:rgba(255,255,255,.14);
+    color:var(--muted);
+    font-weight:500;
+}
+.modal-overlay:not(.login-overlay) .modal .pill-categoria:hover{ border-color:rgba(111,163,216,.5); color:var(--text); }
+.modal-overlay:not(.login-overlay) .modal .pill-categoria.activa{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+.modal-overlay:not(.login-overlay) .modal .radio-card{
+    background:rgba(255,255,255,.04);
+    border-color:rgba(255,255,255,.12);
+}
+.modal-overlay:not(.login-overlay) .modal .radio-card:hover{ border-color:rgba(111,163,216,.5); }
+.modal-overlay:not(.login-overlay) .modal .radio-card:has(input:checked){
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.55);
+}
+.modal-overlay:not(.login-overlay) .modal .radio-card:has(input:checked) .radio-card-titulo{ color:var(--info); }
+.modal-overlay:not(.login-overlay) .modal .radio-card:has(input:checked) .radio-card-radio{
+    border-color:var(--info);
+    background:radial-gradient(circle, var(--info) 0 5px, transparent 6px);
+}
+.modal-overlay:not(.login-overlay) .modal input[type="checkbox"],
+.modal-overlay:not(.login-overlay) .modal input[type="radio"]{ accent-color:var(--info); }
+.modal-overlay:not(.login-overlay) .modal .form-info-box{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.4);
+}
+.modal-overlay:not(.login-overlay) .modal .multi-sucursal-chip{
+    background:var(--info-soft);
+    color:var(--info);
+}
+.modal-overlay:not(.login-overlay) .modal .checkbox-lista{
+    background:rgba(8,8,10,.3);
+    border-color:rgba(255,255,255,.1);
+    border-radius:14px;
+}
+
+.modal-overlay:not(.login-overlay) .modal .notif-destinatarios{
+    background:rgba(255,255,255,.05);
+    border-left-color:var(--info);
+}
+
+
+/* ============================
+   News / notificaciones en azul suave (--info): pestañas, noticias sin
+   leer, cajas de aviso. El punto de prioridad "Información" también
+   (ver data/noticias.js). El dorado queda para la marca.
+=============================*/
+.notif-tab:hover{ color:var(--text); }
+.notif-tab.active{
+    background:var(--info-soft);
+    color:var(--info);
+    box-shadow:inset 0 0 0 1px rgba(111,163,216,.45);
+}
+/* Fondo OPACO a propósito (el equivalente sólido de --info-soft sobre
+   --card): la noticia se desliza sobre los botones Leída/Fijar/Eliminar, y
+   con un fondo translúcido esos botones se ven a través. */
+.notif-item.no-leida{
+    background:#232a33;
+    border-color:rgba(111,163,216,.45);
+}
+.form-info-box{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.4);
+}
+.form-info-box svg{ color:var(--info); }
+
+
+/* Aviso "Deslizá una noticia…" (News) — el mismo violeta del Desafío diario
+   (#7c5ce0): degradé suave hacia la tarjeta, borde y resplandor violeta,
+   y un destello que lo cruza de vez en cuando (más rápido al pasar el
+   dedo o el mouse). Pedido explícito: "que quede difuminado, que al pasar
+   brille". */
+.form-info-box.aviso-deslizar{
+    position:relative;
+    overflow:hidden;
+    background:linear-gradient(160deg, rgba(124,92,224,.20), rgba(26,24,21,.85));
+    border:1.5px solid rgba(124,92,224,.7);
+    box-shadow:0 0 18px -6px rgba(124,92,224,.5);
+}
+.aviso-deslizar svg{ color:#a78bfa; }
+.aviso-deslizar::after{
+    content:"";
+    position:absolute;
+    top:0;
+    bottom:0;
+    left:0;
+    width:60%;
+    background:linear-gradient(110deg, transparent 20%, rgba(255,255,255,.20) 50%, transparent 80%);
+    transform:translateX(-130%);
+    animation:destello-aviso 7s ease-in-out infinite;
+    pointer-events:none;
+}
+.aviso-deslizar:hover::after,
+.aviso-deslizar:active::after{ animation-duration:1.6s; }
+@keyframes destello-aviso{
+    0%, 70% { transform:translateX(-130%); }
+    100% { transform:translateX(260%); }
+}
+@media (prefers-reduced-motion: reduce){
+    .aviso-deslizar::after{ animation:none; }
+}
+
+/* Desafío diario en Inicio: violeta un poco más intenso y un destello
+   sutil que lo cruza (mismo recurso que el aviso de News). El destello va
+   en background-position de un ::after con su propio radio, así no hace
+   falta overflow:hidden en la tarjeta (que recortaría el chip de arriba). */
+.tarjeta-desafio:not(.jugado){
+    background:linear-gradient(160deg, rgba(124,92,224,.30), var(--card) 85%);
+    border-color:#8b6cf0;
+    box-shadow:0 0 22px -5px rgba(124,92,224,.6);
+    animation-name:pulso-tarjeta-desafio-intenso;
+}
+@keyframes pulso-tarjeta-desafio-intenso{
+    0%, 100% { box-shadow:0 0 18px -6px rgba(124,92,224,.5); }
+    50% { box-shadow:0 0 32px -3px rgba(124,92,224,.9); }
+}
+.tarjeta-desafio:not(.jugado)::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    border-radius:inherit;
+    pointer-events:none;
+    background:linear-gradient(110deg, transparent 42%, rgba(255,255,255,.16) 50%, transparent 58%);
+    background-size:250% 100%;
+    background-position:150% 0;
+    animation:destello-desafio 7s ease-in-out infinite;
+}
+.tarjeta-desafio:not(.jugado):hover::after,
+.tarjeta-desafio:not(.jugado):active::after{ animation-duration:1.8s; }
+@keyframes destello-desafio{
+    0%, 65% { background-position:150% 0; }
+    100% { background-position:-150% 0; }
+}
+@media (prefers-reduced-motion: reduce){
+    .tarjeta-desafio:not(.jugado)::after{ animation:none; }
+}

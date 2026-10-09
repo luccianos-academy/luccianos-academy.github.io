@@ -80,7 +80,7 @@ export const TIPOS_NOTIFICACION = [
 export const PRIORIDADES = [
     { id: "urgente", nombre: "Urgente", color: "var(--danger)" },
     { id: "importante", nombre: "Importante", color: "var(--warning)" },
-    { id: "info", nombre: "Información", color: "var(--gold)" },
+    { id: "info", nombre: "Información", color: "var(--info)" },
     { id: "baja", nombre: "Baja", color: "var(--muted)" },
 ];
 
