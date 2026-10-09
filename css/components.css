@@ -7604,3 +7604,57 @@ span.calendario-gestion-dia{
 .fila-tarea-historico-txt strong{ font-size:13.5px; font-weight:600; color:var(--text); }
 .fila-tarea-historico-txt span{ font-size:11.5px; color:var(--muted); }
 .fila-tarea-historico.no-completada .fila-tarea-historico-txt strong{ color:var(--muted); }
+
+/* Selector de alcance por país (components/selectorAlcancePais.js) */
+.alcance-pais{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.alcance-pais-fila{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.alcance-pais-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+.alcance-pais-pills{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+}
+
+.pais-trabajo-gestion{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin:0 0 14px;
+}
+
+.pais-trabajo-label{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--muted);
+}
+
+.campo-alcance-tarea{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin:0 0 12px;
+}
+
+.alcance-pais-titulo{
+    font-size:13px;
+    color:var(--muted);
+}

@@ -52,9 +52,9 @@ import { getChecksPorSucursal, guardarCheckSucursal, reabrirTareaGestion, elimin
 import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
-import { MultiSelectAlcance, bindMultiSelectAlcance } from "../components/multiSelectAlcance.js";
+import { SelectorAlcancePais, bindSelectorAlcancePais, PAIS_BASE } from "../components/selectorAlcancePais.js";
 import { getSucursales } from "../data/sucursales.js";
-import { aplicaASucursal, normalizar } from "../services/alcance.js";
+import { aplicaASucursal, aplicaAPais, normalizar } from "../services/alcance.js";
 import { TIPOS_SUBITEM, parsearSubitem, serializarSubitem, serializarMarcaSubitem, parsearMarcaSubitem, parsearFirmaSubitem, contarIncidenciasAgrupadas } from "../services/subitems.js";
 import { cicloActual, cicloDeFecha, etiquetaCiclo } from "../services/gestionCiclo.js";
 
@@ -165,6 +165,14 @@ let esVistaLectura = false;
  *  puede cargar datos en "Tareas asignadas". */
 let soloLecturaAsignacion = false;
 let sucursalActiva = "";
+
+/** País "sobre el que se está trabajando" en el catálogo (solo Admin, sin
+ *  un local elegido): Argentina por defecto — lo que se carga es, ante
+ *  todo, para Argentina — y cada otro país es independiente. Define qué
+ *  tareas se ven y a qué país apunta una tarea nueva, para que no se
+ *  mezclen. Se recuerda entre visitas en este navegador. */
+let paisTrabajo = PAIS_BASE;
+const CLAVE_PAIS_TRABAJO = "faro_gestion_pais_trabajo";
 
 /** "Histórico" (2026-08-31) — pestaña de ciclos ya cerrados. Decisión
  *  explícita del usuario: NO acotarla a Responsable de local — la ve
@@ -999,9 +1007,10 @@ Limpieza profunda de deck"></textarea>
         </div>
         <div class="tarea-modal-grupo">
             <p class="tarea-modal-grupo-titulo">Alcance y recordatorio</p>
-            <label>¿A quién le aplica? (vacío = a todos)
-                ${MultiSelectAlcance("input-tarea-alcance", tarea?.aplicaA || "")}
-            </label>
+            <div class="campo-alcance-tarea">
+                <span class="alcance-pais-titulo">¿A quién le aplica?</span>
+                ${SelectorAlcancePais("input-tarea-alcance", tarea ? (tarea.aplicaA || "") : paisTrabajo)}
+            </div>
             <label class="campo-recordatorio-tarea">
                 <span class="check-recordatorio-tarea-label">
                     <input type="checkbox" id="input-tarea-recordatorio-habilitado" class="tarea-modal-toggle-input"${tarea?.recordatorioHabilitado === "NO" ? "" : " checked"}>
@@ -1190,7 +1199,7 @@ function bindModalTarea() {
         campoMotivos.style.display = e.target.value === TIPOS_SUBITEM.ESTADO3 ? "" : "none";
     });
 
-    bindMultiSelectAlcance("input-tarea-alcance");
+    bindSelectorAlcancePais("input-tarea-alcance");
     bindVistaPreviaTarea();
 
     // Selector de íconos como imágenes — un click elige, pisa el
@@ -1614,6 +1623,23 @@ function selectorLocalHtml() {
     `;
 }
 
+/** "Trabajando sobre: Argentina | Chile" — solo Admin sin un local
+ *  elegido. Los países salen de los locales cargados (Argentina primero),
+ *  así el día que se abra un país nuevo aparece solo. */
+function paisesTrabajoHtml() {
+    const paises = [...new Set(sucursales.filter((x) => x.estado === "Activa").map((x) => x.pais).filter(Boolean))]
+        .sort((a, b) => (a === PAIS_BASE ? -1 : b === PAIS_BASE ? 1 : a.localeCompare(b, "es")));
+    if (!paises.includes(paisTrabajo)) paises.unshift(paisTrabajo);
+    return `
+        <div class="pais-trabajo-gestion">
+            <span class="pais-trabajo-label">Trabajando sobre</span>
+            <div class="alcance-pais-pills">
+                ${paises.map((p) => `<button type="button" class="pill-categoria${p === paisTrabajo ? " activa" : ""}" data-pais-trabajo="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
+            </div>
+        </div>
+    `;
+}
+
 /** Todo lo que depende de qué local está activo — se reconstruye
  *  entero cada vez que cambia el selector (Admin/Supervisor) sin
  *  recargar la página. Para Responsable de local/turno es simplemente
@@ -1672,7 +1698,11 @@ function cuerpoGestionHtml() {
     // corresponden a ESE local — mismo criterio que ya usan
     // Cursos/Lecciones.
     const sucObjActiva = sucursalActivaObj();
-    const tareasParaLocal = hayLocal ? TAREAS.filter((t) => aplicaASucursal(t, sucObjActiva)) : TAREAS;
+    // Admin sin un local elegido: el catálogo se ve "sobre un país" (ver
+    // paisTrabajo) — así Argentina y Chile no se mezclan al cargar.
+    const tareasParaLocal = hayLocal
+        ? TAREAS.filter((t) => aplicaASucursal(t, sucObjActiva))
+        : (esAdminActual() ? TAREAS.filter((t) => aplicaAPais(t, paisTrabajo)) : TAREAS);
 
     // Semanal/Mensual (t.frecuencia, decidida por CADA LOCAL — ver
     // frecuenciaTareaHtml) — necesarios acá arriba porque tanto el
@@ -1727,10 +1757,11 @@ function cuerpoGestionHtml() {
                 ` : ""}
             `;
         })()
-        : `<div class="lista-tareas-gestion">${TAREAS.map(aplicaTareaHtml).join("")}</div>`;
+        : `<div class="lista-tareas-gestion">${tareasParaLocal.map(aplicaTareaHtml).join("")}</div>`;
 
     const catalogoHtml = `
-        <p class="aviso-tareas-aplicables">${!hayLocal ? "Elegí un local arriba para ver y tocar sus días." : esVistaLectura ? "Así quedaron elegidos los días de cada tarea en este local." : TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
+        ${(!hayLocal && esAdminActual()) ? paisesTrabajoHtml() : ""}
+        <p class="aviso-tareas-aplicables">${!hayLocal ? (esAdminActual() && !tareasParaLocal.length ? `Todavía no hay tareas para ${escaparHtml(paisTrabajo)} — empezá con "+ Nueva tarea".` : "Elegí un local arriba para ver y tocar sus días.") : esVistaLectura ? "Así quedaron elegidos los días de cada tarea en este local." : TAREAS.length ? "Tocá una tarea para elegir en qué días la necesitás." : "Todavía no hay ninguna tarea cargada — empezá con \"+ Nueva tarea\"."}</p>
         <div id="lista-aplica-tareas">
             ${listaTareasHtml}
         </div>
@@ -1961,6 +1992,7 @@ export async function Gestion() {
     // primero una pantalla que no puede tocar no tiene sentido.
     if (usuario?.rol === "colaborador" && !usuario?.encargado && usuario?.responsableTurno) vistaSeccion = "ejecutar";
     sucursalActiva = esVistaLectura ? "" : (usuario?.sucursal || "");
+    try { paisTrabajo = localStorage.getItem(CLAVE_PAIS_TRABAJO) || PAIS_BASE; } catch { paisTrabajo = PAIS_BASE; }
 
     [sucursales] = await Promise.all([getSucursales(), cargarDatos(sucursalActiva)]);
 
@@ -3362,6 +3394,17 @@ function actualizarCalendarioGestion() {
  *  reconstruye — al cargar la página Y cada vez que Admin/Supervisor
  *  cambia de local en el selector (mismo contenido, nodos nuevos). */
 function bindCuerpoGestion() {
+    document.querySelectorAll("[data-pais-trabajo]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            paisTrabajo = btn.dataset.paisTrabajo;
+            try { localStorage.setItem(CLAVE_PAIS_TRABAJO, paisTrabajo); } catch { /* sin storage no se recuerda, no pasa nada */ }
+            const cuerpo = document.getElementById("cuerpo-gestion");
+            if (!cuerpo) return;
+            cuerpo.innerHTML = cuerpoGestionHtml();
+            bindCuerpoGestion();
+        });
+    });
+
     bindCalendarioDiasGestion();
 
     // "Asignar tareas" / "Tareas asignadas" — pedido explícito, con

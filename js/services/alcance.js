@@ -108,11 +108,22 @@ export function aplicaAlUsuario(item, usuario, sucursales = []) {
 
     const miLocal = normalizar(usuario.sucursal);
     const miPais = normalizar(paisDe(usuario, sucursales));
+    // Tipo de MI local (propio/franquicia), solo si me pasaron la lista
+    // de sucursales — hace falta únicamente para tokens "País:Tipo".
+    const miSuc = sucursales.find((x) => normalizar(x.nombre) === miLocal);
+    const miTipo = miSuc ? (miSuc.esPropio ? "propios" : "franquicias") : "";
     const meNombra = (lista) => lista
         .split(",")
-        .map(normalizar)
+        .map((t) => t.trim())
         .filter(Boolean)
-        .some((t) => t === miLocal || (miPais && t === miPais));
+        .some((raw) => {
+            if (raw.includes(":")) {
+                const [pais, tipo] = raw.split(":").map(normalizar);
+                return !!miPais && !!miTipo && pais === miPais && tipo === miTipo;
+            }
+            const t = normalizar(raw);
+            return t === miLocal || (miPais && t === miPais);
+        });
 
     // La exclusión gana. Es lo que permite decir "esto es para toda la
     // red MENOS Devoto" sin tener que enumerar los otros 122 locales en
@@ -190,14 +201,37 @@ export function aplicaASucursal(item, sucursal) {
     const miLocal = normalizar(sucursal.nombre);
     const miPais = normalizar(sucursal.pais);
     const miTipo = sucursal.esPropio ? "propios" : "franquicias";
+    // "País:Tipo" (ej. "Argentina:Propios") es un token compuesto y
+    // exige LAS DOS cosas a la vez — es lo único que permite el cruce
+    // "solo los propios de Argentina", que con tokens sueltos no
+    // existe (suman, no se cruzan). Los tokens de siempre (país, tipo
+    // o local suelto) siguen funcionando igual.
     const meNombra = (lista) => lista
         .split(",")
-        .map(normalizar)
+        .map((t) => t.trim())
         .filter(Boolean)
-        .some((t) => t === miLocal || (miPais && t === miPais) || t === miTipo);
+        .some((raw) => {
+            if (raw.includes(":")) {
+                const [pais, tipo] = raw.split(":").map(normalizar);
+                return !!miPais && pais === miPais && tipo === miTipo;
+            }
+            const t = normalizar(raw);
+            return t === miLocal || (miPais && t === miPais) || t === miTipo;
+        });
 
     // Misma prioridad que aplicaAlUsuario: la exclusión gana.
     if (excluye && meNombra(excluye)) return false;
     if (!incluye) return true;
     return meNombra(incluye);
+}
+
+/**
+ * ¿Esta tarea/ítem le aplica a ALGÚN local de este país? Para trabajar
+ * "sobre Argentina" o "sobre Chile" en el catálogo sin elegir un local
+ * puntual: se prueba contra un local propio y uno franquicia de ese
+ * país, y alcanza con que le aplique a uno de los dos.
+ */
+export function aplicaAPais(item, pais) {
+    const base = { nombre: "", pais };
+    return aplicaASucursal(item, { ...base, esPropio: true }) || aplicaASucursal(item, { ...base, esPropio: false });
 }

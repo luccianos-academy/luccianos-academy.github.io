@@ -1099,10 +1099,51 @@ function leerSupervisoresSeleccionados() {
     return Array.from(document.querySelectorAll('input[name="input-supervisores"]:checked')).map((i) => i.value);
 }
 
+/** País del local — pastillas (Argentina primero y preseleccionada),
+ *  más "Otro…" para un país que todavía no existe en la lista. Antes el
+ *  país solo se deducía del final del nombre ("…CABA", "…Uruguay") y un
+ *  local sin ese sufijo (Mataderos, Unicenter…) quedaba con el país
+ *  vacío en la Sheet. Ahora se elige a propósito y se guarda. */
+function paisLocalHtml(paises, actual) {
+    const lista = [...new Set([...paises, actual])].filter(Boolean)
+        .sort((a, b) => (a === "Argentina" ? -1 : b === "Argentina" ? 1 : a.localeCompare(b, "es")));
+    return `
+        <label style="display:block;margin:16px 0 8px">País</label>
+        <input type="hidden" id="input-pais" value="${escaparHtml(actual)}">
+        <div class="alcance-pais-pills" id="pais-local-pills">
+            ${lista.map((p) => `<button type="button" class="pill-categoria${p === actual ? " activa" : ""}" data-pais-local="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
+            <button type="button" class="pill-categoria" data-pais-local-otro>Otro…</button>
+        </div>
+        <input type="text" id="input-pais-otro" placeholder="Nombre del país" style="display:none;margin-top:8px">
+    `;
+}
+
+function bindPaisLocal() {
+    const hidden = document.getElementById("input-pais");
+    const pills = document.getElementById("pais-local-pills");
+    const otro = document.getElementById("input-pais-otro");
+    if (!hidden || !pills || !otro) return;
+    pills.addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn) return;
+        pills.querySelectorAll("button").forEach((b) => b.classList.toggle("activa", b === btn));
+        if (btn.hasAttribute("data-pais-local-otro")) {
+            otro.style.display = "";
+            otro.focus();
+            hidden.value = otro.value.trim();
+        } else {
+            otro.style.display = "none";
+            hidden.value = btn.dataset.paisLocal;
+        }
+    });
+    otro.addEventListener("input", () => { hidden.value = otro.value.trim(); });
+}
+
 async function abrirModalNuevoLocal() {
 
-    const usuarios = await getUsuarios();
+    const [usuarios, todosLosLocales] = await Promise.all([getUsuarios(), getSucursales()]);
     const supervisores = usuarios.filter((u) => u.rol === "supervisor");
+    const paisesExistentes = [...new Set(todosLosLocales.map((l) => l.pais).filter(Boolean))];
 
     const modalId = "modal-nuevo-local";
 
@@ -1113,10 +1154,12 @@ async function abrirModalNuevoLocal() {
             <input type="text" id="input-nombre" placeholder="Agüero CABA">
         </div>
         <p class="text-xs text-muted" style="margin-top:4px">
-            Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
+            Escribí sólo el resto del nombre, sin el prefijo.
         </p>
 
-        <label style="display:block;margin-bottom:6px">Supervisores</label>
+        ${paisLocalHtml(paisesExistentes, "Argentina")}
+
+        <label style="display:block;margin:16px 0 6px">Supervisores</label>
         ${checkboxesSupervisoresHtml(supervisores, [])}
 
         <!-- Mismo componente .radio-card que ya usa News para elegir
@@ -1145,24 +1188,31 @@ async function abrirModalNuevoLocal() {
         const nombre = resto ? PREFIJO_LOCAL + resto : "";
         const supervisor = leerSupervisoresSeleccionados().join(", ");
         const esPropio = document.getElementById("input-propio").checked;
+        const pais = document.getElementById("input-pais").value.trim();
 
         if (!nombre) {
             alert("El nombre es requerido.");
             return;
         }
+        if (!pais) {
+            alert("Elegí el país del local.");
+            return;
+        }
 
-        await crearSucursal({ nombre, supervisor, estado: "Activa", esPropio });
+        await crearSucursal({ nombre, supervisor, estado: "Activa", esPropio, pais });
         registrarEvento(getUsuarioActual().id, "crear_local", `Alta de local ${nombre}`);
 
         cerrarModal(modalId);
         navigate("locales");
     });
+    bindPaisLocal();
 }
 
 async function abrirModalEditarLocal(local) {
 
-    const usuarios = await getUsuarios();
+    const [usuarios, todosLosLocales] = await Promise.all([getUsuarios(), getSucursales()]);
     const supervisores = usuarios.filter((u) => u.rol === "supervisor");
+    const paisesExistentes = [...new Set(todosLosLocales.map((l) => l.pais).filter(Boolean))];
 
     const modalId = "modal-editar-local";
 
@@ -1173,10 +1223,12 @@ async function abrirModalEditarLocal(local) {
             <input type="text" id="input-nombre" placeholder="Agüero CABA" value="${escaparHtml(sinPrefijo(local.nombre))}">
         </div>
         <p class="text-xs text-muted" style="margin-top:4px">
-            Escribí sólo el resto. Terminá con la provincia o el país (CABA, GBA, Uruguay…): de ahí sale el país del local.
+            Escribí sólo el resto del nombre, sin el prefijo.
         </p>
 
-        <label style="display:block;margin-bottom:6px">Supervisores</label>
+        ${paisLocalHtml(paisesExistentes, local.pais || "Argentina")}
+
+        <label style="display:block;margin:16px 0 6px">Supervisores</label>
         ${checkboxesSupervisoresHtml(supervisores, listaSupervisores(local.supervisor))}
     `;
 
@@ -1191,10 +1243,17 @@ async function abrirModalEditarLocal(local) {
             return;
         }
 
-        await actualizarSucursal(local.id, { nombre, supervisor });
+        const pais = document.getElementById("input-pais").value.trim();
+        if (!pais) {
+            alert("Elegí el país del local.");
+            return;
+        }
+
+        await actualizarSucursal(local.id, { nombre, supervisor, pais });
         registrarEvento(getUsuarioActual().id, "editar_local", `Edición de local ${nombre}`);
 
         cerrarModal(modalId);
         navigate("locales");
     });
+    bindPaisLocal();
 }

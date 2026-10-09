@@ -48,8 +48,8 @@ export async function getSucursales() {
     }
 }
 
-export async function crearSucursal({ nombre, supervisor = "", estado = "Activa", esPropio = false }) {
-    return writeSheet(HOJAS.SUCURSALES, { nombre, supervisor, estado, esPropio: esPropio ? "SI" : "NO" }, sucursalesMock);
+export async function crearSucursal({ nombre, supervisor = "", estado = "Activa", esPropio = false, pais = "Argentina" }) {
+    return writeSheet(HOJAS.SUCURSALES, { nombre, supervisor, estado, esPropio: esPropio ? "SI" : "NO", pais }, sucursalesMock);
 }
 
 export async function actualizarSucursal(id, cambios) {
