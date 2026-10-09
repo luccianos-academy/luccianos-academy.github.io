@@ -233,6 +233,22 @@ function etiquetaGrupo(fecha) {
     return formatearFecha(fecha);
 }
 
+/** Una fila de enlace/archivo adjunto — mismo diseño suave que Manuales
+ *  (ver .fs-archivo en components.css). Las clases input-adjunto-* y
+ *  .adjunto-item son las que lee leerCamposNotificacion(). */
+function filaAdjuntoHtml({ url = "", label = "" } = {}) {
+    return `
+        <div class="adjunto-item fs-archivo">
+            <span class="fs-archivo-ico">${Icon("documento", { size: 18 })}</span>
+            <div class="fs-archivo-campos">
+                <input type="text" class="input-adjunto-label fs-in-label" placeholder="Nombre del botón — ej. Caballetes" value="${escaparHtml(label)}" aria-label="Nombre del botón">
+                <input type="text" class="input-adjunto-url fs-in-url" placeholder="https://drive.google.com/..." value="${escaparHtml(url)}" aria-label="Link o archivo">
+            </div>
+            <button type="button" class="fs-x btn-eliminar-adjunto" aria-label="Quitar">×</button>
+        </div>
+    `;
+}
+
 function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = []) {
     const opcionesCursos = cursos.map((c) => `<option value="${c.id}"${String(n.enlace) === String(c.id) ? " selected" : ""}>${c.nombre}</option>`).join("");
     const opcionesPrioridad = PRIORIDADES.map((p) => `<option value="${p.id}"${(n.prioridad || "info") === p.id ? " selected" : ""}>${p.nombre}</option>`).join("");
@@ -268,12 +284,12 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
     // DIRIGIDO_A en data/noticias.js). News es solo para colaboradores;
     // Supervisión + Admin siempre reciben copia (no son opción).
     const DESC_DIRIGIDO = {
-        "paises": "Argentina viene pre-tildada (es el país operativo) — sumá otros o destildala, y excluí locales puntuales abajo.",
-        "": "A todos los colaboradores de la red, de cualquier país.",
-        "encargados-propios": "Solo responsables de local, de locales propios.",
-        "encargados-franquicias": "Solo responsables de local, de franquicias.",
+        "paises": "Elegí los países y, si hace falta, excluí algún local.",
+        "": "A todos los colaboradores de la red.",
+        "encargados-propios": "Solo responsables de locales propios.",
+        "encargados-franquicias": "Solo responsables de franquicias.",
         "colaboradores-local": "Elegí a qué locales enviarla.",
-        "usuarios-especificos": "Solo a usuarios específicos que selecciones (Admin only).",
+        "usuarios-especificos": "Solo a las personas que elijas.",
         "solo-admin": "No le llega a nadie: solo la ves vos, para probar.",
     };
     const radiosDirigido = DIRIGIDO_A.map((d) => {
@@ -282,11 +298,13 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
         // solo debe ver Colaboradores/Encargados propios/Encargados
         // franquicias/Locales específicos.
         if ((d.id === "usuarios-especificos" || d.id === "solo-admin") && !esAdmin) return "";
+        // Antes cada opción era una tarjeta con su descripción larga: seis
+        // párrafos a la vez. Ahora son pastillas y se explica SOLO la
+        // elegida, en una línea (ver #ayuda-dirigido).
         return `
-            <label class="radio-card">
-                <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" ${dirigidoActual === d.id ? "checked" : ""}>
-                <span class="radio-card-titulo">${d.nombre}</span>
-                <span class="radio-card-desc">${DESC_DIRIGIDO[d.id] || ""}</span>
+            <label class="radio-pill">
+                <input type="radio" name="dirigido-a" class="input-dirigido-a" value="${d.id}" data-desc="${escaparHtml(DESC_DIRIGIDO[d.id] || "")}" ${dirigidoActual === d.id ? "checked" : ""}>
+                <span>${d.nombre}</span>
             </label>
         `;
     }).join("");
@@ -297,7 +315,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
             <div class="form-seccion">
                 <div class="form-seccion-head">
                     <span class="form-seccion-ico">${Icon("reportes", { size: 18 })}</span>
-                    <h3>1. Información</h3>
+                    <h3>Qué querés contar</h3>
                 </div>
 
                 <div class="form-cols-2">
@@ -313,7 +331,6 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
                         <label for="input-tipo">Categoría</label>
                         <input type="text" id="input-tipo" list="lista-categorias" placeholder="Escribí una categoría (ej: Novedad)" value="${tipoActual}">
                         <datalist id="lista-categorias">${opcionesCategoria}</datalist>
-                        <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Elegí una etiqueta o escribí una nueva. Las nuevas quedan guardadas para reusar.</p>
                         <div class="galeria-pills" style="margin-top:8px;margin-bottom:0">${pillsCategoria}</div>
 
                         <label for="input-prioridad">Prioridad</label>
@@ -325,11 +342,10 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
             <div class="form-seccion">
                 <div class="form-seccion-head">
                     <span class="form-seccion-ico">${Icon("compartir", { size: 18 })}</span>
-                    <h3>2. ¿A quién va dirigida?</h3>
+                    <h3>A quién le llega</h3>
                 </div>
-                <p class="form-seccion-sub">La noticia se enviará al público seleccionado. Supervisión siempre recibe copia.</p>
-
-                <div class="radio-cards">${radiosDirigido}</div>
+                <div class="radio-pills">${radiosDirigido}</div>
+                <p class="fs-ayuda" id="ayuda-dirigido"></p>
 
                 <div id="wrap-sucursal-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-sucursal-notif" style="margin-top:0">Seleccionar locales</label>
@@ -346,31 +362,16 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
                     <div class="galeria-pills" id="pills-paises-notif">
                         ${paisesDisponibles.map((p) => `<button type="button" class="pill-categoria${paisesElegidos.includes(p) ? " activa" : ""}" data-pill-pais="${escaparHtml(p)}">${escaparHtml(p)}</button>`).join("")}
                     </div>
-                    <p class="text-xs text-muted" style="margin-top:8px;margin-bottom:0">Argentina viene tildada por ser el país operativo — desmarcala si esta News no es para acá.</p>
+                    <p class="fs-ayuda">Argentina viene tildada. Destildala si esta News no es para acá.</p>
                 </div>
 
                 <div id="wrap-noaplica-notif" class="form-section-collapsible hidden" style="margin-top:14px">
                     <label for="input-noaplica-notif" style="margin-top:0">Locales que NO la reciben <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></label>
                     ${MultiSelectSucursales("input-noaplica-notif", n.noAplicaA ? n.noAplicaA.split(",").map((s) => s.trim()).filter(Boolean) : [])}
-                    <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">El resto de los países elegidos la recibe igual — esto es para el caso puntual de un local que no aplica (ej. todavía no abrió, o el aviso no le sirve).</p>
+                    <p class="fs-ayuda">Para un local puntual al que no le sirve el aviso.</p>
                 </div>
 
-                <div class="form-info-box">
-                    ${Icon("check", { size: 16 })}
-                    <p>Supervisión siempre recibe copia automática de todas las News.</p>
-                </div>
-            </div>
-
-            <div class="form-seccion">
-                <div class="form-seccion-head">
-                    <span class="form-seccion-ico">${Icon("calendario", { size: 18 })}</span>
-                    <h3>3. Publicación</h3>
-                </div>
-
-                <div class="form-info-box">
-                    ${Icon("check", { size: 16 })}
-                    <p>Se publica de inmediato al guardar.</p>
-                </div>
+                <p class="fs-ayuda">Se publica al instante. Supervisión siempre recibe copia.</p>
             </div>
 
             <div class="form-seccion">
@@ -378,7 +379,7 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
                     <summary>
                         <div class="form-seccion-head" style="margin-bottom:0">
                             <span class="form-seccion-ico">${Icon("configuracion", { size: 18 })}</span>
-                            <h3>4. Opciones avanzadas <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></h3>
+                            <h3>Extras <span class="text-xs text-muted" style="font-weight:400">(opcional)</span></h3>
                             <span class="chevron">${Icon("flecha-der", { size: 16 })}</span>
                         </div>
                     </summary>
@@ -395,45 +396,22 @@ function camposNotificacionHtml(n = {}, cursos = [], usuario = {}, sucursales = 
                                     Fijar como importante
                                     <input type="checkbox" id="input-destacado-news" ${n.destacado ? "checked" : ""}>
                                 </label>
-                                <p class="text-xs text-muted" style="margin-top:6px;margin-bottom:0">Queda arriba de todo, antes de las demás News, hasta que la desfijes.</p>
+                                <p class="fs-ayuda">Queda arriba de todo hasta que la desfijes.</p>
                             </div>
                             <div id="container-adjuntos">
-                                <label style="display:block;margin-bottom:16px;font-weight:600;color:var(--text)">Enlaces <span class="mod-tooltip" data-tooltip-texto="Si dejás la Etiqueta vacía, se guarda con fecha y hora. El archivo en Drive (privado, solo accede la cuenta del proyecto) también queda ordenado por fecha, así es fácil de ubicar después.">ⓘ</span></label>
-                                <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:14px;margin-bottom:14px">
+                                <label style="margin-top:0">Archivos o links <span class="mod-tooltip" data-tooltip-texto="Sin nombre de botón, se guarda con fecha y hora. El archivo queda en Drive (privado) ordenado por fecha.">ⓘ</span></label>
+                                <div id="lista-adjuntos" class="fs-archivos">
                                     ${(n.adjuntos && n.adjuntos.length > 0)
-                                        ? n.adjuntos.map((a, i) => `
-                                            <div class="adjunto-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
-                                                <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
-                                                    <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${a.url}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-                                                </div>
-                                                <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
-                                                    <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${a.label}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-                                                </div>
-                                                <button type="button" class="btn-eliminar-adjunto" data-index="${i}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
-                                            </div>
-                                        `).join("")
-                                        : (n.adjuntoUrl ? `
-                                            <div class="adjunto-item" style="display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)">
-                                                <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
-                                                    <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${n.adjuntoUrl}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-                                                </div>
-                                                <div>
-                                                    <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
-                                                    <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${n.adjuntoLabel || "Ver adjunto"}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-                                                </div>
-                                                <button type="button" class="btn-eliminar-adjunto" data-index="0" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
-                                            </div>
-                                        ` : "")
+                                        ? n.adjuntos.map((a) => filaAdjuntoHtml(a)).join("")
+                                        : (n.adjuntoUrl ? filaAdjuntoHtml({ url: n.adjuntoUrl, label: n.adjuntoLabel || "Ver adjunto" }) : "")
                                     }
                                 </div>
-                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                                    <button type="button" id="btn-agregar-adjunto" class="btn btn-secondary" style="padding:12px;font-weight:600">+ Agregar otro enlace</button>
-                                    <input type="file" id="input-archivo-adjunto" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
-                                    <button type="button" id="btn-subir-archivo" class="btn btn-secondary" style="padding:12px;font-weight:600">📤 Subir archivo</button>
-                                </div>
+                                <input type="file" id="input-archivo-adjunto" accept=".pdf,.xlsx,.xls,.doc,.docx,.ppt,.pptx,.csv,.txt,.zip,.jpg,.jpeg,.png,.gif,.mp4,.webm" style="display:none">
+                                <button type="button" id="btn-subir-archivo" class="fs-drop">
+                                    ${Icon("subir", { size: 22 })}
+                                    <span><span class="fs-drop-titulo">Subir archivo</span><small>PDF, Excel, Word, imágenes o video. Se guarda en Drive solo.</small></span>
+                                </button>
+                                <button type="button" id="btn-agregar-adjunto" class="fs-link">o pegar un link</button>
                             </div>
                         </div>
 
@@ -1198,8 +1176,15 @@ export function bindNuevaNews(params = []) {
             }
         }
     }
-    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", actualizarWrapsSurcursalUsuarios));
+    // Una línea que explica SOLO la opción elegida (antes cada opción
+    // traía su párrafo y se leían todos a la vez).
+    function actualizarAyudaDirigido() {
+        const ayuda = document.getElementById("ayuda-dirigido");
+        if (ayuda) ayuda.textContent = document.querySelector(".input-dirigido-a:checked")?.dataset.desc || "";
+    }
+    document.querySelectorAll(".input-dirigido-a").forEach((r) => r.addEventListener("change", () => { actualizarWrapsSurcursalUsuarios(); actualizarAyudaDirigido(); }));
     actualizarWrapsSurcursalUsuarios();
+    actualizarAyudaDirigido();
 
     // Bindear multiselect de usuarios
     bindMultiSelectUsuarios("input-usuarios-notif");
@@ -1208,29 +1193,17 @@ export function bindNuevaNews(params = []) {
     // creada para que el upload de archivo también pueda usarla.
     function agregarFilaAdjunto({ url = "", label = "" } = {}) {
         const lista = document.getElementById("lista-adjuntos");
-        const index = lista.querySelectorAll(".adjunto-item").length;
-        const nuevoItem = document.createElement("div");
-        nuevoItem.className = "adjunto-item";
-        nuevoItem.style.cssText = "display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:flex-end;padding:12px;background:var(--card);border-radius:8px;border:1px solid var(--line)";
-        nuevoItem.innerHTML = `
-            <div>
-                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">URL</label>
-                <input type="text" class="input-adjunto-url" placeholder="https://drive.google.com/..." value="${escaparHtml(url)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-            </div>
-            <div>
-                <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px">Etiqueta <span class="mod-tooltip" data-tooltip-texto="Así se va a ver el botón para quien reciba la News. Ej: 'Descargar Caballete', 'Table Tents'. Si lo dejás vacío, se arma solo con fecha y hora.">ⓘ</span></label>
-                <input type="text" class="input-adjunto-label" placeholder="Ej: Caballetes" value="${escaparHtml(label)}" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px">
-            </div>
-            <button type="button" class="btn-eliminar-adjunto" data-index="${index}" style="padding:10px 12px;background:var(--danger-soft);border:1px solid var(--danger);border-radius:6px;color:var(--danger);cursor:pointer;font-size:16px;font-weight:bold;transition:all .15s">×</button>
-        `;
-        lista.appendChild(nuevoItem);
+        lista.insertAdjacentHTML("beforeend", filaAdjuntoHtml({ url, label }));
+        const nuevoItem = lista.lastElementChild;
         nuevoItem.querySelector(".btn-eliminar-adjunto").addEventListener("click", () => {
             nuevoItem.remove();
         });
         return nuevoItem;
     }
 
-    document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => agregarFilaAdjunto());
+    document.getElementById("btn-agregar-adjunto")?.addEventListener("click", () => {
+        agregarFilaAdjunto().querySelector(".input-adjunto-url")?.focus();
+    });
 
     // Subir un archivo (PDF, Excel, Word, imagen…) directo a Drive: el
     // backend lo guarda en Recursos/Tipo/Año/Mes y devuelve el link
@@ -1245,9 +1218,10 @@ export function bindNuevaNews(params = []) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const textoOriginal = btnSubirArchivo.textContent;
+        const tituloSubir = btnSubirArchivo.querySelector(".fs-drop-titulo");
+        const textoOriginal = tituloSubir.textContent;
         btnSubirArchivo.disabled = true;
-        btnSubirArchivo.textContent = "Subiendo...";
+        tituloSubir.textContent = "Subiendo...";
 
         try {
             const base64 = await new Promise((resolve, reject) => {
@@ -1273,7 +1247,7 @@ export function bindNuevaNews(params = []) {
         } finally {
             inputArchivo.value = "";
             btnSubirArchivo.disabled = false;
-            btnSubirArchivo.textContent = textoOriginal;
+            tituloSubir.textContent = textoOriginal;
         }
     });
 

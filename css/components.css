@@ -7660,18 +7660,20 @@ span.calendario-gestion-dia{
 }
 
 
-/* Contenido nuevo (ver services/contenidoNuevo.js) — dorado de marca, a
-   propósito distinto del violeta del Desafío y de los estados
+/* Contenido nuevo (ver services/contenidoNuevo.js) — azul suave, el mismo
+   que marca lo elegido en los formularios (--info). Antes era dorado;
+   pasó al azul para que la app no vuelva a "todo dorado". Sigue siendo
+   distinto del violeta del Desafío y de los estados
    (éxito/alerta/error), para que "Nuevo" se lea como novedad y no como
    un estado de la lección. */
 .badge-nuevo{
-    background:var(--gold-soft);
-    color:var(--gold-deep);
-    border:1px solid rgba(194,160,101,.4);
+    background:var(--info-soft);
+    color:var(--info);
+    border:1px solid rgba(111,163,216,.4);
     margin-left:8px;
 }
 .leccion-item-nueva{
-    background:linear-gradient(0deg, rgba(194,160,101,.06), rgba(194,160,101,.06)), var(--card);
+    background:linear-gradient(0deg, rgba(111,163,216,.06), rgba(111,163,216,.06)), var(--card);
 }
 .curso-aviso-nuevas{
     margin-top:10px;
@@ -7689,7 +7691,7 @@ span.calendario-gestion-dia{
     gap:14px;
     flex-wrap:wrap;
     background:var(--card);
-    border:1px solid rgba(194,160,101,.4);
+    border:1px solid rgba(111,163,216,.4);
     border-radius:var(--radius);
     padding:16px 18px;
     box-shadow:var(--shadow);
@@ -7698,8 +7700,8 @@ span.calendario-gestion-dia{
     width:42px;
     height:42px;
     border-radius:var(--radius-sm);
-    background:var(--gold-soft);
-    color:var(--gold-deep);
+    background:var(--info-soft);
+    color:var(--info);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -7708,3 +7710,257 @@ span.calendario-gestion-dia{
 .contenido-nuevo-texto{ flex:1; min-width:200px; }
 .contenido-nuevo-texto strong{ display:block; font-size:15px; }
 .contenido-nuevo-texto span{ font-size:13px; color:var(--muted); }
+
+
+/* ============================
+   Formulario "suave" (Manuales) — fondo oscuro neutro, letras claras y un
+   azul calmo (--info) para lo elegido, en vez del dorado en todos lados.
+   Pedido explícito (2026-10-09): "si no se vuelve todo muy estresante".
+   El dorado queda para la marca; acá solo el azul marca "esto está
+   elegido". Prefijo .fs- para poder reutilizarlo en otros formularios.
+=============================*/
+.modal.modal-suave{ max-width:620px; }
+
+.modal-suave .btn-primary{
+    background:var(--info);
+    color:#0b1520;
+}
+.modal-suave .btn-primary:hover{ background:#8bb7e6; }
+
+.fs-bloque{
+    border-top:1px solid var(--line);
+    padding-top:18px;
+    margin-top:18px;
+}
+.fs-bloque:first-child{ border-top:0; padding-top:0; margin-top:0; }
+
+.fs-bloque-titulo{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:12px;
+    color:var(--muted);
+}
+.fs-bloque-titulo b{ color:var(--text); font-size:14px; font-weight:600; }
+.fs-bloque-titulo span{ margin-left:auto; font-size:12px; }
+
+.fs-fila-2{
+    display:grid;
+    grid-template-columns:1.4fr 1fr;
+    gap:12px;
+}
+.fs-fila-2 label{ margin-top:0; }
+
+.fs-pills{ display:flex; flex-wrap:wrap; gap:8px; }
+.fs-pills-chicas{ margin-top:10px; align-items:center; }
+
+.fs-pill{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:13px;
+    font-family:inherit;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.fs-pill:hover{ border-color:rgba(111,163,216,.5); color:var(--text); }
+.fs-pill.activa{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+.fs-pill-chica{ padding:4px 11px; font-size:12px; }
+
+.fs-ayuda{ font-size:12px; color:var(--muted); margin:8px 0 0; }
+.fs-pills-chicas .fs-ayuda{ margin:0; }
+
+.fs-seg{
+    display:flex;
+    gap:4px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:4px;
+}
+.fs-seg-btn{
+    flex:1;
+    background:transparent;
+    border:0;
+    color:var(--muted);
+    border-radius:10px;
+    padding:8px 6px;
+    font-size:13px;
+    font-family:inherit;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.fs-seg-btn:hover{ color:var(--text); }
+.fs-seg-btn.activa{
+    background:rgba(255,255,255,.08);
+    color:var(--text);
+    box-shadow:0 0 0 1px var(--line);
+}
+.fs-seg-tipo{ margin-top:12px; max-width:460px; }
+
+.fs-panel{ margin-top:14px; }
+.fs-panel[hidden]{ display:none; }
+.fs-panel .multi-sucursal-chip{
+    background:var(--info-soft);
+    color:var(--info);
+}
+
+.fs-archivos{ display:flex; flex-direction:column; gap:8px; }
+.fs-archivo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:8px 10px;
+}
+.fs-archivo-ico{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    background:var(--info-soft);
+    color:var(--info);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:none;
+}
+.fs-archivo-campos{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.fs-archivo .fs-archivo-campos input.fs-in-label,
+.fs-archivo .fs-archivo-campos input.fs-in-url{
+    width:100%;
+    background:transparent;
+    border:0;
+    border-radius:0;
+    padding:3px 0;
+    color:var(--text);
+    font-family:inherit;
+}
+.fs-archivo .fs-archivo-campos input.fs-in-label{ font-size:14px; }
+.fs-archivo .fs-archivo-campos input.fs-in-url{ font-size:12px; color:var(--muted); }
+.fs-archivo .fs-archivo-campos input:focus{
+    outline:none;
+    box-shadow:0 1px 0 0 var(--info);
+}
+.fs-x{
+    background:transparent;
+    border:0;
+    color:var(--muted);
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    padding:4px 8px;
+}
+.fs-x:hover{ color:var(--danger); }
+
+.fs-drop{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    width:100%;
+    margin-top:8px;
+    padding:14px;
+    background:transparent;
+    border:1.5px dashed var(--line);
+    border-radius:12px;
+    color:var(--muted);
+    font-family:inherit;
+    text-align:left;
+    cursor:pointer;
+    transition:var(--transition);
+}
+.fs-drop:hover{ border-color:rgba(111,163,216,.5); background:rgba(255,255,255,.03); }
+.fs-drop:disabled{ opacity:.6; cursor:progress; }
+.fs-drop-titulo{ display:block; font-size:14px; color:var(--text); }
+.fs-drop small{ display:block; font-size:12px; color:var(--muted); }
+
+.fs-link{
+    background:transparent;
+    border:0;
+    color:var(--muted);
+    font-size:12px;
+    font-family:inherit;
+    text-decoration:underline;
+    cursor:pointer;
+    padding:8px 0 0;
+}
+.fs-link:hover{ color:var(--text); }
+
+.fs-resumen{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    margin-top:18px;
+    padding:12px 14px;
+    border-radius:12px;
+    background:var(--info-soft);
+    border:1px solid rgba(111,163,216,.35);
+    color:var(--text);
+    font-size:13.5px;
+}
+.fs-resumen svg{ color:var(--info); flex:none; margin-top:1px; }
+.fs-resumen b{ color:var(--info); font-weight:600; }
+
+@media (max-width:600px){
+    .fs-fila-2{ grid-template-columns:1fr; }
+    .fs-seg-apilar{ flex-direction:column; }
+}
+
+
+/* Opciones de "A quién le llega" (News) como pastillas: una sola elegida,
+   el radio queda oculto pero accesible por teclado. */
+.radio-pills{ display:flex; flex-wrap:wrap; gap:8px; }
+.radio-pill{ position:relative; display:inline-flex; margin:0 !important; cursor:pointer; }
+.radio-pill input{ position:absolute; opacity:0; pointer-events:none; width:1px; height:1px; }
+.radio-pill span{
+    display:block;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--muted);
+    border-radius:999px;
+    padding:7px 14px;
+    font-size:13px;
+    transition:var(--transition);
+}
+.radio-pill:hover span{ border-color:rgba(111,163,216,.5); color:var(--text); }
+.radio-pill input:checked + span{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+.radio-pill input:focus-visible + span{ outline:2px solid var(--info); outline-offset:2px; }
+
+/* Las pastillas de país y categoría de los formularios en secciones (News)
+   usan el azul suave en vez del dorado de las galerías de productos. */
+.form-secciones .pill-categoria{
+    background:transparent;
+    color:var(--muted);
+    font-weight:500;
+}
+.form-secciones .pill-categoria:hover{ border-color:rgba(111,163,216,.5); color:var(--text); }
+.form-secciones .pill-categoria.activa{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.5);
+    color:var(--info);
+}
+
+/* El botón principal de las pantallas de redactar (News, Comunicaciones,
+   Recursos) en el mismo azul suave que el resto del formulario. */
+.compose-footer .btn-primary{
+    background:var(--info);
+    color:#0b1520;
+}
+.compose-footer .btn-primary:hover{ background:#8bb7e6; }
+
+.contenido-nuevo-card .btn-primary{
+    background:var(--info);
+    color:#0b1520;
+}
+.contenido-nuevo-card .btn-primary:hover{ background:#8bb7e6; }

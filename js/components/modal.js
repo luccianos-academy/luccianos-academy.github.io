@@ -6,10 +6,10 @@
    usa decide cuándo montarlo (abrirModal) y limpia con cerrarModal.
 =============================*/
 
-export function Modal({ id, titulo, contenidoHtml, textoConfirmar = "Guardar" }) {
+export function Modal({ id, titulo, contenidoHtml, textoConfirmar = "Guardar", claseExtra = "" }) {
     return `
         <div class="modal-overlay" id="${id}">
-            <div class="modal">
+            <div class="modal${claseExtra ? " " + claseExtra : ""}">
 
                 <div class="modal-header">
                     <h2>${titulo}</h2>

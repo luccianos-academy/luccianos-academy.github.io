@@ -183,6 +183,99 @@
     }
 }
 
+/* ============================
+   Liquid Glass (celular) — es el estilo del celular para todos (decisión
+   del 2026-10-09, después de probarlo como opción: "la mejora es
+   absoluta"). En escritorio no cambia nada.
+   Barra de abajo flotante y translúcida, encabezado de vidrio y
+   tarjetas principales en vidrio sobre un fondo con dos manchas suaves
+   (sin algo de color detrás, el desenfoque no se nota).
+   Perf: backdrop-filter solo en lo grande y poco repetido (barra,
+   encabezado, hero, tarjetas destacadas). Las tarjetas comunes
+   (.card, que pueden ser decenas en una lista) llevan solo fondo
+   translúcido, que es barato.
+=============================*/
+@media (max-width:900px){
+
+    html body::before{
+        content:"";
+        position:fixed;
+        inset:0;
+        z-index:-1;
+        pointer-events:none;
+        background:
+            radial-gradient(circle 280px at -5% 18%, rgba(194,130,70,.38), transparent 70%),
+            radial-gradient(circle 300px at 105% 82%, rgba(60,140,150,.34), transparent 70%);
+    }
+
+    html .topbar{
+        background:rgba(20,18,16,.42);
+        -webkit-backdrop-filter:blur(18px) saturate(1.6);
+        backdrop-filter:blur(18px) saturate(1.6);
+        border-bottom:1px solid rgba(255,255,255,.09);
+    }
+
+    html .topbar-btn{
+        background:rgba(255,255,255,.1);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.25);
+    }
+
+    html .bottom-nav{
+        left:14px;
+        right:14px;
+        bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+        padding:0 6px;
+        border-radius:32px;
+        background:rgba(255,255,255,.1);
+        -webkit-backdrop-filter:blur(22px) saturate(1.8);
+        backdrop-filter:blur(22px) saturate(1.8);
+        border:1px solid rgba(255,255,255,.22);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -1px 0 rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.4);
+        align-items:center;
+    }
+
+    html .bottom-nav-item{
+        color:rgba(243,237,226,.72);
+        padding:7px 4px 8px;
+        margin:6px 0;
+        border-radius:22px;
+    }
+
+    html .bottom-nav-item.active{
+        color:#fff;
+        background:rgba(255,255,255,.18);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.35);
+    }
+
+    /* La barra ahora flota 14px arriba del borde — más aire abajo para que
+       el último contenido no quede tapado. */
+    html .layout:has(~ .bottom-nav) .content{
+        padding-bottom:110px;
+    }
+
+    html .hero-lobby,
+    html .protagonista,
+    html .contenido-nuevo-card,
+    html .curso-progreso-sticky{
+        background:rgba(255,255,255,.07);
+        -webkit-backdrop-filter:blur(14px);
+        backdrop-filter:blur(14px);
+        border:1px solid rgba(255,255,255,.14);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 24px rgba(0,0,0,.25);
+    }
+
+    html .card{
+        background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.1);
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.12);
+    }
+
+    html .leccion-item{
+        background:rgba(255,255,255,.05);
+        border-color:rgba(255,255,255,.1);
+    }
+}
+
 @media (max-width:600px){
 
     /* Fila etiqueta/valor (Mi perfil, etc.) — en vez de wrapear
