@@ -8027,3 +8027,110 @@ button.calendario-gestion-dia.con-tareas::after{ background:var(--info); }
 .modal-suave .btn-agregar-subtarea-nueva{ color:var(--info); }
 .pagina-suave .toggle-switch input[type="checkbox"]:checked,
 .modal-suave .toggle-switch input[type="checkbox"]:checked{ background:var(--info); }
+
+
+/* ============================
+   Modal de vidrio (Liquid Glass) — los modales .modal-suave (Manuales,
+   Gestión de tareas): panel translúcido con desenfoque, borde fino con
+   brillo arriba, dos resplandores suaves de color de fondo (sin algo de
+   color detrás el vidrio se ve como un gris plano) y las tarjetas
+   internas también en vidrio. Pedido explícito (2026-10-09): el cuadro
+   "se ve genérico, no da sensación premium".
+=============================*/
+.modal-overlay:has(.modal-suave){
+    background:rgba(8,8,10,.5);
+    -webkit-backdrop-filter:blur(10px) saturate(1.3);
+    backdrop-filter:blur(10px) saturate(1.3);
+}
+
+.modal.modal-suave{
+    background:
+        radial-gradient(circle 260px at 0% 0%, rgba(194,130,70,.30), transparent 70%),
+        radial-gradient(circle 280px at 100% 100%, rgba(60,140,150,.28), transparent 70%),
+        rgba(30,28,25,.62);
+    -webkit-backdrop-filter:blur(28px) saturate(1.7);
+    backdrop-filter:blur(28px) saturate(1.7);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:26px;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.28),
+        inset 0 -1px 0 rgba(255,255,255,.05),
+        0 30px 80px rgba(0,0,0,.55);
+}
+
+.modal-suave .modal-header h2{ font-size:21px; letter-spacing:-.01em; }
+.modal-suave .modal-close{
+    width:34px;
+    height:34px;
+    border-radius:50%;
+    background:rgba(255,255,255,.08);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.2);
+    color:var(--text);
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+.modal-suave .modal-close:hover{ background:rgba(255,255,255,.14); }
+
+/* Tarjetas internas (sub-tareas, alcance, bloques del formulario). */
+.modal-suave .tarea-modal-grupo,
+.modal-suave .fs-bloque-vidrio{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.11);
+    border-radius:18px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.14);
+}
+.modal-suave .tarea-modal-grupo-titulo{ color:rgba(243,237,226,.6); }
+
+/* Campos: vidrio más oscuro que el panel, con borde fino y un anillo azul
+   al enfocar. */
+.modal-suave .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]),
+.modal-suave .modal-body select,
+.modal-suave .modal-body textarea{
+    background:rgba(8,8,10,.35);
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:14px;
+    transition:border-color var(--transition), box-shadow var(--transition);
+}
+.modal-suave .modal-body input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):focus,
+.modal-suave .modal-body select:focus,
+.modal-suave .modal-body textarea:focus{
+    outline:none;
+    border-color:rgba(111,163,216,.65);
+    box-shadow:0 0 0 3px rgba(111,163,216,.18);
+}
+.modal-suave .modal-body .fs-archivo{
+    background:rgba(8,8,10,.3);
+    border-color:rgba(255,255,255,.1);
+}
+
+/* Íconos elegibles y el interruptor de recordatorio, en azul. */
+.modal-suave .icono-tarea-opcion{
+    background:rgba(255,255,255,.05);
+    border-color:rgba(255,255,255,.12);
+    border-radius:14px;
+}
+.modal-suave .icono-tarea-opcion:hover{ border-color:rgba(111,163,216,.6); }
+.modal-suave .icono-tarea-opcion.activo{
+    background:var(--info-soft);
+    border-color:rgba(111,163,216,.6);
+    color:var(--info);
+}
+.modal-suave .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch{ background:var(--info); }
+.modal-suave .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch::after{ background:#0b1520; }
+
+/* Botones del pie: el secundario como vidrio. */
+.modal-suave .modal-footer .btn-secondary{
+    background:rgba(255,255,255,.08);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+}
+.modal-suave .modal-footer .btn-secondary:hover{ background:rgba(255,255,255,.14); }
+.modal-suave .fs-seg{ background:rgba(8,8,10,.3); border-color:rgba(255,255,255,.1); }
+.modal-suave .fs-pill{ border-color:rgba(255,255,255,.14); }
+.modal-suave .fs-pill.activa{ border-color:rgba(111,163,216,.55); }
+.modal-suave .tarea-modal-icono-preview{
+    background:var(--info-soft);
+    color:var(--info);
+    border:1px solid rgba(111,163,216,.4);
+}
