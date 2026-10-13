@@ -1248,6 +1248,7 @@ function bindModalTarea() {
  *  como las pills de día de la propia tarjeta (bindDiasControl), así
  *  el mismo mecanismo cubre los dos caminos de cambiar el día. */
 function recrearTareaEnPaneles(idTarea) {
+    marcarEdicionLocalGestion();
     const tarea = registroTareas.get(idTarea);
     if (!tarea) return;
     // :not(.fila-aplica-tarea) — la fila de "Tareas" es también
@@ -2132,7 +2133,7 @@ function bindCheckboxHecha(chk) {
             return;
         }
 
-        ultimaEdicionLocalGestion = Date.now();
+        marcarEdicionLocalGestion();
         tarjeta.classList.toggle("hecha", hechoNuevo);
         const hora = tarjeta.querySelector("[data-hora]");
         // "Guardando..." mientras dura el ~1-1.5s real de Apps Script —
@@ -2236,6 +2237,7 @@ function bindDiasControl(contenedor) {
                 // cual está.
                 guardarDiasSucursal(idTarea, [...tarea.dias], getUsuarioActual()?.sucursal, tarea.frecuencia).then((r) => {
                     timersDias.delete(idTarea);
+                    marcarEdicionLocalGestion();
                     if (r?.ok) return;
                     alert(r?.error || `No se pudo guardar el cambio de día para "${tarea.titulo}" — probá de nuevo.`);
                     // Revertir TODA la ráfaga (no solo el último toque) al estado de antes de empezarla.
@@ -2654,6 +2656,7 @@ function bindTarjetaDesplegable(tarjeta) {
  *  agrega si es una tarea nueva. Conserva si estaba desplegada, para
  *  no cerrarle la tarjeta en la cara a media edición. */
 function actualizarFilaAplica(idTarea) {
+    marcarEdicionLocalGestion();
     const tarea = registroTareas.get(idTarea);
     if (!tarea) return;
     const filaVieja = document.querySelector(`.fila-aplica-tarea[data-tarea-id="${idTarea}"]`);
@@ -3717,12 +3720,15 @@ async function actualizarChecksEnDOM() {
     // vieja sin pegarle al backend, aunque este refresco se dispare
     // cada 5s. Sin esto el "casi en vivo" tardaba hasta 5 min en verse.
     invalidar(HOJAS.GESTION_CHECKS);
+    const versionAntes = versionEdicionLocalGestion;
     let frescos;
     try {
         frescos = await getChecksPorSucursal(sucursalActiva);
     } catch (err) {
         return; // silencioso — es un refresco de fondo, no una acción del usuario
     }
+    // Hubo un toque mientras esperaba al servidor: esta respuesta ya es vieja.
+    if (versionAntes !== versionEdicionLocalGestion || tareasSinGuardarGestion.size > 0) return;
     // Mismo filtro de ciclo que la carga inicial (ver filtrarChecksCicloActual)
     // — sin esto, una tarea del ciclo pasado (todavía sin tocar en el
     // ciclo nuevo) volvía a aparecer marcada apenas pasaban 20s.
@@ -3836,12 +3842,18 @@ async function actualizarCatalogoGestionEnDOM() {
 
     invalidar(HOJAS.GESTION_TAREAS);
     invalidar(HOJAS.GESTION_TAREAS_SUCURSAL);
+    const versionAntes = versionEdicionLocalGestion;
     let catalogo, dias;
     try {
         [catalogo, dias] = await Promise.all([getTareas(), getDiasPorSucursal(sucursalActiva)]);
     } catch (err) {
         return; // silencioso — refresco de fondo, no una acción del usuario
     }
+    // Hubo un toque (o un guardado) mientras esperaba al servidor: esta
+    // respuesta ya es vieja — aplicarla borraba el toque y cerraba la
+    // tarjeta que la persona tenía abierta (bug real: "toco una tarea y
+    // se cierra"). El próximo repaso, ya sin nada en el medio, la trae al día.
+    if (versionAntes !== versionEdicionLocalGestion || tareasSinGuardarGestion.size > 0 || timersDias.size > 0) return;
     catalogo.forEach((t) => {
         const info = dias[t.id];
         t.dias = info?.dias || [];
@@ -3856,8 +3868,23 @@ async function actualizarCatalogoGestionEnDOM() {
 
     const cuerpo = document.getElementById("cuerpo-gestion");
     if (!cuerpo) return;
+    // Un cambio REAL del catálogo (otro dispositivo, un Admin) reconstruye
+    // el cuerpo, pero las tarjetas que la persona tenía desplegadas se
+    // vuelven a abrir y el scroll no salta.
+    const abiertas = Array.from(cuerpo.querySelectorAll(".tarea-gestion.desplegada")).map(claveTarjetaGestion);
+    const scrollY = window.scrollY;
     cuerpo.innerHTML = cuerpoGestionHtml();
     bindCuerpoGestion();
+    cuerpo.querySelectorAll(".tarea-gestion").forEach((t) => {
+        if (abiertas.includes(claveTarjetaGestion(t))) t.classList.add("desplegada");
+    });
+    window.scrollTo(0, scrollY);
+}
+
+/** Identifica una tarjeta entre reconstrucciones: la fila de "Asignar
+ *  tareas" no tiene día, las de "Tareas asignadas" sí. */
+function claveTarjetaGestion(t) {
+    return `${t.classList.contains("fila-aplica-tarea") ? "a" : "e"}|${t.dataset.tareaId}|${t.dataset.dia || ""}`;
 }
 
 let intervaloChecksGestion = null;
@@ -3875,6 +3902,19 @@ let quitarVisibilidadGestion = null;
  *  margen alcanzan de sobra para que Apps Script termine de escribir. */
 let ultimaEdicionLocalGestion = 0;
 const MARGEN_EDICION_LOCAL_MS = 4000;
+
+/** Cuenta los toques/ediciones locales. El repaso de fondo lo lee ANTES
+ *  de pedir datos al servidor y lo vuelve a leer al volver la respuesta:
+ *  si cambió, hubo un toque en el medio y esa respuesta ya es vieja —
+ *  se descarta en vez de pisar lo que la persona acaba de hacer (y de
+ *  reconstruir la pantalla cerrándole la tarjeta abierta). Los guards
+ *  de antes solo se miraban al EMPEZAR el repaso; con ~1.5s de latencia
+ *  real de Apps Script, un toque en esa ventana no se veía. */
+let versionEdicionLocalGestion = 0;
+function marcarEdicionLocalGestion() {
+    ultimaEdicionLocalGestion = Date.now();
+    versionEdicionLocalGestion++;
+}
 
 export function bindGestion() {
     document.getElementById("btn-ayuda-gestion")?.addEventListener("click", () => {
