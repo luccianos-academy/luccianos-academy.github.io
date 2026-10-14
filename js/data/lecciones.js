@@ -13,6 +13,7 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { leccionesMock } from "./mock/lecciones.mock.js";
 import { HOJAS } from "../config.js";
+import { tc } from "../i18n/i18n.js";
 
 function normalizarLeccion(f) {
     return {
@@ -31,10 +32,10 @@ function normalizarLeccion(f) {
         // renderCuerpoLeccion en pages/cursos.js.
         manualLabel: f.manualLabel || "",
         imagen: f.imagen || "",
-        procedimiento: f.procedimiento || "",
-        errores: f.errores || "",
-        buenasPracticas: f.buenasPracticas || "",
-        consejo: f.consejo || "",
+        procedimiento: tc(f.procedimiento || ""),
+        errores: tc(f.errores || ""),
+        buenasPracticas: tc(f.buenasPracticas || ""),
+        consejo: tc(f.consejo || ""),
         resumen: f.resumen || "",
         estado: f.estado || "Activo",
         // "NO" = no cuenta para el % de progreso ni para el examen, sin

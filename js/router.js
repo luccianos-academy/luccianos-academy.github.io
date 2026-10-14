@@ -43,8 +43,9 @@ import { CoordinacionOperativa, bindCoordinacionOperativa } from "./pages/coordi
 import { Recursos, bindRecursos } from "./pages/recursos.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
 import { Movimientos, bindMovimientos } from "./pages/movimientos.js";
-import { Configuracion } from "./pages/configuracion.js";
+import { Configuracion, bindConfiguracion } from "./pages/configuracion.js";
 import { Integraciones } from "./pages/integraciones.js";
+import { recargarSiCambioElIdioma, prepararIdioma } from "./i18n/i18n.js";
 
 /** "inicio" es polimórfico: cada rol ve un home distinto. */
 async function Inicio() {
@@ -74,7 +75,7 @@ const RUTAS = {
     misevaluaciones: { render: MisEvaluaciones },
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },
     reportes:      { render: Reportes, bind: bindReportes },
-    configuracion: { render: Configuracion },
+    configuracion: { render: Configuracion, bind: bindConfiguracion },
     integraciones: { render: Integraciones },
     historia:      { render: Historia, bind: bindHistoria },
     news:      { render: News, bind: bindNews },
@@ -138,6 +139,12 @@ async function handleRoute() {
 }
 
 async function renderRuta(path, ruta, params) {
+
+    // Si el idioma que le corresponde a esta persona cambió (inició o cerró
+    // sesión alguien de otro país), se recarga para que todo salga en el
+    // idioma correcto — ver i18n/i18n.js.
+    prepararIdioma();
+    recargarSiCambioElIdioma();
 
     // Un modal abierto vive fuera de #app (document.body) — si el
     // usuario navega sin cerrarlo, limpiarlo acá evita que quede

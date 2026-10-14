@@ -29,8 +29,11 @@ import { getUsuarioActual } from "../services/auth.js";
 import { mismoId } from "../services/ids.js";
 import { getTokens } from "../data/tokens.js";
 import { escaparHtml } from "../services/html.js";
+import { idiomaActual } from "../i18n/i18n.js";
 
 const DIAS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const DIAS_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MESES_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 /** accion (columna cruda de Auditoria, ver registrarEvento en todo el
@@ -89,6 +92,7 @@ function tituloDia(clave, hoyClave, ayerClave) {
     if (clave === "otros") return "Fecha desconocida";
     const [anio, mes, dia] = clave.split("-").map(Number);
     const d = new Date(anio, mes - 1, dia);
+    if (idiomaActual() === "en") return `${DIAS_EN[d.getDay()]}, ${MESES_EN[mes - 1]} ${dia}`;
     return `${DIAS_ES[d.getDay()]} ${dia} de ${MESES_ES[mes - 1]}`;
 }
 

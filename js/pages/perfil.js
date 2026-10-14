@@ -21,6 +21,7 @@ import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
 import { VERSION, ES_STAGING } from "../config.js";
+import { idiomaElegido, guardarIdioma, idiomasDisponibles } from "../i18n/i18n.js";
 import { seccionesDisponibles, TABS_POR_ROL } from "../components/bottomNav.js";
 import { getAccesosRapidos, setAccesosRapidos } from "../services/preferenciasAccesos.js";
 
@@ -209,6 +210,29 @@ function bloqueAccesosRapidos(usuario) {
     `;
 }
 
+/** Idioma de la app: Automático (según el país del local) / Español / English. */
+function bloqueIdioma() {
+    const disponibles = idiomasDisponibles(getUsuarioActual());
+    // Con un solo idioma posible no hay nada que elegir: la tarjeta no se muestra.
+    if (disponibles.length < 2) return "";
+    const actual = idiomaElegido();
+    const opciones = [
+        { id: "auto", etiqueta: "Automático" },
+        ...disponibles,
+    ];
+    return `
+        <div class="card" style="max-width:420px;margin-top:20px">
+            <h3 style="margin-top:0">Idioma</h3>
+            <p class="text-xs text-muted" style="margin-top:4px;margin-bottom:14px">
+                Se elige según el país de tu local. Podés cambiarlo cuando quieras.
+            </p>
+            <div class="fs-seg" id="seg-idioma">
+                ${opciones.map((o) => `<button type="button" class="fs-seg-btn${actual === o.id ? " activa" : ""}" data-idioma="${o.id}">${o.etiqueta}</button>`).join("")}
+            </div>
+        </div>
+    `;
+}
+
 export async function Perfil() {
 
     const usuario = getUsuarioActual();
@@ -241,6 +265,8 @@ export async function Perfil() {
         </div>
 
         ${await bloquePush(usuario)}
+
+        ${bloqueIdioma()}
 
         ${bloqueAccesosRapidos(usuario)}
 
@@ -277,6 +303,15 @@ export function bindPerfil() {
         }
         setAccesosRapidos(getUsuarioActual(), elegidos);
         alert("Listo — se actualiza la próxima vez que navegues.");
+    });
+
+    document.querySelectorAll("#seg-idioma [data-idioma]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+            guardarIdioma(btn.dataset.idioma);
+            // Se recarga: así los datos ya leídos (lecciones, preguntas…) también
+            // salen en el idioma elegido.
+            window.location.reload();
+        });
     });
 
     document.querySelectorAll("[data-ver-como-rol]").forEach((btn) => {

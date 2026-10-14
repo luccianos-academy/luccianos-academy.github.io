@@ -14,6 +14,7 @@ import { revalidarPushSiYaEstaConcedido } from "./services/push.js";
 import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
+import { iniciarI18n } from "./i18n/i18n.js";
 
 // Wait for idbManager and syncManager to be available in window
 async function waitForServices() {
@@ -54,6 +55,10 @@ async function initApp() {
         window.syncManager.init().catch((err) => {
             console.warn('[APP] Sync en segundo plano falló:', err);
         });
+
+        // Idiomas (i18n/i18n.js): antes del router, así la primera pantalla ya
+        // sale en el idioma de la persona. Para quien usa español no carga nada.
+        await iniciarI18n();
 
         console.log('[APP] Initializing Router...');
         initRouter();
