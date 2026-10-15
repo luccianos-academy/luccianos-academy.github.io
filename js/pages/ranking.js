@@ -70,14 +70,16 @@ function armarRankingEnVivo(resultados, usuarios, mes) {
     });
 
     const usuariosPorId = Object.fromEntries(usuarios.map((u) => [String(u.id), u]));
+    const datosJugados = datosDeQuienJugo(resultados);
 
     const todos = Object.entries(totales).map(([colaboradorId, t]) => {
         const u = usuariosPorId[String(colaboradorId)];
+        const jugo = datosJugados[String(colaboradorId)] || {};
         return {
             colaboradorId,
-            nombre: u ? u.nombre : "Colaborador",
-            sucursal: u ? u.sucursal : "",
-            foto: u ? u.foto : "",
+            nombre: (u && u.nombre) || jugo.nombre || "Colaborador",
+            sucursal: (u && u.sucursal) || jugo.local || "",
+            foto: (u && u.foto) || jugo.foto || "",
             puntos: t.puntos,
             tiempo: t.tiempo,
             excluido: u ? u.excluidoDesafio : false,
@@ -90,20 +92,40 @@ function armarRankingEnVivo(resultados, usuarios, mes) {
     };
 }
 
+/** nombre / foto / local de cada persona según su partida MÁS RECIENTE.
+ *  Es lo que permite mostrar a todos los participantes aunque quien mira no
+ *  pueda leer la hoja Usuarios (un colaborador solo ve su propia fila). */
+function datosDeQuienJugo(resultados) {
+    const porId = {};
+    [...resultados]
+        .sort((a, b) => a.fecha.localeCompare(b.fecha) || Number(a.id) - Number(b.id))
+        .forEach((r) => {
+            const previo = porId[String(r.colaboradorId)] || {};
+            porId[String(r.colaboradorId)] = {
+                nombre: r.colaboradorNombre || previo.nombre || "",
+                foto: r.colaboradorFoto || previo.foto || "",
+                local: r.colaboradorLocal || previo.local || "",
+            };
+        });
+    return porId;
+}
+
 /** Un mes ya cerrado: la foto que dejó el cierre de mes, ordenada por
  *  el puesto que quedó congelado ahí (no se recalcula con datos de
  *  hoy — nombre/sucursal sí se toman de Usuarios actual). */
-function armarRankingHistorico(historial, usuarios, mes) {
+function armarRankingHistorico(historial, usuarios, mes, resultados = []) {
     const usuariosPorId = Object.fromEntries(usuarios.map((u) => [String(u.id), u]));
+    const datosJugados = datosDeQuienJugo(resultados);
     const activos = historial
         .filter((f) => f.mes === mes)
         .map((f) => {
             const u = usuariosPorId[String(f.colaboradorId)];
+            const jugo = datosJugados[String(f.colaboradorId)] || {};
             return {
                 colaboradorId: f.colaboradorId,
-                nombre: u ? u.nombre : "Colaborador",
-                sucursal: u ? u.sucursal : "",
-                foto: u ? u.foto : "",
+                nombre: (u && u.nombre) || f.colaboradorNombre || jugo.nombre || "Colaborador",
+                sucursal: (u && u.sucursal) || jugo.local || "",
+                foto: (u && u.foto) || jugo.foto || "",
                 puntos: f.puntos,
                 puesto: f.puesto,
                 tiempo: 0,
@@ -137,7 +159,7 @@ export async function Ranking() {
 
     datosPorMes = { [mesActual]: armarRankingEnVivo(resultados, usuarios, mesActual) };
     mesesHistorial.forEach((m) => {
-        datosPorMes[m] = armarRankingHistorico(historial, usuarios, m);
+        datosPorMes[m] = armarRankingHistorico(historial, usuarios, m, resultados);
     });
 
     mesActivo = mesActual;

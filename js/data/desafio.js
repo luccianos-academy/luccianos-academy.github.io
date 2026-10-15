@@ -21,10 +21,15 @@ function normalizarResultado(f) {
     return {
         id: f.id,
         colaboradorId: f.colaboradorId,
-        // Solo para poder leer la Sheet a simple vista (auditoría
-        // manual) — el ranking real siempre arma el nombre haciendo
-        // join con Usuarios por id, nunca lee este campo.
+        // Quién es, tal como era al jugar. El ranking lo muestra a TODOS los
+        // participantes, pero un colaborador no puede leer la hoja Usuarios
+        // (solo su fila), así que el join por id solo le sirve para sí mismo
+        // y todos los demás salían como "Colaborador" con una "C". Por eso
+        // cada partida guarda nombre, foto y local de quien la jugó; el
+        // ranking usa Usuarios cuando puede y esto cuando no.
         colaboradorNombre: String(f.colaboradorNombre || "").trim(),
+        colaboradorFoto: String(f.colaboradorFoto || "").trim(),
+        colaboradorLocal: String(f.colaboradorLocal || "").trim(),
         fecha: String(f.fecha || "").trim().slice(0, 10),
         correctas: Number(f.correctas) || 0,
         tiempoUsado: Number(f.tiempoUsado) || 0,
@@ -81,10 +86,12 @@ export function totalDelMes(filasColaborador, anioMes = mesActualISO()) {
         .reduce((suma, f) => suma + f.puntos, 0);
 }
 
-export async function crearDesafioResultado({ colaboradorId, colaboradorNombre, correctas, tiempoUsado, puntos }) {
+export async function crearDesafioResultado({ colaboradorId, colaboradorNombre, colaboradorFoto = "", colaboradorLocal = "", correctas, tiempoUsado, puntos }) {
     return writeSheet(HOJAS.DESAFIO_RESULTADOS, {
         colaboradorId,
         colaboradorNombre,
+        colaboradorFoto,
+        colaboradorLocal,
         fecha: hoyISO(),
         correctas,
         tiempoUsado,
