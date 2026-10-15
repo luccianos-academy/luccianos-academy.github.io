@@ -453,6 +453,18 @@ function imagenesDeLaLeccion(leccionId) {
     if (!items) return null;
     const usuario = getUsuarioActual();
     const visibles = items.filter((it) => aplicaAlUsuario(it, usuario));
+    // Admin y Supervisor ven TODAS las variantes (aplicaAlUsuario las deja
+    // pasar), y dos láminas casi iguales sin rótulo parecen un duplicado.
+    // Solo para ellos, cada variante dice a quién le toca.
+    if (visibles.length && (usuario?.rol === "admin" || usuario?.rol === "supervisor")) {
+        return visibles.map((it) => {
+            const solo = String(it.aplicaA || "").trim();
+            const menos = String(it.noAplicaA || "").trim();
+            if (solo) return { ...it, caption: `${it.caption} · Solo ${solo}` };
+            if (menos) return { ...it, caption: `${it.caption} · Todos los países menos ${menos}` };
+            return it;
+        });
+    }
     return visibles.length ? visibles : null;
 }
 
