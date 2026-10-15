@@ -15,6 +15,8 @@
 
 import { fetchSheet, writeSheet } from "../services/dataSource.js";
 import { desafioResultadosMock, desafioHistorialMock } from "./mock/desafio.mock.js";
+import { getDisponibilidad, guardarDisponibilidad } from "./disponibilidad.js";
+import { invalidar } from "../services/dataSource.js";
 import { HOJAS } from "../config.js";
 
 function normalizarResultado(f) {
@@ -118,4 +120,31 @@ export async function getDesafioHistorial() {
         console.warn(`No se pudo leer '${HOJAS.DESAFIO_HISTORIAL}':`, err.message);
         return [];
     }
+}
+
+/* ── Quién está excluido del ranking ─────────────────────────────
+   La fuente de verdad es Usuarios.excluidoDesafio, pero un colaborador no puede
+   leer esa hoja (solo su fila), así que no podía saber a quién ocultar y el
+   ranking de ellos seguía mostrando a gente que el Admin había excluido.
+   Por eso se guarda además una lista pública de ids en una fila reservada de
+   "Disponibilidad" (curso "__app", producto "desafio-excluidos", ids en
+   "aplicaA"): la escribe el Admin y la lee cualquier persona con sesión. Solo
+   contiene ids numéricos. Cuando el Admin abre el ranking, la lista se
+   corrige sola para que coincida con Usuarios. */
+
+const CURSO_APP = "__app";
+const PRODUCTO_EXCLUIDOS = "desafio-excluidos";
+
+export async function getExcluidosDesafio() {
+    const filas = await getDisponibilidad();
+    const fila = filas.find((f) => f.curso === CURSO_APP && f.producto === PRODUCTO_EXCLUIDOS);
+    return new Set(String(fila?.aplicaA || "").split(",").map((x) => x.trim()).filter(Boolean));
+}
+
+/** Reemplaza la lista completa (solo Admin). */
+export async function guardarExcluidosDesafio(ids) {
+    const lista = [...new Set([...ids].map((x) => String(x).trim()).filter(Boolean))];
+    invalidar(HOJAS.DISPONIBILIDAD);
+    const existentes = await getDisponibilidad();
+    return guardarDisponibilidad(CURSO_APP, PRODUCTO_EXCLUIDOS, { aplicaA: lista.join(","), noAplicaA: "" }, existentes);
 }

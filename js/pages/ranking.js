@@ -25,7 +25,7 @@ import { Header } from "../components/header.js";
 import { EmptyState } from "../components/emptyState.js";
 import { Avatar } from "../components/avatar.js";
 import { getUsuarios, actualizarUsuario } from "../data/usuarios.js";
-import { getDesafioResultados, getDesafioHistorial, mesActualISO } from "../data/desafio.js";
+import { getDesafioResultados, getDesafioHistorial, mesActualISO, getExcluidosDesafio, guardarExcluidosDesafio } from "../data/desafio.js";
 import { getUsuarioActual } from "../services/auth.js";
 
 const TOP_VISIBLE = 10;
@@ -61,7 +61,7 @@ function diasHastaFinDeMes() {
  *  Separa "activos" de "excluidos" (en vez de filtrar de una) para
  *  que el panel de Admin pueda listar a quién reincluir sin tener
  *  que volver a pedir datos. */
-function armarRankingEnVivo(resultados, usuarios, mes) {
+function armarRankingEnVivo(resultados, usuarios, mes, excluidosPublicos = new Set()) {
     const totales = {};
     resultados.filter((r) => r.fecha.startsWith(mes)).forEach((r) => {
         if (!totales[r.colaboradorId]) totales[r.colaboradorId] = { puntos: 0, tiempo: 0 };
@@ -82,7 +82,8 @@ function armarRankingEnVivo(resultados, usuarios, mes) {
             foto: (u && u.foto) || jugo.foto || "",
             puntos: t.puntos,
             tiempo: t.tiempo,
-            excluido: u ? u.excluidoDesafio : false,
+            // Usuarios solo lo puede leer el Admin; para el resto manda la lista pública.
+            excluido: (u ? u.excluidoDesafio : false) || excluidosPublicos.has(String(colaboradorId)),
         };
     }).sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo);
 
@@ -135,15 +136,30 @@ function armarRankingHistorico(historial, usuarios, mes, resultados = []) {
     return { activos, excluidos: [] };
 }
 
+let excluidosActuales = new Set();
+
 export async function Ranking() {
     const usuario = getUsuarioActual();
     esAdminActivo = usuario.rol === "admin";
 
-    const [usuarios, resultados, historial] = await Promise.all([
+    const [usuarios, resultados, historial, excluidosPublicos] = await Promise.all([
         getUsuarios(),
         getDesafioResultados(),
         getDesafioHistorial(),
+        getExcluidosDesafio().catch(() => new Set()),
     ]);
+    excluidosActuales = new Set(excluidosPublicos);
+    // El Admin ve Usuarios completo: si la lista pública quedó desactualizada
+    // (alguien excluido a mano en la planilla, o antes de que existiera la lista)
+    // la corrige sola, así los colaboradores ven lo mismo que él.
+    if (esAdminActivo) {
+        const reales = new Set(usuarios.filter((u) => u.excluidoDesafio).map((u) => String(u.id)));
+        const distinta = reales.size !== excluidosActuales.size || [...reales].some((id) => !excluidosActuales.has(id));
+        if (distinta) {
+            excluidosActuales = reales;
+            guardarExcluidosDesafio(reales).catch((err) => console.warn("No se pudo actualizar la lista de excluidos:", err?.message || err));
+        }
+    }
 
     totalColaboradores = usuarios.filter((u) => u.rol === "colaborador").length;
 
@@ -157,7 +173,7 @@ export async function Ranking() {
         ...mesesHistorial.map((m) => ({ clave: m, label: nombreMes(m), enCurso: false })),
     ];
 
-    datosPorMes = { [mesActual]: armarRankingEnVivo(resultados, usuarios, mesActual) };
+    datosPorMes = { [mesActual]: armarRankingEnVivo(resultados, usuarios, mesActual, excluidosActuales) };
     mesesHistorial.forEach((m) => {
         datosPorMes[m] = armarRankingHistorico(historial, usuarios, m, resultados);
     });
@@ -260,6 +276,8 @@ function renderCuerpoRanking() {
                 // pages/desafio.js).
                 const resultado = await actualizarUsuario(id, { excluidoDesafio: "SI" });
                 if (!resultado || !resultado.ok) throw new Error((resultado && resultado.error) || "El backend rechazó el cambio");
+                excluidosActuales.add(String(id));
+                guardarExcluidosDesafio(excluidosActuales).catch((e) => console.warn("No se pudo actualizar la lista de excluidos:", e?.message || e));
                 const persona = datos.activos.find((p) => String(p.colaboradorId) === String(id));
                 datos.activos = datos.activos.filter((p) => String(p.colaboradorId) !== String(id));
                 if (persona) { persona.excluido = true; datos.excluidos.push(persona); }
@@ -278,6 +296,8 @@ function renderCuerpoRanking() {
             try {
                 const resultado = await actualizarUsuario(id, { excluidoDesafio: "NO" });
                 if (!resultado || !resultado.ok) throw new Error((resultado && resultado.error) || "El backend rechazó el cambio");
+                excluidosActuales.delete(String(id));
+                guardarExcluidosDesafio(excluidosActuales).catch((e) => console.warn("No se pudo actualizar la lista de excluidos:", e?.message || e));
                 const persona = datos.excluidos.find((p) => String(p.colaboradorId) === String(id));
                 datos.excluidos = datos.excluidos.filter((p) => String(p.colaboradorId) !== String(id));
                 if (persona) { persona.excluido = false; datos.activos.push(persona); datos.activos.sort((a, b) => b.puntos - a.puntos || a.tiempo - b.tiempo); }
