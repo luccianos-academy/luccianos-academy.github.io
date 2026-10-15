@@ -44,6 +44,7 @@ import { Recursos, bindRecursos } from "./pages/recursos.js";
 import { Manuales, bindManuales } from "./pages/manuales.js";
 import { Movimientos, bindMovimientos } from "./pages/movimientos.js";
 import { Configuracion, bindConfiguracion } from "./pages/configuracion.js";
+import { Traducciones, bindTraducciones } from "./pages/traducciones.js";
 import { Integraciones } from "./pages/integraciones.js";
 import { recargarSiCambioElIdioma, prepararIdioma } from "./i18n/i18n.js";
 
@@ -76,6 +77,7 @@ const RUTAS = {
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },
     reportes:      { render: Reportes, bind: bindReportes },
     configuracion: { render: Configuracion, bind: bindConfiguracion },
+    traducciones:  { render: Traducciones, bind: bindTraducciones },
     integraciones: { render: Integraciones },
     historia:      { render: Historia, bind: bindHistoria },
     news:      { render: News, bind: bindNews },

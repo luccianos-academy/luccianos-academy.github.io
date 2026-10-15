@@ -1,0 +1,464 @@
+/* ============================
+   Lucciano's Academy
+   css/rtl.css — estilos espejados para idiomas de derecha a izquierda (dariya)
+
+   GENERADO por tools/i18n/generar_rtl.py a partir de css/*.css — no editar a
+   mano. Solo se carga cuando el idioma activo es RTL (i18n/i18n.js).
+=============================*/
+
+/* El árabe es una escritura cursiva: separar las letras (tracking) la rompe. */
+html[lang^="ar"] *, html[lang^="ar"] *::before, html[lang^="ar"] *::after { letter-spacing: 0 !important; }
+html[lang^="ar"] body { line-height: 1.65; }
+
+/* layout.css */
+html[dir="rtl"] .login-gate-btn {
+    right:49%;
+    left:auto;
+}
+@media (min-width:700px) {
+html[dir="rtl"] .login-gate-btn {
+    right:58%;
+    left:auto;
+}
+}
+html[dir="rtl"] .login-btn-sonido {
+    left:24px;
+    right:auto;
+}
+html[dir="rtl"] .login-error {
+    text-align:right;
+}
+html[dir="rtl"] .sidebar {
+    border-left:1px solid var(--line);
+    border-right:0;
+}
+html[dir="rtl"] .avatar-header-desktop {
+    left:32px;
+    right:auto;
+}
+html[dir="rtl"] .campana-num {
+    left:-3px;
+    right:auto;
+}
+html[dir="rtl"] .bottom-nav-badge {
+    left:calc(50% - 22px);
+    right:auto;
+}
+html[dir="rtl"] .sidebar-install-cerrar {
+    left:8px;
+    right:auto;
+}
+html[dir="rtl"] .sidebar-install-banner p {
+    padding-left:16px;
+    padding-right:0;
+}
+html[dir="rtl"] .maestro-flotante {
+    left:22px;
+    right:auto;
+}
+html[dir="rtl"] .maestro-popover {
+    left:22px;
+    right:auto;
+    padding:14px 16px 14px 30px;
+}
+html[dir="rtl"] .maestro-popover-cerrar {
+    left:8px;
+    right:auto;
+}
+
+/* components.css */
+html[dir="rtl"] .menu {
+    text-align:right;
+}
+html[dir="rtl"] .badge-new {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .chip-tarjeta-desafio {
+    left:18px;
+    right:auto;
+}
+html[dir="rtl"] .insignia-mes {
+    padding:3px 7px 3px 10px;
+}
+html[dir="rtl"] .selector-mes {
+    padding:10px 12px 10px 32px;
+}
+html[dir="rtl"] .notif-item {
+    text-align:right;
+}
+html[dir="rtl"] .notif-destinatarios {
+    border-right:3px solid var(--gold-deep);
+    border-left:0;
+    border-radius:6px 0 0 6px;
+}
+html[dir="rtl"] .notif-item-fijada {
+    margin-left:6px;
+    margin-right:0;
+}
+html[dir="rtl"] .notif-item-fijada-personal {
+    margin-left:6px;
+    margin-right:0;
+}
+html[dir="rtl"] .avatar-perfil-camara {
+    left:-4px;
+    right:auto;
+}
+html[dir="rtl"] .leido-avatares-pila .publicacion-avatar-sm {
+    margin-right:-8px;
+    margin-left:0;
+}
+html[dir="rtl"] .leido-avatares-pila .publicacion-avatar-sm:first-child {
+    margin-right:0;
+    margin-left:0;
+}
+html[dir="rtl"] .toggle-switch input[type="checkbox"]::before {
+    right:2px;
+    left:auto;
+}
+html[dir="rtl"] .toggle-switch input[type="checkbox"]:checked::before {
+    transform:translateX(-18px);
+}
+html[dir="rtl"] .compose-contador {
+    text-align:left;
+}
+html[dir="rtl"] .list .item > strong {
+    text-align:left;
+}
+html[dir="rtl"] .push-recordatorio {
+    padding:12px 14px 12px 34px;
+}
+html[dir="rtl"] .push-recordatorio .btn-cerrar {
+    left:10px;
+    right:auto;
+}
+html[dir="rtl"] .pill-cat-borrar {
+    margin-right:2px;
+    margin-left:0;
+    padding:0 4px 0 0;
+}
+html[dir="rtl"] .form-seccion .chevron {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .compose-page-header .compose-ayuda,
+html[dir="rtl"] .header .compose-ayuda {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .campo-prefijo {
+    border-left:1px solid var(--line);
+    border-right:0;
+}
+html[dir="rtl"] table.data-table th {
+    text-align:right;
+}
+html[dir="rtl"] .menu-acciones-item {
+    text-align:right;
+}
+html[dir="rtl"] .mod-tooltip::before,
+html[dir="rtl"] .mod-tooltip::after {
+    right:var(--tooltip-x, 50%);
+    left:auto;
+}
+html[dir="rtl"] .mod-tooltip::after {
+    text-align:right;
+}
+html[dir="rtl"] .kpi-ayuda {
+    margin-right:6px;
+    margin-left:0;
+}
+html[dir="rtl"] .info-ayuda {
+    margin-right:6px;
+    margin-left:0;
+}
+html[dir="rtl"] .role-picker .btn {
+    text-align:right;
+}
+html[dir="rtl"] #arbol-contenido .arbol-rama {
+    border-right:1px solid var(--line);
+    border-left:0;
+    margin:0 26px 0 0;
+}
+html[dir="rtl"] #arbol-contenido .arbol-hijos {
+    padding:0 16px 8px 0;
+}
+html[dir="rtl"] #arbol-contenido .arbol-grupo .arbol-hoja {
+    margin-right:14px;
+    margin-left:0;
+}
+html[dir="rtl"] .leccion-texto .leccion-lista {
+    padding-right:22px;
+    padding-left:0;
+}
+html[dir="rtl"] .catalogo-alcance {
+    text-align:left;
+}
+html[dir="rtl"] .multi-sucursal-chip {
+    padding:5px 12px 5px 8px;
+}
+html[dir="rtl"] .alert-card {
+    border-right:4px solid var(--muted);
+    border-left:0;
+}
+html[dir="rtl"] .alert-card.severity-danger {
+    border-right-color:var(--danger);
+}
+html[dir="rtl"] .alert-card.severity-warning {
+    border-right-color:var(--warning);
+}
+html[dir="rtl"] .alert-card.severity-muted {
+    border-right-color:var(--muted);
+}
+html[dir="rtl"] .timeline-item:not(:last-child) .timeline-dot::after {
+    right:4px;
+    left:auto;
+}
+html[dir="rtl"] .leccion-duracion {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .leccion-video-play svg {
+    margin-right:3px;
+    margin-left:0;
+}
+html[dir="rtl"] .leccion-carrusel-prev {
+    right:10px;
+    left:auto;
+}
+html[dir="rtl"] .leccion-carrusel-next {
+    left:10px;
+    right:auto;
+}
+html[dir="rtl"] .leccion-carrusel-contador {
+    left:10px;
+    right:auto;
+}
+html[dir="rtl"] .leccion-carrusel-expandir {
+    left:10px;
+    right:auto;
+}
+html[dir="rtl"] .carrusel-lightbox-cerrar {
+    left:20px;
+    right:auto;
+}
+html[dir="rtl"] .carrusel-lightbox .leccion-carrusel-prev {
+    right:20px;
+    left:auto;
+}
+html[dir="rtl"] .carrusel-lightbox .leccion-carrusel-next {
+    left:20px;
+    right:auto;
+}
+html[dir="rtl"] .leccion-subpuntos {
+    margin:6px 20px 0 0;
+}
+html[dir="rtl"] .leccion-callout {
+    border-right:3px solid var(--tema-accent);
+    border-left:0;
+    border-radius:var(--radius-sm) 0 0 var(--radius-sm);
+}
+html[dir="rtl"] .leccion-callout-errores {
+    border-right-color:var(--danger);
+}
+html[dir="rtl"] .leccion-callout-tip {
+    border-right-color:var(--success);
+}
+html[dir="rtl"] .badge-kosher {
+    left:6px;
+    right:auto;
+}
+html[dir="rtl"] .producto-modal-nav-prev {
+    right:-8px;
+    left:auto;
+}
+html[dir="rtl"] .producto-modal-nav-next {
+    left:-8px;
+    right:auto;
+}
+html[dir="rtl"] .video-embed iframe {
+    right:0;
+    left:auto;
+}
+html[dir="rtl"] .examen-reglas ul {
+    padding-right:20px;
+    padding-left:0;
+}
+html[dir="rtl"] .curso-intro-marquee span::after {
+    margin-right:32px;
+    margin-left:0;
+}
+html[dir="rtl"] .curso-banner-overlay {
+    right:56px;
+    left:auto;
+}
+html[dir="rtl"] .examen-cta .btn:first-of-type {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .examen-resultado .btn {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .banner-beta {
+    padding:10px 16px 10px 40px;
+}
+html[dir="rtl"] .banner-beta-cerrar {
+    left:10px;
+    right:auto;
+}
+@media (max-width:600px) {
+html[dir="rtl"] .banner-beta {
+    padding:9px 12px 9px 36px;
+}
+}
+html[dir="rtl"] .banner-push {
+    padding:10px 16px 10px 40px;
+}
+html[dir="rtl"] .banner-push-cerrar {
+    left:10px;
+    right:auto;
+}
+@media (max-width:600px) {
+html[dir="rtl"] .banner-push {
+    padding:9px 12px 9px 36px;
+}
+}
+html[dir="rtl"] .pila-avatares .publicacion-avatar-sm {
+    margin-right:-8px;
+    margin-left:0;
+}
+html[dir="rtl"] .pila-avatares .publicacion-avatar-sm:first-child {
+    margin-right:0;
+    margin-left:0;
+}
+html[dir="rtl"] .pila-mas {
+    margin-right:6px;
+    margin-left:0;
+}
+html[dir="rtl"] .btn-borrar-check-admin {
+    left:12px;
+    right:auto;
+}
+html[dir="rtl"] .tarea-gestion-simple.con-borrar-admin {
+    padding-left:54px;
+    padding-right:0;
+}
+html[dir="rtl"] .tarea-gestion-desplegable.con-borrar-admin .tarea-gestion-header {
+    padding-left:54px;
+    padding-right:0;
+}
+html[dir="rtl"] .tarea-gestion-header {
+    text-align:right;
+}
+html[dir="rtl"] .tarea-gestion-badges {
+    padding-right:48px;
+    padding-left:0;
+}
+html[dir="rtl"] .tarea-gestion-subitems {
+    padding:0 66px 14px 18px;
+}
+html[dir="rtl"] .subitem-numerico-campo input {
+    text-align:left;
+}
+html[dir="rtl"] .situacion-gestion-header {
+    text-align:right;
+}
+html[dir="rtl"] .situacion-gestion-cuerpo {
+    padding:0 66px 18px 18px;
+}
+html[dir="rtl"] .badge-solo-admin {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .tarea-modal-toggle-switch {
+    margin-left:8px;
+    margin-right:0;
+}
+html[dir="rtl"] .tarea-modal-toggle-switch::after {
+    right:2px;
+    left:auto;
+}
+html[dir="rtl"] .tarea-modal-toggle-input:checked + .tarea-modal-toggle-switch::after {
+    right:16px;
+    left:auto;
+}
+html[dir="rtl"] .tab-gestion svg {
+    margin-left:4px;
+    margin-right:0;
+}
+html[dir="rtl"] .badge-nuevo {
+    margin-right:8px;
+    margin-left:0;
+}
+html[dir="rtl"] .curso-aviso-nuevas .badge-nuevo {
+    margin-right:0;
+    margin-left:0;
+}
+html[dir="rtl"] .fs-bloque-titulo span {
+    margin-right:auto;
+    margin-left:0;
+}
+html[dir="rtl"] .fs-drop {
+    text-align:right;
+}
+html[dir="rtl"] .leyenda-estado3 {
+    padding:12px 66px 10px 18px;
+}
+html[dir="rtl"] .modal-overlay:not(.login-overlay) .modal .notif-destinatarios {
+    border-right-color:var(--info);
+}
+html[dir="rtl"] .aviso-deslizar::after {
+    right:0;
+    left:auto;
+    transform:translateX(130%);
+}
+html[dir="rtl"] .leccion-acciones a.btn-secondary::after,
+html[dir="rtl"] .manual-item-acciones a.btn-secondary::after {
+    right:0;
+    left:auto;
+    transform:translateX(140%);
+}
+html[dir="rtl"] .leccion-acciones a.btn-secondary:hover::after,
+html[dir="rtl"] .manual-item-acciones a.btn-secondary:hover::after,
+html[dir="rtl"] .leccion-acciones a.btn-secondary:active::after,
+html[dir="rtl"] .manual-item-acciones a.btn-secondary:active::after {
+    transform:translateX(-320%);
+}
+
+/* responsive.css */
+@media (max-width:900px) {
+html[dir="rtl"] .compose-page-header .compose-ayuda {
+    margin-right:0;
+    margin-left:0;
+}
+html[dir="rtl"] .sidebar {
+    right:0;
+    left:auto;
+    transform:translateX(100%);
+}
+html[dir="rtl"] .sidebar-cerrar {
+    left:20px;
+    right:auto;
+}
+}
+@media (max-width:600px) {
+html[dir="rtl"] .list .item > strong {
+    text-align:right;
+}
+}
+
+/* — ajustes a mano (tools/i18n/rtl_manual.css) — */
+/* Ajustes que no se pueden deducir de los estilos: se suman a css/rtl.css al generarlo. */
+
+/* Flechas que indican dirección: se espejan (adelante = izquierda) */
+html[dir="rtl"] .icon-flecha-izq,
+html[dir="rtl"] .icon-flecha-der,
+html[dir="rtl"] .hero-lobby-cta-arrow { display: inline-block; transform: scaleX(-1); }
+
+/* Estilos escritos directamente en el HTML de las pantallas (style="…"): ganan sobre
+   cualquier regla de hoja, así que se espejan acá con !important. */
+html[dir="rtl"] [style*="margin-right:8px"] { margin-right: 0 !important; margin-left: 8px !important; }
+html[dir="rtl"] [style*="margin-left:8px"] { margin-left: 0 !important; margin-right: 8px !important; }
+html[dir="rtl"] [style*="text-align:right"] { text-align: left !important; }
+html[dir="rtl"] [style*="text-align:left"] { text-align: right !important; }

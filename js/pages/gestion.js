@@ -40,6 +40,7 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { escaparHtml } from "../services/html.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { idiomaActual } from "../i18n/i18n.js";
 import { mandarPushGestion } from "../services/push.js";
 import {
     getTareas,
@@ -351,6 +352,13 @@ function panelParaTareaYDia(tarea, dia) {
     return Object.keys(mapa).find((nombre) => mapa[nombre] === String(dia)) || dia;
 }
 
+/** Nombre del mes (0-11) en el idioma activo: el español sale de la lista de
+ *  abajo; en otro idioma lo arma el navegador (i18n.js cambia el locale). */
+function nombreMesGestion(mes, anio = 2026) {
+    if (idiomaActual() === "es") return MESES_CALENDARIO_GESTION[mes];
+    return new Date(anio, mes, 1).toLocaleDateString("es-AR", { month: "long" });
+}
+
 const MESES_CALENDARIO_GESTION = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
 /** Calendario de mes para "Tareas asignadas" — reemplaza la fila de
@@ -407,9 +415,9 @@ function calendarioDiasHtml(diasMesConContenido, diaClaveActivo) {
     }
 
     return `
-        <div class="calendario-gestion-mes">${MESES_CALENDARIO_GESTION[mes]} ${anio}</div>
+        <div class="calendario-gestion-mes">${nombreMesGestion(mes, anio)} ${anio}</div>
         <div class="calendario-gestion-encabezado">
-            <span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span>
+            ${(idiomaActual() === "es" ? ["L", "M", "M", "J", "V", "S", "D"] : ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]).map((d) => `<span>${d}</span>`).join("")}
         </div>
         <div class="calendario-gestion-grilla" id="calendario-dias-gestion">${celdas}</div>
     `;
@@ -3046,7 +3054,7 @@ let diaHistoricoActivo = null;
 
 function etiquetaMes(mesISO) {
     const [anio, mes] = mesISO.split("-").map(Number);
-    const nombre = MESES_CALENDARIO_GESTION[mes - 1];
+    const nombre = nombreMesGestion(mes - 1, anio);
     return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${anio}`;
 }
 
@@ -3056,6 +3064,7 @@ const DIAS_SEMANA_ES_HISTORICO = ["domingo", "lunes", "martes", "miércoles", "j
 function etiquetaDiaHistorico(fechaIso) {
     const [anio, mes, dia] = fechaIso.split("-").map(Number);
     const fecha = new Date(anio, mes - 1, dia);
+    if (idiomaActual() !== "es") return fecha.toLocaleDateString("es-AR", { weekday: "long", month: "long", day: "numeric" });
     const nombreDia = DIAS_SEMANA_ES_HISTORICO[fecha.getDay()];
     return `${nombreDia.charAt(0).toUpperCase()}${nombreDia.slice(1)} ${dia} de ${MESES_CALENDARIO_GESTION[mes - 1]}`;
 }

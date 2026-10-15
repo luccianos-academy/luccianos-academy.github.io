@@ -60,6 +60,9 @@ const PAIS_POR_SUFIJO = {
     espana: "España",
     usa: "Estados Unidos",
     italia: "Italia",
+    marruecos: "Marruecos",
+    morocco: "Marruecos",
+    maroc: "Marruecos",
 };
 
 export function paisDelNombre(nombre) {

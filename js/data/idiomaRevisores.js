@@ -1,9 +1,9 @@
 /* ============================
    Lucciano's Academy
-   data/idiomaRevisores.js — Quién puede ver el inglés mientras es vista previa
+   data/idiomaRevisores.js — Quién puede ver los idiomas nuevos mientras son vista previa
 
-   Mientras el inglés está en vista previa (INGLES_SOLO_REVISORES, config.js)
-   solo lo ven las personas de esa lista fija más las que el Admin tilde en
+   Mientras un idioma está en vista previa (IDIOMAS_EN_VISTA_PREVIA, config.js)
+   solo lo ven las personas fijas (REVISORES_FIJOS) más las que el Admin tilde en
    Configuración. Esa segunda lista se guarda en la hoja "Disponibilidad", en
    UNA fila reservada: curso "__app", producto "ingles-revisores", y en
    "aplicaA" los ids de usuario separados por coma.

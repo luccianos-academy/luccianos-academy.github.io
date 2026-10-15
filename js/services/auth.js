@@ -171,6 +171,7 @@ const PERMISOS_PAGINA = {
     // Supervisor solo su equipo, ver pages/movimientos.js).
     movimientos:    ["admin", "supervisor"],
     configuracion:  ["admin"],
+    traducciones:   ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
     // "Comunicaciones" es exclusivamente Admin ↔ Supervisor (incluye

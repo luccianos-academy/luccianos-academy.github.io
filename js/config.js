@@ -42,15 +42,23 @@ export const ES_LOCAL_DEV = typeof location !== "undefined" && /^(localhost|127\
 export const ES_ENTORNO_PRUEBA = ES_STAGING || ES_LOCAL_DEV;
 
 /**
- * Inglés en VISTA PREVIA. En producción el inglés (selector y automático por
- * país) solo lo ven las personas de esta lista, hasta que se apruebe su
- * revisión; para el resto la app sigue exactamente igual, solo en español.
- * La lista guarda huellas SHA-256 del email en minúsculas (el sitio es
- * público: así no queda ningún email escrito en el código).
- * Para abrirlo a todos: dejar `null`. En REPO/local siempre está abierto.
- * Calcular una huella: node -e 'console.log(require("crypto").createHash("sha256").update("email@dominio.com").digest("hex"))'
+ * Idiomas nuevos en VISTA PREVIA. En producción, los idiomas de esta lista (hoy
+ * inglés y dariya marroquí) solo los ven las personas habilitadas: las fijas de
+ * REVISORES_FIJOS más las que el Admin tilde en Configuración → Idiomas — vista
+ * previa. Para el resto la app sigue exactamente igual, solo en español.
+ * Para abrir un idioma a todos: sacarlo de esta lista (el dariya, además, solo
+ * existe para locales de Marruecos). En REPO/local no hay vista previa: todo
+ * está abierto para poder probarlo.
  */
-export const INGLES_SOLO_REVISORES = ES_ENTORNO_PRUEBA ? null : [
+export const IDIOMAS_EN_VISTA_PREVIA = ES_ENTORNO_PRUEBA ? [] : ["en", "ar-MA"];
+
+/**
+ * Personas que siempre ven los idiomas en vista previa. Son huellas SHA-256 del
+ * email en minúsculas (el sitio es público: así no queda ningún email escrito en
+ * el código). Calcular una huella:
+ *   node -e 'console.log(require("crypto").createHash("sha256").update("email@dominio.com").digest("hex"))'
+ */
+export const REVISORES_FIJOS = [
     "bb6df1d947098942074659a6ac082a093c1fc22c4db2bb55deeae53647571f18", // Gabriel Busquets
 ];
 
@@ -118,7 +126,7 @@ export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey;
  *  saber de un vistazo qué versión corre en cada entorno y no
  *  confundir REPO con producción. Se sube a mano cada vez que se
  *  pushea un cambio — no hay build step que lo automatice. */
-export const VERSION = "1.96.2";
+export const VERSION = "1.97.0";
 
 export const EMPRESA = {
     nombre: "Lucciano's",
@@ -151,6 +159,9 @@ export const HOJAS = {
     // producto sin fila está disponible en toda la red — ver
     // data/disponibilidad.js.
     DISPONIBILIDAD: "Disponibilidad",
+    // Traducciones escritas desde Configuración → Traducciones (idioma | es |
+    // traduccion). Se suman a los diccionarios de la app — ver data/traducciones.js.
+    TRADUCCIONES: "Traducciones",
     // Catálogo de tareas de "Gestión semanal" (Responsables de Local y
     // Turno, #/gestion) — ver apps-script/README.md para el esquema.
     GESTION_TAREAS: "GestionTareas",

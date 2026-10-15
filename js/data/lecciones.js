@@ -13,9 +13,13 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { leccionesMock } from "./mock/lecciones.mock.js";
 import { HOJAS } from "../config.js";
-import { tc } from "../i18n/i18n.js";
+import { tc, esTraduccion } from "../i18n/i18n.js";
 
-function normalizarLeccion(f) {
+/** `traducir: false` devuelve los textos TAL COMO ESTÁN EN LA PLANILLA (en español):
+ *  es lo que tiene que leer el editor de la Academia. Si el editor leyera el texto
+ *  ya traducido, al guardar escribiría el inglés/dariya encima del español. */
+function normalizarLeccion(f, traducir = true) {
+    const tx = traducir ? tc : (x) => x;
     return {
         id: f.id,
         cursoId: f.cursoId,
@@ -32,10 +36,10 @@ function normalizarLeccion(f) {
         // renderCuerpoLeccion en pages/cursos.js.
         manualLabel: f.manualLabel || "",
         imagen: f.imagen || "",
-        procedimiento: tc(f.procedimiento || ""),
-        errores: tc(f.errores || ""),
-        buenasPracticas: tc(f.buenasPracticas || ""),
-        consejo: tc(f.consejo || ""),
+        procedimiento: tx(f.procedimiento || ""),
+        errores: tx(f.errores || ""),
+        buenasPracticas: tx(f.buenasPracticas || ""),
+        consejo: tx(f.consejo || ""),
         resumen: f.resumen || "",
         estado: f.estado || "Activo",
         // "NO" = no cuenta para el % de progreso ni para el examen, sin
@@ -63,20 +67,28 @@ function normalizarLeccion(f) {
     };
 }
 
-export async function getLecciones() {
+export async function getLecciones({ original = false } = {}) {
     try {
         const filas = await fetchSheet(HOJAS.LECCIONES, leccionesMock);
-        return filas.map(normalizarLeccion).sort((a, b) => a.orden - b.orden);
+        return filas.map((f) => normalizarLeccion(f, !original)).sort((a, b) => a.orden - b.orden);
     } catch (err) {
         console.warn(`No se pudo leer '${HOJAS.LECCIONES}':`, err.message);
         return [];
     }
 }
 
-export async function getLeccionesPorCurso(cursoId) {
-    const lecciones = await getLecciones();
+export async function getLeccionesPorCurso(cursoId, opciones) {
+    const lecciones = await getLecciones(opciones);
     return lecciones.filter((l) => String(l.cursoId) === String(cursoId));
 }
+
+const CAMPOS_CON_TRADUCCION = ["procedimiento", "errores", "buenasPracticas", "consejo"];
+/** Red de seguridad: un texto que es una TRADUCCIÓN conocida nunca se guarda como
+ *  contenido de la planilla (la fuente es siempre el español). */
+function hayTraduccion(campos) {
+    return CAMPOS_CON_TRADUCCION.some((c) => typeof campos[c] === "string" && esTraduccion(campos[c]));
+}
+const ERROR_TRADUCCION = { ok: false, error: "Ese texto es una traducción: la lección se edita siempre en español. Cambiá el idioma a Español en Mi perfil y volvé a abrirla." };
 
 export async function crearLeccion({
     cursoId, orden = 0, titulo, objetivo = "", duracionMinutos = 0,
@@ -90,6 +102,7 @@ export async function crearLeccion({
     obligatoria = "SI",
     fechaPublicacion = "",
 }) {
+    if (hayTraduccion({ procedimiento, errores, buenasPracticas, consejo })) return ERROR_TRADUCCION;
     return writeSheet(HOJAS.LECCIONES, {
         cursoId, orden, titulo, objetivo, duracionMinutos,
         video, manual, manualLabel, imagen, procedimiento, errores,
@@ -98,6 +111,7 @@ export async function crearLeccion({
 }
 
 export async function actualizarLeccion(id, cambios) {
+    if (hayTraduccion(cambios)) return ERROR_TRADUCCION;
     return updateSheet(HOJAS.LECCIONES, id, cambios, leccionesMock);
 }
 

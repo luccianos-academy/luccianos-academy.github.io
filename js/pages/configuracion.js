@@ -14,7 +14,7 @@ import { Header } from "../components/header.js";
 import { QuickAction } from "../components/quickAction.js";
 import { MultiSelectUsuarios, bindMultiSelectUsuarios } from "../components/multiSelectUsuarios.js";
 import { cargarRevisoresIngles, guardarRevisoresIngles } from "../data/idiomaRevisores.js";
-import { INGLES_SOLO_REVISORES } from "../config.js";
+import { IDIOMAS_EN_VISTA_PREVIA } from "../config.js";
 
 const ACCESOS = [
     { titulo: "Integraciones", icono: "integraciones", href: "#/integraciones" },
@@ -22,19 +22,20 @@ const ACCESOS = [
     { titulo: "Evaluaciones", icono: "evaluaciones", href: "#/evaluaciones" },
     { titulo: "Reportes", icono: "reportes", href: "#/reportes" },
     { titulo: "Alertas", icono: "alertas", href: "#/alertas" },
+    { titulo: "Traducciones", icono: "idea", href: "#/traducciones" },
 ];
 
-/** Quién puede ver la app en inglés mientras es vista previa. */
-async function bloqueInglesPrevia() {
-    const abierto = !INGLES_SOLO_REVISORES;
+/** Quién puede ver los idiomas nuevos (inglés y dariya) mientras son vista previa. */
+async function bloqueIdiomasPrevia() {
+    const abierto = !IDIOMAS_EN_VISTA_PREVIA.length;
     const habilitados = abierto ? [] : await cargarRevisoresIngles(true).catch(() => []);
     return `
         <div class="card" style="max-width:520px;margin-top:20px">
-            <h3 style="margin-top:0">Inglés — vista previa</h3>
+            <h3 style="margin-top:0">Idiomas — vista previa</h3>
             ${abierto
-                ? `<p class="text-xs text-muted" style="margin-top:4px">El inglés está abierto: cualquier persona puede elegirlo en Mi perfil → Idioma.</p>`
+                ? `<p class="text-xs text-muted" style="margin-top:4px">Los idiomas están abiertos: el inglés lo puede elegir cualquier persona en Mi perfil → Idioma, y el dariya solo los locales de Marruecos.</p>`
                 : `<p class="text-xs text-muted" style="margin-top:4px;margin-bottom:14px">
-                    Por ahora el inglés lo ven solo vos y las personas que elijas acá (lo eligen en Mi perfil → Idioma).
+                    Por ahora el inglés y el dariya los ven solo vos y las personas que elijas acá (lo eligen en Mi perfil → Idioma).
                     Para el resto la app sigue igual, en español.
                 </p>
                 ${MultiSelectUsuarios("ingles-revisores", habilitados)}
@@ -49,7 +50,7 @@ export async function Configuracion() {
         <div class="quick-actions">
             ${ACCESOS.map((a) => QuickAction(a)).join("")}
         </div>
-        ${await bloqueInglesPrevia()}
+        ${await bloqueIdiomasPrevia()}
     `;
 }
 
@@ -64,7 +65,7 @@ export function bindConfiguracion() {
         btn.textContent = "Guardando...";
         try {
             const r = await guardarRevisoresIngles(ids);
-            alert(r?.ok ? "Listo. Esas personas ya pueden elegir inglés en Mi perfil (si tenían la app abierta, que la recarguen)." : (r?.error || "No se pudo guardar — probá de nuevo."));
+            alert(r?.ok ? "Listo. Esas personas ya pueden elegir el idioma en Mi perfil (si tenían la app abierta, que la recarguen)." : (r?.error || "No se pudo guardar — probá de nuevo."));
         } catch (err) {
             alert(err?.message || "No se pudo guardar — probá de nuevo.");
         } finally {

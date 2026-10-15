@@ -2045,8 +2045,8 @@ export default {
     "· Supervisor (Capacitador)": "· Supervisor (Trainer)",
     "sin push": "without push",
     "versiones": "versions",
-    "Inglés — vista previa": "English — preview",
-    "El inglés está abierto: cualquier persona puede elegirlo en Mi perfil → Idioma.": "English is open: anyone can choose it in My Profile → Language.",
-    "Por ahora el inglés lo ven solo vos y las personas que elijas acá (lo eligen en Mi perfil → Idioma). Para el resto la app sigue igual, en español.": "For now, English is visible only to you and the people you choose here (they pick it in My Profile → Language). For everyone else the app stays the same, in Spanish.",
-    "Listo. Esas personas ya pueden elegir inglés en Mi perfil (si tenían la app abierta, que la recarguen).": "Done. Those people can now choose English in My Profile (if they had the app open, they should reload it).",
+    "Idiomas — vista previa": "Languages — preview",
+    "Los idiomas están abiertos: el inglés lo puede elegir cualquier persona en Mi perfil → Idioma, y el dariya solo los locales de Marruecos.": "Languages are open: anyone can choose English in My Profile → Language, and Darija is only for stores in Morocco.",
+    "Por ahora el inglés y el dariya los ven solo vos y las personas que elijas acá (lo eligen en Mi perfil → Idioma). Para el resto la app sigue igual, en español.": "For now, English and Darija are visible only to you and the people you choose here (they pick them in My Profile → Language). For everyone else the app stays the same, in Spanish.",
+    "Listo. Esas personas ya pueden elegir el idioma en Mi perfil (si tenían la app abierta, que la recarguen).": "Done. Those people can now choose the language in My Profile (if they had the app open, they should reload it).",
 };

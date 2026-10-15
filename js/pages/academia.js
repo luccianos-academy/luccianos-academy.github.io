@@ -320,7 +320,7 @@ function etiquetaAlcance(aplicaA, noAplicaA) {
 export async function Academia() {
 
     const [cursos, lecciones, disponibilidad] = await Promise.all([
-        getCursos(), getLecciones(), getDisponibilidad(),
+        getCursos(), getLecciones({ original: true }), getDisponibilidad(),
     ]);
 
     const columnas = [
@@ -395,7 +395,7 @@ export function bindAcademia() {
             // asignaciones y resultados huérfanos apuntando a un id que
             // ya no existe.
             const [lecciones, preguntas, asignaciones, resultados] = await Promise.all([
-                getLeccionesPorCurso(cursoId),
+                getLeccionesPorCurso(cursoId, { original: true }),
                 getPreguntasPorCurso(cursoId),
                 getAsignaciones().then((as) => as.filter((a) => String(a.cursoId) === String(cursoId))),
                 getResultados().then((rs) => rs.filter((r) => String(r.cursoId) === String(cursoId))),
@@ -490,7 +490,7 @@ function exclusionesHuerfanas(leccion, hermanas) {
 
 async function abrirModalLecciones(cursoId) {
 
-    const todasLasLecciones = await getLecciones();
+    const todasLasLecciones = await getLecciones({ original: true });
     const lecciones = todasLasLecciones.filter((l) => String(l.cursoId) === String(cursoId));
 
     const modalId = "modal-lecciones";
@@ -742,7 +742,7 @@ export async function EditarLeccion(params = []) {
     if (!curso) return `<p class="text-sm text-muted" style="padding:24px">Curso no encontrado.</p>`;
 
     const leccion = leccionId
-        ? (await getLeccionesPorCurso(cursoId)).find((l) => String(l.id) === String(leccionId))
+        ? (await getLeccionesPorCurso(cursoId, { original: true })).find((l) => String(l.id) === String(leccionId))
         : null;
 
     return `
@@ -908,7 +908,7 @@ export function bindEditarLeccion(params = []) {
                 // se puso un valor a propósito (ej. meterla primera o
                 // entre dos existentes), gana ese.
                 if (!cambios.orden) {
-                    const todasDelCurso = await getLeccionesPorCurso(cursoId);
+                    const todasDelCurso = await getLeccionesPorCurso(cursoId, { original: true });
                     cambios.orden = todasDelCurso.length + 1;
                 }
                 await crearLeccion({ cursoId, ...cambios });
