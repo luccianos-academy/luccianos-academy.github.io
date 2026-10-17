@@ -1,25 +1,127 @@
 /* ============================
    Lucciano's Academy
-   sw.js — Service worker mínimo
+   sw.js — Service worker: app instalable + funciona sin conexión
 
-   No cachea nada a propósito (los datos vienen de Google Sheets vía
-   Apps Script — cachear rompería la app mostrando datos viejos). Su
-   único trabajo es existir con un handler de "fetch": Chrome usa eso
-   como criterio de instalabilidad para disparar beforeinstallprompt
-   (ver services/installPrompt.js) — sin esto, en Android el banner
-   de "Instalá la app" nunca tiene nada real para ofrecer.
+   Dos trabajos:
+   1) Que la app abra SIN INTERNET. Guarda la propia app (HTML, JS, CSS, imágenes, fuentes) y el SDK de
+      Firebase. Los DATOS no los guarda este archivo: de eso se ocupa la caché persistente de Firestore
+      (services/firestoreLoader.js).
+   2) Mostrar los push (más abajo).
+
+   Estrategia, pensada para que NUNCA se vea una versión vieja teniendo internet:
+   - Código de la app (HTML, JS, CSS, JSON): "red primero", con un tope de espera. Con señal siempre se baja lo
+     último (y se guarda); sin señal, o si la red tarda más del tope (señal mala), se usa lo último que se guardó.
+   - Imágenes y fuentes propias: "guardada primero y se renueva de fondo". Se muestran al instante desde el
+     teléfono y se actualizan para la próxima vez. Antes cada imagen esperaba a la red, y eso se notaba.
+   - SDK de Firebase y fuentes (direcciones con versión, no cambian): "caché primero".
+   - Todo lo demás (Firestore, Auth, APIs de Google, fotos de Drive, video, audio) NO se toca.
 =============================*/
+
+const CACHE = "faro-app-v3";
+// Hosts de terceros cuyos archivos son inmutables (la versión va en la URL).
+const HOSTS_ESTATICOS = ["www.gstatic.com", "fonts.googleapis.com", "fonts.gstatic.com"];
+// Esto es demasiado pesado para guardarlo en el teléfono.
+const NO_GUARDAR = /\.(mp4|webm|mov|mp3|wav|m4a)(\?|$)/i;
+// Archivos que casi nunca cambian: se sirven desde lo guardado y se renuevan de fondo.
+const RENOVABLES = /\.(png|jpe?g|webp|gif|svg|ico|woff2?|ttf)(\?|$)/i;
+// Cuánto se espera a la red para el código antes de usar lo guardado (si hay).
+const TOPE_RED_MS = 4000;
 
 self.addEventListener("install", () => {
     self.skipWaiting();
 });
 
 self.addEventListener("activate", (evento) => {
-    evento.waitUntil(self.clients.claim());
+    evento.waitUntil(
+        caches.keys()
+            .then((nombres) => Promise.all(nombres.filter((n) => n.startsWith("faro-") && n !== CACHE).map((n) => caches.delete(n))))
+            .then(() => self.clients.claim())
+    );
 });
 
-self.addEventListener("fetch", () => {
-    // Sin respondWith: deja pasar el request tal cual, sin cachear.
+async function guardar(request, respuesta) {
+    if (!respuesta || respuesta.status !== 200 || NO_GUARDAR.test(request.url)) return;
+    // Se clona ANTES de cualquier await: si no, la página ya pudo empezar a leer el cuerpo y el clon falla.
+    const copia = respuesta.clone();
+    const cache = await caches.open(CACHE);
+    await cache.put(request, copia);
+}
+
+/** fetch con tope: si la red no responde a tiempo se rechaza (y quien llama usa lo guardado). */
+function fetchConTope(request, ms) {
+    return new Promise((resolver, rechazar) => {
+        const t = setTimeout(() => rechazar(new Error("timeout")), ms);
+        fetch(request).then((r) => { clearTimeout(t); resolver(r); }, (e) => { clearTimeout(t); rechazar(e); });
+    });
+}
+
+async function redPrimero(request) {
+    try {
+        // El tope solo vale si hay algo guardado a lo que recurrir; si no, se espera a la red lo que haga falta.
+        const hayGuardada = await caches.match(request, { ignoreSearch: true });
+        const respuesta = hayGuardada ? await fetchConTope(request, TOPE_RED_MS) : await fetch(request);
+        guardar(request, respuesta).catch(() => {});
+        return respuesta;
+    } catch (err) {
+        const guardada = await caches.match(request, { ignoreSearch: true });
+        if (guardada) return guardada;
+        // Una pantalla de la app (ruta con # o con ?): se abre con el index.html guardado.
+        if (request.mode === "navigate") {
+            const indice = (await caches.match("index.html", { ignoreSearch: true })) || (await caches.match("./", { ignoreSearch: true }));
+            if (indice) return indice;
+        }
+        return new Response("Sin conexión", { status: 503, statusText: "Sin conexión" });
+    }
+}
+
+async function guardadaYRenovar(request) {
+    const guardada = await caches.match(request);
+    const delante = fetch(request).then((r) => { guardar(request, r).catch(() => {}); return r; });
+    if (guardada) { delante.catch(() => {}); return guardada; }
+    return delante.catch(() => new Response("Sin conexión", { status: 503, statusText: "Sin conexión" }));
+}
+
+async function cachePrimero(request) {
+    const guardada = await caches.match(request);
+    if (guardada) return guardada;
+    const respuesta = await fetch(request);
+    guardar(request, respuesta).catch(() => {});
+    return respuesta;
+}
+
+self.addEventListener("fetch", (evento) => {
+    const request = evento.request;
+    if (request.method !== "GET") return;
+    const url = new URL(request.url);
+    if (url.origin === self.location.origin) {
+        if (NO_GUARDAR.test(url.pathname)) return;      // video y audio: directo a la red
+        evento.respondWith(RENOVABLES.test(url.pathname) ? guardadaYRenovar(request) : redPrimero(request));
+    } else if (HOSTS_ESTATICOS.includes(url.hostname)) {
+        evento.respondWith(cachePrimero(request));
+    }
+    // Cualquier otra cosa (Firestore, Auth, Drive...): sin respondWith, pasa tal cual.
+});
+
+/** La primera visita: los archivos que la página ya pidió ANTES de que este service worker tomara el control no
+ *  pasaron por acá. La página (app.js) manda la lista y se guardan, así la app abre sin internet desde la primera vez. */
+self.addEventListener("message", (evento) => {
+    if (!evento.data || evento.data.tipo !== "guardar-recursos") return;
+    const urls = (evento.data.urls || []).filter((u) => {
+        try {
+            const x = new URL(u);
+            return (x.origin === self.location.origin && !NO_GUARDAR.test(x.pathname)) || HOSTS_ESTATICOS.includes(x.hostname);
+        } catch (err) { return false; }
+    });
+    evento.waitUntil((async () => {
+        const cache = await caches.open(CACHE);
+        await Promise.all(urls.map(async (u) => {
+            try {
+                if (await cache.match(u)) return;
+                const r = await fetch(u);
+                if (r.status === 200) await cache.put(u, r);
+            } catch (err) { /* sin red o archivo faltante: se reintenta en la próxima visita */ }
+        }));
+    })());
 });
 
 /* ----------------------------------------------------------------

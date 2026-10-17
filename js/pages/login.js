@@ -42,7 +42,8 @@ import { verificarLoginGoogle } from "../services/google.js";
 import { revalidarPushSiYaEstaConcedido } from "../services/push.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
-import { GOOGLE_CLIENT_ID, ES_ENTORNO_PRUEBA } from "../config.js";
+import { GOOGLE_CLIENT_ID, ES_ENTORNO_PRUEBA, USAR_FIRESTORE } from "../config.js";
+import { getSesionFirebase } from "../services/sesionFirebase.js";
 import { navigate } from "../router.js";
 
 /** Google bloquea (o directamente cuelga en la selección de cuenta,
@@ -313,7 +314,9 @@ function detenerReinicioPortada() {
 
 async function abrirModalLogin() {
 
-    const clientIdConfigurado = Boolean(GOOGLE_CLIENT_ID);
+    // Con Firebase activo el ingreso es con Firebase Authentication (botón propio); si no, como siempre.
+    const conFirebase = USAR_FIRESTORE;
+    const clientIdConfigurado = Boolean(GOOGLE_CLIENT_ID) || conFirebase;
     const embebido = clientIdConfigurado && pareceNavegadorEmbebido();
 
     const html = `
@@ -329,6 +332,11 @@ async function abrirModalLogin() {
                     ? embebido
                         ? `<div class="login-error">Google no deja iniciar sesión desde acá adentro (WhatsApp, Instagram, etc.). Copiá este link y abrilo en Safari o Chrome.</div>
                            <button class="btn btn-secondary" id="btn-copiar-link-login" type="button">Copiar link</button>`
+                        : conFirebase
+                        ? `<button class="btn btn-primary" id="btn-google-firebase" type="button" style="width:100%">Ingresar con Google</button>
+                           <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome.
+                               <button class="btn-link-copiar-nota" id="btn-copiar-link-login" type="button">Copiar link</button>
+                           </div>`
                         : `<div id="google-btn-slot" class="login-google-slot"></div>
                            <div class="login-nota-embebido">¿Se traba al elegir tu cuenta? Abrí este link en Safari o Chrome.
                                <button class="btn-link-copiar-nota" id="btn-copiar-link-login" type="button">Copiar link</button>
@@ -347,6 +355,9 @@ async function abrirModalLogin() {
 
     if (embebido) {
         bindCopiarLinkLogin();
+    } else if (conFirebase) {
+        bindLoginFirebase();
+        bindCopiarLinkLogin();
     } else if (clientIdConfigurado) {
         inicializarGoogleSignIn();
         // El botón de Google normal se sigue mostrando en este caso —
@@ -359,6 +370,49 @@ async function abrirModalLogin() {
     } else {
         await renderRolePicker();
     }
+}
+
+const escaparTexto = (t) => String(t).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/** Ingreso con Firebase Authentication (Google). Las reglas de acceso están en services/firebaseAuth.js. */
+function bindLoginFirebase() {
+    const boton = document.getElementById("btn-google-firebase");
+    const slot = document.getElementById("login-error-slot");
+    if (!boton || !slot) return;
+
+    // Si se volvió de una redirección de Google y falló, el mensaje quedó guardado (ver app.js).
+    const pendiente = sessionStorage.getItem("faro_error_login");
+    if (pendiente) {
+        sessionStorage.removeItem("faro_error_login");
+        slot.innerHTML = `<div class="login-error">${escaparTexto(pendiente)}</div>`;
+    }
+
+    boton.addEventListener("click", async () => {
+        const sesion = getSesionFirebase();
+        if (!sesion) {
+            slot.innerHTML = `<div class="login-error">Todavía se está cargando. Esperá unos segundos y probá de nuevo.</div>`;
+            return;
+        }
+        boton.disabled = true;
+        slot.innerHTML = `<div class="login-error" style="background:#fdf8ea;color:var(--warning)">Verificando...</div>`;
+        try {
+            const r = await sesion.iniciarConGoogle();
+            if (r.pendiente) return; // la página se recarga sola al volver de Google
+            if (!r.ok) {
+                slot.innerHTML = `<div class="login-error">${escaparTexto(r.error)}</div>`;
+                boton.disabled = false;
+                return;
+            }
+            login(r.usuario);
+            registrarEvento(r.usuario.id, "login", `Ingreso de ${r.usuario.nombre}`);
+            revalidarPushSiYaEstaConcedido(r.usuario);
+            cerrarModal(MODAL_ID);
+            navigate(destinoPostLogin(r.usuario), { replace: true });
+        } catch (err) {
+            slot.innerHTML = `<div class="login-error">No se pudo iniciar sesión (${escaparTexto(err.message)}). Probá de nuevo.</div>`;
+            boton.disabled = false;
+        }
+    });
 }
 
 function bindCopiarLinkLogin() {

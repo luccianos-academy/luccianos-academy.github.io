@@ -21,7 +21,7 @@
    IndexedDB + syncManager handle background sync sin bloquear UI.
 =============================*/
 
-import { USE_MOCK_DATA } from "../config.js";
+import { USE_MOCK_DATA, USAR_FIRESTORE } from "../config.js";
 import {
     obtenerDatosSheet,
     guardarDatosSheet,
@@ -41,9 +41,6 @@ const sheetToStoreMap = {
     'Manuales': 'manuales',
     'Evaluaciones': 'evaluaciones',
     'Sucursales': 'sucursales',
-    'Canales': 'canales',
-    'Publicaciones': 'publicaciones',
-    'Comentarios': 'comentarios',
     'Recursos': 'recursos',
     'Tokens': 'tokens',
     'Auditoria': 'auditoria'
@@ -54,7 +51,18 @@ const CACHE_TTL_MS = 20000;
 const cache = {}; // { [hoja]: { datos, ts } }
 const pedidosEnVuelo = {}; // dedupe de pedidos concurrentes
 
+// Con USAR_FIRESTORE la app entera pasa por firestoreSource.js (lo registra app.js al arrancar).
+let fuenteFirestore = null;
+export function registrarFuenteFirestore(fuente) { fuenteFirestore = fuente; }
+/** La fuente de Firestore (o null si no está activa): la usan las herramientas de desarrollo, ej. js/dev/muestra.js. */
+export function getFuenteFirestore() { return fuenteFirestore; }
+function firestore() {
+    if (!fuenteFirestore) throw new Error("Firestore todavía no está listo (falta registrarFuenteFirestore).");
+    return fuenteFirestore;
+}
+
 export function invalidar(hoja) {
+    if (USAR_FIRESTORE) return firestore().invalidar(hoja);
     delete cache[hoja];
     // También la marca de frescura de IndexedDB de ESA hoja — sin
     // esto, invalidar solo el cache en memoria (20s) no alcanzaba: la
@@ -77,6 +85,7 @@ export function invalidar(hoja) {
  *  (components/topbar.js): sin esto, invalidar hoja por hoja desde
  *  afuera obligaría a quien llame a conocer la lista de hojas. */
 export function invalidarTodo() {
+    if (USAR_FIRESTORE) return firestore().invalidarTodo();
     Object.keys(cache).forEach((hoja) => delete cache[hoja]);
     // También la marca de frescura de IndexedDB: si no, el botón de
     // refrescar tiraba el cache de memoria y volvía a leer la MISMA
@@ -128,7 +137,9 @@ function sellarIdb(hoja) {
 }
 
 // Fetch con IndexedDB como capa principal
-export async function fetchSheet(hoja, mockRows) {
+export async function fetchSheet(hoja, mockRows, opciones = {}) {
+    // `opciones.sucursal`: pedir solo un local (lo usa Gestión de tareas con Firestore; Sheets lo ignora).
+    if (USAR_FIRESTORE) return firestore().fetchSheet(hoja, mockRows, opciones);
     if (USE_MOCK_DATA) return structuredClone(mockRows);
 
     const storeName = sheetToStoreMap[hoja];
@@ -211,6 +222,7 @@ let contadorIdMock = 0;
 
 // Write: optimistic update in IndexedDB, queue for sync
 export async function writeSheet(hoja, fila, mockRows) {
+    if (USAR_FIRESTORE) return firestore().writeSheet(hoja, fila, mockRows);
     if (USE_MOCK_DATA) {
         const nuevaFila = { id: Date.now() * 1000 + (contadorIdMock++ % 1000), ...fila };
         mockRows.push(nuevaFila);
@@ -267,6 +279,7 @@ export async function writeSheet(hoja, fila, mockRows) {
 
 // Update: optimistic update in IndexedDB, queue for sync
 export async function updateSheet(hoja, id, cambios, mockRows) {
+    if (USAR_FIRESTORE) return firestore().updateSheet(hoja, id, cambios, mockRows);
     if (USE_MOCK_DATA) {
         const fila = mockRows.find((f) => String(f.id) === String(id));
         if (fila) Object.assign(fila, cambios);
@@ -298,6 +311,7 @@ export async function updateSheet(hoja, id, cambios, mockRows) {
 
 // Delete: saca el registro local y lo borra en el backend
 export async function deleteSheet(hoja, id, mockRows) {
+    if (USAR_FIRESTORE) return firestore().deleteSheet(hoja, id, mockRows);
     if (USE_MOCK_DATA) {
         const index = mockRows.findIndex((f) => String(f.id) === String(id));
         if (index !== -1) mockRows.splice(index, 1);

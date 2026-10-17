@@ -8,9 +8,11 @@
    instalada como PWA no hay barra de direcciones para recargar. El
    síntoma es siempre el mismo: "el arreglo no me aparece".
 
-   El service worker NO cachea nada (ver sw.js), así que no sirve para
-   detectar esto: lo que retiene los archivos es la caché del
-   navegador, no el SW.
+   El service worker (sw.js) guarda la app para que abra sin internet,
+   pero con "red primero" para el código: con señal baja lo último. Lo
+   que retiene versiones viejas es la caché HTTP del navegador (y, en
+   las imágenes, la copia guardada que se renueva de fondo), así que
+   este aviso sigue siendo necesario.
 
    La versión publicada se lee del propio config.js pidiéndolo con un
    parámetro que cambia siempre, así esa lectura puntual no puede venir

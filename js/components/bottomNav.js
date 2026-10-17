@@ -17,27 +17,6 @@
 import { Icon } from "./icons.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { getAccesosRapidos } from "../services/preferenciasAccesos.js";
-import { asegurarNoLeidas, suscribirseANoLeidas } from "../services/badgeComunicaciones.js";
-
-// Cache COMPARTIDA con sidebar.js (ver badgeComunicaciones.js) — antes
-// cada uno tenía la suya propia, así que marcar como leída desde
-// cualquier lado no tenía forma de avisarle al otro y el badge quedaba
-// pegado en el primer número calculado, para siempre (bug real
-// reportado en vivo).
-let noLeidasCache = 0;
-suscribirseANoLeidas((n) => {
-    noLeidasCache = n;
-    const item = document.querySelector('.bottom-nav-item[href="#/coordinacionoperativa"]');
-    if (!item) return;
-    const existente = item.querySelector(".bottom-nav-badge");
-    if (n > 0 && !existente) {
-        item.insertAdjacentHTML("beforeend", `<span class="bottom-nav-badge">${n}</span>`);
-    } else if (n > 0 && existente) {
-        existente.textContent = String(n);
-    } else if (n === 0 && existente) {
-        existente.remove();
-    }
-});
 
 // Universo de secciones que un Admin puede elegir como acceso rápido
 // propio (ver "Accesos rápidos" en Mi Perfil) — no todo el sidebar,
@@ -49,7 +28,6 @@ export const SECCIONES_DISPONIBLES_ADMIN = [
     { id: "locales", label: "Locales", icono: "locales", href: "#/locales" },
     { id: "academia", label: "Academia", icono: "academia", href: "#/academia" },
     { id: "gestion", label: "Gestión de tareas", icono: "calendario", href: "#/gestion" },
-    { id: "coordinacionoperativa", label: "Canales", icono: "comentario", href: "#/coordinacionoperativa" },
     { id: "recursos", label: "Recursos", icono: "integraciones", href: "#/recursos" },
     { id: "manuales", label: "Manuales", icono: "reportes", href: "#/manuales" },
     { id: "dashboard", label: "Dashboard", icono: "dashboard", href: "#/dashboard" },
@@ -62,7 +40,6 @@ export const SECCIONES_DISPONIBLES_SUPERVISOR = [
     { id: "locales", label: "Locales", icono: "locales", href: "#/locales" },
     { id: "cursos", label: "Academia", icono: "academia", href: "#/cursos" },
     { id: "gestion", label: "Gestión de tareas", icono: "calendario", href: "#/gestion" },
-    { id: "coordinacionoperativa", label: "Canales", icono: "comentario", href: "#/coordinacionoperativa" },
     { id: "recursos", label: "Recursos", icono: "integraciones", href: "#/recursos" },
     { id: "manuales", label: "Manuales", icono: "reportes", href: "#/manuales" },
     { id: "perfil", label: "Perfil", icono: "perfil", href: "#/perfil" },
@@ -106,7 +83,6 @@ export const TABS_POR_ROL = {
     supervisor: [
         { id: "inicio", label: "Inicio", icono: "inicio", href: "#/inicio" },
         { id: "colaboradores", label: "Equipo", icono: "usuarios", href: "#/colaboradores" },
-        { id: "coordinacionoperativa", label: "Canales", icono: "comentario", href: "#/coordinacionoperativa" },
         { id: "perfil", label: "Perfil", icono: "perfil", href: "#/perfil" },
     ],
     admin: [
@@ -131,7 +107,6 @@ export function BottomNav(rutaActiva) {
     let tabs = usuario && TABS_POR_ROL[usuario.rol];
     if (!tabs) return "";
 
-    asegurarNoLeidas(usuario);
 
     // Cualquier rol puede reemplazar el set fijo por sus propios 4
     // accesos (ver "Accesos rápidos" en Mi Perfil) — preferencia
@@ -158,7 +133,6 @@ export function BottomNav(rutaActiva) {
                 <a class="bottom-nav-item${t.id === rutaEfectiva ? " active" : ""}" href="${t.href}">
                     ${Icon(t.icono, { size: 22 })}
                     <span>${LABEL_CORTO_BARRA[t.label] || t.label}</span>
-                    ${t.id === "coordinacionoperativa" && noLeidasCache > 0 ? `<span class="bottom-nav-badge">${noLeidasCache}</span>` : ""}
                 </a>
             `).join("")}
         </nav>

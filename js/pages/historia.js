@@ -115,7 +115,7 @@ export async function Historia() {
 
         <div class="section">
             <h2>Línea de tiempo</h2>
-            <img src="assets/img/historia/linea_de_tiempo.jpg" alt="Línea de tiempo Lucciano's 2011-2026" style="width:100%;border-radius:var(--radius);box-shadow:var(--shadow)">
+            <img src="assets/img/historia/linea_de_tiempo.jpg" alt="Línea de tiempo Lucciano's 2011-2026" loading="lazy" decoding="async" style="width:100%;border-radius:var(--radius);box-shadow:var(--shadow)">
         </div>
 
         <div class="section">

@@ -34,7 +34,7 @@ function aArray(valor) {
  *  siempre) — mismo criterio que "dias" vacío = "sin usar". */
 export async function getDiasPorSucursal(sucursal) {
     try {
-        const filas = await fetchSheet(HOJAS.GESTION_TAREAS_SUCURSAL, gestionTareasSucursalMock);
+        const filas = await fetchSheet(HOJAS.GESTION_TAREAS_SUCURSAL, gestionTareasSucursalMock, { sucursal });
         const propia = filas.filter((f) => String(f.sucursal || "").trim() === String(sucursal || "").trim());
         const mapa = {};
         propia.forEach((f) => {

@@ -16,7 +16,8 @@
    tocar los 24 archivos de datos).
 =============================*/
 
-import { GAS_URL } from "../config.js";
+import { GAS_URL, USAR_FIRESTORE } from "../config.js";
+import { getEjecutorAcciones } from "./sesionFirebase.js";
 import { getSessionToken, logout } from "./auth.js";
 
 // Evita que varias requests concurrentes que fallan por sesión
@@ -44,6 +45,13 @@ function manejarSesionInvalida() {
 const TIMEOUT_REQUEST_MS = 20000;
 
 export async function gasRequest(accion, payload = {}) {
+
+    // Con Firestore activo no hay backend de Apps Script: las acciones las resuelve la capa de datos nueva.
+    if (USAR_FIRESTORE) {
+        const ejecutar = getEjecutorAcciones();
+        if (!ejecutar) throw new Error("Firestore todavía no está listo.");
+        return ejecutar(accion, payload);
+    }
 
     if (!GAS_URL) {
         console.warn(`[services/google] GAS_URL no configurada. Acción solicitada: ${accion}`);

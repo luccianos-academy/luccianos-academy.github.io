@@ -9,11 +9,14 @@ import { protegerMedia } from "./services/protegerMedia.js";
 import { autoExpandirTextareas } from "./services/autoExpandirTextareas.js";
 import { bindAvatarFallback } from "./components/avatar.js";
 import { iniciarChequeoDeVersion } from "./services/actualizacion.js";
-import { haySesion, getUsuarioActual } from "./services/auth.js";
+import { haySesion, getUsuarioActual, login, logout } from "./services/auth.js";
+import { registrarSesionFirebase, registrarEjecutorAcciones } from "./services/sesionFirebase.js";
 import { revalidarPushSiYaEstaConcedido } from "./services/push.js";
 import "./services/google.js"; // Cargar antes de syncManager
 import "./services/indexeddb.js";
 import "./services/syncManager.js";
+import { USAR_FIRESTORE } from "./config.js";
+import { registrarFuenteFirestore } from "./services/dataSource.js";
 import { iniciarI18n } from "./i18n/i18n.js";
 
 // Wait for idbManager and syncManager to be available in window
@@ -56,6 +59,24 @@ async function initApp() {
             console.warn('[APP] Sync en segundo plano falló:', err);
         });
 
+        if (USAR_FIRESTORE) {
+            // Carga perezosa: con el interruptor apagado ni se descarga el SDK de Firebase.
+            const { iniciarFirestore } = await import("./services/firestoreLoader.js");
+            const { fuente, sesion } = await iniciarFirestore(getUsuarioActual);
+            registrarFuenteFirestore(fuente);
+            registrarSesionFirebase(sesion);
+            registrarEjecutorAcciones((accion, payload) => fuente.ejecutarAccion(accion, payload));
+            // Si volvemos de una redirección de Google (celulares que bloquean la ventana), se completa acá.
+            await sesion.esperarEstadoInicial();
+            const vuelta = await sesion.completarRedireccion().catch((err) => ({ ok: false, error: err.message }));
+            if (vuelta && vuelta.ok) login(vuelta.usuario);
+            else if (vuelta && vuelta.error) sessionStorage.setItem("faro_error_login", vuelta.error);
+            // La sesión de la app y la de Firebase tienen que ir juntas: si Firebase la perdió
+            // (vencimiento, otro dispositivo, borrado de datos), las reglas negarían todo.
+            if (haySesion() && !sesion.haySesionFirebase()) logout();
+            console.log('[APP] Firestore listo.');
+        }
+
         // Idiomas (i18n/i18n.js): antes del router, así la primera pantalla ya
         // sale en el idioma de la persona. Para quien usa español no carga nada.
         await iniciarI18n();
@@ -97,7 +118,33 @@ if (document.readyState === 'loading') {
 // Registra el service worker
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
+    // Primera visita: el service worker todavía no controlaba la página cuando pidió sus archivos; se los
+    // pasamos para que la app abra sin internet desde el primer día (ver sw.js, mensaje "guardar-recursos").
+    const pasarRecursosAlServiceWorker = async () => {
+        try {
+            const registro = await navigator.serviceWorker.ready;
+            const urls = [location.href.split("#")[0], ...performance.getEntriesByType("resource").map((r) => r.name)];
+            registro.active?.postMessage({ tipo: "guardar-recursos", urls });
+        } catch (err) { /* sin service worker: la app funciona igual, solo que sin modo sin conexión */ }
+    };
+    // Dos veces: al cargar, y unos segundos después (el SDK de Firebase y las pantallas se piden un poco más tarde).
+    window.addEventListener("load", () => { pasarRecursosAlServiceWorker(); setTimeout(pasarRecursosAlServiceWorker, 7000); });
 }
+
+// Aviso de "sin conexión": la app sigue andando con lo guardado y lo que se marque se manda al volver la señal.
+(function avisoSinConexion() {
+    const barra = document.createElement("div");
+    barra.id = "aviso-sin-conexion";
+    barra.setAttribute("role", "status");
+    barra.textContent = "Sin conexión — usás lo último guardado. Lo que marques se envía solo cuando vuelva la señal.";
+    barra.style.cssText = "position:fixed;left:0;right:0;top:0;z-index:99999;padding:6px 12px;text-align:center;font-size:12px;"
+        + "background:#6b4f12;color:#fff;display:none;pointer-events:none";
+    const actualizar = () => { barra.style.display = navigator.onLine ? "none" : "block"; };
+    window.addEventListener("online", actualizar);
+    window.addEventListener("offline", actualizar);
+    document.addEventListener("DOMContentLoaded", () => { document.body.appendChild(barra); actualizar(); });
+    if (document.body) { document.body.appendChild(barra); actualizar(); }
+})();
 
 // Expose debug utilities globally
 window.lucciano = window.lucciano || {};

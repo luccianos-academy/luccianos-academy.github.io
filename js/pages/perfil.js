@@ -20,7 +20,7 @@ import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
 import { gasRequest } from "../services/google.js";
 import { setItem } from "../services/storage.js";
-import { VERSION, ES_STAGING } from "../config.js";
+import { VERSION, ES_STAGING, USAR_FIRESTORE } from "../config.js";
 import { idiomaElegido, guardarIdioma, idiomasDisponibles } from "../i18n/i18n.js";
 import { seccionesDisponibles, TABS_POR_ROL } from "../components/bottomNav.js";
 import { getAccesosRapidos, setAccesosRapidos } from "../services/preferenciasAccesos.js";
@@ -126,7 +126,7 @@ async function bloquePush(usuario) {
     return `
         <div class="card" style="max-width:420px;margin-top:16px">
             <div class="item"><span>Notificaciones push</span><button class="btn btn-secondary" id="btn-activar-push" style="width:auto">Activar</button></div>
-            <p class="text-xs text-muted" style="margin-top:8px">Recibí avisos en el celular cuando haya algo nuevo en Comunicaciones o News, aunque no tengas la app abierta.</p>
+            <p class="text-xs text-muted" style="margin-top:8px">Recibí avisos en el celular cuando haya algo nuevo en News, aunque no tengas la app abierta.</p>
         </div>
     `;
 }
@@ -342,7 +342,8 @@ export function bindPerfil() {
         btnSubirFoto.textContent = "Subiendo...";
 
         try {
-            const base64 = await comprimirImagenPerfil(file);
+            // Con Firestore la foto viaja DENTRO del documento del usuario (no hay Drive ni Storage): chica y liviana.
+            const base64 = USAR_FIRESTORE ? await comprimirImagenPerfil(file, 256, 0.75) : await comprimirImagenPerfil(file);
             const resultado = await gasRequest("subirFotoPerfil", { extension: "jpg", archivoBase64: base64 });
 
             if (!resultado || !resultado.ok) {

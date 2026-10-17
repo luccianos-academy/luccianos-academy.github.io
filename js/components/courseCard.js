@@ -41,7 +41,7 @@ export function CourseCard({ nombre, detalle = "", progreso = null, href = null 
 
     const estiloFoto = tema.posicion ? ` style="object-position:${tema.posicion}"` : "";
     const media = tema.foto
-        ? `<div class="course-media"><img src="${tema.foto}" alt=""${estiloFoto}></div>`
+        ? `<div class="course-media"><img src="${tema.foto}" alt="" loading="lazy" decoding="async"${estiloFoto}></div>`
         : `<div class="course-media course-media-generico">${Icon(tema.icono, { size: 30 })}</div>`;
 
     return `

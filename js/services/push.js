@@ -58,6 +58,39 @@ export function necesitaActivarPush() {
     return esIOS() && !yaInstalada();
 }
 
+/** Convierte la clave pública VAPID (base64 url) en bytes, para compararla con la de una suscripción existente. */
+function claveABytes(base64url) {
+    const relleno = "=".repeat((4 - (base64url.length % 4)) % 4);
+    const crudo = atob((base64url + relleno).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(crudo, (c) => c.charCodeAt(0));
+}
+
+/** Antes de pedir el token: si este dispositivo tiene una suscripción de push hecha con OTRA clave VAPID (típico al pasar de la
+ *  app vieja, con otro proyecto de Firebase, a esta en la MISMA dirección), el SDK la reusaría tal cual y los avisos nunca
+ *  llegarían. Se la da de baja y se borra la base local de tokens del SDK para que arme todo de cero con la clave de acá.
+ *  Si no hay suscripción previa, o ya es de esta clave, no toca nada. Nunca interrumpe: si algo falla, sigue como antes. */
+export async function limpiarSuscripcionAjena(registro) {
+    try {
+        const sub = await registro.pushManager.getSubscription();
+        const clave = sub && sub.options && sub.options.applicationServerKey;
+        if (!clave) return false;
+        const actual = claveABytes(FIREBASE_VAPID_KEY);
+        const viejo = new Uint8Array(clave);
+        const igual = viejo.length === actual.length && viejo.every((b, i) => b === actual[i]);
+        if (igual) return false;
+        await sub.unsubscribe();
+        await new Promise((resolver) => {
+            const pedido = indexedDB.deleteDatabase("firebase-messaging-database");
+            pedido.onsuccess = pedido.onerror = pedido.onblocked = () => resolver();
+        });
+        console.info("[push] Suscripción de otra clave VAPID dada de baja; se registra de nuevo con la clave actual.");
+        return true;
+    } catch (err) {
+        console.warn("[push] No se pudo revisar la suscripción previa:", err.message);
+        return false;
+    }
+}
+
 /** Re-registra el token en segundo plano, SIN pedir el permiso de
  *  nuevo — pensado para correr solo en cada carga de la app (ver
  *  app.js), no desde ningún botón. Pedido explícito (2026-09-02,
@@ -80,6 +113,7 @@ export async function revalidarPushSiYaEstaConcedido(usuario) {
     try {
         inicializarFirebase();
         const registro = await navigator.serviceWorker.ready;
+        await limpiarSuscripcionAjena(registro);
         const messaging = firebase.messaging();
         const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
         if (token) await registrarToken(usuario.id, token, usuario.nombre);
@@ -108,6 +142,7 @@ export async function activarPush(usuario) {
         // registro (en vez de llamar a register() de nuevo acá) evita
         // una segunda entrada de service worker para el mismo scope.
         const registro = await navigator.serviceWorker.ready;
+        await limpiarSuscripcionAjena(registro);
         const messaging = firebase.messaging();
         const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
         if (!token) return { ok: false, motivo: "sin-token" };

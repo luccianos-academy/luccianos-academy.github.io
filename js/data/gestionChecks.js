@@ -67,7 +67,7 @@ function indicesDeSubitems(csv) {
  *  obtenerHistoricoGestion en vez de esto. */
 export async function getChecksPorSucursal(sucursal) {
     try {
-        const filas = await fetchSheet(HOJAS.GESTION_CHECKS, gestionChecksMock);
+        const filas = await fetchSheet(HOJAS.GESTION_CHECKS, gestionChecksMock, { sucursal });
         const propios = filas.filter((f) => String(f.sucursal || "").trim() === String(sucursal || "").trim());
         const mapa = {};
         propios.forEach((f) => {

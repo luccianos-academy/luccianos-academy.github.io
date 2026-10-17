@@ -216,7 +216,7 @@ function renderVideoBanner(curso) {
         // vea la tarjeta completa tal cual se generó.
         return `
             <div class="curso-video-banner curso-video-banner-tarjeta">
-                <img src="${imagen}" alt="${curso.nombre}">
+                <img src="${imagen}" alt="${curso.nombre}" loading="lazy" decoding="async">
                 ${titulo ? `<div class="curso-banner-overlay"><h2>${titulo}</h2></div>` : ""}
             </div>
         `;
@@ -489,8 +489,8 @@ function renderCuerpoLeccion(l, esActual, i, puedeMarcarVista = true) {
                 <button class="leccion-video-play" type="button" data-reproducir-video aria-label="Reproducir video">${Icon("play", { size: 22 })}</button>
                 <span class="leccion-video-cargando" aria-hidden="true"></span>
                </div>`
-            : (esImagenValida(l.imagen) ? `<img class="leccion-imagen" src="${l.imagen}" alt="${l.titulo}">` : "")}
-        ${IMAGEN_EXTRA_POR_LECCION[l.id] ? `<img class="leccion-imagen" style="margin-top:12px" src="${IMAGEN_EXTRA_POR_LECCION[l.id]}" alt="${l.titulo}">` : ""}
+            : (esImagenValida(l.imagen) ? `<img class="leccion-imagen" src="${l.imagen}" alt="${l.titulo}" loading="lazy" decoding="async">` : "")}
+        ${IMAGEN_EXTRA_POR_LECCION[l.id] ? `<img class="leccion-imagen" style="margin-top:12px" src="${IMAGEN_EXTRA_POR_LECCION[l.id]}" alt="${l.titulo}" loading="lazy" decoding="async">` : ""}
         ${VIDEOS_EXTRA_POR_LECCION[l.id] ? `<div style="margin-top:12px">${renderVideoCarrusel(VIDEOS_EXTRA_POR_LECCION[l.id], l.titulo)}</div>` : ""}
         ${renderProcedimiento(l.procedimiento)}
         ${l.errores ? `<div class="leccion-callout leccion-callout-errores"><strong>Errores frecuentes</strong>${renderProcedimiento(l.errores)}</div>` : ""}

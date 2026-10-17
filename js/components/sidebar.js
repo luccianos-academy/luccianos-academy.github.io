@@ -13,19 +13,8 @@ import { Icon } from "./icons.js";
 import { obtenerMiUsuario, etiquetaColaborador } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
 import { CampanaBoton, AvatarHeaderBoton } from "./topbar.js";
-import { asegurarNoLeidas, suscribirseANoLeidas } from "../services/badgeComunicaciones.js";
 
 const DIAS_AVISO_VENCIMIENTO_ACCESO = 7;
-
-// Cache COMPARTIDA con bottomNav.js (ver badgeComunicaciones.js) — así
-// marcar una publicación como leída desde cualquier lado actualiza el
-// badge acá también, en vez de quedar cada uno con su propio número
-// congelado (bug real reportado en vivo: "queda pegado en 1").
-let noLeidasCache = 0;
-suscribirseANoLeidas((n) => {
-    noLeidasCache = n;
-    actualizarAvisosEnDOM();
-});
 
 // Sidebar() es síncrona (se llama en cada navegación, antes de que
 // la página nueva termine de cargar — ver ui.js/router.js), pero el
@@ -90,8 +79,6 @@ function actualizarAvisosEnDOM() {
     const linkInicio = nav.querySelector(`a[href="#/inicio"]`);
     if (linkInicio) marcarAviso(linkInicio, accesoPropioVencePronto(), "VENCE");
 
-    const linkComunicaciones = nav.querySelector(`a[href="#/coordinacionoperativa"]`);
-    if (linkComunicaciones) marcarAviso(linkComunicaciones, noLeidasCache > 0, String(noLeidasCache));
 }
 
 function marcarAviso(link, activo, textoBadge) {
@@ -111,17 +98,13 @@ export function Sidebar(rutaActiva = "inicio") {
     const esResponsable = usuario.rol === "colaborador" && (usuario.encargado || usuario.responsableTurno);
 
     asegurarMiUsuarioCache(usuario);
-    asegurarNoLeidas(usuario);
 
     // Encargado suma "Mi local" (misma pantalla que usa el Supervisor,
     // acotada a su propia sucursal — incluye el Semáforo de desempeño
     // arriba de la tabla de gestión, ver pages/colaboradores.js) sin
     // agregar un 4to nivel a MENU_POR_ROL — ver services/auth.js. Se
     // inserta antes de "perfil" (no al final) para que "Mi perfil"
-    // siga siendo siempre el último ítem del menú. Comunicaciones NO
-    // se suma acá — es exclusivamente Admin/Supervisor, pedido
-    // explícito del usuario (revertido tras un pase anterior que lo
-    // había sumado por error).
+    // siga siendo siempre el último ítem del menú.
     const idsDelMenu = [...(MENU_POR_ROL[usuario.rol] || ["inicio"])];
     if (esEncargado) {
         const posPerfil = idsDelMenu.indexOf("perfil");
@@ -141,7 +124,6 @@ export function Sidebar(rutaActiva = "inicio") {
     // ambos caminos (este render y el parche async) siempre coinciden.
     const avisosPorId = {
         inicio: { activo: accesoPropioVencePronto(), texto: "VENCE" },
-        coordinacionoperativa: { activo: noLeidasCache > 0, texto: String(noLeidasCache) },
     };
 
     // El orden del menú es el de idsDelMenu (o sea, MENU_POR_ROL) —

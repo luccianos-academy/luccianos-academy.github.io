@@ -998,7 +998,6 @@ export async function Colaboradores() {
                 <div class="barra-seleccion-acciones">
                     <button class="btn btn-secondary" id="btn-lote-renovar">Dar acceso ${DIAS_ACCESO_INICIAL} días</button>
                     <button class="btn btn-secondary" id="btn-lote-deshabilitar">Quitar acceso</button>
-                    <button class="btn btn-secondary" id="btn-enviar-mail">✉ Enviar mail</button>
                     ${esAdmin ? `<button class="btn btn-sutil-danger" id="btn-lote-eliminar">Eliminar</button>` : ""}
                 </div>
                 <button class="btn btn-sutil" id="btn-limpiar-seleccion">Deseleccionar</button>

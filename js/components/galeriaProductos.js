@@ -57,7 +57,7 @@ function tarjetaProducto(producto, indice) {
     const foto = video
         ? `<video src="${video}" autoplay muted loop playsinline></video>`
         : primeraFoto
-            ? `<img src="${primeraFoto}" alt="${producto.nombre}">`
+            ? `<img src="${primeraFoto}" alt="${producto.nombre}" loading="lazy" decoding="async">`
             : `<div class="producto-sin-foto">${producto.nombre.slice(0, 2).toUpperCase()}</div>`;
 
     return `

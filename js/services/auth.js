@@ -15,6 +15,7 @@
 =============================*/
 
 import { setItem, getItem, removeItem, existe } from "./storage.js";
+import { getSesionFirebase } from "./sesionFirebase.js";
 
 const SESSION_KEY = "sesion";
 const VISTA_COMO_KEY = "vista_como";
@@ -49,6 +50,10 @@ export function login(usuario, sessionToken) {
 }
 
 export function logout() {
+    // Con Firebase activo, cerrar sesión también cierra la de Firebase: si no, quedaría abierta
+    // detrás de una app que ya muestra el login.
+    const firebase = getSesionFirebase();
+    if (firebase) firebase.cerrar().catch((err) => console.warn("[auth] No se pudo cerrar la sesión de Firebase:", err));
     removeItem(SESSION_KEY);
     removeItem(SESSION_TOKEN_KEY);
     removeItem(VISTA_COMO_KEY);
@@ -139,9 +144,9 @@ export const MENU_POR_ROL = {
     // sumarlo a MENU_POR_ROL.colaborador — no hace falta tocar esto.
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "gestion", "coordinacionoperativa", "recursos", "manuales", "ranking", "configuracion", "perfil",
+        "academia", "gestion", "recursos", "manuales", "ranking", "configuracion", "perfil",
     ],
-    supervisor:  ["inicio", "colaboradores", "locales", "gestion", "coordinacionoperativa", "recursos", "historia", "cursos", "manuales", "ranking", "perfil"],
+    supervisor:  ["inicio", "colaboradores", "locales", "gestion", "recursos", "historia", "cursos", "manuales", "ranking", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
 };
 
@@ -174,13 +179,6 @@ const PERMISOS_PAGINA = {
     traducciones:   ["admin"],
     integraciones:  ["admin"],
     colaboradores:  ["admin", "supervisor"],
-    // "Comunicaciones" es exclusivamente Admin ↔ Supervisor (incluye
-    // Capacitador, que es rol "supervisor") — pedido explícito del
-    // usuario: "esa función es solo para supervisor y admin", nunca
-    // Colaborador/Encargado (eso quedó mal alcanzado en un pase
-    // anterior de esta sesión, revertido acá). El targeting por
-    // Encargado propio/franquicia vive ahora en News, no acá.
-    coordinacionoperativa: ["admin", "supervisor"],
     // Crear/editar News (página compose) — Admin + Supervisor (el
     // filtro fino de Capacitador lo hace puedeCrearNoticia en la propia
     // página). La ruta "news" (leer) sigue abierta a cualquier
