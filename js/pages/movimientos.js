@@ -27,7 +27,6 @@ import { getLocalesVisibles } from "../data/sucursales.js";
 import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { mismoId } from "../services/ids.js";
-import { getTokens } from "../data/tokens.js";
 import { escaparHtml } from "../services/html.js";
 import { idiomaActual } from "../i18n/i18n.js";
 
@@ -254,11 +253,10 @@ export async function Movimientos() {
     const puedeVerPush = usuario.rol === "admin" || usuario.rol === "supervisor";
     let resumenPush = "";
     if (puedeVerPush) {
-        const [usuarios, tokens] = await Promise.all([getUsuarios(), getTokens()]);
+        const usuarios = await getUsuarios();
         const equipo = await colaboradoresVisibles(usuario, usuarios);
-        const idsConPush = new Set(tokens.map((t) => String(t.usuarioId)));
-        const conPush = equipo.filter((u) => idsConPush.has(String(u.id)));
-        const sinPush = equipo.filter((u) => !idsConPush.has(String(u.id)));
+        const conPush = equipo.filter((u) => u.tienePush);
+        const sinPush = equipo.filter((u) => !u.tienePush);
         resumenPush = resumenPushHtml({ total: equipo.length, conPush: conPush.map((u) => u.nombre), sinPush: sinPush.map((u) => u.nombre) });
     }
 

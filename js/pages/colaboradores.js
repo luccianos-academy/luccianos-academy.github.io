@@ -58,7 +58,6 @@ import { getCursos } from "../data/cursos.js";
 import { getEvaluaciones } from "../data/evaluaciones.js";
 import { getLecciones } from "../data/lecciones.js";
 import { registrarEvento } from "../data/auditoria.js";
-import { getTokens } from "../data/tokens.js";
 import { getUsuarioActual, verComo } from "../services/auth.js";
 import { enviarMail } from "../services/mail.js";
 import { getLocalesElegidos, setLocalesElegidos } from "../services/preferenciasLocales.js";
@@ -833,16 +832,16 @@ export async function Colaboradores() {
     // permiso, y la columna ni se muestra para el resto.
     const puedeVerPush = esAdmin || usuario.rol === "supervisor";
 
-    const [asignaciones, cursos, resultados, evaluaciones, lecciones, tokens] = await Promise.all([
+    const [asignaciones, cursos, resultados, evaluaciones, lecciones] = await Promise.all([
         getAsignaciones(),
         getCursos(),
         getResultados(),
         esAdmin ? [] : getEvaluaciones(),
         esAdmin ? [] : getLecciones(),
-        puedeVerPush ? getTokens() : [],
     ]);
     const cursosConEvaluacion = esAdmin ? new Set() : new Set(evaluaciones.map((p) => String(p.cursoId)));
-    const idsConPush = new Set(tokens.map((t) => String(t.usuarioId)));
+    // La marca `tienePush` viaja en la fila de cada persona: no hace falta leer la colección de tokens.
+    const idsConPush = new Set(colaboradores.filter((c) => c.tienePush).map((c) => String(c.id)));
     // Se pasa el array crudo: leccionesDePersona necesita filtrar por
     // alcance persona por persona, y un mapa ya contado no lo permite.
     const leccionesParaSemaforo = esAdmin ? [] : lecciones;

@@ -14,7 +14,7 @@ import { getUsuarioActual, verComo } from "../services/auth.js";
 import { soportaPush, estadoPermisoPush, activarPush } from "../services/push.js";
 import { esIOS, yaInstalada } from "../services/installPrompt.js";
 import { abrirInstructivoPushIOS } from "../components/instructivoPushIOS.js";
-import { getTokensDeUsuario } from "../data/tokens.js";
+import { getMisTokens } from "../data/tokens.js";
 import { actualizarUsuario, getUsuarios, ETIQUETA_RESPONSABLE_LOCAL, ETIQUETA_RESPONSABLE_TURNO } from "../data/usuarios.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { navigate } from "../router.js";
@@ -102,7 +102,7 @@ async function bloquePush(usuario) {
         `;
     }
     if (estado === "granted") {
-        const tokens = await getTokensDeUsuario(usuario.id);
+        const tokens = await getMisTokens();
         if (tokens.length) {
             return `
                 <div class="card" style="max-width:420px;margin-top:16px">

@@ -38,7 +38,6 @@ import { gasRequest } from "../services/google.js";
 import { navigate } from "../router.js";
 import { actualizarContadorCampana, decrementarContadorCampana } from "../components/topbar.js";
 import { mandarPush } from "../services/push.js";
-import { getTokens } from "../data/tokens.js";
 
 // Categorías de noticia — texto libre, pero se recuerdan como pills
 // para reusar (pedido del usuario: "poner a gusto y que aparezca como
@@ -1058,13 +1057,10 @@ async function mandarPushDeNoticia(noticia, usuarios, sucursales) {
     const destinatarios = usuarios.filter((u) => puedeVerNoticia(noticia, u, sucursales));
     if (!destinatarios.length) return { enviados: 0, destinatarios: 0, conPush: [], sinPush: [] };
     try {
-        const [resultado, tokens] = await Promise.all([
-            mandarPush(destinatarios.map((u) => u.id), noticia.titulo, noticia.resumen, "#/news"),
-            getTokens(),
-        ]);
-        const idsConToken = new Set(tokens.map((t) => String(t.usuarioId)));
-        const conPush = destinatarios.filter((u) => idsConToken.has(String(u.id))).map((u) => u.nombre);
-        const sinPush = destinatarios.filter((u) => !idsConToken.has(String(u.id))).map((u) => u.nombre);
+        const resultado = await mandarPush(destinatarios.map((u) => u.id), noticia.titulo, noticia.resumen, "#/news");
+        // Quién tiene push lo dice la marca `tienePush` de cada usuario (sin leer la colección de tokens).
+        const conPush = destinatarios.filter((u) => u.tienePush).map((u) => u.nombre);
+        const sinPush = destinatarios.filter((u) => !u.tienePush).map((u) => u.nombre);
         return { enviados: resultado?.enviados ?? 0, destinatarios: destinatarios.length, conPush, sinPush };
     } catch (err) {
         console.warn("No se pudo mandar el push de la noticia:", err.message);

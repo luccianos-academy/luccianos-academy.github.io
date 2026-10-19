@@ -116,7 +116,7 @@ export async function revalidarPushSiYaEstaConcedido(usuario) {
         await limpiarSuscripcionAjena(registro);
         const messaging = firebase.messaging();
         const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
-        if (token) await registrarToken(usuario.id, token, usuario.nombre);
+        if (token) await registrarToken(usuario.id, token, usuario.nombre, usuario.tienePush === true);
     } catch (err) {
         // Silencioso a propósito — corre en segundo plano en CADA carga
         // de la app, sin botón ni feedback visual. Si el token sigue
@@ -147,7 +147,7 @@ export async function activarPush(usuario) {
         const token = await messaging.getToken({ vapidKey: FIREBASE_VAPID_KEY, serviceWorkerRegistration: registro });
         if (!token) return { ok: false, motivo: "sin-token" };
 
-        await registrarToken(usuario.id, token, usuario.nombre);
+        await registrarToken(usuario.id, token, usuario.nombre, usuario.tienePush === true);
         return { ok: true };
     } catch (err) {
         console.warn("No se pudo activar push:", err.message);

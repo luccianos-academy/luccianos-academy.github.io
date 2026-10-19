@@ -56,6 +56,9 @@ function normalizarUsuario(f) {
         // un Supervisor de sucursal en la interfaz (así el capacitador
         // no queda mezclado con "el supervisor" sin que nadie lo note).
         capacitador: String(f.capacitador || "").trim().toUpperCase() === "SI",
+        // La persona tiene al menos un dispositivo con push registrado (la marca la pone la app al registrar el token y la
+        // limpia el servicio de avisos cuando se queda sin ninguno). Evita leer toda la colección de tokens.
+        tienePush: String(f.tienePush || "").trim().toUpperCase() === "SI",
         // Gate de "Nuestra Historia" (pedido explícito del usuario:
         // que la vean antes de empezar la formación) — ver router.js
         // y pages/historia.js. Vacío = todavía no la vio (incluye

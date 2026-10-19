@@ -6,6 +6,7 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { sucursalesMock } from "./mock/sucursales.mock.js";
 import { paisDelNombre } from "../services/alcance.js";
+import { normalizarNombre, listaSupervisores, localesDeSupervisor } from "../services/supervisores.js";
 import { HOJAS } from "../config.js";
 
 function normalizarSucursal(f) {
@@ -60,18 +61,9 @@ export async function eliminarSucursal(id) {
     return deleteSheet(HOJAS.SUCURSALES, id, sucursalesMock);
 }
 
-// Comparación tolerante (recorta espacios, ignora mayúsculas): el
-// campo "Supervisor de esta sucursal" (pages/colaboradores.js) es de
-// texto libre con sugerencias, no fuerza elegir una — un espacio de
-// más o una mayúscula distinta al tipearlo a mano ya rompía el match
-// exacto de antes y dejaba al supervisor sin equipo, silenciosamente.
-function normalizarNombre(n) {
-    return String(n || "").trim().toLowerCase();
-}
-
-export function listaSupervisores(campoSupervisor) {
-    return String(campoSupervisor || "").split(",").map((n) => n.trim()).filter(Boolean);
-}
+// normalizarNombre / listaSupervisores / localesDeSupervisor viven en services/supervisores.js
+// (los usa también la capa de datos para acotar lo que baja un Supervisor).
+export { listaSupervisores };
 
 /** Agrega un supervisor a la lista de un local SIN pisar a los que ya
  *  estaban (ej. cobertura de vacaciones: el titular sigue viendo su
@@ -117,12 +109,7 @@ export async function quitarSupervisorDeSucursal(sucursalId, nombreSupervisor) {
  *  uno. */
 export async function getMisLocales(usuario, sucursalesPrefetch) {
     const sucursales = sucursalesPrefetch || await getSucursales();
-    const nombreUsuario = normalizarNombre(usuario.nombre);
-    const asignados = sucursales
-        .filter((s) => listaSupervisores(s.supervisor).some((n) => normalizarNombre(n) === nombreUsuario))
-        .map((s) => s.nombre);
-    if (asignados.length) return asignados;
-    return usuario.sucursal ? [usuario.sucursal] : [];
+    return localesDeSupervisor(usuario, sucursales);
 }
 
 /** Qué locales VE un usuario — distinto de getMisLocales (qué

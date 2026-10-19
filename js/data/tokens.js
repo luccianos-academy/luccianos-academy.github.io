@@ -15,6 +15,7 @@
 
 import { fetchSheet, writeSheet, deleteSheet } from "../services/dataSource.js";
 import { tokensMock } from "./mock/tokens.mock.js";
+import { actualizarUsuario } from "./usuarios.js";
 import { HOJAS } from "../config.js";
 
 function normalizarToken(f) {
@@ -27,7 +28,9 @@ function normalizarToken(f) {
     };
 }
 
-export async function getTokens() {
+/** Los dispositivos con push de la persona que tiene la sesión abierta. NO sirve para saber quién más tiene push: eso lo dice
+ *  `tienePush` en cada fila de Usuarios (leer los tokens de todos costaba un documento por dispositivo en cada apertura). */
+export async function getMisTokens() {
     try {
         const filas = await fetchSheet(HOJAS.TOKENS, tokensMock);
         return filas.map(normalizarToken);
@@ -37,37 +40,32 @@ export async function getTokens() {
     }
 }
 
-export async function getTokensDeUsuario(usuarioId) {
-    const todos = await getTokens();
-    return todos.filter((t) => String(t.usuarioId) === String(usuarioId));
-}
-
-/** Para mandar un push a varias personas de una — un solo fetch en
- *  vez de N llamadas a getTokensDeUsuario. */
-export async function getTokensDeUsuarios(usuarioIds) {
-    const ids = usuarioIds.map(String);
-    const todos = await getTokens();
-    return todos.filter((t) => ids.includes(String(t.usuarioId)));
-}
-
 /** No duplica: si ese mismo token ya está registrado (puede pasar si
  *  el navegador lo re-emite sin haber cambiado nada), no crea fila
  *  nueva. "usuarioNombre" es solo para que la Sheet se lea a simple
  *  vista (quién es cada fila) — el envío real sigue usando usuarioId,
- *  el nombre no se usa para nada funcional. */
-export async function registrarToken(usuarioId, token, usuarioNombre) {
-    const existentes = await getTokens();
-    if (existentes.some((t) => t.token === token)) return;
-    const resultado = await writeSheet(HOJAS.TOKENS, {
-        usuarioId, usuarioNombre: usuarioNombre || "", token, creadoEn: new Date().toISOString(),
-    }, tokensMock);
-    // writeSheet no tira sola ante un rechazo del backend (ej. permiso
-    // faltante en PERMISOS_ESCRITURA) — sin este chequeo, activarPush()
-    // reportaba "ok:true" aunque el token nunca se haya guardado de
-    // verdad. Tirar acá deja que el try/catch de activarPush() lo
-    // detecte como falla real.
-    if (resultado && resultado.ok === false) {
-        throw new Error(resultado.error || "No se pudo registrar el token de push.");
+ *  el nombre no se usa para nada funcional.
+ *
+ *  `yaMarcado`: la sesión ya sabe que la persona figura con push (`usuario.tienePush`); si no, se deja la marca en su
+ *  fila de Usuarios (una escritura, una sola vez) para que Admin/Supervisor la vean sin leer los tokens. */
+export async function registrarToken(usuarioId, token, usuarioNombre, yaMarcado = false) {
+    const existentes = await getMisTokens();
+    if (!existentes.some((t) => t.token === token)) {
+        const resultado = await writeSheet(HOJAS.TOKENS, {
+            usuarioId, usuarioNombre: usuarioNombre || "", token, creadoEn: new Date().toISOString(),
+        }, tokensMock);
+        // writeSheet no tira sola ante un rechazo del backend (ej. permiso
+        // faltante en PERMISOS_ESCRITURA) — sin este chequeo, activarPush()
+        // reportaba "ok:true" aunque el token nunca se haya guardado de
+        // verdad. Tirar acá deja que el try/catch de activarPush() lo
+        // detecte como falla real.
+        if (resultado && resultado.ok === false) {
+            throw new Error(resultado.error || "No se pudo registrar el token de push.");
+        }
+    }
+    if (!yaMarcado) {
+        try { await actualizarUsuario(usuarioId, { tienePush: "SI" }); }
+        catch (err) { console.warn("No se pudo dejar la marca de push en el usuario:", err.message); }     // el token ya quedó: la marca se reintenta en la próxima apertura
     }
 }
 

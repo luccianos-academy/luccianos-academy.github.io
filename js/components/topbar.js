@@ -17,7 +17,7 @@
    parcha TODAS las instancias en el DOM (querySelectorAll), no una sola.
 =============================*/
 
-import { EMPRESA } from "../config.js";
+import { EMPRESA, USAR_FIRESTORE } from "../config.js";
 import { Icon } from "./icons.js";
 import { Avatar } from "./avatar.js";
 import { getNoticiasVisibles, estaLeida } from "../data/noticias.js";
@@ -133,7 +133,7 @@ async function refrescarDatos(boton) {
 
     try {
         invalidarTodo();
-        if (window.syncManager) await window.syncManager.forceSyncNow();
+        if (!USAR_FIRESTORE && window.syncManager) await window.syncManager.forceSyncNow();     // con Firebase no hay sincronizador heredado
     } catch (err) {
         console.warn("[TOPBAR] No se pudo refrescar:", err);
     } finally {

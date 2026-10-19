@@ -29,6 +29,7 @@ export default {
     "Abrir menú": "Open menu",
     "Cerrar menú": "Close menu",
     "Cerrar sesión": "Log out",
+    "Pendiente de sincronizar": "Waiting to sync",
     "Actualizar datos": "Refresh data",
     "Cerrar": "Close",
     "Guardar": "Save",

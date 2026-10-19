@@ -47,6 +47,7 @@ export function usuarioDeSesion(d) {
         encargado: d.encargado === true,
         responsableTurno: d.responsableTurno === true,
         capacitador: d.capacitador === true,
+        tienePush: d.tienePush === true,
         sucursal: String(d.sucursal || "").trim(),
         foto: String(d.foto || d.fotoMini || "").trim(),
         activo: d.activo === true ? "SI" : "NO",

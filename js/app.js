@@ -54,16 +54,21 @@ async function initApp() {
         // pasa es lo que pasaba siempre. Y en cualquier arranque
         // posterior la pantalla sale al toque desde IndexedDB mientras
         // el sync se pone al día en segundo plano.
-        console.log('[APP] Initializing Sync Manager (en segundo plano)...');
-        window.syncManager.init().catch((err) => {
-            console.warn('[APP] Sync en segundo plano falló:', err);
-        });
+        // Con Firebase el sincronizador heredado (el de la app vieja contra Apps Script) no tiene nada que hacer:
+        // ya no se arranca. Las pantallas leen de firestoreSource.js, que cuida su propia copia en el dispositivo.
+        if (!USAR_FIRESTORE) {
+            console.log('[APP] Initializing Sync Manager (en segundo plano)...');
+            window.syncManager.init().catch((err) => {
+                console.warn('[APP] Sync en segundo plano falló:', err);
+            });
+        }
 
         if (USAR_FIRESTORE) {
             // Carga perezosa: con el interruptor apagado ni se descarga el SDK de Firebase.
             const { iniciarFirestore } = await import("./services/firestoreLoader.js");
             const { fuente, sesion } = await iniciarFirestore(getUsuarioActual);
             registrarFuenteFirestore(fuente);
+            import("./components/pendientesSync.js").then((m) => m.iniciarPendientesSync(fuente)).catch(() => {});
             registrarSesionFirebase(sesion);
             registrarEjecutorAcciones((accion, payload) => fuente.ejecutarAccion(accion, payload));
             // Si volvemos de una redirección de Google (celulares que bloquean la ventana), se completa acá.
