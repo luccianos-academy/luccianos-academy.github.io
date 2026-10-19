@@ -324,6 +324,7 @@ export function bindMovimientos() {
             intervaloMovimientos = null;
             return;
         }
+        if (document.hidden) return;     // pantalla apagada o app en segundo plano: no se consulta nada
         const frescas = await actividadVisible();
         // Sigue existiendo tras el await? el chequeo de arriba pudo
         // pasar y de ahí a acá haberse navegado afuera.
@@ -331,5 +332,5 @@ export function bindMovimientos() {
             entradasActuales = frescas;
             redibujarLista();
         }
-    }, 20000);
+    }, 60000);
 }

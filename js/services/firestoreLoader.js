@@ -10,6 +10,8 @@
 import { FIREBASE_CONFIG, ES_LOCAL_DEV, AVISOS_URL } from "../config.js";
 import { crearFirestoreSource } from "./firestoreSource.js";
 import { crearSesionFirebase } from "./firebaseAuth.js";
+import { medicionActiva, medirLecturas } from "./medidorLecturas.js";
+import { crearAlmacenIDB } from "./almacenListas.js";
 
 const VERSION_SDK = "12.19.0";
 const BASE = `https://www.gstatic.com/firebasejs/${VERSION_SDK}`;
@@ -47,8 +49,8 @@ export async function iniciarFirestore(getUsuario) {
         import(`${BASE}/firebase-auth.js`),
     ]);
     const app = initializeApp(FIREBASE_CONFIG);
-    // Caché persistente (IndexedDB) compartida entre pestañas: las lecturas repetidas no cuentan
-    // contra el cupo diario de Spark y la app abre sin red con lo último que vio.
+    // Caché persistente (IndexedDB) compartida entre pestañas: la app abre sin red con lo último que vio. OJO: no baja el gasto
+    // de lecturas de las consultas (getDocs va igual al servidor); eso se cuida en firestoreSource.js (memoria, incremental, en vivo).
     const db = sdk.initializeFirestore(app, {
         localCache: sdk.persistentLocalCache({ tabManager: sdk.persistentMultipleTabManager() }),
     });
@@ -57,7 +59,7 @@ export async function iniciarFirestore(getUsuario) {
     const auth = sdkAuth.getAuth(app);   // la sesión de Firebase se guarda sola en el dispositivo
     return {
         app, db, sdk, auth,
-        fuente: crearFirestoreSource({ db, sdk, getUsuario, avisosUrl: AVISOS_URL, miniaturaFoto: miniaturaDeFoto }),
+        fuente: crearFirestoreSource({ db, sdk: medicionActiva() ? medirLecturas(sdk) : sdk, getUsuario, almacen: crearAlmacenIDB(), avisosUrl: AVISOS_URL, miniaturaFoto: miniaturaDeFoto }),
         sesion: crearSesionFirebase({ auth, db, sdkAuth, sdkFs: sdk }),
     };
 }

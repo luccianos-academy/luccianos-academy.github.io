@@ -399,7 +399,8 @@ function bindLoginFirebase() {
             const r = await sesion.iniciarConGoogle();
             if (r.pendiente) return; // la página se recarga sola al volver de Google
             if (!r.ok) {
-                slot.innerHTML = `<div class="login-error">${escaparTexto(r.error)}</div>`;
+                const buscado = r.correo ? `<br><small>Correo con el que entraste: <strong>${escaparTexto(r.correo)}</strong></small>` : "";
+                slot.innerHTML = `<div class="login-error">${escaparTexto(r.error)}${buscado}</div>`;
                 boton.disabled = false;
                 return;
             }

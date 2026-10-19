@@ -3849,8 +3849,9 @@ async function actualizarCatalogoGestionEnDOM() {
     if (timersDias.size > 0) return;
     if (Date.now() - ultimaEdicionLocalGestion < MARGEN_EDICION_LOCAL_MS) return;
 
-    invalidar(HOJAS.GESTION_TAREAS);
-    invalidar(HOJAS.GESTION_TAREAS_SUCURSAL);
+    // Antes acá se invalidaban el catálogo y los días del local para forzar una lectura al servidor CADA 5 s (unas 2-4 lecturas por vuelta,
+    // con la pantalla quieta). Ya no: las lecturas se renuevan cada 2 minutos y cualquier cambio hecho desde este mismo equipo las invalida
+    // solo (firestoreSource.js). Un cambio de OTRO dispositivo en el catálogo se ve como mucho a los 2 minutos.
     const versionAntes = versionEdicionLocalGestion;
     let catalogo, dias;
     try {

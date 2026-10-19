@@ -69,7 +69,9 @@ export function crearSesionFirebase({ auth, db, sdkAuth, sdkFs, ahora = () => Da
 
         const ref = doc(db, "usuarios", email);
         const snap = await getDoc(ref);
-        if (!snap.exists()) return { ok: false, error: MENSAJES.sinRegistro };
+        // "correo" va aparte para que la pantalla de login muestre EXACTAMENTE qué dirección se buscó (la que devuelve Google): así un
+        // error de tipeo, un punto de más o un alta hecha en otro entorno se ven al instante.
+        if (!snap.exists()) return { ok: false, error: MENSAJES.sinRegistro, correo: email };
 
         let datos = snap.data();
         if (datos.activo !== true) return { ok: false, error: MENSAJES.desactivada };
@@ -81,7 +83,7 @@ export function crearSesionFirebase({ auth, db, sdkAuth, sdkFs, ahora = () => Da
         }
 
         // Renovación por uso (solo colaboradores tienen vencimiento) + último ingreso.
-        const cambios = { ultimoIngreso: new Date(ahora()).toISOString() };
+        const cambios = { ultimoIngreso: new Date(ahora()).toISOString(), modificadoEn: ahora() };
         if (esColaborador) cambios.fechaVencimientoAcceso = Timestamp.fromMillis(finDeDiaEnMs(fechaDeAcceso()));
         try {
             await updateDoc(ref, cambios);
