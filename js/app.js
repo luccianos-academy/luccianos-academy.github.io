@@ -9,7 +9,7 @@ import { protegerMedia } from "./services/protegerMedia.js";
 import { autoExpandirTextareas } from "./services/autoExpandirTextareas.js";
 import { bindAvatarFallback } from "./components/avatar.js";
 import { iniciarChequeoDeVersion } from "./services/actualizacion.js";
-import { haySesion, getUsuarioActual, login, logout } from "./services/auth.js";
+import { haySesion, getUsuarioActual, login, logout, estaViendoComo } from "./services/auth.js";
 import { registrarSesionFirebase, registrarEjecutorAcciones } from "./services/sesionFirebase.js";
 import { revalidarPushSiYaEstaConcedido } from "./services/push.js";
 import "./services/google.js"; // Cargar antes de syncManager
@@ -74,6 +74,15 @@ async function initApp() {
             // La sesión de la app y la de Firebase tienen que ir juntas: si Firebase la perdió
             // (vencimiento, otro dispositivo, borrado de datos), las reglas negarían todo.
             if (haySesion() && !sesion.haySesionFirebase()) logout();
+            // Sesión ya abierta de antes (la de Firebase no vence): se deja el "Ingreso de X", se renueva el acceso por uso y se
+            // comprueba que la cuenta siga activa. En segundo plano y como mucho cada 6 h por dispositivo (services/chequeoAcceso.js).
+            if (haySesion() && !estaViendoComo()) {
+                Promise.all([import("./services/chequeoAcceso.js"), import("./data/auditoria.js")]).then(async ([{ chequearAccesoAlAbrir }, { registrarEvento }]) => {
+                    const r = await chequearAccesoAlAbrir({ sesion, usuario: getUsuarioActual(), registrarEvento });
+                    if (r.ok) login(r.usuario);
+                    else if (r.ok === false) { sessionStorage.setItem("faro_error_login", r.error); logout(); location.hash = "#/login"; location.reload(); }
+                }).catch((err) => console.warn("[APP] No se pudo revisar el acceso:", err));
+            }
             console.log('[APP] Firestore listo.');
         }
 
