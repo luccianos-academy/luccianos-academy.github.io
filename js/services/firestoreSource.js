@@ -167,6 +167,31 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     const INCREMENTALES = ["Usuarios", "Asignaciones", "Resultados"];
     const COMPLETA_CADA_MS = 24 * 60 * 60 * 1000;
     const SOLAPE_MS = 5 * 60 * 1000;
+    // "Copia primero": cada lista que se lee se guarda en el dispositivo con la hora. Al abrir la app (o volver a una pantalla) se
+    // usa esa copia SIN preguntarle nada a la base mientras sea reciente: 10 min para listas de Admin/Supervisor/Responsable de local,
+    // 30 min para el contenido (cursos, lecciones...). El botón de actualizar de la barra la salta, y cualquier escritura propia
+    // invalida esa lista. Si la base no responde (sin señal, límite diario alcanzado) se muestra la última copia, aunque sea vieja.
+    const FRESCURA_LISTAS_MS = 10 * 60 * 1000;
+    const FRESCURA_PROPIA_MS = 2 * 60 * 1000;
+    const FRESCURA_PAQUETES_MS = 30 * 60 * 1000;
+    const COPIABLES = [...INCREMENTALES, "Noticias", "Tokens", "Auditoria", ...PAQUETES];
+    let ignorarCopiasAntesDe = 0;          // botón de actualizar: ninguna copia anterior a este instante vale
+    const ignorarHojaAntesDe = {};         // escritura propia en una hoja: ninguna copia anterior de esa hoja vale
+    let mostrandoDatosViejos = false;
+    const claveCopia = (hoja) => `cp|${db && db.app && db.app.options ? db.app.options.projectId : "?"}|${String(getUsuario() && getUsuario().email || "").toLowerCase()}|${hoja}`;
+    const copiable = (hoja) => !!almacen && cacheMs > 0 && COPIABLES.includes(hoja);
+    function frescuraDe(hoja) {
+        if (PAQUETES.includes(hoja)) return FRESCURA_PAQUETES_MS;
+        const u = yo();
+        return esGestion(u) || u.encargado ? FRESCURA_LISTAS_MS : FRESCURA_PROPIA_MS;
+    }
+    async function leerCopia(hoja) {
+        try { const c = await almacen.leer(claveCopia(hoja)); return c && Array.isArray(c.filas) ? c : null; } catch (err) { return null; }
+    }
+    async function guardarCopia(hoja, filas, extra) {
+        try { await almacen.guardar(claveCopia(hoja), { filas, guardadoEn: ahora(), extra }); } catch (err) { /* sin copia */ }
+    }
+    const copiaVale = (hoja, c) => c.guardadoEn > ignorarCopiasAntesDe && c.guardadoEn > (ignorarHojaAntesDe[hoja] || 0) && ahora() - c.guardadoEn < frescuraDe(hoja) && ahora() >= c.guardadoEn;
     const claveAlmacen = (hoja) => `${db && db.app && db.app.options ? db.app.options.projectId : "?"}|${String(getUsuario() && getUsuario().email || "").toLowerCase()}|${hoja}`;
     const olvidarAlmacen = async (hoja) => { if (almacen && INCREMENTALES.includes(hoja)) { try { await almacen.borrar(claveAlmacen(hoja)); } catch (err) { /* sin copia */ } } };
     const usarEscuchas = escuchas !== undefined ? !!escuchas : (cacheMs > 0 && typeof sdk.onSnapshot === "function");
@@ -261,8 +286,8 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     // La clave del caché es "hoja|local": Gestión se lee por local y cada uno se cachea aparte.
     // La Auditoría no se borra: queda marcada como vencida (ts = 0) y la próxima lectura solo pide lo nuevo.
     function olvidar(k) { if (k.startsWith("Auditoria|") && cache[k]) cache[k].ts = 0; else delete cache[k]; }
-    function invalidar(hoja) { Object.keys(cache).filter((k) => k.startsWith(`${hoja}|`)).forEach(olvidar); }
-    function invalidarTodo() { Object.keys(cache).forEach(olvidar); }
+    function invalidar(hoja) { ignorarHojaAntesDe[hoja] = ahora(); Object.keys(cache).filter((k) => k.startsWith(`${hoja}|`)).forEach(olvidar); }
+    function invalidarTodo() { ignorarCopiasAntesDe = ahora(); Object.keys(cache).forEach(olvidar); }
 
     /* ---------- lectura ---------- */
     async function leerPaquete(hoja) {
@@ -458,9 +483,21 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         if (c && ahora() - c.ts < ttlDe(hoja)) return [...c.datos];
 
         if (!enVuelo[clave]) {
-            const lectura = hoja === "Auditoria" && c && auditoriaUltimoMs > 0 ? leerAuditoriaNuevas(c.datos)
-                : esPaquete ? leerPaquete(hoja) : esEspecial ? leerEspecial(hoja, opciones) : leerColeccion(hoja);
-            enVuelo[clave] = lectura
+            enVuelo[clave] = (async () => {
+                const copia = copiable(hoja) ? await leerCopia(hoja) : null;
+                if (copia && copiaVale(hoja, copia)) { mostrandoDatosViejos = false; return copia.filas; }          // reciente: cero lecturas
+                const previasAuditoria = c ? c.datos : (copia && copia.extra && copia.extra.ultimoMs ? (auditoriaUltimoMs = copia.extra.ultimoMs, copia.filas) : null);
+                try {
+                    const filas = hoja === "Auditoria" && previasAuditoria && auditoriaUltimoMs > 0 ? await leerAuditoriaNuevas(previasAuditoria)
+                        : esPaquete ? await leerPaquete(hoja) : esEspecial ? await leerEspecial(hoja, opciones) : await leerColeccion(hoja);
+                    if (copiable(hoja)) await guardarCopia(hoja, filas, hoja === "Auditoria" ? { ultimoMs: auditoriaUltimoMs } : undefined);
+                    mostrandoDatosViejos = false;
+                    return filas;
+                } catch (err) {
+                    if (copia) { mostrandoDatosViejos = true; console.warn(`[datos] La base no respondió (${err.code || err.message}); se muestra la última copia guardada de ${hoja}.`); return copia.filas; }
+                    throw err;
+                }
+            })()
                 .then((filas) => { cache[clave] = { datos: filas, ts: ahora() }; return filas; })
                 .finally(() => { delete enVuelo[clave]; });
         }
@@ -920,5 +957,5 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         return { ok: true, n: filas.length };
     }
 
-    return { fetchSheet, writeSheet, updateSheet, deleteSheet, invalidar, invalidarTodo, importarFilas, ejecutarAccion, cerrarEscuchas };
+    return { fetchSheet, writeSheet, updateSheet, deleteSheet, invalidar, invalidarTodo, importarFilas, ejecutarAccion, cerrarEscuchas, datosViejos: () => mostrandoDatosViejos };
 }
