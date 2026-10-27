@@ -893,7 +893,9 @@ export async function Colaboradores() {
             `;
         }).join("");
         if (!gruposPorSucursal.length) {
-            cuerpoHtml = `<p class="text-sm text-muted">${esAdmin ? "Todavía no hay colaboradores cargados." : "Todavía no tenés ningún local asignado como supervisor."}</p>`;
+            cuerpoHtml = `<p class="text-sm text-muted">${esAdmin ? "Todavía no hay colaboradores cargados."
+                : cantidadLocalesElegidos ? "Ninguno de los locales que elegiste figura a tu nombre como supervisor. Tocá \"Elegir mis locales\" y dejá la lista vacía para ver todos los tuyos; si igual no aparece el que buscás, pedile al Admin que revise el supervisor de ese local."
+                : "Todavía no tenés ningún local asignado como supervisor."}</p>`;
         }
     } else {
         const filasSinOrdenar = colaboradores.map(armarFila);

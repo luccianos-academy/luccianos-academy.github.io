@@ -11,6 +11,7 @@ import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal, listaSupervisores } from "../data/sucursales.js";
+import { supervisoresSinUsuario } from "../services/supervisores.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
@@ -270,6 +271,9 @@ export async function Locales() {
         getSucursales(), getCursos(), getLecciones(), getDisponibilidad(), getEvaluaciones(),
     ]);
     const misLocales = esAdmin ? [] : await getMisLocales(usuario, locales);
+    // Aviso para el Admin: un nombre de supervisor escrito distinto a como se llama su usuario deja esos locales sin dueño (el supervisor
+    // entra a "Mi equipo" y no los ve). Se detecta acá para corregirlo antes de que alguien lo reclame.
+    const sinUsuario = esAdmin ? supervisoresSinUsuario(locales, await getUsuarios().catch(() => [])) : [];
 
     // Todas las restricciones que existen, de las tres fuentes, en una
     // sola lista — con el NOMBRE de cada una, no solo el texto crudo de
@@ -367,6 +371,15 @@ export async function Locales() {
 
     return `
         ${Header("Locales", "Sucursales de Lucciano's")}
+
+        ${sinUsuario.length ? `
+            <p class="text-sm" style="margin:0 0 12px;color:var(--warning)" data-aviso-supervisor-sin-usuario>
+                ⚠ ${sinUsuario.length === 1 ? "Este nombre figura como supervisor de un local" : "Estos nombres figuran como supervisor de algún local"}
+                pero no coincide con ningún usuario Supervisor:
+                ${sinUsuario.map((s) => `<strong>${escaparHtml(s.nombre)}</strong> (${s.locales} ${s.locales === 1 ? "local" : "locales"})`).join(", ")}.
+                Esos locales no le aparecen a nadie en "Mi equipo". Corregilo con "Asignar supervisor".
+            </p>
+        ` : ""}
 
         <div class="table-toolbar">
             <input type="search" id="buscador-locales" placeholder="Buscar local o supervisor...">

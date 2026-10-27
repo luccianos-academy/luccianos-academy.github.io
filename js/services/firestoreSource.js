@@ -179,6 +179,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     const FRESCURA_LISTAS_MS = 10 * 60 * 1000;
     const FRESCURA_PROPIA_MS = 2 * 60 * 1000;
     const FRESCURA_PAQUETES_MS = 30 * 60 * 1000;
+    const FRESCURA_SUCURSALES_MS = 5 * 60 * 1000;
     const COPIABLES = [...INCREMENTALES, "Noticias", "Tokens", "Auditoria", ...PAQUETES];
     let ignorarCopiasAntesDe = 0;          // botón de actualizar: ninguna copia anterior a este instante vale
     const ignorarHojaAntesDe = {};         // escritura propia en una hoja: ninguna copia anterior de esa hoja vale
@@ -186,6 +187,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     const claveCopia = (hoja) => `cp|${db && db.app && db.app.options ? db.app.options.projectId : "?"}|${String(getUsuario() && getUsuario().email || "").toLowerCase()}|${hoja}`;
     const copiable = (hoja) => !!almacen && cacheMs > 0 && COPIABLES.includes(hoja);
     function frescuraDe(hoja) {
+        if (hoja === "Sucursales") return FRESCURA_SUCURSALES_MS;       // de acá sale "qué locales supervisa cada uno": una corrección tiene que llegar rápido
         if (PAQUETES.includes(hoja)) return FRESCURA_PAQUETES_MS;
         const u = yo();
         return esGestion(u) || u.encargado ? FRESCURA_LISTAS_MS : FRESCURA_PROPIA_MS;

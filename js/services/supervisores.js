@@ -11,8 +11,9 @@
 // sucursal" (pages/colaboradores.js) es de texto libre con sugerencias, no fuerza elegir una —
 // un espacio de más o una mayúscula distinta al tipearlo a mano ya rompía el match exacto de
 // antes y dejaba al supervisor sin equipo, silenciosamente.
+// También ignora acentos y espacios repetidos ("Tomás  Ojada" = "tomas ojada"): un descuido de tipeo no deja a nadie sin equipo.
 export function normalizarNombre(n) {
-    return String(n || "").trim().toLowerCase();
+    return String(n || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 /** "Ana, Beto" → ["Ana", "Beto"] (un local puede tener más de un supervisor). */
@@ -29,4 +30,21 @@ export function localesDeSupervisor(usuario, sucursales) {
         .map((s) => s.nombre);
     if (asignados.length) return asignados;
     return usuario && usuario.sucursal ? [usuario.sucursal] : [];
+}
+
+/** Nombres que figuran como "Supervisor" en algún local pero no son el nombre de ningún usuario Supervisor (y por eso esos locales
+ *  no aparecen en "Mi equipo" de nadie). Devuelve [{ nombre, locales }] con la cantidad de locales afectados. */
+export function supervisoresSinUsuario(sucursales, usuarios) {
+    const existentes = new Set((usuarios || []).filter((u) => u.rol === "supervisor").map((u) => normalizarNombre(u.nombre)));
+    const huerfanos = new Map();
+    (sucursales || []).forEach((s) => {
+        listaSupervisores(s.supervisor).forEach((n) => {
+            const clave = normalizarNombre(n);
+            if (existentes.has(clave)) return;
+            const previo = huerfanos.get(clave) || { nombre: n, locales: 0 };
+            previo.locales++;
+            huerfanos.set(clave, previo);
+        });
+    });
+    return [...huerfanos.values()].sort((a, b) => b.locales - a.locales);
 }
