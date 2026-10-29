@@ -17,7 +17,7 @@ import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
 import { getEvaluaciones, actualizarPregunta } from "../data/evaluaciones.js";
-import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, claveProducto, alcanceDe } from "../data/disponibilidad.js";
+import { getDisponibilidad, mapaDisponibilidad, guardarDisponibilidad, claveProducto, alcanceDe, filasUnicas } from "../data/disponibilidad.js";
 import { PRODUCTOS_CHOCOLATERIA, CATEGORIAS_CHOCOLATERIA } from "../data/productosChocolateria.js";
 import { PRODUCTOS_HELADERIA, CATEGORIAS_HELADERIA } from "../data/productosHeladeria.js";
 import { PRODUCTOS_ICEPOPS, CATEGORIAS_ICEPOPS } from "../data/productosIcepops.js";
@@ -292,7 +292,7 @@ export async function Locales() {
         ...lecciones.map((l) => ({ nombre: l.titulo, tipo: "Lecciones", noAplicaA: l.noAplicaA, aplicaA: l.aplicaA })),
         // En Disponibilidad hay filas que no son productos (ej. la lista de revisores de inglés guarda ids de personas en aplicaA):
         // su aplicaA solo cuenta si la fila es de un curso con catálogo.
-        ...disponibilidad.map((d) => ({ nombre: d.producto || d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA, aplicaA: CATALOGO_POR_CURSO[d.curso] ? d.aplicaA : "" })),
+        ...filasUnicas(disponibilidad).map((d) => ({ nombre: d.producto || d.curso, tipo: "Catálogo", noAplicaA: d.noAplicaA, aplicaA: CATALOGO_POR_CURSO[d.curso] ? d.aplicaA : "" })),
         ...preguntas.map((q) => ({ nombre: textoCorto(q.pregunta), tipo: "Evaluaciones", noAplicaA: q.noAplicaA, aplicaA: q.aplicaA })),
     ].filter((it) => it.noAplicaA || it.aplicaA);
     locales.forEach((l) => { l._restricciones = contarRestricciones(todosLosItems, l); });

@@ -182,7 +182,7 @@ export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey && !!FIREBASE_VAPID_KEY;
  *  saber de un vistazo qué versión corre en cada entorno y no
  *  confundir REPO con producción. Se sube a mano cada vez que se
  *  pushea un cambio — no hay build step que lo automatice. */
-export const VERSION = "0.9.5";
+export const VERSION = "0.9.6";
 
 export const EMPRESA = {
     nombre: "Lucciano's",

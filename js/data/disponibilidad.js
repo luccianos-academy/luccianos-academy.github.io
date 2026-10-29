@@ -59,10 +59,23 @@ export async function getDisponibilidad() {
  *  para no recorrer la lista entera por cada producto al renderizar. */
 export function mapaDisponibilidad(filas, nombreCurso) {
     const mapa = new Map();
+    // Si un producto figura en más de una fila (la carga inicial duplicó filas), manda la PRIMERA: es la que siempre actualizó
+    // guardarDisponibilidad. Antes mandaba la última y toda edición de un producto duplicado quedaba guardada pero sin efecto.
     (filas || [])
         .filter((f) => f.curso === nombreCurso)
-        .forEach((f) => mapa.set(f.producto, { aplicaA: f.aplicaA, noAplicaA: f.noAplicaA }));
+        .forEach((f) => { if (!mapa.has(f.producto)) mapa.set(f.producto, { aplicaA: f.aplicaA, noAplicaA: f.noAplicaA }); });
     return mapa;
+}
+
+/** Una fila por (curso, producto): la primera, igual que mapaDisponibilidad. Para contar restricciones sin duplicar. */
+export function filasUnicas(filas) {
+    const vistas = new Set();
+    return (filas || []).filter((f) => {
+        const k = `${f.curso}||${f.producto}`;
+        if (vistas.has(k)) return false;
+        vistas.add(k);
+        return true;
+    });
 }
 
 /**
@@ -108,9 +121,12 @@ export function conAlcanceCambiado(actual, ambito, loTiene) {
  * ese producto y volvió atrás — y el costo es una fila.
  */
 export async function guardarDisponibilidad(curso, producto, cambios, existentes) {
-    const yaEsta = (existentes || []).find((f) => f.curso === curso && f.producto === producto);
-    if (yaEsta) {
-        return updateSheet(HOJAS.DISPONIBILIDAD, yaEsta.id, cambios, disponibilidadMock);
+    // Se actualizan TODAS las filas de ese producto (si por la carga inicial hay duplicadas): así quedan iguales y da lo mismo cuál lea cada pantalla.
+    const iguales = (existentes || []).filter((f) => f.curso === curso && f.producto === producto);
+    if (iguales.length) {
+        let resultado;
+        for (const fila of iguales) resultado = await updateSheet(HOJAS.DISPONIBILIDAD, fila.id, cambios, disponibilidadMock);
+        return resultado;
     }
     return writeSheet(HOJAS.DISPONIBILIDAD, { curso, producto, ...cambios }, disponibilidadMock);
 }
