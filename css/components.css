@@ -2908,6 +2908,36 @@ table.data-table tbody tr:hover{
     font-style:italic;
 }
 
+/* Casillas del árbol de contenido: el aspecto nativo del navegador (azul pálido sobre blanco) no dejaba distinguir lo tildado de lo
+   destildado. Acá: SÍ lo tiene = caja DORADA llena con tilde negro grueso; NO lo tiene = caja vacía con borde gris; depende del local
+   (indeterminado) = borde dorado con un guion dorado. */
+#arbol-contenido label input[type="checkbox"]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:22px;
+    height:22px;
+    flex-shrink:0;
+    margin:0;
+    border:2px solid var(--muted);
+    border-radius:6px;
+    background:transparent no-repeat center / 15px 15px;
+    cursor:pointer;
+    transition:background-color .12s ease, border-color .12s ease;
+}
+#arbol-contenido label input[type="checkbox"]:hover:not(:disabled){ border-color:var(--gold); }
+#arbol-contenido label input[type="checkbox"]:checked{
+    background-color:var(--gold);
+    border-color:var(--gold);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.4 7.4l3.2 3.2 6-7.4' fill='none' stroke='%230e0d0c' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+#arbol-contenido label input[type="checkbox"]:indeterminate{
+    background-color:transparent;
+    border-color:var(--gold);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 7h8' fill='none' stroke='%23c2a065' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+#arbol-contenido label input[type="checkbox"]:focus-visible{ outline:2px solid var(--text); outline-offset:2px; }
+#arbol-contenido label input[type="checkbox"]:disabled{ cursor:default; }
+
 .arbol-foto{
     width:26px;
     height:26px;
