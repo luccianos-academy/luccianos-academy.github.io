@@ -51,6 +51,8 @@ function normalizarUsuario(f) {
         // que existiera esta columna quedan con "" — inicioColaborador.js
         // cae a un proxy honesto (primera asignación) solo en ese caso.
         fechaAlta: String(f.fechaAlta || "").trim().slice(0, 10),
+        // Con qué clave está guardado el documento (Firestore). Si no es igual al correo, la persona no puede entrar: ver el aviso en Colaboradores.
+        claveDoc: String(f._clave || ""),
         // Igual que "encargado" pero sobre un Supervisor: mismo rol,
         // mismos permisos, es solo una etiqueta para diferenciarlo de
         // un Supervisor de sucursal en la interfaz (así el capacitador

@@ -51,7 +51,10 @@ import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { AutocompleteSucursal, bindAutocompleteSucursal } from "../components/autocompleteSucursal.js";
 import { MultiSelectSucursales, bindMultiSelectSucursales } from "../components/multiSelectSucursales.js";
 import { getUsuarios, getColaboradores, getColaboradoresPorSucursal, crearUsuario, actualizarUsuario, eliminarUsuario, etiquetaColaborador, ETIQUETA_RESPONSABLE_LOCAL, ETIQUETA_RESPONSABLE_TURNO } from "../data/usuarios.js";
-import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales, getLocalesVisibles, agregarSupervisorASucursal, quitarSupervisorDeSucursal } from "../data/sucursales.js";
+import { getSucursales, crearSucursal, actualizarSucursal, getMisLocales, getLocalesVisibles, getLocalesDeTrabajo, agregarSupervisorASucursal, quitarSupervisorDeSucursal } from "../data/sucursales.js";
+import { invalidar } from "../services/dataSource.js";
+import { HOJAS } from "../config.js";
+import { supervisaElLocal } from "../services/supervisores.js";
 import { getAsignaciones, getAsignacionesPorColaborador, eliminarAsignacion } from "../data/asignaciones.js";
 import { getResultados, getResultadosPorColaborador, eliminarResultado } from "../data/resultados.js";
 import { getCursos } from "../data/cursos.js";
@@ -729,6 +732,7 @@ export async function Colaboradores() {
     let colaboradoresParaKpis;
     let supervisores = [];
     let admins = [];
+    let usuariosClaveRota = []; // Admin: personas cuyo documento no se llama como su correo (no pueden ingresar)
     let cantidadLocalesElegidos = 0; // Capacitador — ver Header más abajo
     let localesElegidosSinDatos = []; // Capacitador — ver aviso más abajo
 
@@ -736,6 +740,7 @@ export async function Colaboradores() {
         // Un solo fetch para las 3 pestañas de rol — Colaboradores,
         // Supervisores y Admins salen del mismo getUsuarios().
         const todosLosUsuarios = await getUsuarios();
+        usuariosClaveRota = todosLosUsuarios.filter((u) => u.claveDoc && u.claveDoc !== String(u.email || "").trim().toLowerCase());
         colaboradores = todosLosUsuarios.filter((u) => u.rol === "colaborador");
         supervisores = todosLosUsuarios.filter((u) => u.rol === "supervisor");
         admins = todosLosUsuarios.filter((u) => u.rol === "admin");
@@ -775,7 +780,9 @@ export async function Colaboradores() {
         // cargado). Capacitador ve TODOS los locales de la red
         // (getLocalesVisibles) — de solo lectura, puedeEditar ya da
         // false para cualquier fila que le aparezca acá.
-        let nombresLocales = await getLocalesVisibles(usuario);
+        // Por defecto sus locales asignados (el Capacitador, toda la red); si eligió locales con "Elegir mis locales" ve ESOS, sean
+        // o no suyos: el supervisor tiene acceso a toda la red y "mis locales" es solo qué quiere seguir de cerca.
+        let nombresLocales = await getLocalesDeTrabajo(usuario);
         // Preferencia personal (solo Capacitador, guardada en este
         // dispositivo — ver services/preferenciasLocales.js): NO le
         // saca acceso a nada, solo recorta cuáles ve por default. Sin
@@ -787,7 +794,6 @@ export async function Colaboradores() {
         // le saca acceso a nada, solo recorta qué ve por default.
         let elegidos = getLocalesElegidos(usuario);
         cantidadLocalesElegidos = elegidos.length;
-        if (elegidos.length) nombresLocales = nombresLocales.filter((n) => elegidos.includes(n));
         const todos = await getColaboradores();
         colaboradores = todos.filter((c) => nombresLocales.includes(c.sucursal));
         // Acá `colaboradores` ya sale filtrado por locales elegidos
@@ -927,6 +933,15 @@ export async function Colaboradores() {
 
     return `
         ${Header(esEncargado ? "Mi local" : "Colaboradores", alcanceLabel)}
+
+        ${esAdmin && usuariosClaveRota.length ? `
+            <p class="text-sm" style="margin:0 0 12px;color:var(--warning)" data-aviso-clave-usuario>
+                ⚠ ${usuariosClaveRota.length === 1 ? "Esta persona está guardada con una clave distinta a su correo" : `Estas ${usuariosClaveRota.length} personas están guardadas con una clave distinta a su correo`}
+                y <strong>no pueden ingresar</strong> ("tu cuenta no está registrada"):
+                ${usuariosClaveRota.slice(0, 8).map((u) => `<strong>${escaparHtml(u.nombre)}</strong> (${escaparHtml(u.email)})`).join(", ")}${usuariosClaveRota.length > 8 ? ` y ${usuariosClaveRota.length - 8} más` : ""}.
+                Para repararlo: Editar → Guardar (con el correo correcto).
+            </p>
+        ` : ""}
 
         ${localesElegidosSinDatos.length ? `
             <p class="text-sm text-muted" style="margin-top:-6px">
@@ -1585,6 +1600,8 @@ async function abrirModalElegirLocales() {
         const valor = document.getElementById("input-locales-elegidos").value.trim();
         const elegidos = valor ? valor.split(",").map((n) => n.trim()).filter(Boolean) : [];
         setLocalesElegidos(usuario, elegidos);
+        // Los datos de progreso se bajan por locales: con otros locales elegidos hay que volver a pedirlos.
+        invalidar(HOJAS.ASIGNACIONES); invalidar(HOJAS.RESULTADOS);
         cerrarModal(modalId);
         navigate("colaboradores");
     });
@@ -1751,7 +1768,9 @@ async function abrirModalUsuarioGenerico(rol, usuarioExistente = null) {
     let localesActuales = [];
     if (rol === "supervisor" && usuarioExistente) {
         const sucursales = await getSucursales();
-        localesActuales = sucursales.filter((s) => s.supervisor === usuarioExistente.nombre).map((s) => s.nombre);
+        // Un local puede tener VARIOS supervisores ("Ana, Beto"): comparar el campo entero con el nombre dejaba sin tildar todo local
+        // compartido, y al guardar el modal así se lo sacaba de todos. Se busca el nombre dentro de la lista, sin importar acentos ni espacios.
+        localesActuales = sucursales.filter((s) => supervisaElLocal(s, usuarioExistente.nombre)).map((s) => s.nombre);
     }
 
     const contenidoHtml = `
@@ -1829,7 +1848,7 @@ async function abrirModalUsuarioGenerico(rol, usuarioExistente = null) {
 async function sincronizarLocalesSupervisor(nombreAnterior, nombreNuevo, localesSeleccionados) {
     const sucursales = await getSucursales();
 
-    const asignadosAntes = sucursales.filter((s) => s.supervisor.split(",").map((n) => n.trim()).includes(nombreAnterior));
+    const asignadosAntes = sucursales.filter((s) => supervisaElLocal(s, nombreAnterior));
     for (const s of asignadosAntes) {
         if (!localesSeleccionados.includes(s.nombre)) {
             await quitarSupervisorDeSucursal(s.id, nombreAnterior);

@@ -19,7 +19,7 @@ import { AlertCard } from "../components/alertCard.js";
 import { ActivityFeed } from "../components/activityFeed.js";
 import { QuickAction } from "../components/quickAction.js";
 import { getUsuarios } from "../data/usuarios.js";
-import { getLocalesVisibles } from "../data/sucursales.js";
+import { getLocalesDeTrabajo } from "../data/sucursales.js";
 import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { getCursos } from "../data/cursos.js";
 import { getAsignaciones } from "../data/asignaciones.js";
@@ -85,13 +85,9 @@ export async function InicioSupervisor() {
     // gestión en esta pantalla que haya que blindar aparte. Si eligió
     // locales puntuales (ver services/preferenciasLocales.js, mismo
     // picker que en "Mi equipo"), el panorama se acota a esos.
-    let misLocales = await getLocalesVisibles(usuario);
-    let cantidadLocalesElegidos = 0; // ver Header más abajo
-    if (usuario.capacitador) {
-        const elegidos = getLocalesElegidos(usuario);
-        cantidadLocalesElegidos = elegidos.length;
-        if (elegidos.length) misLocales = misLocales.filter((n) => elegidos.includes(n));
-    }
+    // Los que eligió en "Elegir mis locales" (cualquiera de la red) o, si no eligió, los suyos (el Capacitador, toda la red).
+    const misLocales = await getLocalesDeTrabajo(usuario);
+    const cantidadLocalesElegidos = getLocalesElegidos(usuario).length; // ver Header más abajo
     const equipo = usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal));
     const equipoIds = equipo.map((c) => String(c.id));
     const cursosPorId = Object.fromEntries(cursos.map((c) => [String(c.id), c]));

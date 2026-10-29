@@ -99,6 +99,7 @@ export function desdeFirestore(hoja, data, idDelDoc) {
     if (hoja === "Usuarios") {
         FLAGS_USUARIO.forEach((k) => { if (k in fila) fila[k] = fila[k] === true ? "SI" : "NO"; });
         fila.fechaVencimientoAcceso = timestampAFecha(fila.fechaVencimientoAcceso);
+        fila._clave = idDelDoc;       // con qué clave está guardado el documento: para entrar tiene que ser igual al correo (ver cambiarCorreoDeUsuario)
     }
     // "leidoPor" es texto en la planilla ("1,46,30") y arreglo en Firestore.
     if (hoja === "Noticias" && Array.isArray(fila.leidoPor)) fila.leidoPor = fila.leidoPor.join(",");
@@ -130,7 +131,7 @@ export function finDeDiaEnMs(texto) {
     return isNaN(ms) ? null : ms;
 }
 
-export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.now(), cacheMs = 20000, escuchas = undefined, almacen = null, avisosUrl = "", miniaturaFoto = miniaturaPorDefecto, fetchFn = typeof fetch === "function" ? fetch : null }) {
+export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.now(), cacheMs = 20000, escuchas = undefined, almacen = null, avisosUrl = "", getLocalesExtra = () => [], miniaturaFoto = miniaturaPorDefecto, fetchFn = typeof fetch === "function" ? fetch : null }) {
     const {
         doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, collection, query, where,
         orderBy, limit, runTransaction, writeBatch, deleteField, serverTimestamp, Timestamp,
@@ -288,6 +289,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     /* ---------- planilla ⇄ Firestore ---------- */
     function aFirestore(hoja, fila) {
         const d = { ...fila };
+        delete d._clave;
         if (hoja === "Usuarios") {
             FLAGS_USUARIO.forEach((k) => { if (k in d) d[k] = siNo(d[k]); });
             if (d.email != null) d.email = String(d.email).trim().toLowerCase();
@@ -352,7 +354,10 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         if (u.rol !== "supervisor" || siNo(u.capacitador) || !HOJAS_ACOTABLES.includes(hoja)) return null;
         let sucursales = [];
         try { sucursales = await fetchSheet("Sucursales"); } catch (err) { return null; }       // sin la lista de locales no se acota
-        const locales = [...new Set([...localesDeSupervisor(u, sucursales), String(u.sucursal || "").trim()].filter(Boolean))].sort();
+        // Sus locales asignados, el suyo y los que eligió seguir en "Elegir mis locales" (cualquiera de la red).
+        let extra = [];
+        try { extra = getLocalesExtra() || []; } catch (err) { /* sin preferencia guardada */ }
+        const locales = [...new Set([...localesDeSupervisor(u, sucursales), String(u.sucursal || "").trim(), ...extra.map((n) => String(n).trim())].filter(Boolean))].sort();
         return locales.length ? { locales, firma: `sup:${locales.join("|")}` } : null;
     }
     // Documentos de una colección acotada a locales: `where in` admite hasta 30 valores por consulta.
@@ -670,6 +675,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         if (!ref) return { ok: false };
         const parcial = aFirestore(hoja, cambios);
         delete parcial.id; // el id no se reescribe
+        if (hoja === "Usuarios" && parcial.email && parcial.email !== ref.id) return cambiarCorreoDeUsuario(ref, parcial);
         const localAnterior = hoja === "Usuarios" && parcial.sucursal ? localEnMemoria(ref.id) : undefined;     // antes de invalidar
         await confirmar(updateDoc(ref, parcial));
         invalidar(hoja);
@@ -679,6 +685,39 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
 
     // Asignaciones y Resultados llevan copiado el local de la persona (las reglas y las lecturas acotadas por local lo usan).
     // Si la persona cambia de local, su historial la sigue: así el Supervisor/Responsable del local nuevo lo ve y el del viejo deja de verlo.
+    // El documento de una persona se llama como su correo (así la encuentra el ingreso y las reglas). Cambiar solo el campo email dejaba
+    // el documento con la clave vieja y la persona ya no podía entrar ("tu cuenta no está registrada"). Acá se MUEVE: se crea con la clave
+    // nueva y se borra la vieja en una sola operación, y el historial de la persona (asignaciones y resultados) se pasa al correo nuevo.
+    // Solo el Admin (las reglas no dejan borrar a nadie más). También repara una clave que ya había quedado distinta del correo.
+    async function cambiarCorreoDeUsuario(refVieja, parcial) {
+        if (yo().rol !== "admin") throw new Error("Solo el Admin puede cambiar el correo de una persona.");
+        const emailNuevo = parcial.email;
+        const refNueva = doc(db, "usuarios", emailNuevo);
+        const [vieja, existente] = await Promise.all([getDoc(refVieja), getDoc(refNueva)]);
+        if (!vieja.exists()) return { ok: false };
+        if (existente.exists()) throw new Error(`Ya hay una persona registrada con el correo ${emailNuevo}.`);
+        const emailViejo = refVieja.id;
+        const lote = writeBatch(db);
+        lote.set(refNueva, { ...vieja.data(), ...parcial, email: emailNuevo });
+        lote.delete(refVieja);
+        await lote.commit();
+        // El historial lleva el correo de la persona: se pasa al nuevo (si no, ella no vería su propio progreso).
+        for (const hojaP of ["Asignaciones", "Resultados"]) {
+            try {
+                const snap = await getDocs(query(collection(db, COLECCIONES[hojaP]), where("colaboradorEmail", "==", emailViejo)));
+                for (let i = 0; i < snap.docs.length; i += 400) {
+                    const l = writeBatch(db);
+                    snap.docs.slice(i, i + 400).forEach((d) => l.update(d.ref, { colaboradorEmail: emailNuevo, modificadoEn: ahora() }));
+                    await l.commit();
+                }
+            } catch (err) { console.warn(`[firestore] No se pudo pasar ${hojaP} al correo nuevo:`, err.code || err.message); }
+        }
+        await olvidarAlmacen("Usuarios"); await marcarBorrado("Usuarios");      // el documento viejo desapareció: los demás dispositivos rehacen la lista
+        await olvidarAlmacen("Asignaciones"); await marcarBorrado("Asignaciones");
+        invalidar("Usuarios"); invalidar("Asignaciones"); invalidar("Resultados");
+        return { ok: true, movido: true };
+    }
+
     // El local que tenía la persona según la lista en memoria (undefined si no está cargada: ahí se revisa su historial por las dudas).
     function localEnMemoria(email) {
         const previo = (cache["Usuarios|"] && cache["Usuarios|"].datos || []).find((f) => String(f.email || "").toLowerCase() === String(email).toLowerCase());

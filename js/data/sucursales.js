@@ -7,6 +7,7 @@ import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/da
 import { sucursalesMock } from "./mock/sucursales.mock.js";
 import { paisDelNombre } from "../services/alcance.js";
 import { normalizarNombre, listaSupervisores, localesDeSupervisor } from "../services/supervisores.js";
+import { getLocalesElegidos } from "../services/preferenciasLocales.js";
 import { HOJAS } from "../config.js";
 
 function normalizarSucursal(f) {
@@ -126,4 +127,17 @@ export async function getLocalesVisibles(usuario, sucursalesPrefetch) {
         return sucursales.map((s) => s.nombre);
     }
     return getMisLocales(usuario, sucursalesPrefetch);
+}
+
+/** Con qué locales trabaja hoy un Supervisor/Capacitador en "Inicio", "Mi equipo" y "Movimientos": los que ELIGIÓ en "Elegir mis locales"
+ *  (cualquiera de la red, también los que no tiene asignados) y, si no eligió ninguno, los que tiene asignados (el Capacitador, toda la red).
+ *  Ver un local no cambia a quién gestiona: lo asignado sigue siendo lo asignado. */
+export async function getLocalesDeTrabajo(usuario, sucursalesPrefetch) {
+    const sucursales = sucursalesPrefetch || await getSucursales();
+    const porDefecto = await getLocalesVisibles(usuario, sucursales);
+    const elegidos = getLocalesElegidos(usuario);
+    if (!elegidos.length) return porDefecto;
+    const existentes = new Set(sucursales.map((s) => s.nombre));
+    const validos = elegidos.filter((n) => existentes.has(n));
+    return validos.length ? validos : porDefecto;
 }

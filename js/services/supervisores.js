@@ -21,6 +21,12 @@ export function listaSupervisores(campoSupervisor) {
     return String(campoSupervisor || "").split(",").map((n) => n.trim()).filter(Boolean);
 }
 
+/** ¿Este nombre figura entre los supervisores del local? (el campo es una lista separada por comas: "Ana, Beto") */
+export function supervisaElLocal(sucursal, nombre) {
+    const buscado = normalizarNombre(nombre);
+    return listaSupervisores(sucursal && sucursal.supervisor).some((n) => normalizarNombre(n) === buscado);
+}
+
 /** Nombres de los locales cuyo campo "supervisor" nombra a esta persona. Sin ninguno vinculado
  *  cae a su propio local (para no dejarla bloqueada por faltar ese vínculo). */
 export function localesDeSupervisor(usuario, sucursales) {
@@ -47,4 +53,17 @@ export function supervisoresSinUsuario(sucursales, usuarios) {
         });
     });
     return [...huerfanos.values()].sort((a, b) => b.locales - a.locales);
+}
+
+/** Para el cuadro de supervisores de "Editar local": qué usuarios Supervisor quedan tildados y qué nombres del local no son de ningún usuario.
+ *  Compara sin importar acentos ni espacios (antes era letra por letra: un nombre apenas distinto quedaba sin tildar y al guardar se borraba).
+ *  Los nombres sin usuario NO se pierden: se devuelven aparte para mostrarlos tildados y que el Admin decida quitarlos. */
+export function supervisoresDelLocal(supervisores, campoSupervisor) {
+    const guardados = listaSupervisores(campoSupervisor);
+    const marcados = new Set(guardados.map(normalizarNombre));
+    const conocidos = new Set((supervisores || []).map((s) => normalizarNombre(s.nombre)));
+    return {
+        usuarios: (supervisores || []).map((s) => ({ nombre: s.nombre, marcado: marcados.has(normalizarNombre(s.nombre)) })),
+        sinUsuario: guardados.filter((n) => !conocidos.has(normalizarNombre(n))),
+    };
 }

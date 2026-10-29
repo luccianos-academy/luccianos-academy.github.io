@@ -11,7 +11,7 @@ import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
 import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal, listaSupervisores } from "../data/sucursales.js";
-import { supervisoresSinUsuario } from "../services/supervisores.js";
+import { supervisoresSinUsuario, supervisoresDelLocal } from "../services/supervisores.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getCursos, actualizarCurso } from "../data/cursos.js";
 import { getLecciones, actualizarLeccion } from "../data/lecciones.js";
@@ -1096,12 +1096,21 @@ function conAmbitos(actual, ambitos, loTiene) {
 // haya destildado a mano.
 function checkboxesSupervisoresHtml(supervisores, seleccionados) {
     if (!supervisores.length) return `<p class="text-xs text-muted">Todavía no hay supervisores cargados.</p>`;
+    // `seleccionados` es la lista ya guardada en el local. Se compara sin importar acentos ni espacios, y un nombre que no es de ningún
+    // usuario se muestra igual (tildado, con aviso) para que guardar no lo borre en silencio.
+    const { usuarios, sinUsuario } = supervisoresDelLocal(supervisores, seleccionados.join(", "));
     return `
         <div class="checkbox-lista">
-            ${supervisores.map((s) => `
+            ${usuarios.map((s) => `
                 <label class="checkbox-item">
-                    <input type="checkbox" name="input-supervisores" value="${escaparHtml(s.nombre)}" ${seleccionados.includes(s.nombre) ? "checked" : ""}>
+                    <input type="checkbox" name="input-supervisores" value="${escaparHtml(s.nombre)}" ${s.marcado ? "checked" : ""}>
                     ${escaparHtml(s.nombre)}
+                </label>
+            `).join("")}
+            ${sinUsuario.map((n) => `
+                <label class="checkbox-item" style="color:var(--warning)">
+                    <input type="checkbox" name="input-supervisores" value="${escaparHtml(n)}" checked>
+                    ${escaparHtml(n)} <span class="text-xs">— no coincide con ningún supervisor; destildalo para quitarlo</span>
                 </label>
             `).join("")}
         </div>

@@ -12,6 +12,7 @@ import { crearFirestoreSource } from "./firestoreSource.js";
 import { crearSesionFirebase } from "./firebaseAuth.js";
 import { medicionActiva, medirLecturas } from "./medidorLecturas.js";
 import { crearAlmacenIDB } from "./almacenListas.js";
+import { getLocalesElegidos } from "./preferenciasLocales.js";
 
 const VERSION_SDK = "12.19.0";
 const BASE = `https://www.gstatic.com/firebasejs/${VERSION_SDK}`;
@@ -59,7 +60,7 @@ export async function iniciarFirestore(getUsuario) {
     const auth = sdkAuth.getAuth(app);   // la sesión de Firebase se guarda sola en el dispositivo
     return {
         app, db, sdk, auth,
-        fuente: crearFirestoreSource({ db, sdk: medicionActiva() ? medirLecturas(sdk) : sdk, getUsuario, almacen: crearAlmacenIDB(), avisosUrl: AVISOS_URL, miniaturaFoto: miniaturaDeFoto }),
+        fuente: crearFirestoreSource({ db, sdk: medicionActiva() ? medirLecturas(sdk) : sdk, getUsuario, almacen: crearAlmacenIDB(), avisosUrl: AVISOS_URL, getLocalesExtra: () => { const u = getUsuario(); return u ? getLocalesElegidos(u) : []; }, miniaturaFoto: miniaturaDeFoto }),
         sesion: crearSesionFirebase({ auth, db, sdkAuth, sdkFs: sdk }),
     };
 }

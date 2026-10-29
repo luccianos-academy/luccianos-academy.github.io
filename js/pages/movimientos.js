@@ -23,8 +23,7 @@ import { ActivityFeed } from "../components/activityFeed.js";
 import { Icon } from "../components/icons.js";
 import { getUsuarios } from "../data/usuarios.js";
 import { getAuditoria, detalleConNombres } from "../data/auditoria.js";
-import { getLocalesVisibles } from "../data/sucursales.js";
-import { getLocalesElegidos } from "../services/preferenciasLocales.js";
+import { getLocalesDeTrabajo } from "../data/sucursales.js";
 import { getUsuarioActual } from "../services/auth.js";
 import { mismoId } from "../services/ids.js";
 import { escaparHtml } from "../services/html.js";
@@ -108,11 +107,7 @@ async function actividadVisible() {
 
     let auditoria = auditoriaCompleta;
     if (usuario.rol === "supervisor") {
-        let misLocales = await getLocalesVisibles(usuario);
-        if (usuario.capacitador) {
-            const elegidos = getLocalesElegidos(usuario);
-            if (elegidos.length) misLocales = misLocales.filter((n) => elegidos.includes(n));
-        }
+        const misLocales = await getLocalesDeTrabajo(usuario);
         const equipoIds = usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal)).map((c) => String(c.id));
         auditoria = auditoriaCompleta.filter((a) => equipoIds.some((eid) => mismoId(eid, a.usuarioId)) || mismoId(a.usuarioId, usuario.id));
     }
@@ -180,11 +175,7 @@ function listaHtml(entradas) {
  *  gente. */
 async function colaboradoresVisibles(usuario, usuarios) {
     if (usuario.rol === "admin") return usuarios.filter((u) => u.rol === "colaborador");
-    let misLocales = await getLocalesVisibles(usuario);
-    if (usuario.capacitador) {
-        const elegidos = getLocalesElegidos(usuario);
-        if (elegidos.length) misLocales = misLocales.filter((n) => elegidos.includes(n));
-    }
+    const misLocales = await getLocalesDeTrabajo(usuario);
     return usuarios.filter((u) => u.rol === "colaborador" && misLocales.includes(u.sucursal));
 }
 
