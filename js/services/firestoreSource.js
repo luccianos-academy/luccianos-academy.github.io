@@ -38,6 +38,7 @@ const COLECCIONES = {
     Noticias: "noticias",
     Auditoria: "auditoria",
     Tokens: "tokens",
+    Pedidos: "pedidos",         // altas y bajas que piden los responsables de local y resuelve el Admin
 };
 
 // Hojas con un modelo propio (no "un documento por fila"): Gestión de tareas y Desafío.
@@ -328,6 +329,14 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             f.creadoEn = ahora();
         } else if (hoja === "Tokens") {
             f.usuarioEmail = yo().email;
+        } else if (hoja === "Pedidos") {
+            // Quién pide y de qué local salen de la sesión, no de lo que mande la pantalla (las reglas también lo exigen).
+            const u = yo();
+            f.pedidoPorEmail = u.email;
+            f.pedidoPorNombre = u.nombre || "";
+            f.sucursal = String(u.sucursal || "").trim();
+            f.estado = "pendiente";
+            f.creadoEn = ahora();
         }
         return f;
     }
@@ -437,6 +446,12 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
                 if (gestion) snap = await getDocs(col);
                 else if (u.encargado) snap = await getDocs(query(col, where("sucursal", "==", u.sucursal)));
                 else snap = await getDocs(query(col, where("colaboradorEmail", "==", u.email)));
+                break;
+            case "Pedidos":
+                // Solo los pendientes (los resueltos no se vuelven a bajar): el Admin ve los de toda la red; un Responsable de local, los de su local.
+                snap = gestion
+                    ? await getDocs(query(col, where("estado", "==", "pendiente")))
+                    : await getDocs(query(col, where("sucursal", "==", String(u.sucursal || "").trim()), where("estado", "==", "pendiente")));
                 break;
             case "Tokens":
                 // Siempre los de uno mismo: saber QUIÉN tiene push lo da la marca `tienePush` de cada usuario (Admin/Supervisor

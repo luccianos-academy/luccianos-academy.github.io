@@ -144,7 +144,7 @@ export const MENU_POR_ROL = {
     // sumarlo a MENU_POR_ROL.colaborador — no hace falta tocar esto.
     admin: [
         "inicio", "dashboard", "colaboradores", "supervisores", "locales",
-        "academia", "gestion", "recursos", "manuales", "ranking", "configuracion", "perfil",
+        "academia", "gestion", "pedidos", "recursos", "manuales", "ranking", "configuracion", "perfil",
     ],
     supervisor:  ["inicio", "colaboradores", "locales", "gestion", "recursos", "historia", "cursos", "manuales", "ranking", "perfil"],
     colaborador: ["inicio", "historia", "cursos", "manuales", "perfil"],
@@ -166,6 +166,7 @@ const PERMISOS_PAGINA = {
     // eliminar locales sigue siendo sólo del Admin, y eso se resuelve
     // dentro de la página, no acá.
     locales:        ["admin", "supervisor"],
+    pedidos:        ["admin"],      // altas y bajas que piden los responsables de local
     academia:       ["admin"],
     academialeccion: ["admin"],
     evaluaciones:   ["admin"],

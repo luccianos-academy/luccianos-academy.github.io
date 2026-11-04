@@ -33,6 +33,7 @@ import { Alertas } from "./pages/alertas.js";
 import { Supervisores } from "./pages/supervisores.js";
 import { Academia, bindAcademia, EditarLeccion, bindEditarLeccion } from "./pages/academia.js";
 import { Gestion, bindGestion } from "./pages/gestion.js";
+import { Pedidos, bindPedidos } from "./pages/pedidos.js";
 import { Evaluaciones, bindEvaluaciones } from "./pages/evaluaciones.js";
 import { MisEvaluaciones } from "./pages/misEvaluaciones.js";
 import { DashboardEjecutivo, bindDashboard } from "./pages/dashboardEjecutivo.js";
@@ -71,6 +72,7 @@ const RUTAS = {
     academia:      { render: Academia, bind: bindAcademia },
     academialeccion: { render: EditarLeccion, bind: bindEditarLeccion },
     gestion:       { render: Gestion, bind: bindGestion },
+    pedidos:       { render: Pedidos, bind: bindPedidos },
     evaluaciones:  { render: Evaluaciones, bind: bindEvaluaciones },
     misevaluaciones: { render: MisEvaluaciones },
     dashboard:     { render: DashboardEjecutivo, bind: bindDashboard },

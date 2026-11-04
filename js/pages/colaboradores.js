@@ -69,25 +69,14 @@ import { Avatar } from "../components/avatar.js";
 import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { escaparHtml } from "../services/html.js";
+import { DIAS_ACCESO_INICIAL, fechaHoyISO, sumarDias } from "../services/fechasAcceso.js";
+import { getPedidosPendientes, pedirAlta, pedirBaja } from "../data/pedidos.js";
 import { cursosDeLaPersona, cursoAplicaAPersona } from "../services/alcance.js";
 
-const DIAS_ACCESO_INICIAL = 30;
 const DIAS_AVISO_VENCIMIENTO = 7;
 
-// Fechas como string "YYYY-MM-DD" en vez de Date — evita el desfasaje
-// de un día que da new Date("YYYY-MM-DD") al leerla en hora local
-// (Argentina, UTC-3), mismo criterio que ya se usa en otras páginas.
-function fechaHoyISO() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function sumarDias(fechaISO, dias) {
-    const [y, m, d] = fechaISO.split("-").map(Number);
-    const fecha = new Date(y, m - 1, d);
-    fecha.setDate(fecha.getDate() + dias);
-    return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}-${String(fecha.getDate()).padStart(2, "0")}`;
-}
+// Personas del local del Responsable a las que todavía se les puede pedir la baja (las arma Colaboradores() para el botón "− Pedir baja").
+let personasParaBaja = [];
 
 function diasEntre(desdeISO, hastaISO) {
     const [y1, m1, d1] = desdeISO.split("-").map(Number);
@@ -313,6 +302,13 @@ function menuAcciones(grupos) {
 
 function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
     const grupos = [];
+
+    // Responsable de local: no desactiva a nadie, PIDE la baja y la resuelve el Administrador.
+    if (colaborador._pedirBaja === "si") {
+        grupos.push({ items: [`<button class="menu-acciones-item" data-pedir-baja="${colaborador.id}" data-nombre="${escaparHtml(colaborador.nombre)}" data-email="${escaparHtml(colaborador.email)}">Pedir baja</button>`] });
+    } else if (colaborador._pedirBaja === "pedida") {
+        grupos.push({ items: [`<span class="menu-acciones-item" style="opacity:.7;cursor:default">Baja pedida</span>`] });
+    }
 
     // "Ver como" — igual criterio que filaAccionesGenerico (tabla de
     // Supervisores/Admins): no aplica a otro Admin, y antes solo vivía
@@ -732,6 +728,7 @@ export async function Colaboradores() {
     let colaboradoresParaKpis;
     let supervisores = [];
     let admins = [];
+    let pedidosPropios = []; // Responsable de local: sus pedidos de alta/baja que el Admin todavía no resolvió
     let usuariosClaveRota = []; // Admin: personas cuyo documento no se llama como su correo (no pueden ingresar)
     let cantidadLocalesElegidos = 0; // Capacitador — ver Header más abajo
     let localesElegidosSinDatos = []; // Capacitador — ver aviso más abajo
@@ -768,6 +765,15 @@ export async function Colaboradores() {
     } else if (esEncargado) {
         colaboradores = await getColaboradoresPorSucursal(usuario.sucursal);
         colaboradoresParaKpis = colaboradores;
+        // Sus pedidos pendientes (solo los de su local): sirven para marcar "Baja pedida" y no pedirla dos veces.
+        pedidosPropios = await getPedidosPendientes();
+        const bajasPedidas = new Set(pedidosPropios.filter((p) => p.tipo === "baja").map((p) => String(p.usuarioId)));
+        colaboradores.forEach((c) => {
+            const soyYo = String(c.email).toLowerCase() === String(usuario.email).toLowerCase();
+            c._pedirBaja = soyYo || c.activo !== "SI" ? "" : bajasPedidas.has(String(c.id)) ? "pedida" : "si";
+        });
+        personasParaBaja = colaboradores.filter((c) => c._pedirBaja === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
         // Puede haber más de uno (cobertura de vacaciones, locales
         // grandes) — la columna es una lista separada por comas.
         const sucursales = await getSucursales();
@@ -934,6 +940,12 @@ export async function Colaboradores() {
     return `
         ${Header(esEncargado ? "Mi local" : "Colaboradores", alcanceLabel)}
 
+        ${esEncargado && pedidosPropios.length ? `
+            <p class="text-sm text-muted" style="margin-top:-6px">
+                Pedidos esperando al Administrador: ${pedidosPropios.map((p) => `<strong>${p.tipo === "alta" ? "Alta" : "Baja"}</strong> de ${escaparHtml(p.nombre)}`).join(" · ")}.
+            </p>
+        ` : ""}
+
         ${esAdmin && usuariosClaveRota.length ? `
             <p class="text-sm" style="margin:0 0 12px;color:var(--warning)" data-aviso-clave-usuario>
                 ⚠ ${usuariosClaveRota.length === 1 ? "Esta persona está guardada con una clave distinta a su correo" : `Estas ${usuariosClaveRota.length} personas están guardadas con una clave distinta a su correo`}
@@ -973,6 +985,11 @@ export async function Colaboradores() {
                 <button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button><span class="mod-tooltip kpi-ayuda" data-tooltip-texto="${escaparHtml(textoAyudaElegirLocales(usuario, esAdmin))}">ⓘ</span>
             ` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
+            ${esEncargado ? `
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <button class="btn" id="btn-pedir-alta" style="background:var(--success);color:#06210f;font-weight:700">+ Pedir alta</button>
+                    <button class="btn" id="btn-pedir-baja" style="background:var(--danger);color:#2b0b07;font-weight:700">− Pedir baja</button>
+                </div>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
         </div>
@@ -1502,6 +1519,19 @@ export function bindColaboradores() {
         });
     });
 
+    // Responsable de local: pide altas y bajas (las aprueba el Administrador en "Pedidos").
+    document.querySelectorAll("[data-pedir-baja]").forEach((btn) => btn.addEventListener("click", async () => {
+        const nombre = btn.dataset.nombre;
+        if (!confirm(`¿Pedir la baja de ${nombre}?\n\nEl Administrador la va a revisar. Hasta entonces sigue con acceso.`)) return;
+        try {
+            await pedirBaja({ usuarioId: btn.dataset.pedirBaja, nombre, email: btn.dataset.email });
+            alert("Pedido enviado. El Administrador lo va a revisar.");
+        } catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); }
+        navigate("colaboradores", { replace: true });
+    }));
+    document.getElementById("btn-pedir-alta")?.addEventListener("click", abrirModalPedirAlta);
+    document.getElementById("btn-pedir-baja")?.addEventListener("click", abrirModalPedirBaja);
+
     const btnRegistrar = document.getElementById("btn-registrar-colaborador");
     if (btnRegistrar) {
         btnRegistrar.addEventListener("click", abrirModalRegistrar);
@@ -1746,6 +1776,59 @@ async function abrirModalRegistrar() {
 
     campoSucursal.bind();
     bindLiderazgo();
+}
+
+/** Responsable de local: pide el alta de una persona nueva de SU local. No crea nada: el Administrador lo revisa y aprueba en "Pedidos". */
+function abrirModalPedirAlta() {
+    const modalId = "modal-pedir-alta";
+    const contenidoHtml = `
+        <label for="input-pedido-nombre">Nombre completo</label>
+        <input type="text" id="input-pedido-nombre" placeholder="Nombre y apellido">
+
+        <label for="input-pedido-email">Correo Gmail</label>
+        <input type="email" id="input-pedido-email" placeholder="nombre@gmail.com">
+        <p class="text-xs text-muted" style="margin-top:4px">Tiene que ser el Gmail EXACTO con el que la persona va a entrar a la app.</p>
+
+        <label for="input-pedido-rol">Rol</label>
+        <select id="input-pedido-rol"><option>Colaborador</option><option>Responsable de turno</option></select>
+
+        <p class="text-xs text-muted" style="margin-top:10px">Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.</p>
+    `;
+    abrirModal(Modal({ id: modalId, titulo: "Pedir alta", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
+        const nombre = document.getElementById("input-pedido-nombre").value.trim();
+        const email = document.getElementById("input-pedido-email").value.trim();
+        const rol = document.getElementById("input-pedido-rol").value;
+        if (!nombre || !email) { alert("Completá el nombre y el correo."); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert(`"${email}" no parece un correo válido (ej: nombre@gmail.com).`); return; }
+        try { await pedirAlta({ nombre, email, rol }); }
+        catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
+        cerrarModal(modalId);
+        alert("Pedido enviado. El Administrador lo va a revisar.");
+        navigate("colaboradores", { replace: true });
+    });
+}
+
+/** Responsable de local: pide la baja de una persona de SU local, elegida de una lista. */
+function abrirModalPedirBaja() {
+    if (!personasParaBaja.length) { alert("No hay personas a las que se les pueda pedir la baja (todas ya tienen un pedido o están inactivas)."); return; }
+    const modalId = "modal-pedir-baja";
+    const contenidoHtml = `
+        <label for="input-baja-persona">Persona</label>
+        <select id="input-baja-persona">
+            ${personasParaBaja.map((p) => `<option value="${escaparHtml(p.id)}">${escaparHtml(p.nombre)}</option>`).join("")}
+        </select>
+        <p class="text-xs text-muted" style="margin-top:10px">El Administrador revisa el pedido. Hasta que lo apruebe, la persona sigue con acceso.</p>
+    `;
+    abrirModal(Modal({ id: modalId, titulo: "Pedir baja", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
+        const id = document.getElementById("input-baja-persona").value;
+        const persona = personasParaBaja.find((p) => String(p.id) === String(id));
+        if (!persona) return;
+        try { await pedirBaja({ usuarioId: persona.id, nombre: persona.nombre, email: persona.email }); }
+        catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
+        cerrarModal(modalId);
+        alert("Pedido enviado. El Administrador lo va a revisar.");
+        navigate("colaboradores", { replace: true });
+    });
 }
 
 /** Alta/edición de Supervisor o Admin — mucho más simple que el modal
