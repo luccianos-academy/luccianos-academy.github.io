@@ -89,6 +89,7 @@ async function aprobar(id) {
         await crearUsuario({
             nombre: p.nombre, email: p.email, rol: "colaborador", sucursal: p.sucursal,
             responsableTurno: p.rol === "Responsable de turno",
+            encargado: p.rol === "Responsable de local",      // solo lo puede pedir un Capacitador; un Responsable de local no pide otros responsables
             fechaVencimientoAcceso: sumarDias(fechaHoyISO(), DIAS_ACCESO_INICIAL),
         });
         registrarEvento(admin.id, "registrar_colaborador", `Alta de ${p.nombre} pedida por ${p.pedidoPorNombre || p.pedidoPorEmail} (acceso por ${DIAS_ACCESO_INICIAL} días)`);

@@ -1808,7 +1808,11 @@ async function abrirModalPedirAlta() {
         <p class="text-xs text-muted" style="margin-top:4px">Tiene que ser el Gmail EXACTO con el que la persona va a entrar a la app.</p>
 
         <label for="input-pedido-rol">Rol</label>
-        <select id="input-pedido-rol"><option>Colaborador</option><option>Responsable de turno</option></select>
+        <select id="input-pedido-rol">
+            <option>Colaborador</option>
+            <option>Responsable de turno</option>
+            ${esCapacitador ? `<option>Responsable de local</option>` : ""}
+        </select>
 
         <p class="text-xs text-muted" style="margin-top:10px">${esCapacitador ? "El Administrador lo revisa y aprueba." : `Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.`}</p>
     `;
