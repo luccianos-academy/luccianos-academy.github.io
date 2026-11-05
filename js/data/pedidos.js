@@ -26,7 +26,7 @@ function normalizarPedido(f) {
     };
 }
 
-/** Pedidos pendientes: todos (Admin) o los de mi local (Responsable de local). */
+/** Pedidos pendientes: todos (Admin), los de mi local (Responsable de local) o los que pedí yo (Capacitador). */
 export async function getPedidosPendientes() {
     try {
         const filas = await fetchSheet(HOJAS.PEDIDOS, pedidosMock);
@@ -38,13 +38,14 @@ export async function getPedidosPendientes() {
 }
 
 /** Alta de una persona nueva en MI local (el local lo pone la capa de datos, no la pantalla). */
-export async function pedirAlta({ nombre, email, rol = "Colaborador" }) {
-    return writeSheet(HOJAS.PEDIDOS, { tipo: "alta", nombre: String(nombre).trim(), email: String(email).trim().toLowerCase(), rol }, pedidosMock);
+export async function pedirAlta({ nombre, email, rol = "Colaborador", sucursal }) {
+    // `sucursal` solo lo usa un Capacitador (elige el local); para un Responsable de local la capa de datos pone el suyo.
+    return writeSheet(HOJAS.PEDIDOS, { tipo: "alta", nombre: String(nombre).trim(), email: String(email).trim().toLowerCase(), rol, sucursal }, pedidosMock);
 }
 
 /** Baja de una persona de MI local. */
-export async function pedirBaja({ usuarioId, nombre, email }) {
-    return writeSheet(HOJAS.PEDIDOS, { tipo: "baja", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase() }, pedidosMock);
+export async function pedirBaja({ usuarioId, nombre, email, sucursal }) {
+    return writeSheet(HOJAS.PEDIDOS, { tipo: "baja", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal }, pedidosMock);
 }
 
 /** Solo el Admin: marca el pedido como aprobado o rechazado. */

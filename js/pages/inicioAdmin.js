@@ -87,6 +87,7 @@ export async function InicioAdmin() {
         <div class="section">
             <h2>Accesos rápidos</h2>
             <div class="quick-actions">
+                ${QuickAction({ titulo: "Pedidos", icono: "usuarios", href: "#/pedidos" })}
                 ${QuickAction({ titulo: "Colaboradores", icono: "usuarios", href: "#/colaboradores" })}
                 ${QuickAction({ titulo: "Locales", icono: "locales", href: "#/locales" })}
                 ${QuickAction({ titulo: "Reportes", icono: "reportes", href: "#/reportes" })}

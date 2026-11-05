@@ -334,7 +334,9 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             const u = yo();
             f.pedidoPorEmail = u.email;
             f.pedidoPorNombre = u.nombre || "";
-            f.sucursal = String(u.sucursal || "").trim();
+            // Un Capacitador pide para el local que elige; un Responsable de local, siempre para el suyo (lo que mande la pantalla se ignora).
+            f.sucursal = u.capacitador === true ? String(f.sucursal || "").trim() : String(u.sucursal || "").trim();
+            if (!f.sucursal) throw new Error("Falta el local del pedido.");
             f.estado = "pendiente";
             f.creadoEn = ahora();
         }
@@ -449,9 +451,11 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
                 break;
             case "Pedidos":
                 // Solo los pendientes (los resueltos no se vuelven a bajar): el Admin ve los de toda la red; un Responsable de local, los de su local.
-                snap = gestion
+                snap = u.rol === "admin"
                     ? await getDocs(query(col, where("estado", "==", "pendiente")))
-                    : await getDocs(query(col, where("sucursal", "==", String(u.sucursal || "").trim()), where("estado", "==", "pendiente")));
+                    : u.capacitador === true
+                        ? await getDocs(query(col, where("pedidoPorEmail", "==", u.email), where("estado", "==", "pendiente")))     // sus propios pedidos
+                        : await getDocs(query(col, where("sucursal", "==", String(u.sucursal || "").trim()), where("estado", "==", "pendiente")));
                 break;
             case "Tokens":
                 // Siempre los de uno mismo: saber QUIÉN tiene push lo da la marca `tienePush` de cada usuario (Admin/Supervisor

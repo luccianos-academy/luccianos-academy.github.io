@@ -71,6 +71,7 @@ import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { escaparHtml } from "../services/html.js";
 import { DIAS_ACCESO_INICIAL, fechaHoyISO, sumarDias } from "../services/fechasAcceso.js";
 import { getPedidosPendientes, pedirAlta, pedirBaja } from "../data/pedidos.js";
+import { SelectorBuscable, bindSelectorBuscable, valorSelectorBuscable } from "../components/selectorBuscable.js";
 import { cursosDeLaPersona, cursoAplicaAPersona } from "../services/alcance.js";
 
 const DIAS_AVISO_VENCIMIENTO = 7;
@@ -305,7 +306,7 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
 
     // Responsable de local: no desactiva a nadie, PIDE la baja y la resuelve el Administrador.
     if (colaborador._pedirBaja === "si") {
-        grupos.push({ items: [`<button class="menu-acciones-item" data-pedir-baja="${colaborador.id}" data-nombre="${escaparHtml(colaborador.nombre)}" data-email="${escaparHtml(colaborador.email)}">Pedir baja</button>`] });
+        grupos.push({ items: [`<button class="menu-acciones-item" data-pedir-baja="${colaborador.id}" data-nombre="${escaparHtml(colaborador.nombre)}" data-email="${escaparHtml(colaborador.email)}" data-sucursal="${escaparHtml(colaborador.sucursal)}">Pedir baja</button>`] });
     } else if (colaborador._pedirBaja === "pedida") {
         grupos.push({ items: [`<span class="menu-acciones-item" style="opacity:.7;cursor:default">Baja pedida</span>`] });
     }
@@ -703,6 +704,8 @@ export async function Colaboradores() {
     const puedeDeshabilitar = usuario.rol !== "colaborador" && !usuario.capacitador;
     const puedeEditar = usuario.rol !== "colaborador" && !usuario.capacitador;
     const puedeRegistrar = !esEncargado && !usuario.capacitador;
+    // El Responsable de local y el Capacitador no crean ni desactivan cuentas: PIDEN altas y bajas y las resuelve el Administrador.
+    const puedePedir = esEncargado || usuario.capacitador === true;
 
     // Las acciones en lote son las mismas que ya tiene fila por fila —
     // la barra sólo evita repetirlas 20 veces. Por eso se apoya en
@@ -772,7 +775,7 @@ export async function Colaboradores() {
             const soyYo = String(c.email).toLowerCase() === String(usuario.email).toLowerCase();
             c._pedirBaja = soyYo || c.activo !== "SI" ? "" : bajasPedidas.has(String(c.id)) ? "pedida" : "si";
         });
-        personasParaBaja = colaboradores.filter((c) => c._pedirBaja === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email }))
+        personasParaBaja = colaboradores.filter((c) => c._pedirBaja === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email, sucursal: c.sucursal }))
             .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
         // Puede haber más de uno (cobertura de vacaciones, locales
         // grandes) — la columna es una lista separada por comas.
@@ -806,6 +809,14 @@ export async function Colaboradores() {
         // (nombresLocales los incluye) — no hace falta un recorte
         // aparte, a diferencia de Admin.
         colaboradoresParaKpis = colaboradores;
+        // Capacitador: puede PEDIR bajas (y altas) de cualquier local; las resuelve el Administrador.
+        if (usuario.capacitador) {
+            pedidosPropios = await getPedidosPendientes();
+            const bajasPedidas = new Set(pedidosPropios.filter((p) => p.tipo === "baja").map((p) => String(p.usuarioId)));
+            colaboradores.forEach((c) => { c._pedirBaja = c.activo !== "SI" ? "" : bajasPedidas.has(String(c.id)) ? "pedida" : "si"; });
+            personasParaBaja = colaboradores.filter((c) => c._pedirBaja === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email, sucursal: c.sucursal }))
+                .sort((a, b) => a.sucursal.localeCompare(b.sucursal, "es") || a.nombre.localeCompare(b.nombre, "es"));
+        }
         // Un capacitador sin locales elegidos ve TODA la red (~95
         // locales), la mayoría sin nadie cargado todavía. Mismo
         // recorte que ya usa la vista de Admin: agrupar solo por los
@@ -940,7 +951,7 @@ export async function Colaboradores() {
     return `
         ${Header(esEncargado ? "Mi local" : "Colaboradores", alcanceLabel)}
 
-        ${esEncargado && pedidosPropios.length ? `
+        ${puedePedir && pedidosPropios.length ? `
             <p class="text-sm text-muted" style="margin-top:-6px">
                 Pedidos esperando al Administrador: ${pedidosPropios.map((p) => `<strong>${p.tipo === "alta" ? "Alta" : "Baja"}</strong> de ${escaparHtml(p.nombre)}`).join(" · ")}.
             </p>
@@ -985,7 +996,7 @@ export async function Colaboradores() {
                 <button class="btn btn-secondary" id="btn-elegir-locales">📍 Elegir mis locales</button><span class="mod-tooltip kpi-ayuda" data-tooltip-texto="${escaparHtml(textoAyudaElegirLocales(usuario, esAdmin))}">ⓘ</span>
             ` : ""}
             ${puedeRegistrar ? `<button class="btn btn-primary" id="btn-registrar-colaborador" data-toolbar-rol="colaborador">+ Registrar colaborador</button>` : ""}
-            ${esEncargado ? `
+            ${puedePedir ? `
                 <div style="display:flex;flex-direction:column;gap:8px">
                     <button class="btn" id="btn-pedir-alta" style="background:var(--success);color:#06210f;font-weight:700">+ Pedir alta</button>
                     <button class="btn" id="btn-pedir-baja" style="background:var(--danger);color:#2b0b07;font-weight:700">− Pedir baja</button>
@@ -1524,7 +1535,7 @@ export function bindColaboradores() {
         const nombre = btn.dataset.nombre;
         if (!confirm(`¿Pedir la baja de ${nombre}?\n\nEl Administrador la va a revisar. Hasta entonces sigue con acceso.`)) return;
         try {
-            await pedirBaja({ usuarioId: btn.dataset.pedirBaja, nombre, email: btn.dataset.email });
+            await pedirBaja({ usuarioId: btn.dataset.pedirBaja, nombre, email: btn.dataset.email, sucursal: btn.dataset.sucursal });
             alert("Pedido enviado. El Administrador lo va a revisar.");
         } catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); }
         navigate("colaboradores", { replace: true });
@@ -1779,9 +1790,16 @@ async function abrirModalRegistrar() {
 }
 
 /** Responsable de local: pide el alta de una persona nueva de SU local. No crea nada: el Administrador lo revisa y aprueba en "Pedidos". */
-function abrirModalPedirAlta() {
+async function abrirModalPedirAlta() {
     const modalId = "modal-pedir-alta";
+    const esCapacitador = getUsuarioActual().capacitador === true;
+    const locales = esCapacitador ? (await getSucursales()).map((s) => s.nombre).sort((a, b) => a.localeCompare(b, "es")) : [];
     const contenidoHtml = `
+        ${esCapacitador ? `
+            <label for="selector-local-buscar">Local</label>
+            ${SelectorBuscable({ id: "selector-local", placeholder: "Buscar local...", opciones: locales.map((n) => ({ valor: n, etiqueta: n.replace("Lucciano's ", "") })) })}
+        ` : ""}
+
         <label for="input-pedido-nombre">Nombre completo</label>
         <input type="text" id="input-pedido-nombre" placeholder="Nombre y apellido">
 
@@ -1792,7 +1810,7 @@ function abrirModalPedirAlta() {
         <label for="input-pedido-rol">Rol</label>
         <select id="input-pedido-rol"><option>Colaborador</option><option>Responsable de turno</option></select>
 
-        <p class="text-xs text-muted" style="margin-top:10px">Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.</p>
+        <p class="text-xs text-muted" style="margin-top:10px">${esCapacitador ? "El Administrador lo revisa y aprueba." : `Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.`}</p>
     `;
     abrirModal(Modal({ id: modalId, titulo: "Pedir alta", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
         const nombre = document.getElementById("input-pedido-nombre").value.trim();
@@ -1800,35 +1818,48 @@ function abrirModalPedirAlta() {
         const rol = document.getElementById("input-pedido-rol").value;
         if (!nombre || !email) { alert("Completá el nombre y el correo."); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert(`"${email}" no parece un correo válido (ej: nombre@gmail.com).`); return; }
-        try { await pedirAlta({ nombre, email, rol }); }
+        const sucursal = esCapacitador ? valorSelectorBuscable("selector-local") : undefined;
+        if (esCapacitador && !sucursal) { alert("Elegí el local de la lista."); return; }
+        try { await pedirAlta({ nombre, email, rol, sucursal }); }
         catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
         cerrarModal(modalId);
         alert("Pedido enviado. El Administrador lo va a revisar.");
         navigate("colaboradores", { replace: true });
     });
+    if (esCapacitador) bindSelectorBuscable("selector-local");
 }
 
 /** Responsable de local: pide la baja de una persona de SU local, elegida de una lista. */
 function abrirModalPedirBaja() {
     if (!personasParaBaja.length) { alert("No hay personas a las que se les pueda pedir la baja (todas ya tienen un pedido o están inactivas)."); return; }
     const modalId = "modal-pedir-baja";
+    const verLocal = getUsuarioActual().capacitador === true;       // un Responsable de local ve solo su local: no hace falta repetirlo
     const contenidoHtml = `
-        <label for="input-baja-persona">Persona</label>
-        <select id="input-baja-persona">
-            ${personasParaBaja.map((p) => `<option value="${escaparHtml(p.id)}">${escaparHtml(p.nombre)}</option>`).join("")}
-        </select>
+        <label for="selector-baja-buscar">Persona</label>
+        ${SelectorBuscable({
+            id: "selector-baja",
+            placeholder: verLocal ? "Buscar por nombre, correo o local..." : "Buscar por nombre o correo...",
+            opciones: personasParaBaja.map((p) => ({
+                valor: p.id,
+                etiqueta: p.nombre,
+                // El correo no se muestra pero se busca: sirve para encontrar a alguien por su Gmail.
+                detalle: verLocal ? String(p.sucursal).replace("Lucciano's ", "") : "",
+                extra: p.email,
+            })),
+        })}
         <p class="text-xs text-muted" style="margin-top:10px">El Administrador revisa el pedido. Hasta que lo apruebe, la persona sigue con acceso.</p>
     `;
     abrirModal(Modal({ id: modalId, titulo: "Pedir baja", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
-        const id = document.getElementById("input-baja-persona").value;
+        const id = valorSelectorBuscable("selector-baja");
         const persona = personasParaBaja.find((p) => String(p.id) === String(id));
-        if (!persona) return;
-        try { await pedirBaja({ usuarioId: persona.id, nombre: persona.nombre, email: persona.email }); }
+        if (!persona) { alert("Elegí a la persona de la lista."); return; }
+        try { await pedirBaja({ usuarioId: persona.id, nombre: persona.nombre, email: persona.email, sucursal: persona.sucursal }); }
         catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
         cerrarModal(modalId);
         alert("Pedido enviado. El Administrador lo va a revisar.");
         navigate("colaboradores", { replace: true });
     });
+    bindSelectorBuscable("selector-baja");
 }
 
 /** Alta/edición de Supervisor o Admin — mucho más simple que el modal
