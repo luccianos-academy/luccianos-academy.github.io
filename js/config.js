@@ -182,7 +182,7 @@ export const PUSH_DISPONIBLE = !!FIREBASE_CONFIG.apiKey && !!FIREBASE_VAPID_KEY;
  *  saber de un vistazo qué versión corre en cada entorno y no
  *  confundir REPO con producción. Se sube a mano cada vez que se
  *  pushea un cambio — no hay build step que lo automatice. */
-export const VERSION = "0.11.3";
+export const VERSION = "0.13.2";
 
 export const EMPRESA = {
     nombre: "Lucciano's",
@@ -209,6 +209,7 @@ export const HOJAS = {
     RECURSOS: "Recursos",
     TOKENS: "Tokens",
     PEDIDOS: "Pedidos",
+    PEDIDOS_HISTORIAL: "PedidosHistorial",     // los ya resueltos (solo el Admin los lee, al abrir el historial)
     // Dónde se vende cada producto del catálogo. Solo excepciones: un
     // producto sin fila está disponible en toda la red — ver
     // data/disponibilidad.js.

@@ -8479,3 +8479,35 @@ html[dir="rtl"] .pendiente-sync{ left:auto; right:12px; }
 .selector-op-detalle{ font-size:12px; color:var(--muted); flex-shrink:0; text-align:right; }
 .selector-vacio{ margin:10px; font-size:13px; color:var(--muted); }
 .selector-cuenta{ margin:0; }
+
+/* ── Campos de formulario: todos iguales (2026-11-24) ─────────────────────────────────────────────────────────────
+   Pedido explícito, ya acordado antes: en los formularios, texto, correo, desplegable y área de texto tienen que verse como UNA misma
+   familia — misma altura, mismo radio, mismo borde. Causa real del desajuste (visto en "Pedir alta"): el <select> nativo de macOS/Safari
+   ignora el padding y el alto que se le ponen y sale más bajo y con otra curva que los <input>. Se le saca el aspecto nativo
+   (appearance:none) y lleva su propia flecha, igual en todos los navegadores.
+   Va al final a propósito (gana por orden). El alto mínimo va con :where() para NO subir la especificidad: los controles chicos que ya
+   tienen su propia regla (cantidades, filas de sub-tareas) la siguen ganando. No toca checkboxes, radios ni archivos. */
+.modal-body :where(input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):not([type="hidden"]), select),
+.form-seccion :where(input:not([type="radio"]):not([type="checkbox"]):not([type="file"]):not([type="hidden"]), select){
+    box-sizing:border-box;
+    min-height:44px;
+    line-height:1.3;
+}
+.modal-body select,
+.modal-overlay:not(.login-overlay) .modal .modal-body select,
+.form-seccion select{
+    -webkit-appearance:none;
+    appearance:none;
+    padding:11px 40px 11px 14px;
+    border-radius:14px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23b9a58e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    cursor:pointer;
+}
+html[dir="rtl"] .modal-body select,
+html[dir="rtl"] .modal-overlay:not(.login-overlay) .modal .modal-body select,
+html[dir="rtl"] .form-seccion select{
+    padding:11px 14px 11px 40px;
+    background-position:left 14px center;
+}

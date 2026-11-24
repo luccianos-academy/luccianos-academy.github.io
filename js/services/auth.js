@@ -16,6 +16,7 @@
 
 import { setItem, getItem, removeItem, existe } from "./storage.js";
 import { getSesionFirebase } from "./sesionFirebase.js";
+import { conLocalActivo, localesDelUsuario, tieneVariosLocales } from "./localActivo.js";
 
 const SESSION_KEY = "sesion";
 const VISTA_COMO_KEY = "vista_como";
@@ -83,9 +84,27 @@ export function getUsuarioActual() {
     const real = getItem(SESSION_KEY, null);
     if (real && real.rol === "admin") {
         const vistaComo = getItem(VISTA_COMO_KEY, null);
-        if (vistaComo) return vistaComo;
+        if (vistaComo) return conLocalActivo(vistaComo, getItem(claveLocalActivo(vistaComo), null));
     }
-    return real;
+    return conLocalActivo(real, real ? getItem(claveLocalActivo(real), null) : null);
+}
+
+/* Responsable de local con más de un local: en cuál "está" ahora (ver services/localActivo.js).
+   Se guarda por persona en este dispositivo; el local principal es el que se usa si nunca eligió. */
+const claveLocalActivo = (u) => `local_activo_${u.id}`;
+
+/** Locales entre los que puede elegir el usuario actual (vacío o uno solo = no hay selector). */
+export function getLocalesParaElegir() {
+    const u = getUsuarioActual();
+    return u && tieneVariosLocales(u) ? localesDelUsuario(u) : [];
+}
+
+/** Elige en qué local está. Quien llama recarga la pantalla para que todo se vuelva a leer con el local nuevo. */
+export function setLocalActivo(local) {
+    const u = getUsuarioActual();
+    if (!u || !localesDelUsuario(u).includes(local)) return false;
+    setItem(claveLocalActivo(u), local);
+    return true;
 }
 
 export function getUsuarioReal() {

@@ -8,7 +8,7 @@
 =============================*/
 
 import { MODULOS, EMPRESA } from "../config.js";
-import { getUsuarioActual, MENU_POR_ROL } from "../services/auth.js";
+import { getUsuarioActual, getLocalesParaElegir, MENU_POR_ROL } from "../services/auth.js";
 import { Icon } from "./icons.js";
 import { obtenerMiUsuario, etiquetaColaborador } from "../data/usuarios.js";
 import { InstallBanner } from "./installBanner.js";
@@ -170,6 +170,8 @@ export function Sidebar(rutaActiva = "inicio") {
                 ${CampanaBoton("sidebar")}
             </div>
 
+            ${selectorDeLocal(usuario)}
+
             <nav class="nav-menu">
                 ${links}
             </nav>
@@ -185,5 +187,20 @@ export function Sidebar(rutaActiva = "inicio") {
             </div>
 
         </aside>
+    `;
+}
+
+/** "Estoy en: [local]" — solo para quien gestiona más de un local (ver services/localActivo.js). Son 2 o 3 opciones: va sin buscador. */
+function selectorDeLocal(usuario) {
+    const locales = getLocalesParaElegir();
+    if (locales.length < 2) return "";
+    const corto = (n) => n.replace("Lucciano's ", "");
+    return `
+        <div class="selector-local-activo">
+            <label for="selector-local-activo">Estoy en el local</label>
+            <select id="selector-local-activo" title="En qué local estás">
+                ${locales.map((n) => `<option value="${n.replace(/"/g, "&quot;")}"${n === usuario.sucursal ? " selected" : ""}>${corto(n)}</option>`).join("")}
+            </select>
+        </div>
     `;
 }

@@ -16,5 +16,7 @@ export function avisoDelPedido(pedido, usuarios) {
     const persona = usuarios.find((u) => String(u.id) === String(pedido.usuarioId));
     if (!persona) return "No encuentro a esa persona (¿ya la eliminaron?)";
     if (persona.activo !== "SI") return "Ya estaba dada de baja";
+    // Transferencia: la persona tiene que seguir en el local desde el que se pidió.
+    if (pedido.tipo === "transferencia" && persona.sucursal !== pedido.sucursal) return `Ya no está en ${pedido.sucursal} (ahora figura en ${persona.sucursal || "ningún local"})`;
     return null;
 }

@@ -788,6 +788,55 @@
     width:100%;
 }
 
+/* Selector de local de un Responsable que gestiona más de uno.
+   Mismo criterio que el resto de los campos: sin el aspecto nativo del navegador (que lo dejaba bajo y cortaba el nombre del local),
+   con flecha propia, nombre completo a la vista (letra 13px y puntos suspensivos solo si no entra) y márgenes parejos. */
+.selector-local-activo{
+    margin:0 0 20px;
+    padding:14px;
+    border-radius:14px;
+    background:rgba(224,169,59,.10);
+    border:1px solid rgba(224,169,59,.32);
+}
+.selector-local-activo label{
+    display:block;
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:#e0a93b;
+    margin:0 0 8px;
+}
+.selector-local-activo select{
+    -webkit-appearance:none;
+    appearance:none;
+    box-sizing:border-box;
+    width:100%;
+    min-height:42px;
+    padding:10px 34px 10px 12px;
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.16);
+    background-color:rgba(255,255,255,.06);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23e0a93b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 12px center;
+    color:#fff;
+    font-family:inherit;
+    font-size:13px;
+    font-weight:500;
+    line-height:1.3;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    overflow:hidden;
+    cursor:pointer;
+}
+.selector-local-activo select:focus{
+    outline:none;
+    border-color:#e0a93b;
+    box-shadow:0 0 0 3px rgba(224,169,59,.2);
+}
+.selector-local-activo select option{ background:#1a1a1a; color:#fff; }
+
 .sidebar-footer{
     margin-top:auto;
     padding-top:20px;

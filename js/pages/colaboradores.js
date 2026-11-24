@@ -69,8 +69,10 @@ import { Avatar } from "../components/avatar.js";
 import { celdaPct, estadoEvaluacion, progresoCursoDePersona, barraProgreso, leccionesDePersona, kpisSemaforo } from "./reportes.js";
 import { exportarAPdf, membreteHtml } from "../services/exportarPdf.js";
 import { escaparHtml } from "../services/html.js";
+import { listaDeLocales, localesDelUsuario } from "../services/localActivo.js";
 import { DIAS_ACCESO_INICIAL, fechaHoyISO, sumarDias } from "../services/fechasAcceso.js";
-import { getPedidosPendientes, pedirAlta, pedirBaja } from "../data/pedidos.js";
+import { getPedidosPendientes, pedirAlta, pedirBaja, pedirTransferencia } from "../data/pedidos.js";
+import { localesPropios, motivoSinTransferencia } from "../services/transferencias.js";
 import { SelectorBuscable, bindSelectorBuscable, valorSelectorBuscable } from "../components/selectorBuscable.js";
 import { cursosDeLaPersona, cursoAplicaAPersona } from "../services/alcance.js";
 
@@ -78,6 +80,9 @@ const DIAS_AVISO_VENCIMIENTO = 7;
 
 // Personas del local del Responsable a las que todavía se les puede pedir la baja (las arma Colaboradores() para el botón "− Pedir baja").
 let personasParaBaja = [];
+// Responsable de local de un local PROPIO: nombres de todos los locales propios (destinos posibles de una transferencia). Vacío = no aplica.
+let propiosParaTransferir = [];
+let personasParaTransferir = [];   // las personas de su equipo a las que se les puede pedir una transferencia
 
 function diasEntre(desdeISO, hastaISO) {
     const [y1, m1, d1] = desdeISO.split("-").map(Number);
@@ -309,6 +314,12 @@ function filaAcciones(colaborador, puedeDeshabilitar, puedeEditar, esAdmin) {
         grupos.push({ items: [`<button class="menu-acciones-item" data-pedir-baja="${colaborador.id}" data-nombre="${escaparHtml(colaborador.nombre)}" data-email="${escaparHtml(colaborador.email)}" data-sucursal="${escaparHtml(colaborador.sucursal)}">Pedir baja</button>`] });
     } else if (colaborador._pedirBaja === "pedida") {
         grupos.push({ items: [`<span class="menu-acciones-item" style="opacity:.7;cursor:default">Baja pedida</span>`] });
+    }
+    // Entre locales propios: pide pasar a la persona a otro local (la aprueba el Administrador, junto con el pedido cruzado del otro local).
+    if (colaborador._pedirTransferencia === "si") {
+        grupos.push({ items: [`<button class="menu-acciones-item" data-pedir-transferencia="${colaborador.id}" data-nombre="${escaparHtml(colaborador.nombre)}" data-email="${escaparHtml(colaborador.email)}" data-sucursal="${escaparHtml(colaborador.sucursal)}">Pedir transferencia</button>`] });
+    } else if (colaborador._pedirTransferencia === "pedida") {
+        grupos.push({ items: [`<span class="menu-acciones-item" style="opacity:.7;cursor:default">Transferencia pedida</span>`] });
     }
 
     // "Ver como" — igual criterio que filaAccionesGenerico (tabla de
@@ -766,7 +777,12 @@ export async function Colaboradores() {
             ? colaboradores.filter((c) => elegidosAdmin.includes(c.sucursal))
             : colaboradores;
     } else if (esEncargado) {
-        colaboradores = await getColaboradoresPorSucursal(usuario.sucursal);
+        // Con más de un local (franquiciado que maneja dos), ve a los equipos de todos juntos, agrupados por local.
+        const localesDelResponsable = localesDelUsuario(usuario);
+        colaboradores = localesDelResponsable.length > 1
+            ? (await getColaboradores()).filter((c) => localesDelResponsable.includes(c.sucursal))
+            : await getColaboradoresPorSucursal(usuario.sucursal);
+        if (localesDelResponsable.length > 1) gruposPorSucursal = localesDelResponsable;
         colaboradoresParaKpis = colaboradores;
         // Sus pedidos pendientes (solo los de su local): sirven para marcar "Baja pedida" y no pedirla dos veces.
         pedidosPropios = await getPedidosPendientes();
@@ -782,6 +798,16 @@ export async function Colaboradores() {
         const sucursales = await getSucursales();
         const miLocal = sucursales.find((s) => s.nombre === usuario.sucursal);
         miSupervisor = String(miLocal?.supervisor || "").split(",").map((n) => n.trim()).filter(Boolean).join(", ");
+        // Transferencias: solo entre locales propios. Quien está en una franquicia no ve la opción.
+        const propios = localesPropios(sucursales);
+        const transferenciasPedidas = new Set(pedidosPropios.filter((p) => p.tipo === "transferencia").map((p) => String(p.usuarioId)));
+        propiosParaTransferir = propios.length > 1 ? propios : [];
+        colaboradores.forEach((c) => {
+            const puede = propiosParaTransferir.includes(c.sucursal) && c._pedirBaja !== "" && c.activo === "SI";
+            c._pedirTransferencia = !puede ? "" : transferenciasPedidas.has(String(c.id)) ? "pedida" : "si";
+        });
+        personasParaTransferir = colaboradores.filter((c) => c._pedirTransferencia === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email, sucursal: c.sucursal }))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     } else {
         // Supervisor: puede tener más de un local a cargo (ver
         // getMisLocales, incluye el fallback a su propio
@@ -953,7 +979,7 @@ export async function Colaboradores() {
 
         ${puedePedir && pedidosPropios.length ? `
             <p class="text-sm text-muted" style="margin-top:-6px">
-                Pedidos esperando al Administrador: ${pedidosPropios.map((p) => `<strong>${p.tipo === "alta" ? "Alta" : "Baja"}</strong> de ${escaparHtml(p.nombre)}`).join(" · ")}.
+                Pedidos esperando al Administrador: ${pedidosPropios.map((p) => `<strong>${p.tipo === "alta" ? "Alta" : p.tipo === "transferencia" ? "Transferencia" : "Baja"}</strong> de ${escaparHtml(p.nombre)}${p.tipo === "transferencia" ? ` a ${escaparHtml(String(p.destino).replace("Lucciano's ", ""))}` : ""}`).join(" · ")}.
             </p>
         ` : ""}
 
@@ -1000,6 +1026,7 @@ export async function Colaboradores() {
                 <div style="display:flex;flex-direction:column;gap:8px">
                     <button class="btn" id="btn-pedir-alta" style="background:var(--success);color:#06210f;font-weight:700">+ Pedir alta</button>
                     <button class="btn" id="btn-pedir-baja" style="background:var(--danger);color:#2b0b07;font-weight:700">− Pedir baja</button>
+                    ${esEncargado ? `<button class="btn" id="btn-pedir-transferencia" style="background:var(--info);color:#fff;font-weight:700">⇄ Pedir transferencia</button>` : ""}
                 </div>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-supervisor" data-toolbar-rol="supervisor" hidden>+ Nuevo supervisor</button>` : ""}
             ${esAdmin ? `<button class="btn btn-primary" id="btn-nuevo-admin" data-toolbar-rol="admin" hidden>+ Nuevo admin</button>` : ""}
@@ -1540,8 +1567,12 @@ export function bindColaboradores() {
         } catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); }
         navigate("colaboradores", { replace: true });
     }));
+    document.querySelectorAll("[data-pedir-transferencia]").forEach((btn) => btn.addEventListener("click", () => {
+        abrirModalPedirTransferencia({ id: btn.dataset.pedirTransferencia, nombre: btn.dataset.nombre, email: btn.dataset.email, sucursal: btn.dataset.sucursal });
+    }));
     document.getElementById("btn-pedir-alta")?.addEventListener("click", abrirModalPedirAlta);
     document.getElementById("btn-pedir-baja")?.addEventListener("click", abrirModalPedirBaja);
+    document.getElementById("btn-pedir-transferencia")?.addEventListener("click", () => abrirModalPedirTransferencia(null));
 
     const btnRegistrar = document.getElementById("btn-registrar-colaborador");
     if (btnRegistrar) {
@@ -1666,6 +1697,11 @@ async function abrirModalEditar(colaborador) {
         ${campoSucursal.html}
 
         ${camposLiderazgo(colaborador)}
+
+        <div id="bloque-locales-extra" style="display:none">
+            <label>También gestiona estos locales <span class="text-xs text-muted">— además del principal. Desde el menú elige en cuál está.</span></label>
+            ${MultiSelectSucursales("input-locales-extra", colaborador.sucursalesExtra || [])}
+        </div>
     `;
 
     abrirModal(Modal({ id: modalId, titulo: "Editar colaborador", contenidoHtml, textoConfirmar: "Guardar" }), modalId, async () => {
@@ -1687,7 +1723,11 @@ async function abrirModalEditar(colaborador) {
 
         await asegurarSucursalAsignada(sucursal, usuario);
         if (campoSucursal.leerSupervisor) await asignarSupervisorASucursal(sucursal, campoSucursal.leerSupervisor());
-        await actualizarUsuario(colaborador.id, { nombre, email, sucursal, encargado: encargado ? "SI" : "NO", responsableTurno: responsableTurno ? "SI" : "NO" });
+        // Locales extra: solo para quien está a cargo de un local o de un turno, y sin repetir el principal.
+        const extras = (encargado || responsableTurno)
+            ? listaDeLocales(document.getElementById("input-locales-extra").value).filter((n) => n !== sucursal)
+            : [];
+        await actualizarUsuario(colaborador.id, { nombre, email, sucursal, encargado: encargado ? "SI" : "NO", responsableTurno: responsableTurno ? "SI" : "NO", sucursalesExtra: extras.join(",") });
         registrarEvento(usuario.id, "editar_colaborador", `Datos corregidos de ${nombre} (antes: ${colaborador.nombre})`);
 
         cerrarModal(modalId);
@@ -1696,6 +1736,15 @@ async function abrirModalEditar(colaborador) {
 
     campoSucursal.bind();
     bindLiderazgo();
+    bindMultiSelectSucursales("input-locales-extra");
+    // El bloque de locales extra aparece solo si la persona está a cargo de un local o de un turno.
+    const bloqueExtra = document.getElementById("bloque-locales-extra");
+    const marcaLocal = document.getElementById("input-encargado");
+    const marcaTurno = document.getElementById("input-responsable-turno");
+    const mostrarExtra = () => { bloqueExtra.style.display = (marcaLocal.checked || marcaTurno.checked) ? "" : "none"; };
+    marcaLocal.addEventListener("change", mostrarExtra);
+    marcaTurno.addEventListener("change", mostrarExtra);
+    mostrarExtra();
 }
 
 /* Las dos etiquetas de liderazgo de un colaborador.
@@ -1794,7 +1843,14 @@ async function abrirModalPedirAlta() {
     const modalId = "modal-pedir-alta";
     const esCapacitador = getUsuarioActual().capacitador === true;
     const locales = esCapacitador ? (await getSucursales()).map((s) => s.nombre).sort((a, b) => a.localeCompare(b, "es")) : [];
+    // Un Responsable con dos locales elige para cuál es el alta (2 o 3 opciones: va sin buscador).
+    const susLocales = esCapacitador ? [] : localesDelUsuario(getUsuarioActual());
+    const eligeLocalPropio = susLocales.length > 1;
     const contenidoHtml = `
+        ${eligeLocalPropio ? `
+            <label for="input-pedido-local">Local</label>
+            <select id="input-pedido-local">${susLocales.map((n) => `<option value="${escaparHtml(n)}">${escaparHtml(n.replace("Lucciano's ", ""))}</option>`).join("")}</select>
+        ` : ""}
         ${esCapacitador ? `
             <label for="selector-local-buscar">Local</label>
             ${SelectorBuscable({ id: "selector-local", placeholder: "Buscar local...", opciones: locales.map((n) => ({ valor: n, etiqueta: n.replace("Lucciano's ", "") })) })}
@@ -1814,7 +1870,7 @@ async function abrirModalPedirAlta() {
             ${esCapacitador ? `<option>Responsable de local</option>` : ""}
         </select>
 
-        <p class="text-xs text-muted" style="margin-top:10px">${esCapacitador ? "El Administrador lo revisa y aprueba." : `Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.`}</p>
+        <p class="text-xs text-muted" style="margin-top:10px">${esCapacitador || eligeLocalPropio ? "El Administrador lo revisa y aprueba." : `Se pide para tu local (${escaparHtml(getUsuarioActual().sucursal)}). El Administrador lo revisa y aprueba.`}</p>
     `;
     abrirModal(Modal({ id: modalId, titulo: "Pedir alta", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
         const nombre = document.getElementById("input-pedido-nombre").value.trim();
@@ -1822,7 +1878,7 @@ async function abrirModalPedirAlta() {
         const rol = document.getElementById("input-pedido-rol").value;
         if (!nombre || !email) { alert("Completá el nombre y el correo."); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert(`"${email}" no parece un correo válido (ej: nombre@gmail.com).`); return; }
-        const sucursal = esCapacitador ? valorSelectorBuscable("selector-local") : undefined;
+        const sucursal = esCapacitador ? valorSelectorBuscable("selector-local") : eligeLocalPropio ? document.getElementById("input-pedido-local").value : undefined;
         if (esCapacitador && !sucursal) { alert("Elegí el local de la lista."); return; }
         try { await pedirAlta({ nombre, email, rol, sucursal }); }
         catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
@@ -1833,11 +1889,49 @@ async function abrirModalPedirAlta() {
     if (esCapacitador) bindSelectorBuscable("selector-local");
 }
 
+/** Responsable de local de un local propio: pide pasar a UNA persona de su local a otro local propio. Lo acuerda con el otro responsable y el Admin aprueba los dos pedidos juntos. */
+function abrirModalPedirTransferencia(personaFija) {
+    if (!propiosParaTransferir.length) { alert("Las transferencias son solo entre locales propios, y tu local no lo es."); return; }
+    if (!personaFija && !personasParaTransferir.length) { alert("No hay personas a las que se les pueda pedir una transferencia (todas ya tienen un pedido o están inactivas)."); return; }
+    const modalId = "modal-pedir-transferencia";
+    const todosLosDestinos = [...propiosParaTransferir].sort((a, b) => a.localeCompare(b, "es"));
+    const contenidoHtml = `
+        ${personaFija ? `
+            <p style="margin:0 0 12px"><strong>${escaparHtml(personaFija.nombre)}</strong><br><span class="text-sm text-muted">Hoy en ${escaparHtml(personaFija.sucursal)}</span></p>
+        ` : `
+            <label for="selector-transf-persona-buscar">Persona</label>
+            ${SelectorBuscable({
+                id: "selector-transf-persona",
+                placeholder: "Buscar por nombre o correo...",
+                opciones: personasParaTransferir.map((p) => ({ valor: p.id, etiqueta: p.nombre, detalle: String(p.sucursal).replace("Lucciano's ", ""), extra: p.email })),
+            })}
+        `}
+        <label for="selector-destino-buscar">¿A qué local va?</label>
+        ${SelectorBuscable({ id: "selector-destino", placeholder: "Buscar local...", opciones: todosLosDestinos.map((n) => ({ valor: n, etiqueta: n.replace("Lucciano's ", "") })) })}
+        <p class="text-xs text-muted" style="margin-top:10px">Solo entre locales propios. Acordalo antes con el responsable del otro local: él pide la salida de su persona hacia el tuyo y el Administrador aprueba las dos juntas. Hasta entonces la persona sigue en tu local.</p>
+    `;
+    abrirModal(Modal({ id: modalId, titulo: "Pedir transferencia", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
+        const persona = personaFija || personasParaTransferir.find((p) => String(p.id) === String(valorSelectorBuscable("selector-transf-persona")));
+        if (!persona) { alert("Elegí a la persona de la lista."); return; }
+        const destino = valorSelectorBuscable("selector-destino");
+        if (!destino) { alert("Elegí el local de la lista."); return; }
+        const motivo = motivoSinTransferencia(persona.sucursal, destino, propiosParaTransferir);
+        if (motivo) { alert(motivo === "Es el mismo local" ? `${persona.nombre} ya está en ese local.` : motivo); return; }
+        try { await pedirTransferencia({ usuarioId: persona.id, nombre: persona.nombre, email: persona.email, sucursal: persona.sucursal, destino }); }
+        catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
+        cerrarModal(modalId);
+        alert("Pedido enviado. El Administrador lo va a revisar.");
+        navigate("colaboradores", { replace: true });
+    });
+    if (!personaFija) bindSelectorBuscable("selector-transf-persona");
+    bindSelectorBuscable("selector-destino");
+}
+
 /** Responsable de local: pide la baja de una persona de SU local, elegida de una lista. */
 function abrirModalPedirBaja() {
     if (!personasParaBaja.length) { alert("No hay personas a las que se les pueda pedir la baja (todas ya tienen un pedido o están inactivas)."); return; }
     const modalId = "modal-pedir-baja";
-    const verLocal = getUsuarioActual().capacitador === true;       // un Responsable de local ve solo su local: no hace falta repetirlo
+    const verLocal = getUsuarioActual().capacitador === true || localesDelUsuario(getUsuarioActual()).length > 1;       // con un solo local no hace falta repetirlo
     const contenidoHtml = `
         <label for="selector-baja-buscar">Persona</label>
         ${SelectorBuscable({

@@ -49,6 +49,8 @@ export function usuarioDeSesion(d) {
         capacitador: d.capacitador === true,
         tienePush: d.tienePush === true,
         sucursal: String(d.sucursal || "").trim(),
+        // Locales EXTRA que gestiona además del principal (un franquiciado con dos locales). Ver services/localActivo.js.
+        sucursalesExtra: Array.isArray(d.sucursalesExtra) ? d.sucursalesExtra.map((n) => String(n).trim()).filter(Boolean) : [],
         foto: String(d.foto || d.fotoMini || "").trim(),
         activo: d.activo === true ? "SI" : "NO",
         fechaVencimientoAcceso: timestampAFecha(d.fechaVencimientoAcceso),

@@ -15,6 +15,7 @@ function normalizarPedido(f) {
         id: f.id,
         tipo: String(f.tipo || "").toLowerCase(),
         sucursal: String(f.sucursal || "").trim(),
+        destino: String(f.destino || "").trim(),          // solo en las transferencias: el local al que va la persona
         nombre: String(f.nombre || "").trim(),
         email: String(f.email || "").trim().toLowerCase(),
         rol: String(f.rol || "Colaborador").trim(),
@@ -23,6 +24,8 @@ function normalizarPedido(f) {
         pedidoPorNombre: String(f.pedidoPorNombre || "").trim(),
         estado: String(f.estado || "pendiente").toLowerCase(),
         creadoEn: Number(f.creadoEn) || 0,
+        resueltoEn: Number(f.resueltoEn) || 0,
+        resueltoPorNombre: String(f.resueltoPorNombre || "").trim(),
     };
 }
 
@@ -48,7 +51,23 @@ export async function pedirBaja({ usuarioId, nombre, email, sucursal }) {
     return writeSheet(HOJAS.PEDIDOS, { tipo: "baja", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal }, pedidosMock);
 }
 
-/** Solo el Admin: marca el pedido como aprobado o rechazado. */
-export async function resolverPedido(id, estado) {
-    return updateSheet(HOJAS.PEDIDOS, id, { estado, resueltoEn: Date.now() }, pedidosMock);
+/** Transferencia de una persona de MI local a otro local (solo entre locales propios; el Admin la aprueba). */
+export async function pedirTransferencia({ usuarioId, nombre, email, sucursal, destino }) {
+    return writeSheet(HOJAS.PEDIDOS, { tipo: "transferencia", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal, destino: String(destino).trim() }, pedidosMock);
+}
+
+/** Solo el Admin: marca el pedido como aprobado o rechazado y deja quién y cuándo lo resolvió. */
+export async function resolverPedido(id, estado, resueltoPorNombre = "") {
+    return updateSheet(HOJAS.PEDIDOS, id, { estado, resueltoEn: Date.now(), resueltoPorNombre }, pedidosMock);
+}
+
+/** Solo el Admin: el registro de lo ya resuelto, lo más reciente primero. Se lee al abrir el historial, no antes. */
+export async function getPedidosResueltos() {
+    try {
+        const filas = await fetchSheet(HOJAS.PEDIDOS_HISTORIAL, pedidosMock);
+        return filas.map(normalizarPedido).filter((p) => p.estado !== "pendiente").sort((a, b) => b.resueltoEn - a.resueltoEn);
+    } catch (err) {
+        console.warn(`No se pudo leer el historial de '${HOJAS.PEDIDOS}':`, err.message);
+        return [];
+    }
 }

@@ -13,7 +13,8 @@ import { MascotaCarga } from "./components/mascotaCarga.js";
 import { bindInstallBanner } from "./components/installBanner.js";
 import { bindMaestro } from "./components/maestro.js";
 import { bindRefrescar } from "./components/topbar.js";
-import { haySesion, puedeAccederA, getUsuarioActual, logout, volverAAdmin } from "./services/auth.js";
+import { haySesion, puedeAccederA, getUsuarioActual, logout, volverAAdmin, setLocalActivo } from "./services/auth.js";
+import { invalidarTodo } from "./services/dataSource.js";
 import { obtenerMiUsuario } from "./data/usuarios.js";
 
 import { Login } from "./pages/login.js";
@@ -177,6 +178,16 @@ function bindSidebar() {
         btnLogout.addEventListener("click", () => {
             logout();
             navigate("login", { replace: true });
+        });
+    }
+
+    // Responsable de local con más de un local: al elegir otro se vuelve a cargar todo con ese local.
+    const selectorLocal = document.getElementById("selector-local-activo");
+    if (selectorLocal) {
+        selectorLocal.addEventListener("change", () => {
+            if (!setLocalActivo(selectorLocal.value)) return;
+            invalidarTodo();
+            window.location.reload();
         });
     }
 

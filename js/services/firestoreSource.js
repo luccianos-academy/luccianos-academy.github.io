@@ -22,6 +22,7 @@
 import { cicloActual } from "./gestionCiclo.js";
 import { parsearFirmaSubitem, serializarFirmaSubitem } from "./subitems.js";
 import { localesDeSupervisor } from "./supervisores.js";
+import { localesDelUsuario } from "./localActivo.js";
 
 // Hojas de contenido casi estático: un documento "paquete" por hoja, contenido/{hoja}.items
 const PAQUETES = [
@@ -38,7 +39,8 @@ const COLECCIONES = {
     Noticias: "noticias",
     Auditoria: "auditoria",
     Tokens: "tokens",
-    Pedidos: "pedidos",         // altas y bajas que piden los responsables de local y resuelve el Admin
+    Pedidos: "pedidos",         // altas, bajas y transferencias que piden los responsables de local y resuelve el Admin
+    PedidosHistorial: "pedidos", // los ya resueltos (registro): solo lectura, solo Admin
 };
 
 // Hojas con un modelo propio (no "un documento por fila"): Gestión de tareas y Desafío.
@@ -100,6 +102,7 @@ export function desdeFirestore(hoja, data, idDelDoc) {
     if (hoja === "Usuarios") {
         FLAGS_USUARIO.forEach((k) => { if (k in fila) fila[k] = fila[k] === true ? "SI" : "NO"; });
         fila.fechaVencimientoAcceso = timestampAFecha(fila.fechaVencimientoAcceso);
+        if (Array.isArray(fila.sucursalesExtra)) fila.sucursalesExtra = fila.sucursalesExtra.join(",");   // texto en la planilla, lista en Firestore
         fila._clave = idDelDoc;       // con qué clave está guardado el documento: para entrar tiene que ser igual al correo (ver cambiarCorreoDeUsuario)
     }
     // "leidoPor" es texto en la planilla ("1,46,30") y arreglo en Firestore.
@@ -186,7 +189,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
     let ignorarCopiasAntesDe = 0;          // botón de actualizar: ninguna copia anterior a este instante vale
     const ignorarHojaAntesDe = {};         // escritura propia en una hoja: ninguna copia anterior de esa hoja vale
     let mostrandoDatosViejos = false;
-    const claveCopia = (hoja) => `cp|${db && db.app && db.app.options ? db.app.options.projectId : "?"}|${String(getUsuario() && getUsuario().email || "").toLowerCase()}|${hoja}`;
+        const claveCopia = (hoja) => `cp|${db && db.app && db.app.options ? db.app.options.projectId : "?"}|${String(getUsuario() && getUsuario().email || "").toLowerCase()}|${hoja}`;
     const copiable = (hoja) => !!almacen && cacheMs > 0 && COPIABLES.includes(hoja);
     function frescuraDe(hoja) {
         if (hoja === "Sucursales") return FRESCURA_SUCURSALES_MS;       // de acá sale "qué locales supervisa cada uno": una corrección tiene que llegar rápido
@@ -295,6 +298,9 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             FLAGS_USUARIO.forEach((k) => { if (k in d) d[k] = siNo(d[k]); });
             if (d.email != null) d.email = String(d.email).trim().toLowerCase();
             if ("fechaVencimientoAcceso" in d) d.fechaVencimientoAcceso = fechaATimestamp(d.fechaVencimientoAcceso);
+            if ("sucursalesExtra" in d && !Array.isArray(d.sucursalesExtra)) {
+                d.sucursalesExtra = String(d.sucursalesExtra || "").split(",").map((n) => n.trim()).filter(Boolean);
+            }
         }
         if (INCREMENTALES.includes(hoja)) d.modificadoEn = ahora();     // marca para las lecturas incrementales
         if (hoja === "Noticias" && "leidoPor" in d && !Array.isArray(d.leidoPor)) {
@@ -335,7 +341,9 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             f.pedidoPorEmail = u.email;
             f.pedidoPorNombre = u.nombre || "";
             // Un Capacitador pide para el local que elige; un Responsable de local, siempre para el suyo (lo que mande la pantalla se ignora).
-            f.sucursal = u.capacitador === true ? String(f.sucursal || "").trim() : String(u.sucursal || "").trim();
+            // Un Responsable de local con dos locales elige para cuál; solo puede ser uno de los suyos.
+            const elegido = String(f.sucursal || "").trim();
+            f.sucursal = u.capacitador === true ? elegido : (localesDelUsuario(u).includes(elegido) ? elegido : String(u.sucursal || "").trim());
             if (!f.sucursal) throw new Error("Falta el local del pedido.");
             f.estado = "pendiente";
             f.creadoEn = ahora();
@@ -370,6 +378,14 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         try { extra = getLocalesExtra() || []; } catch (err) { /* sin preferencia guardada */ }
         const locales = [...new Set([...localesDeSupervisor(u, sucursales), String(u.sucursal || "").trim(), ...extra.map((n) => String(n).trim())].filter(Boolean))].sort();
         return locales.length ? { locales, firma: `sup:${locales.join("|")}` } : null;
+    }
+    // Un Responsable de local con locales extra baja Usuarios, Asignaciones y Resultados de TODOS sus locales (no solo del que tiene
+    // elegido en el menú): así ve a los dos equipos juntos. Mismo mecanismo que el Supervisor.
+    function alcanceDeResponsable(hoja) {
+        const u = yo();
+        if (esGestion(u) || !u.encargado || !["Usuarios", "Asignaciones", "Resultados"].includes(hoja)) return null;
+        const locales = localesDelUsuario(u).sort();
+        return locales.length > 1 ? { locales, firma: `resp:${locales.join("|")}` } : null;
     }
     // Documentos de una colección acotada a locales: `where in` admite hasta 30 valores por consulta.
     async function docsDeLocales(col, locales, extra = []) {
@@ -426,7 +442,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         const col = collection(db, nombre);
         const gestion = esGestion(u);
         const sucEncargado = !gestion && u.encargado ? String(u.sucursal || "").trim() : "";
-        const alcance = gestion ? await alcanceDeSupervisor(hoja) : null;
+        const alcance = gestion ? await alcanceDeSupervisor(hoja) : alcanceDeResponsable(hoja);
         if (almacen && INCREMENTALES.includes(hoja) && (gestion || sucEncargado)) {
             try { return await leerIncremental(hoja, sucEncargado || null, alcance); }
             catch (err) { /* sin copia o consulta rechazada: se cae a la lectura completa de siempre */ }
@@ -451,11 +467,18 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
                 break;
             case "Pedidos":
                 // Solo los pendientes (los resueltos no se vuelven a bajar): el Admin ve los de toda la red; un Responsable de local, los de su local.
+                if (u.rol !== "admin" && u.capacitador !== true) {
+                    // Un Responsable de local con dos locales ve los pedidos de los dos.
+                    return (await docsDeLocales(col, localesDelUsuario(u), [where("estado", "==", "pendiente")])).map((d) => desdeFirestore(hoja, d.data(), d.id));
+                }
                 snap = u.rol === "admin"
                     ? await getDocs(query(col, where("estado", "==", "pendiente")))
-                    : u.capacitador === true
-                        ? await getDocs(query(col, where("pedidoPorEmail", "==", u.email), where("estado", "==", "pendiente")))     // sus propios pedidos
-                        : await getDocs(query(col, where("sucursal", "==", String(u.sucursal || "").trim()), where("estado", "==", "pendiente")));
+                    : await getDocs(query(col, where("pedidoPorEmail", "==", u.email), where("estado", "==", "pendiente")));     // un Capacitador: sus propios pedidos
+                break;
+            case "PedidosHistorial":
+                // El registro de lo que ya se aprobó o rechazó: solo el Admin, y solo cuando abre el historial (hasta 200 documentos).
+                if (u.rol !== "admin") return [];
+                snap = await getDocs(query(col, where("estado", "in", ["aprobado", "rechazado"]), limit(200)));
                 break;
             case "Tokens":
                 // Siempre los de uno mismo: saber QUIÉN tiene push lo da la marca `tienePush` de cada usuario (Admin/Supervisor

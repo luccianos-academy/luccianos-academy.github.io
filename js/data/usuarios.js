@@ -18,6 +18,7 @@
 import { fetchSheet, writeSheet, updateSheet, deleteSheet } from "../services/dataSource.js";
 import { usuariosMock } from "./mock/usuarios.mock.js";
 import { HOJAS } from "../config.js";
+import { listaDeLocales } from "../services/localActivo.js";
 
 function normalizarUsuario(f) {
     return {
@@ -38,6 +39,8 @@ function normalizarUsuario(f) {
         // tildado acá.
         responsableTurno: String(f.responsableTurno || "").trim().toUpperCase() === "SI",
         sucursal: String(f.sucursal || "").trim(),
+        // Locales EXTRA que gestiona además del principal (un franquiciado con dos locales). Lista de nombres.
+        sucursalesExtra: listaDeLocales(f.sucursalesExtra),
         activo: String(f.activo || "").trim().toUpperCase() === "NO" ? "NO" : "SI",
         // Vacío = acceso permanente (sin vencimiento). "YYYY-MM-DD" =
         // fecha en la que vence el acceso — ver pages/colaboradores.js
