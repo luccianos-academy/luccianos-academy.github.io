@@ -72,7 +72,7 @@ import { escaparHtml } from "../services/html.js";
 import { listaDeLocales, localesDelUsuario } from "../services/localActivo.js";
 import { DIAS_ACCESO_INICIAL, fechaHoyISO, sumarDias } from "../services/fechasAcceso.js";
 import { getPedidosPendientes, pedirAlta, pedirBaja, pedirTransferencia } from "../data/pedidos.js";
-import { localesPropios, motivoSinTransferencia } from "../services/transferencias.js";
+import { localesPropios, motivoSinTransferencia, destinosPermitidos } from "../services/transferencias.js";
 import { SelectorBuscable, bindSelectorBuscable, valorSelectorBuscable } from "../components/selectorBuscable.js";
 import { cursosDeLaPersona, cursoAplicaAPersona } from "../services/alcance.js";
 
@@ -81,7 +81,9 @@ const DIAS_AVISO_VENCIMIENTO = 7;
 // Personas del local del Responsable a las que todavía se les puede pedir la baja (las arma Colaboradores() para el botón "− Pedir baja").
 let personasParaBaja = [];
 // Responsable de local de un local PROPIO: nombres de todos los locales propios (destinos posibles de una transferencia). Vacío = no aplica.
-let propiosParaTransferir = [];
+let propiosParaTransferir = [];    // todos los locales a los que podría mandar a alguien (propios + los que gestiona él)
+let propiosDeLaRed = [];          // solo los locales propios
+let localesQueGestiona = [];      // los locales que gestiona quien pide
 let personasParaTransferir = [];   // las personas de su equipo a las que se les puede pedir una transferencia
 
 function diasEntre(desdeISO, hastaISO) {
@@ -798,12 +800,14 @@ export async function Colaboradores() {
         const sucursales = await getSucursales();
         const miLocal = sucursales.find((s) => s.nombre === usuario.sucursal);
         miSupervisor = String(miLocal?.supervisor || "").split(",").map((n) => n.trim()).filter(Boolean).join(", ");
-        // Transferencias: solo entre locales propios. Quien está en una franquicia no ve la opción.
-        const propios = localesPropios(sucursales);
+        // Transferencias: entre locales propios, o entre los locales que gestiona el mismo responsable (una franquicia con dos locales
+        // a cargo de la misma persona). Una franquicia no manda gente a otra franquicia.
+        propiosDeLaRed = localesPropios(sucursales);
+        localesQueGestiona = localesDelResponsable;
+        propiosParaTransferir = [...new Set([...propiosDeLaRed, ...localesQueGestiona])];
         const transferenciasPedidas = new Set(pedidosPropios.filter((p) => p.tipo === "transferencia").map((p) => String(p.usuarioId)));
-        propiosParaTransferir = propios.length > 1 ? propios : [];
         colaboradores.forEach((c) => {
-            const puede = propiosParaTransferir.includes(c.sucursal) && c._pedirBaja !== "" && c.activo === "SI";
+            const puede = destinosPermitidos(c.sucursal, propiosDeLaRed, localesQueGestiona).length > 0 && c._pedirBaja !== "" && c.activo === "SI";
             c._pedirTransferencia = !puede ? "" : transferenciasPedidas.has(String(c.id)) ? "pedida" : "si";
         });
         personasParaTransferir = colaboradores.filter((c) => c._pedirTransferencia === "si").map((c) => ({ id: c.id, nombre: c.nombre, email: c.email, sucursal: c.sucursal }))
@@ -1891,10 +1895,15 @@ async function abrirModalPedirAlta() {
 
 /** Responsable de local de un local propio: pide pasar a UNA persona de su local a otro local propio. Lo acuerda con el otro responsable y el Admin aprueba los dos pedidos juntos. */
 function abrirModalPedirTransferencia(personaFija) {
-    if (!propiosParaTransferir.length) { alert("Las transferencias son solo entre locales propios, y tu local no lo es."); return; }
-    if (!personaFija && !personasParaTransferir.length) { alert("No hay personas a las que se les pueda pedir una transferencia (todas ya tienen un pedido o están inactivas)."); return; }
+    if (!personaFija && !personasParaTransferir.length) {
+        alert(propiosParaTransferir.length > 1
+            ? "No hay personas a las que se les pueda pedir una transferencia: todas ya tienen un pedido, están inactivas o están en un local desde el que no se puede transferir."
+            : "Para transferir hace falta otro local: las transferencias son entre locales propios o entre los locales que gestionás vos.");
+        return;
+    }
     const modalId = "modal-pedir-transferencia";
-    const todosLosDestinos = [...propiosParaTransferir].sort((a, b) => a.localeCompare(b, "es"));
+    const destinosDe = (origen) => destinosPermitidos(origen, propiosDeLaRed, localesQueGestiona).sort((a, b) => a.localeCompare(b, "es"));
+    const todosLosDestinos = personaFija ? destinosDe(personaFija.sucursal) : [...propiosParaTransferir].sort((a, b) => a.localeCompare(b, "es"));
     const contenidoHtml = `
         ${personaFija ? `
             <p style="margin:0 0 12px"><strong>${escaparHtml(personaFija.nombre)}</strong><br><span class="text-sm text-muted">Hoy en ${escaparHtml(personaFija.sucursal)}</span></p>
@@ -1908,14 +1917,14 @@ function abrirModalPedirTransferencia(personaFija) {
         `}
         <label for="selector-destino-buscar">¿A qué local va?</label>
         ${SelectorBuscable({ id: "selector-destino", placeholder: "Buscar local...", opciones: todosLosDestinos.map((n) => ({ valor: n, etiqueta: n.replace("Lucciano's ", "") })) })}
-        <p class="text-xs text-muted" style="margin-top:10px">Solo entre locales propios. Acordalo antes con el responsable del otro local: él pide la salida de su persona hacia el tuyo y el Administrador aprueba las dos juntas. Hasta entonces la persona sigue en tu local.</p>
+        <p class="text-xs text-muted" style="margin-top:10px">Entre locales propios, o entre los locales que gestionás vos. Si el otro local es de otro responsable, acordalo antes con él: pide la salida de su persona hacia el tuyo y el Administrador aprueba las dos juntas. Hasta entonces la persona sigue en su local.</p>
     `;
     abrirModal(Modal({ id: modalId, titulo: "Pedir transferencia", contenidoHtml, textoConfirmar: "Enviar pedido" }), modalId, async () => {
         const persona = personaFija || personasParaTransferir.find((p) => String(p.id) === String(valorSelectorBuscable("selector-transf-persona")));
         if (!persona) { alert("Elegí a la persona de la lista."); return; }
         const destino = valorSelectorBuscable("selector-destino");
         if (!destino) { alert("Elegí el local de la lista."); return; }
-        const motivo = motivoSinTransferencia(persona.sucursal, destino, propiosParaTransferir);
+        const motivo = motivoSinTransferencia(persona.sucursal, destino, propiosDeLaRed, localesQueGestiona);
         if (motivo) { alert(motivo === "Es el mismo local" ? `${persona.nombre} ya está en ese local.` : motivo); return; }
         try { await pedirTransferencia({ usuarioId: persona.id, nombre: persona.nombre, email: persona.email, sucursal: persona.sucursal, destino }); }
         catch (err) { alert(`No se pudo enviar el pedido: ${err.message}`); return; }
