@@ -67,6 +67,19 @@ function etiquetaArchivo(a) {
     return crudo.replace(/\.(pdf|docx?|xlsx?|pptx?|csv|txt|zip|jpe?g|png|gif)$/i, "").replace(/[_]+/g, " ").replace(/\s{2,}/g, " ").trim() || "Ver manual";
 }
 
+/** Las etiquetas de todos los archivos de un manual; si dos se llaman igual ("Ver planilla" y "Ver planilla") se numeran para poder distinguirlos. */
+function etiquetasDeArchivos(archivos) {
+    const textos = archivos.map(etiquetaArchivo);
+    const cuantas = textos.reduce((acc, t) => ({ ...acc, [t]: (acc[t] || 0) + 1 }), {});
+    const vistas = {};
+    return archivos.map((a, i) => {
+        const t = textos[i];
+        if (cuantas[t] < 2) return { a, texto: t };
+        vistas[t] = (vistas[t] || 0) + 1;
+        return { a, texto: `${t} ${vistas[t]}` };
+    });
+}
+
 function filaArchivoHtml(a = { url: "", label: "" }) {
     return `
         <div class="fs-archivo">
@@ -296,14 +309,14 @@ export async function Manuales() {
     const items = (await getManuales()).filter((m) => esAdmin || puedeVerManual(m, usuario, sucursales));
 
     const itemsHtml = items.map((m) => `
-        <div class="card" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-            <div style="width:40px;height:40px;border-radius:50%;background:var(--tema-accent-soft, #f3e9d6);color:var(--gold);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                ${Icon("reportes", { size: 18 })}
-            </div>
-            <div style="flex:1;min-width:180px">
-                ${m.categoria ? `<div class="small text-muted">${m.categoria}</div>` : ""}
-                <h3 style="margin-top:2px">${m.titulo}</h3>
-                ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${chipsVisibilidadHtml(m)}</div>` : ""}
+        <div class="card manual-item">
+            <div class="manual-cabecera">
+                <div class="manual-icono">${Icon("reportes", { size: 18 })}</div>
+                <div class="manual-info">
+                    ${m.categoria ? `<div class="small text-muted">${m.categoria}</div>` : ""}
+                    <h3>${m.titulo}</h3>
+                    ${esAdmin ? `<div class="manual-chips">${chipsVisibilidadHtml(m)}</div>` : ""}
+                </div>
             </div>
             <span class="manual-item-acciones">
                 <!-- Sin target="_blank" a propósito — en la PWA instalada
@@ -311,7 +324,7 @@ export async function Manuales() {
                      fácil de volver (mismo bug ya sacado del resto de
                      Manuales/Noticias/Recursos). -->
                 <span class="manual-archivos">
-                    ${(m.archivos || []).map((a) => `<a class="btn btn-secondary" href="${escaparHtml(a.url)}" title="${escaparHtml(a.label || "Ver manual")}">${Icon("documento", { size: 16 })}<span>${escaparHtml(etiquetaArchivo(a))}</span></a>`).join("")}
+                    ${etiquetasDeArchivos(m.archivos || []).map(({ a, texto }) => `<a class="btn btn-secondary" href="${escaparHtml(a.url)}" title="${escaparHtml(a.label || "Ver manual")}">${Icon("documento", { size: 16 })}<span>${escaparHtml(texto)}</span></a>`).join("")}
                 </span>
                 ${esAdmin ? `
                     <span class="manual-admin">

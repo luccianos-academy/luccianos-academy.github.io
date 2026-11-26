@@ -20,6 +20,7 @@ import { HOJAS } from "../config.js";
 import { contraparteDe, localesPropios, motivoSinTransferencia } from "../services/transferencias.js";
 import { registrarEvento } from "../data/auditoria.js";
 import { getUsuarioActual } from "../services/auth.js";
+import { enviarPushReal } from "../services/google.js";
 import { escaparHtml } from "../services/html.js";
 import { DIAS_ACCESO_INICIAL, fechaHoyISO, sumarDias } from "../services/fechasAcceso.js";
 import { avisoDelPedido } from "../services/avisoPedido.js";
@@ -29,8 +30,11 @@ const TIPO_PILL = { alta: `<span class="badge badge-success">Alta</span>`, baja:
 const fmtLocal = (n) => escaparHtml(String(n || "").replace("Lucciano's ", ""));
 const fmtFecha = (ms) => ms ? new Date(ms).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Argentina/Buenos_Aires" }) : "—";
 
+let pendientesEnPantalla = [];   // los pedidos que se dibujaron (para avisar al rechazar sin volver a leerlos)
+
 export async function Pedidos() {
     const [pedidos, usuarios] = await Promise.all([getPedidosPendientes(), getUsuarios()]);
+    pendientesEnPantalla = pedidos;
     const altas = pedidos.filter((p) => p.tipo === "alta").length;
     const bajas = pedidos.filter((p) => p.tipo === "baja").length;
     const transf = pedidos.filter((p) => p.tipo === "transferencia").length;
@@ -133,11 +137,26 @@ export function bindPedidos() {
         btn.disabled = true;
         try {
             await resolverPedido(btn.dataset.rechazar, "rechazado", getUsuarioActual().nombre);
+            const [pendientesAntes, usuarios] = [pendientesEnPantalla, await getUsuarios()];
+            const rechazado = pendientesAntes.find((x) => String(x.id) === String(btn.dataset.rechazar));
+            if (rechazado) avisarAQuienPidio(rechazado, usuarios, false);
             registrarEvento(getUsuarioActual().id, "rechazar_pedido", `Pedido ${btn.dataset.rechazar} rechazado`);
         } catch (err) { alert(`No se pudo rechazar: ${err.message}`); }
         navigate("pedidos", { replace: true });
     }));
 }
+
+/** Push a quien hizo el pedido, contándole cómo se resolvió. Nunca frena la resolución. */
+function avisarAQuienPidio(p, usuarios, aprobado) {
+    const quien = usuarios.find((u) => String(u.email).toLowerCase() === p.pedidoPorEmail);
+    if (!quien) return;
+    const que = { alta: "Alta", baja: "Baja", transferencia: "Transferencia" }[p.tipo] || "Pedido";
+    const donde = p.tipo === "transferencia" ? `${fmtTexto(p.sucursal)} → ${fmtTexto(p.destino)}` : fmtTexto(p.sucursal);
+    Promise.resolve()
+        .then(() => enviarPushReal([quien.id], aprobado ? "Pedido aprobado ✅" : "Pedido rechazado", `${que} de ${p.nombre} · ${donde}`, "#/colaboradores"))
+        .catch((err) => console.warn("[pedidos] No se pudo avisar a quien lo pidió:", err));
+}
+const fmtTexto = (n) => String(n || "").replace("Lucciano's ", "");
 
 async function aprobar(id) {
     const [pedidos, usuarios] = await Promise.all([getPedidosPendientes(), getUsuarios()]);
@@ -169,4 +188,5 @@ async function aprobar(id) {
         registrarEvento(admin.id, "deshabilitar_acceso", `Baja de ${p.nombre} pedida por ${p.pedidoPorNombre || p.pedidoPorEmail}`);
     }
     await resolverPedido(p.id, "aprobado", admin.nombre);
+    avisarAQuienPidio(p, usuarios, true);
 }

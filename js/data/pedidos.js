@@ -9,6 +9,16 @@
 import { fetchSheet, writeSheet, updateSheet } from "../services/dataSource.js";
 import { pedidosMock } from "./mock/pedidos.mock.js";
 import { HOJAS } from "../config.js";
+import { avisarPedidoReal } from "../services/google.js";
+import { getUsuarioActual } from "../services/auth.js";
+
+const sinMarca = (n) => String(n || "").replace("Lucciano's ", "");
+/** Push a los Administradores de que llegó un pedido. Nunca frena el pedido: si el aviso falla, el pedido igual quedó guardado. */
+function avisarAlAdmin(titulo, detalle) {
+    const yo = getUsuarioActual();
+    const cuerpo = `${detalle}${yo && yo.nombre ? ` · lo pidió ${yo.nombre}` : ""}`;
+    Promise.resolve().then(() => avisarPedidoReal(titulo, cuerpo)).catch((err) => console.warn("[pedidos] No se pudo avisar al Administrador:", err));
+}
 
 function normalizarPedido(f) {
     return {
@@ -43,17 +53,23 @@ export async function getPedidosPendientes() {
 /** Alta de una persona nueva en MI local (el local lo pone la capa de datos, no la pantalla). */
 export async function pedirAlta({ nombre, email, rol = "Colaborador", sucursal }) {
     // `sucursal` solo lo usa un Capacitador (elige el local); para un Responsable de local la capa de datos pone el suyo.
-    return writeSheet(HOJAS.PEDIDOS, { tipo: "alta", nombre: String(nombre).trim(), email: String(email).trim().toLowerCase(), rol, sucursal }, pedidosMock);
+    const r = await writeSheet(HOJAS.PEDIDOS, { tipo: "alta", nombre: String(nombre).trim(), email: String(email).trim().toLowerCase(), rol, sucursal }, pedidosMock);
+    avisarAlAdmin("Nuevo pedido de alta", `${String(nombre).trim()} · ${sinMarca(sucursal || getUsuarioActual()?.sucursal)}`);
+    return r;
 }
 
 /** Baja de una persona de MI local. */
 export async function pedirBaja({ usuarioId, nombre, email, sucursal }) {
-    return writeSheet(HOJAS.PEDIDOS, { tipo: "baja", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal }, pedidosMock);
+    const r = await writeSheet(HOJAS.PEDIDOS, { tipo: "baja", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal }, pedidosMock);
+    avisarAlAdmin("Nuevo pedido de baja", `${String(nombre).trim()} · ${sinMarca(sucursal || getUsuarioActual()?.sucursal)}`);
+    return r;
 }
 
 /** Transferencia de una persona de MI local a otro local (solo entre locales propios; el Admin la aprueba). */
 export async function pedirTransferencia({ usuarioId, nombre, email, sucursal, destino }) {
-    return writeSheet(HOJAS.PEDIDOS, { tipo: "transferencia", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal, destino: String(destino).trim() }, pedidosMock);
+    const r = await writeSheet(HOJAS.PEDIDOS, { tipo: "transferencia", usuarioId, nombre: String(nombre).trim(), email: String(email || "").trim().toLowerCase(), sucursal, destino: String(destino).trim() }, pedidosMock);
+    avisarAlAdmin("Nuevo pedido de transferencia", `${String(nombre).trim()}: ${sinMarca(sucursal)} → ${sinMarca(destino)}`);
+    return r;
 }
 
 /** Solo el Admin: marca el pedido como aprobado o rechazado y deja quién y cuándo lo resolvió. */

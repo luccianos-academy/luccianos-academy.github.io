@@ -1029,6 +1029,10 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             case "enviarPush":
                 if (!esGestion(u)) return { ok: false, error: "Solo Admin o Supervisor pueden enviar avisos." };
                 return encolarPush("usuarios", { usuarioIds: payload.usuarioIds || [], titulo: payload.titulo, cuerpo: payload.cuerpo, url: payload.url || "" }, u);
+            // Pedido de alta, baja o transferencia nuevo: aviso a los Administradores (los busca el servicio de avisos, no el cliente).
+            case "avisarPedido":
+                if (!(esResponsableDeLocal(u) || u.capacitador === true)) return { ok: false, error: "Solo quien puede pedir altas y bajas avisa de un pedido." };
+                return encolarPush("pedido", { titulo: String(payload.titulo || "").slice(0, 120), cuerpo: String(payload.cuerpo || "").slice(0, 300) }, u);
             case "enviarPushPrueba": {
                 // Un aviso de prueba a MIS dispositivos (el texto lo pone el servicio de avisos). Igual que en Code.gs: sin dispositivos registrados, avisa.
                 const propios = await getDocs(query(collection(db, "tokens"), where("usuarioEmail", "==", u.email), limit(1)));

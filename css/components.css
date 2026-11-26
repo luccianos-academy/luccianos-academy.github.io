@@ -8512,18 +8512,41 @@ html[dir="rtl"] .form-seccion select{
     background-position:left 14px center;
 }
 
-/* ── Lista de Manuales: botones parejos (2026-11-26) ─────────────────────────────────────────────────────────────
-   Antes los archivos (vidrio azul) y Editar/Eliminar (gris) quedaban en una sola fila, con alturas y anchos dispares y el nombre
-   crudo del archivo como texto. Ahora: los archivos a la izquierda, con ícono y nombre limpio (pages/manuales.js: etiquetaArchivo),
-   todos con la misma altura; Editar/Eliminar aparte, más discretos, separados por una línea fina. */
+/* ── Lista de Manuales: misma estructura en todas las tarjetas (2026-11-26) ─────────────────────────────────────
+   Antes cada tarjeta acomodaba los botones como podía: con nombres cortos quedaban a la derecha del título y con nombres largos
+   bajaban a otra fila, y la lista se veía despareja. Ahora TODAS: arriba ícono + título, abajo una fila de botones alineada con el
+   texto; los archivos a la izquierda (ícono + nombre limpio, ver pages/manuales.js: etiquetaArchivo) y Editar/Eliminar siempre a la
+   derecha, más discretos. Todos los botones con la misma altura. */
+.card.manual-item{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+.manual-cabecera{
+    display:flex;
+    align-items:center;
+    gap:16px;
+}
+.manual-icono{
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:var(--tema-accent-soft, #f3e9d6);
+    color:var(--gold);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+}
+.manual-info{ flex:1; min-width:0; }
+.manual-info h3{ margin-top:2px; }
+.manual-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
 .manual-item-acciones{
     display:flex;
     align-items:center;
     gap:12px;
     flex-wrap:wrap;
-    justify-content:flex-end;
-    flex-shrink:0;
-    max-width:100%;
+    padding-left:56px;              /* alineado con el título (ícono 40 + separación 16) */
 }
 .manual-archivos,
 .manual-admin{
@@ -8532,6 +8555,7 @@ html[dir="rtl"] .form-seccion select{
     gap:8px;
     flex-wrap:wrap;
 }
+.manual-admin{ margin-left:auto; }
 .manual-item-acciones .btn{
     box-sizing:border-box;
     min-height:42px;
@@ -8544,15 +8568,12 @@ html[dir="rtl"] .form-seccion select{
     justify-content:center;
     gap:8px;
     white-space:nowrap;
+    width:auto;
 }
 .manual-archivos .btn span{
     max-width:380px;
     overflow:hidden;
     text-overflow:ellipsis;
-}
-.manual-admin{
-    padding-left:12px;
-    border-left:1px solid var(--line);
 }
 .manual-admin .btn{
     background:transparent;
@@ -8564,17 +8585,14 @@ html[dir="rtl"] .form-seccion select{
     color:var(--text);
 }
 @media (max-width: 768px){
-    .manual-item-acciones,
-    .manual-archivos{
-        width:100%;
+    .manual-item-acciones{
+        padding-left:0;
         flex-direction:column;
         align-items:stretch;
-    }
-    .manual-admin{
-        padding-left:0;
-        border-left:0;
         width:100%;
     }
+    .manual-archivos{ flex-direction:column; align-items:stretch; }
+    .manual-admin{ margin-left:0; }
     .manual-admin .btn{ flex:1; }
     .manual-archivos .btn span{ max-width:none; }
 }

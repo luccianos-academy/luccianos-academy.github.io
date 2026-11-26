@@ -145,6 +145,11 @@ export function enviarPushReal(usuarioIds, titulo, cuerpo, url) {
  *  enviarPushReal, NO manda una lista de destinatarios: el backend la
  *  decide solo (los demás Responsables de la MISMA sucursal del que
  *  llama + Admin) — ver apps-script/Code.gs, enviarPushGestion. */
+/** Aviso a los Administradores de un pedido nuevo de alta, baja o transferencia (los destinatarios los resuelve el servicio de avisos). */
+export function avisarPedidoReal(titulo, cuerpo) {
+    return gasRequest("avisarPedido", { titulo, cuerpo });
+}
+
 export function enviarPushGestionReal(titulo, cuerpo, url) {
     return gasRequest("enviarPushGestion", { titulo, cuerpo, url });
 }
