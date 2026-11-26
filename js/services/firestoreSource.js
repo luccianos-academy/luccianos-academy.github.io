@@ -782,6 +782,102 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
         }
     }
 
+    /* ---------- renombrar (o unir) un local ----------
+       El nombre del local es la "clave" con la que lo referencian personas, progreso, pedidos, Gestión de tareas y el contenido que
+       aplica o no aplica a ese local. Antes, "Editar local" cambiaba solo la fila del local y todo lo demás seguía con el nombre viejo:
+       la app lo mostraba como dos locales distintos. Esto cambia el nombre en TODOS lados. Si el nombre nuevo ya existe, los une:
+       todo pasa al que ya existía y la fila vieja se borra. Solo Admin. */
+    const CAMPOS_CON_LOCALES = ["aplicaA", "noAplicaA", "sucursal", "sucursales", "locales", "visiblePara"];
+    function reemplazarEnLista(valor, viejo, nuevo) {
+        if (typeof valor !== "string" || !valor.includes(viejo)) return { cambio: false, valor };
+        const sep = valor.includes(", ") ? ", " : ",";
+        const partes = valor.split(",").map((t) => t.trim());
+        if (!partes.includes(viejo)) return { cambio: false, valor };
+        const unicas = [...new Set(partes.map((t) => (t === viejo ? nuevo : t)))].filter(Boolean);
+        return { cambio: true, valor: unicas.join(sep) };
+    }
+    async function enLotes(refsYCambios) {
+        for (let i = 0; i < refsYCambios.length; i += 400) {
+            const lote = writeBatch(db);
+            refsYCambios.slice(i, i + 400).forEach(([tipo, ref, datos]) => {
+                if (tipo === "update") lote.update(ref, datos);
+                else if (tipo === "set") lote.set(ref, datos);
+                else lote.delete(ref);
+            });
+            await lote.commit();
+        }
+    }
+    async function renombrarLocal({ viejo, nuevo }, u) {
+        if (u.rol !== "admin") return { ok: false, error: "Solo el Administrador puede cambiar el nombre de un local." };
+        viejo = String(viejo || "").trim(); nuevo = String(nuevo || "").trim();
+        if (!viejo || !nuevo) return { ok: false, error: "Falta el nombre del local." };
+        if (viejo === nuevo) return { ok: true, cambios: 0 };
+        let cambios = 0;
+        const t = ahora();
+
+        // 1. La lista de locales: se renombra la fila, o se borra si ya existía otro con el nombre nuevo (unir).
+        await modificarPaquete("Sucursales", (items) => {
+            const i = items.findIndex((f) => String(f.nombre).trim() === viejo);
+            if (i === -1) return { cambio: false };
+            if (items.some((f) => String(f.nombre).trim() === nuevo)) items.splice(i, 1);
+            else items[i] = { ...items[i], nombre: nuevo };
+            return { cambio: true };
+        });
+        // 2. Contenido que aplica / no aplica a locales (cursos, lecciones, manuales, disponibilidad...).
+        for (const hoja of ["Cursos", "Lecciones", "Evaluaciones", "Disponibilidad", "Manuales", "Recursos", "GestionTareas"]) {
+            await modificarPaquete(hoja, (items) => {
+                let hubo = false;
+                items.forEach((f, i) => {
+                    CAMPOS_CON_LOCALES.forEach((k) => {
+                        const r = reemplazarEnLista(f[k], viejo, nuevo);
+                        if (r.cambio) { items[i] = { ...items[i], [k]: r.valor }; hubo = true; cambios++; }
+                    });
+                });
+                return { cambio: hubo };
+            });
+        }
+        // 3. Documentos con el local en el campo "sucursal".
+        const ops = [];
+        for (const col of ["usuarios", "asignaciones", "resultados", "pedidos"]) {
+            const snap = await getDocs(query(collection(db, col), where("sucursal", "==", viejo)));
+            snap.docs.forEach((d) => ops.push(["update", d.ref, { sucursal: nuevo, modificadoEn: t }]));
+        }
+        const destinos = await getDocs(query(collection(db, "pedidos"), where("destino", "==", viejo)));
+        destinos.docs.forEach((d) => ops.push(["update", d.ref, { destino: nuevo }]));
+        // Responsables con ese local como extra.
+        const extras = await getDocs(query(collection(db, "usuarios"), where("sucursalesExtra", "array-contains", viejo)));
+        extras.docs.forEach((d) => {
+            const principal = d.data().sucursal === viejo ? nuevo : d.data().sucursal;      // su local principal, ya con el nombre nuevo
+            const lista = [...new Set((d.data().sucursalesExtra || []).map((n) => (n === viejo ? nuevo : n)))].filter((n) => n !== principal);
+            ops.push(["update", d.ref, { sucursalesExtra: lista, modificadoEn: t }]);
+        });
+        // Noticias dirigidas a ese local (lista separada por comas).
+        const noticias = await getDocs(collection(db, "noticias"));
+        noticias.docs.forEach((d) => {
+            const r = reemplazarEnLista(d.data().sucursal, viejo, nuevo);
+            if (r.cambio) ops.push(["update", d.ref, { sucursal: r.valor }]);
+        });
+        // 4. Gestión de tareas: las marcas llevan el local en el id del documento → se recrean con el id nuevo.
+        const checks = await getDocs(query(collection(db, "gestionChecks"), where("sucursal", "==", viejo)));
+        checks.docs.forEach((d) => {
+            const x = d.data();
+            ops.push(["set", doc(db, "gestionChecks", checkId(x.tareaId, nuevo, x.dia, x.ciclo)), { ...x, sucursal: nuevo }]);
+            ops.push(["delete", d.ref]);
+        });
+        for (const col of ["gestionLocal", "equipos"]) {
+            const viejoDoc = await getDoc(doc(db, col, viejo));
+            if (viejoDoc.exists()) {
+                const yaHay = await getDoc(doc(db, col, nuevo));
+                if (!yaHay.exists()) ops.push(["set", doc(db, col, nuevo), viejoDoc.data()]);
+                ops.push(["delete", viejoDoc.ref]);
+            }
+        }
+        cambios += ops.length;
+        await enLotes(ops);
+        invalidarTodo();
+        return { ok: true, cambios };
+    }
+
     async function deleteSheet(hoja, id /*, mockRows */) {
         if (PAQUETES.includes(hoja)) {
             const r = await modificarPaquete(hoja, (items) => {
@@ -1033,6 +1129,7 @@ export function crearFirestoreSource({ db, sdk, getUsuario, ahora = () => Date.n
             case "avisarPedido":
                 if (!(esResponsableDeLocal(u) || u.capacitador === true)) return { ok: false, error: "Solo quien puede pedir altas y bajas avisa de un pedido." };
                 return encolarPush("pedido", { titulo: String(payload.titulo || "").slice(0, 120), cuerpo: String(payload.cuerpo || "").slice(0, 300) }, u);
+            case "renombrarLocal": return renombrarLocal(payload, u);
             case "enviarPushPrueba": {
                 // Un aviso de prueba a MIS dispositivos (el texto lo pone el servicio de avisos). Igual que en Code.gs: sin dispositivos registrados, avisa.
                 const propios = await getDocs(query(collection(db, "tokens"), where("usuarioEmail", "==", u.email), limit(1)));

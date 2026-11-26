@@ -145,6 +145,11 @@ export function enviarPushReal(usuarioIds, titulo, cuerpo, url) {
  *  enviarPushReal, NO manda una lista de destinatarios: el backend la
  *  decide solo (los demás Responsables de la MISMA sucursal del que
  *  llama + Admin) — ver apps-script/Code.gs, enviarPushGestion. */
+/** Cambia el nombre de un local en TODOS lados (personas, progreso, pedidos, Gestión, contenido). Si el nombre nuevo ya existe, los une. Solo Admin. */
+export function renombrarLocalReal(viejo, nuevo) {
+    return gasRequest("renombrarLocal", { viejo, nuevo });
+}
+
 /** Aviso a los Administradores de un pedido nuevo de alta, baja o transferencia (los destinatarios los resuelve el servicio de avisos). */
 export function avisarPedidoReal(titulo, cuerpo) {
     return gasRequest("avisarPedido", { titulo, cuerpo });

@@ -10,6 +10,7 @@
 import { Header } from "../components/header.js";
 import { Table } from "../components/table.js";
 import { Modal, abrirModal, cerrarModal } from "../components/modal.js";
+import { renombrarLocalReal } from "../services/google.js";
 import { getSucursales, getMisLocales, crearSucursal, actualizarSucursal, eliminarSucursal, listaSupervisores } from "../data/sucursales.js";
 import { supervisoresSinUsuario, supervisoresDelLocal } from "../services/supervisores.js";
 import { diagnostico, estadoEnAmbitos, alcanceTrasCambio } from "../services/alcanceContenido.js";
@@ -1239,6 +1240,10 @@ async function abrirModalNuevoLocal() {
             return;
         }
 
+        if ((await getSucursales()).some((l) => l.nombre === nombre)) {
+            alert(`Ya existe un local llamado "${nombre}". Si querés cambiarle algo, usá "Editar" en ese local.`);
+            return;
+        }
         await crearSucursal({ nombre, supervisor, estado: "Activa", esPropio, pais });
         registrarEvento(getUsuarioActual().id, "crear_local", `Alta de local ${nombre}`);
 
@@ -1289,6 +1294,16 @@ async function abrirModalEditarLocal(local) {
             return;
         }
 
+        // Cambio de nombre: se aplica en TODOS lados (personas, progreso, pedidos, Gestión de tareas, contenido). Antes solo se
+        // cambiaba esta fila y el resto seguía con el nombre viejo: la app lo veía como dos locales distintos.
+        if (nombre !== local.nombre) {
+            const otro = todosLosLocales.find((l) => l.nombre === nombre && String(l.id) !== String(local.id));
+            if (otro && !confirm(`Ya existe un local llamado "${nombre}".\n\n¿Querés UNIR los dos? Todo lo de "${local.nombre}" (personas, progreso, pedidos y tareas) pasa a "${nombre}" y "${local.nombre}" se elimina de la lista.`)) return;
+            const r = await renombrarLocalReal(local.nombre, nombre);
+            if (!r || r.ok === false) { alert(`No se pudo cambiar el nombre: ${(r && r.error) || "error desconocido"}`); return; }
+            registrarEvento(getUsuarioActual().id, "editar_local", otro ? `Unión de locales: ${local.nombre} → ${nombre}` : `Cambio de nombre: ${local.nombre} → ${nombre}`);
+            if (otro) { cerrarModal(modalId); navigate("locales"); return; }       // la fila vieja ya no existe: listo
+        }
         await actualizarSucursal(local.id, { nombre, supervisor, pais });
         registrarEvento(getUsuarioActual().id, "editar_local", `Edición de local ${nombre}`);
 
