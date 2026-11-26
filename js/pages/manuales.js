@@ -59,6 +59,14 @@ const ROLES_COMPARTIR = [
     { id: "admin",       label: "Admin" },
 ];
 
+/** Texto del botón de un archivo: sin la extensión ni guiones bajos ("Coffee_Guide_EN (A5).pdf" → "Coffee Guide EN (A5)").
+ *  Muchos se cargaron con el nombre del archivo como etiqueta; así se lee prolijo sin tener que editarlos uno por uno. */
+function etiquetaArchivo(a) {
+    const crudo = String((a && a.label) || "").trim();
+    if (!crudo) return "Ver manual";
+    return crudo.replace(/\.(pdf|docx?|xlsx?|pptx?|csv|txt|zip|jpe?g|png|gif)$/i, "").replace(/[_]+/g, " ").replace(/\s{2,}/g, " ").trim() || "Ver manual";
+}
+
 function filaArchivoHtml(a = { url: "", label: "" }) {
     return `
         <div class="fs-archivo">
@@ -297,15 +305,19 @@ export async function Manuales() {
                 <h3 style="margin-top:2px">${m.titulo}</h3>
                 ${esAdmin ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${chipsVisibilidadHtml(m)}</div>` : ""}
             </div>
-            <span class="manual-item-acciones" style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+            <span class="manual-item-acciones">
                 <!-- Sin target="_blank" a propósito — en la PWA instalada
                      (iPhone) eso saca a la persona hacia Safari sin forma
                      fácil de volver (mismo bug ya sacado del resto de
                      Manuales/Noticias/Recursos). -->
-                ${(m.archivos || []).map((a) => `<a class="btn btn-secondary" href="${a.url}">${a.label || "Ver manual"}</a>`).join("")}
+                <span class="manual-archivos">
+                    ${(m.archivos || []).map((a) => `<a class="btn btn-secondary" href="${escaparHtml(a.url)}" title="${escaparHtml(a.label || "Ver manual")}">${Icon("documento", { size: 16 })}<span>${escaparHtml(etiquetaArchivo(a))}</span></a>`).join("")}
+                </span>
                 ${esAdmin ? `
-                    <button class="btn btn-secondary" data-editar-manual="${m.id}">Editar</button>
-                    <button class="btn btn-secondary" data-eliminar-manual="${m.id}">Eliminar</button>
+                    <span class="manual-admin">
+                        <button class="btn btn-secondary" data-editar-manual="${m.id}">Editar</button>
+                        <button class="btn btn-secondary" data-eliminar-manual="${m.id}">Eliminar</button>
+                    </span>
                 ` : ""}
             </span>
         </div>

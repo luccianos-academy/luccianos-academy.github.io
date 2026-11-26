@@ -8511,3 +8511,70 @@ html[dir="rtl"] .form-seccion select{
     padding:11px 14px 11px 40px;
     background-position:left 14px center;
 }
+
+/* ── Lista de Manuales: botones parejos (2026-11-26) ─────────────────────────────────────────────────────────────
+   Antes los archivos (vidrio azul) y Editar/Eliminar (gris) quedaban en una sola fila, con alturas y anchos dispares y el nombre
+   crudo del archivo como texto. Ahora: los archivos a la izquierda, con ícono y nombre limpio (pages/manuales.js: etiquetaArchivo),
+   todos con la misma altura; Editar/Eliminar aparte, más discretos, separados por una línea fina. */
+.manual-item-acciones{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    flex-shrink:0;
+    max-width:100%;
+}
+.manual-archivos,
+.manual-admin{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+}
+.manual-item-acciones .btn{
+    box-sizing:border-box;
+    min-height:42px;
+    padding:0 16px;
+    border-radius:12px;
+    font-size:14px;
+    line-height:1.2;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    white-space:nowrap;
+}
+.manual-archivos .btn span{
+    max-width:380px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.manual-admin{
+    padding-left:12px;
+    border-left:1px solid var(--line);
+}
+.manual-admin .btn{
+    background:transparent;
+    border:1px solid rgba(255,255,255,.14);
+    color:var(--muted);
+}
+.manual-admin .btn:hover{
+    background:rgba(255,255,255,.06);
+    color:var(--text);
+}
+@media (max-width: 768px){
+    .manual-item-acciones,
+    .manual-archivos{
+        width:100%;
+        flex-direction:column;
+        align-items:stretch;
+    }
+    .manual-admin{
+        padding-left:0;
+        border-left:0;
+        width:100%;
+    }
+    .manual-admin .btn{ flex:1; }
+    .manual-archivos .btn span{ max-width:none; }
+}
